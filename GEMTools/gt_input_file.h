@@ -10,6 +10,10 @@
 
 #include "gt_commons.h"
 
+// Codes gt_status
+#define GT_INPUT_FILE_OK 0
+#define GT_INPUT_FILE_CLOSE_ERR 1
+
 typedef enum { STREAM, REGULAR_FILE, MAPPED_FILE } gt_file_type;
 typedef enum { FASTA, FASTQ, MAP, MAPQ, MMAP, MMAPQ, UNKNOWN } gt_file_format;
 typedef struct {
@@ -18,18 +22,19 @@ typedef struct {
   gt_file_type file_type;
   FILE* file;
   int fildes;
-  uint8_t* mapped_file;
   bool eof;
   uint64_t file_size;
   gt_file_format file_format;
   pthread_mutex_t input_mutex;
   /* Auxiliary Buffer (for synch purposes) */
-  uint8_t* synch_buffer;
+  uint8_t* file_buffer;
   uint64_t buffer_size;
   uint64_t buffer_begin;
   uint64_t buffer_pos;
   uint64_t global_pos;
   uint64_t processed_lines;
+  /* ID generator */
+  uint64_t processed_id;
 } gt_input_file;
 
 /*
@@ -44,22 +49,22 @@ gt_file_format gt_input_file_get_file_format(gt_input_file* const input_file);
  * Advanced I/O
  *   // TODO: Nested conditions would need ...
  */
-gt_input_file* gt_input_segmented_file_open(
+gt_input_file* gt_input_file_segmented_file_open(
     char* const file_name,const bool mmap_file,
     const uint64_t segment_number,const uint64_t total_segments);
-gt_input_file* gt_input_reads_segmented_file_open(
+gt_input_file* gt_input_file_reads_segmented_file_open(
     char* const file_name,const bool mmap_file,
     const uint64_t num_init_line,const uint64_t num_end_line);
 
 /*
  * Mutex functions
  */
-inline gt_status gt_input_get_lock(gt_input_file* const input_file);
-inline gt_status gt_input_release_lock(gt_input_file* const input_file);
+inline gt_status gt_input_file_get_lock(gt_input_file* const input_file);
+inline gt_status gt_input_file_release_lock(gt_input_file* const input_file);
 
 /*
  * Reading from input (NO thread safe, must call mutex functions before)
  */
-inline size_t gt_input_get_lines(gt_input_file* const input_file,gt_vector* buffer_dst);
+inline size_t gt_input_file_get_lines(gt_input_file* const input_file,gt_vector* buffer_dst);
 
 #endif /* GT_INPUT_FILE_H_ */

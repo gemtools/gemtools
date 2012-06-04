@@ -12,14 +12,71 @@
 #include <malloc.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
-//#include <getopt.h>
-//#include <string.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#include <string.h>
+#include <math.h>
+#include <stdarg.h>
+
+#include <ctype.h>
+#include <sys/types.h>
+#include <time.h>
+#include <sys/time.h>
+
+#include <errno.h>
+#include <err.h>
+#include <assert.h>
 
 #include "gt_error.h"
 #include "gt_vector.h"
 
 // Internally to Gem-tools error codes are returned as gt_status
 typedef int32_t gt_status;
+
+// Buffer sizes
+#define GT_BUFFER_SIZE_1K   ((1<<10)-64)
+#define GT_BUFFER_SIZE_2K   ((1<<11)-64)
+#define GT_BUFFER_SIZE_4K   ((1<<12)-64)
+#define GT_BUFFER_SIZE_8K   ((1<<13)-64)
+#define GT_BUFFER_SIZE_16K  ((1<<14)-64)
+#define GT_BUFFER_SIZE_32K  ((1<<15)-64)
+#define GT_BUFFER_SIZE_64K  ((1<<16)-64)
+#define GT_BUFFER_SIZE_128K ((1<<17)-64)
+#define GT_BUFFER_SIZE_256K ((1<<18)-64)
+#define GT_BUFFER_SIZE_512K ((1<<19)-64)
+#define GT_BUFFER_SIZE_1M  ((1<<20)-64)
+#define GT_BUFFER_SIZE_2M  ((1<<21)-64)
+#define GT_BUFFER_SIZE_4M  ((1<<22)-64)
+#define GT_BUFFER_SIZE_8M  ((1<<23)-64)
+#define GT_BUFFER_SIZE_16M ((1<<24)-64)
+
+// Number of lines
+#define GT_NUM_LINES_1K      (1000)
+#define GT_NUM_LINES_2K      (2000)
+#define GT_NUM_LINES_5K      (5000)
+#define GT_NUM_LINES_10K    (10000)
+#define GT_NUM_LINES_20K    (20000)
+#define GT_NUM_LINES_50K    (50000)
+#define GT_NUM_LINES_100K  (100000)
+#define GT_NUM_LINES_200K  (200000)
+#define GT_NUM_LINES_500K  (500000)
+#define GT_NUM_LINES_1M   (1000000)
+#define GT_NUM_LINES_2M   (2000000)
+#define GT_NUM_LINES_5M   (5000000)
+#define GT_NUM_LINES_10M (10000000)
+#define GT_NUM_LINES_20M (20000000)
+#define GT_NUM_LINES_50M (50000000)
+
+/*
+ * Helper functions
+ */
+uint64_t gt_calculate_num_maps(
+    const uint64_t num_decoded_strata,const uint64_t num_decoded_matches,
+    const uint64_t first_stratum_threshold);
 
 #endif /* GT_COMMONS_H_ */

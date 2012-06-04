@@ -14,9 +14,8 @@
 typedef struct {
   /* Input file */
   gt_input_file* input_file;
-  /* Block ID */
-  uint64_t block_id;
   /* Block buffer and cursors */
+  uint64_t block_id;
   gt_vector* block_buffer;
   uint8_t* cursor;
   uint64_t cursor_pos;
@@ -35,27 +34,26 @@ gt_status gt_buffered_map_file_delete(gt_buffered_map_file* const buffered_map_i
 bool gt_buffered_map_file_eof(gt_buffered_map_file* const buffered_map_input);
 
 /*
- * MAP/MAPQ/MMAP/MMAPQ Simple Parsers
- *   Simple parsing procedures to extract one template/alignment from
- *   the buffered file (reads one line)
- *   Simple extraction involves syntax checking
- */
-gt_status gt_buffered_map_file_get_template(gt_buffered_map_file* const buffered_map_input,gt_template* template);
-/*
- * If file type is MAP/MAPQ then the alignment can be extracted
- * directly without wrapping it in a template.
- * PRE: FileType is MAP/MAPQ (otherwise an error will be returned)
- */
-gt_status gt_buffered_map_file_get_alignment(gt_buffered_map_file* const buffered_map_input,gt_alignment* alignment);
-
-/*
  * MAP/MAPQ/MMAP/MMAPQ Lazy Parsers
  *   Lazy parsing works in 3 steps
- *     (1) Parses TAG(s),READ(s),QUALITIES(s),COUNTERS
+ *     (1) Parses TAG(s),READ(s),QUALITIES(s),COUNTERS -> gt_template/gt_alignment
  *     (2) Parses MAPS' SEQUENCE,STRAND,POSITION
  *     (3) Parses MAPS' CIGAR string
  */
-gt_status gt_buffered_map_file_lazy_get_template(gt_buffered_map_file* const buffered_map_input,gt_template* template);
-gt_status gt_buffered_map_file_lazy_get_alignment(gt_buffered_map_file* const buffered_map_input,gt_alignment* alignment);
+gt_status gt_buffered_map_file_parse_template(gt_buffered_map_file* const buffered_map_input,gt_template* template);
+gt_status gt_buffered_map_file_parse_alignment(gt_buffered_map_file* const buffered_map_input,gt_alignment* alignment);
+gt_status gt_buffered_map_file_parse_template_maps(gt_template* template,uint64_t num_maps);
+gt_status gt_buffered_map_file_parse_alignment_maps(gt_alignment* alignment,uint64_t num_maps);
+gt_status gt_buffered_map_file_parse_mismatch_string(gt_map* map);
+
+/*
+ * MAP/MAPQ/MMAP/MMAPQ High-level Parsers
+ *   - High-level parsing to extract one template/alignment from the buffered file (reads one line)
+ *   - Syntax checking
+ *   - Transparent buffer block reload
+ */
+gt_status gt_buffered_map_file_get_template(gt_buffered_map_file* const buffered_map_input,gt_template* template);
+// PRE: FileType is MAP/MAPQ (otherwise an error will be returned)
+gt_status gt_buffered_map_file_get_alignment(gt_buffered_map_file* const buffered_map_input,gt_alignment* alignment);
 
 #endif /* GT_BUFFERED_MAP_FILE_H_ */

@@ -32,6 +32,7 @@ inline gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size)
   vector->elements_allocated=num_initial_elements;
   vector->memory=malloc(num_initial_elements*element_size);
   gt_cond_fatal_error(!vector->memory,MEM_ALLOC);
+  vector->used=0;
   return vector;
 }
 inline gt_status gt_vector_reserve(gt_vector* vector,size_t num_elements,bool zero_mem) {

@@ -85,13 +85,23 @@ FILE* gt_error_stream=NULL;
  * ERROR CODES/MSG
  *   #define GT_ERROR_<CODE> "<MSG>"
  */
-//#define GT_ERROR_ ""
 
 // Memory errors
 #define GT_ERROR_MEM_HANDLER "Could not allocate handler"
 #define GT_ERROR_MEM_ALLOC "Could not allocate memory"
 
+// System errors
+#define GT_ERROR_SYS_MMAP "Could not map file '%s' to memory"
+#define GT_ERROR_SYS_UNMAP "Could not unmap memory"
+#define GT_ERROR_SYS_THREAD "Could not create thread"
+#define GT_ERROR_SYS_MUTEX "Mutex call error"
+
 // File errors
+#define GT_ERROR_FILE_STAT "Could not stat file '%s'"
+#define GT_ERROR_FILE_OPEN "Could not open file '%s'"
+#define GT_ERROR_FILE_READ "Could not read from file '%s'"
+#define GT_ERROR_FILE_WRITE "Could not write to file '%s'"
+#define GT_ERROR_FILE_CLOSE "Could not close file '%s'"
 #define GT_ERROR_FILE_FORMAT "Could not determine file format"
 
 #endif /* GT_ERROR_H_ */
