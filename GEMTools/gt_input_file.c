@@ -170,5 +170,5 @@ inline uint64_t gt_input_file_next_id(gt_input_file* const input_file) {
 inline size_t gt_input_file_get_lines(
     gt_input_file* const input_file,
     gt_vector* buffer_dst,const uint64_t num_lines) {
-  // TODO
+  // TODO MORE
 }
