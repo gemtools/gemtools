@@ -32,11 +32,16 @@
 #include <err.h>
 #include <assert.h>
 
-#include "gt_error.h"
-#include "gt_vector.h"
+#include <pthread.h>
 
 // Internally to Gem-tools error codes are returned as gt_status
 typedef int32_t gt_status;
+
+// Special characters
+#define EOS '\0'
+#define EOL '\n'
+#define TAB '\t'
+#define DOS_EOL '\r'
 
 // Buffer sizes
 #define GT_BUFFER_SIZE_1K   ((1<<10)-64)
@@ -54,6 +59,11 @@ typedef int32_t gt_status;
 #define GT_BUFFER_SIZE_4M  ((1<<22)-64)
 #define GT_BUFFER_SIZE_8M  ((1<<23)-64)
 #define GT_BUFFER_SIZE_16M ((1<<24)-64)
+#define GT_BUFFER_SIZE_32M ((1<<25)-64)
+#define GT_BUFFER_SIZE_64M ((1<<26)-64)
+#define GT_BUFFER_SIZE_128M ((1<<27)-64)
+#define GT_BUFFER_SIZE_256M ((1<<28)-64)
+#define GT_BUFFER_SIZE_512M ((1<<29)-64)
 
 // Number of lines
 #define GT_NUM_LINES_1K      (1000)
@@ -72,8 +82,43 @@ typedef int32_t gt_status;
 #define GT_NUM_LINES_20M (20000000)
 #define GT_NUM_LINES_50M (50000000)
 
+// Conditional expect
+#define gt_expect_true(condition) __builtin_expect(condition,1)
+#define gt_expect_false(condition) __builtin_expect(condition,0)
+
+// GemTools Inline
+#define GT_INLINE inline
+
+// Macro Stringify
+#define GT_QUOTE(value) #value
+
 /*
- * Helper functions
+ * Is functions
+ */
+extern bool gt_dna[];
+#define gt_is_dna(character) gt_dna[(int)character]
+#define gt_is_valid_quality(character) (33 >= (character) && (character) <= 127)
+#define gt_is_number(character) ('0' >= (character) && (character) <= '9')
+#define gt_get_cipher(character) ((character) - '0')
+// MAP/MAPQ related
+#define gt_is_valid_template_separator(character) \
+  (character==' ' || character=='|' || character=='#')
+#define gt_is_valid_counter_separator(character) \
+  (character=='+' || character==':' || character=='x')
+
+/*
+ * Helper functions (OPERATIVE)
+ */
+#define gt_cfree(handler) if (handler!=NULL) free(handler);
+
+/*
+ * GEM-Tools basic includes
+ */
+#include "gt_error.h"
+#include "gt_vector.h"
+
+/*
+ * Helper functions (FUNCTIONAL)
  */
 uint64_t gt_calculate_num_maps(
     const uint64_t num_decoded_strata,const uint64_t num_decoded_matches,

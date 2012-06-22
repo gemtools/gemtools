@@ -8,6 +8,25 @@
 #ifndef GEM_TOOLS_H_
 #define GEM_TOOLS_H_
 
-#include "gt_buffered_map_file.h"
+// Do sanity checks in development (suppress at deployment/production)
+#define GT_CONSISTENCY_CHECKS
+
+// Common
+#include "gt_commons.h"
+
+// Input handlers
+#include "gt_input_file.h"
+#include "gt_buffered_map_input.h"
+
+// Output handlers
+#include "gt_buffered_output_file.h"
+//#include "gt_output_map.h"
+
+// GEM-Tools basic data structures: Template/Alignment/Maps/...
+#include "gt_misms.h"
+#include "gt_map.h"
+#include "gt_alignment.h"
+#include "gt_template.h"
+
 
 #endif /* GEM_TOOLS_H_ */

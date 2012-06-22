@@ -32,8 +32,20 @@ typedef struct {
   uint64_t processed_id;
 } gt_buffered_output_file;
 
+/*
+ * Setup
+ */
 gt_buffered_output_file* gt_buffered_output_stream_new(FILE* file,const gt_output_file_type output_file_type);
 gt_buffered_output_file* gt_buffered_output_file_new(char* const file_name,const gt_output_file_type output_file_type);
-gt_status gt_buffered_output_file_close(gt_buffered_output_file* buffered_output_file);
+gt_status gt_buffered_output_file_close(gt_buffered_output_file* const buffered_output_file);
+
+/*
+ * Internal Buffers Accessors
+ */
+GT_INLINE gt_output_buffer* gt_buffered_output_file_get_buffer(
+    gt_buffered_output_file* const buffered_output_file);
+GT_INLINE gt_status gt_buffered_output_file_dump_buffer(
+    gt_buffered_output_file* const buffered_output_file,
+    gt_output_buffer* const output_buffer);
 
 #endif /* GT_BUFFERED_OUTPUT_FILE_H_ */

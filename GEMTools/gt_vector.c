@@ -25,8 +25,14 @@
 
 #define GT_VECTOR_EXPAND_FACTOR (3.0/2.0)
 
-inline gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size) {
-  gt_vector* vector=calloc(1,sizeof(vector));
+#define GT_VECTOR_CHECK(vector) \
+  GT_NULL_CHECK(vector); \
+  GT_NULL_CHECK(vector->memory); \
+  GT_ZERO_CHECK(vector->element_size)
+
+GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size) {
+  GT_ZERO_CHECK(element_size);
+  gt_vector* vector=malloc(sizeof(vector));
   gt_cond_fatal_error(!vector,MEM_HANDLER);
   vector->element_size=element_size;
   vector->elements_allocated=num_initial_elements;
@@ -35,20 +41,22 @@ inline gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size)
   vector->used=0;
   return vector;
 }
-inline gt_status gt_vector_reserve(gt_vector* vector,size_t num_elements,bool zero_mem) {
+GT_INLINE gt_status gt_vector_reserve(gt_vector* vector,size_t num_elements,bool zero_mem) {
+  GT_VECTOR_CHECK(vector);
   if (vector->elements_allocated < num_elements) {
     size_t proposed=(float)vector->elements_allocated*GT_VECTOR_EXPAND_FACTOR;
     vector->elements_allocated=num_elements>proposed?num_elements:proposed;
     vector->memory=realloc(vector->memory,vector->elements_allocated*vector->element_size);
     if (!vector->memory) return GT_VECTOR_FAIL;
   }
-  if (__builtin_expect(zero_mem,0)) {
+  if (gt_expect_false(zero_mem)) {
     memset(vector->memory+vector->used*vector->element_size,0,
         (vector->elements_allocated-vector->used)*vector->element_size);
   }
   return GT_VECTOR_OK;
 }
-inline gt_status gt_vector_resize__clean(gt_vector* vector,size_t num_elements) {
+GT_INLINE gt_status gt_vector_resize__clean(gt_vector* vector,size_t num_elements) {
+  GT_VECTOR_CHECK(vector);
   if (vector->elements_allocated < num_elements) {
     size_t proposed=(float)vector->elements_allocated*GT_VECTOR_EXPAND_FACTOR;
     vector->elements_allocated=num_elements>proposed?num_elements:proposed;
@@ -60,12 +68,26 @@ inline gt_status gt_vector_resize__clean(gt_vector* vector,size_t num_elements) 
   return GT_VECTOR_OK;
 }
 
-inline void gt_vector_cast__clean(gt_vector* vector,size_t element_size) {
+GT_INLINE void gt_vector_cast__clean(gt_vector* vector,size_t element_size) {
+  GT_VECTOR_CHECK(vector); GT_ZERO_CHECK(element_size);
   vector->elements_allocated=(vector->elements_allocated*vector->element_size)/element_size;
   vector->element_size=element_size;
   vector->used=0;
 }
-inline void gt_vector_delete(gt_vector* vector) {
+GT_INLINE void gt_vector_delete(gt_vector* vector) {
+  GT_VECTOR_CHECK(vector);
   free(vector->memory);
   free(vector);
+}
+GT_INLINE void gt_vector_copy(gt_vector* vector_to,gt_vector* vector_from) {
+  GT_VECTOR_CHECK(vector_to); GT_VECTOR_CHECK(vector_from);
+  gt_vector_cast__clean(vector_to,vector_from->element_size);
+  gt_vector_reserve(vector_to,vector_from->used,false);
+  memcpy(vector_to->memory,vector_from->memory,vector_from->used*vector_from->element_size);
+}
+
+GT_INLINE void* gt_vector_get_mem_element(gt_vector* vector,size_t position,size_t element_size) {
+  GT_VECTOR_CHECK(vector); GT_ZERO_CHECK(element_size);
+  GT_VECTOR_RANGE_CHECK(vector,position);
+  return vector->memory+(position*element_size);
 }

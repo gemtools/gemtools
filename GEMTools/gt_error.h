@@ -16,7 +16,7 @@
      slash ? slash + 1 : (S); })
 
 // Gem-tools error/output streams
-FILE* gt_error_stream=NULL;
+extern FILE* gt_error_stream;
 // Getters/Setters
 #define gt_error_get_stream() (gt_error_stream?gt_error_stream:stderr)
 #define gt_error_set_stream(stream) gt_error_stream=(stream)
@@ -82,6 +82,17 @@ FILE* gt_error_stream=NULL;
     } \
   } while (0)
 /*
+ * Robust checkers
+ */ // FIXME
+#ifndef GT_CONSISTENCY_CHECKS
+  #define gt_fatal_check(condition,gt_error_name,args...) gt_cond_fatal_error(condition,gt_error_name,##args)
+  #define gt_check(condition,gt_error_name,args...) gt_cond_error(condition,gt_error_name,##args)
+#else
+  #define gt_fatal_check(condition,gt_error_name,args...)
+  #define gt_check(condition,gt_error_name,args...)
+#endif
+
+/*
  * ERROR CODES/MSG
  *   #define GT_ERROR_<CODE> "<MSG>"
  */
@@ -89,6 +100,9 @@ FILE* gt_error_stream=NULL;
 // Memory errors
 #define GT_ERROR_MEM_HANDLER "Could not allocate handler"
 #define GT_ERROR_MEM_ALLOC "Could not allocate memory"
+#define GT_ERROR_NULL_HANDLER "Null handler or fields not properly allocated"
+#define GT_ERROR_NULL_HANDLER_INFO "Null handler %s "
+#define GT_ERROR_NOT_ZERO "Value Zero. Variable %s must be non-zero"
 
 // System errors
 #define GT_ERROR_SYS_MMAP "Could not map file '%s' to memory"
@@ -103,5 +117,39 @@ FILE* gt_error_stream=NULL;
 #define GT_ERROR_FILE_WRITE "Could not write to file '%s'"
 #define GT_ERROR_FILE_CLOSE "Could not close file '%s'"
 #define GT_ERROR_FILE_FORMAT "Could not determine file format"
+
+// Template/Alignment/Map/Misms errors
+#define GT_ERROR_POSITION_OUT_OF_RANGE "Requested position out of range"
+#define GT_ERROR_POSITION_OUT_OF_RANGE_INFO "Requested position (%lu) out of range [%lu,%lu]"
+#define GT_ERROR_MISMS_TYPE "Misms incorrect type"
+#define GT_ERROR_COUNTERS_POS_STRATUM "Stratum must be strictly positive (stratum>0)"
+#define GT_ERROR_MAP_MISMS_NOT_PARSED "Map's mismatches not parsed yet"
+#define GT_ERROR_ALIGN_READ_QUAL_LENGTH "Read and quality length differs"
+#define GT_ERROR_ALIGN_MAPS_NOT_PARSED "Alignment's maps not parsed yet"
+#define GT_ERROR_TEMPLATE_MAPS_NOT_PARSED "Template's maps not parsed yet"
+#define GT_ERROR_TEMPLATE_ZERO_BLOCKS "Zero alignment blocks (num_blocks_template>0)"
+#define GT_ERROR_TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION "Template inconsistency. Incorrect number of matches' elements (check num_blocks_template)"
+#define GT_ERROR_PALIGN_BAD_NUM_BLOCKS "Invalid Paired-alignment. Wrong number of alignment blocks (%lu)"
+
+// Parsing MAP File format errors
+#define GT_ERROR_PARSE_MAP "Parsing MAP error(%s:%lu)"
+#define GT_ERROR_PARSE_MAP_BAD_FILE_FORMAT "Parsing MAP error(%s:%lu). Not a MAP file"
+#define GT_ERROR_PARSE_MAP_BAD_NUMBER_FIELDS "Parsing MAP error(%s:%lu). Wrong number of TAB separated fields (%lu)"
+#define GT_ERROR_PARSE_MAP_BAD_READ_QUAL_LENGTH "Parsing MAP error(%s:%lu). Mismatching Read length (%lu) and Quality length (%lu)"
+#define GT_ERROR_PARSE_MAP_COUNTERS "Parsing MAP error(%s:%lu:%lu). Error parsing counters"
+#define GT_ERROR_PARSE_MAP_BAD_TEMPLATE_SEP "Parsing MAP error(%s:%lu:%lu). Read character '%c' not valid (%s)"
+#define GT_ERROR_PARSE_MAP_MISMS_TEMPLATE_BLOCKS "Parsing MAP error(%s:%lu:%lu). Different number of template blocks {read(%lu),qualities(%lu)}"
+#define GT_ERROR_PARSE_MAP_NOT_AN_ALIGNMENT "Parsing MAP error(%s:%lu). File doesn't contains simple alignments (use template)"
+
+#define GT_ERROR_PARSE_MAP_MAP_ALREADY_PARSED "Parsing MAP error(%s:%lu). Maps already parsed or null lazy-parsing handler"
+#define GT_ERROR_PARSE_MAP_MISMS_ALREADY_PARSED "Parsing MAP error(%s:%lu). Mismatch string already parsed or null lazy-parsing handler"
+
+
+/*
+ * General purpose checkers
+ */
+#define GT_NULL_CHECK(object) gt_fatal_check(object==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
+#define GT_ZERO_CHECK(object) gt_fatal_check(object==0,NOT_ZERO,((char*)GT_QUOTE(object)))
+
 
 #endif /* GT_ERROR_H_ */
