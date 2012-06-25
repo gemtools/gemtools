@@ -266,6 +266,7 @@ GT_INLINE gt_status gt_bmi_parse_tag_block(char** tag,char** tag_block) {
    */
 
   // TODO
+  return 0;
 }
 GT_INLINE gt_status gt_bmi_parse_read_block(
     gt_buffered_map_input* const buffered_map_input,char** read_block,uint64_t* read_block_length) {

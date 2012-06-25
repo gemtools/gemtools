@@ -66,7 +66,6 @@ typedef struct {
 gt_input_file* gt_input_stream_open(FILE* stream);
 gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file);
 gt_status gt_input_file_close(gt_input_file* const input_file);
-gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file);
 
 /*
  * Advanced I/O
@@ -89,7 +88,7 @@ GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file);
 /*
  * Format detection
  */
-gt_file_format gt_input_file_get_file_format(gt_input_file* const input_file);
+gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file);
 
 /*
  * Reading from input (NO thread safe, must call mutex functions before)
