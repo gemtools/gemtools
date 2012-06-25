@@ -26,4 +26,5 @@ test: gemtools.py
 	python -m unittest discover  tests '*_tests.py'
 
 clean:
-	@rm -f *.o *.a *.c *.so gemtools.py *.pyc gem/*.pyc
+	@rm -f *.o *.a *.c *.so gemtools.py *.pyc gem/*.pyc tests/*.pyc
+	@rm -R testresults
