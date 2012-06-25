@@ -338,13 +338,14 @@ GT_INLINE gt_status gt_bmi_parse_counters(
     } else if (buffered_map_input->cursor[0]==GT_MAP_MCS) {
       strata++;
       *mcs = strata;
+      ++buffered_map_input->cursor;
     } else if (buffered_map_input->cursor[0]==GT_MAP_COUNTS_SEP) {
       strata++;
+      ++buffered_map_input->cursor;
     } else {
       return GT_BMI_PE_COUNTERS_BAD_CHARACTER;
     }
     // TODO: Consider fucking trash of 0:0::<Value>::<Value>
-    ++buffered_map_input->cursor;
   }
   if (GT_BMI_IS_EOL(buffered_map_input)) return GT_BMI_PE_PREMATURE_EOL;
   GT_BMI_SET_EOS__NEXT(buffered_map_input);
@@ -444,7 +445,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template(
   GT_TEMPLATE_CHECK(template);
   register gt_status error_code;
   // TAG
-  if (!(error_code=gt_bmi_parse_tag(buffered_map_input,&template->tag,&template->tag_length))) {
+  if ((error_code=gt_bmi_parse_tag(buffered_map_input,&template->tag,&template->tag_length))) {
     return error_code;
   }
   // READ
@@ -475,7 +476,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template(
     if (error_code!=GT_BMI_PE_EOB) return GT_BMI_PE_BAD_NUMBER_OF_BLOCKS;
   }
   // COUNTERS
-  if (!(error_code=gt_bmi_parse_counters(buffered_map_input,
+  if ((error_code=gt_bmi_parse_counters(buffered_map_input,
       template->counters,&template->max_complete_strata))) return error_code;
   // MAPS (lazy parsing)
   if (GT_BMI_IS_EOL(buffered_map_input)) return GT_BMI_PE_PREMATURE_EOL;
@@ -495,7 +496,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_alignment(
   GT_ALIGNMENT_CHECK(alignment);
   register gt_status error_code;
   // TAG
-  if (!(error_code=gt_bmi_parse_tag(buffered_map_input,&alignment->tag,&alignment->tag_length))) return error_code;
+  if ((error_code=gt_bmi_parse_tag(buffered_map_input,&alignment->tag,&alignment->tag_length))) return error_code;
   // READ
   error_code=gt_bmi_parse_read_block(buffered_map_input,&alignment->read,&alignment->read_length);
   if (gt_expect_false(error_code==GT_BMI_PE_PENDING_BLOCKS)) return GT_BMI_PE_BAD_NUMBER_OF_BLOCKS;
@@ -507,7 +508,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_alignment(
     if (gt_expect_false(error_code!=GT_BMI_PE_EOB)) return error_code;
   }
   // COUNTERS
-  if (!(error_code=gt_bmi_parse_counters(buffered_map_input,
+  if ((error_code=gt_bmi_parse_counters(buffered_map_input,
       alignment->counters,&alignment->max_complete_strata))) return error_code;
   // MAPS (lazy parsing)
   if (GT_BMI_IS_EOL(buffered_map_input)) return GT_BMI_PE_PREMATURE_EOL;
@@ -547,7 +548,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template_mismatch_string(
   while (gt_template_next_map(&template_iterator,map_array)) {
     register uint64_t i;
     for (i=0;i<num_blocks_template;++i) {
-      if (!(error_code = (map_file_format==GEMv1) ?
+      if ((error_code = (map_file_format==GEMv1) ?
           gt_bmi_parse_mismatch_string_v1(&map_array[i]->mismatches_txt,map_array[i]):
           gt_bmi_parse_mismatch_string_v0(&map_array[i]->mismatches_txt,map_array[i]))) {
         return error_code;
@@ -565,7 +566,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_alignment_mismatch_string(
   gt_alignment_iterator alignment_iterator;
   gt_alignment_iterator_new(alignment,&alignment_iterator);
   while ((map=gt_alignment_next_map(&alignment_iterator))!=NULL) {
-    if (!(error_code = (map_file_format==GEMv1) ?
+    if ((error_code = (map_file_format==GEMv1) ?
         gt_bmi_parse_mismatch_string_v1(&map->mismatches_txt,map):
         gt_bmi_parse_mismatch_string_v0(&map->mismatches_txt,map))) {
       return error_code;

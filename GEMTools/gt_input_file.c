@@ -114,7 +114,7 @@ GT_INLINE size_t gt_input_file_dump_to_buffer(
   if (gt_expect_false(chunk_size==0)) return 0;
   gt_vector_reserve_additional(buffer_dst,chunk_size);
   memcpy(gt_vector_get_mem(buffer_dst,uint8_t)+gt_vector_get_used(buffer_dst),
-      input_file->file_buffer+input_file->buffer_pos,chunk_size);
+      input_file->file_buffer+input_file->buffer_begin,chunk_size);
   gt_vector_add_used(buffer_dst,chunk_size);
   // Update position
   input_file->buffer_begin=input_file->buffer_pos;
