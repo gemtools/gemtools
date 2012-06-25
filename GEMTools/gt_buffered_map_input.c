@@ -384,15 +384,21 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v1(char** text_line,gt_map* con
 }
 GT_INLINE gt_status gt_bmi_parse_map(char** text_line,gt_map* const map,const gt_lazy_parse_mode parse_mode) {
   GT_NULL_CHECK(text_line);
+  GT_MAP_CHECK(map);
   if (gt_expect_false(*text_line==NULL)) return GT_BMI_PE_MAP_ALREADY_PARSED;
-
   // Read TAG
   map->seq_name = *text_line;
-//  GT_BMI_TEXT_READ_UNTIL(text_line,(**text_line)==GT_MAP_SEP);
-//  if (GT_BMI_TEXT_IS_EOL(text_line)) return GT_BMI_PE_PREMATURE_EOL;
+  GT_BMI_TEXT_READ_UNTIL(text_line,(**text_line)==GT_MAP_SEP);
+  if (GT_BMI_TEXT_IS_EOL(text_line)) return GT_BMI_PE_PREMATURE_EOL;
   // Read Strand
 
   // Determine format version
+
+
+  // Parse Mismatch String
+  if (parse_mode==PARSE_ALL) {
+    return ()
+  }
 
   return 0; // TODO
 }
@@ -505,8 +511,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template(
   if (GT_BMI_IS_EOL(buffered_map_input)) return GT_BMI_PE_PREMATURE_EOL;
   if (parse_mode!=PARSE_READ) {
     template->maps_txt = NULL;
-    GT_BMI_SKIP_LINE(buffered_map_input);
-    // return gt_bmi_parse_template_maps(&(buffered_map_input->cursor),template,parse_mode,num_maps); // FIXME
+    return gt_bmi_parse_template_maps(&(buffered_map_input->cursor),template,parse_mode,num_maps); // FIXME
   } else {
     template->maps_txt = buffered_map_input->cursor;
     GT_BMI_SKIP_LINE(buffered_map_input);
@@ -561,8 +566,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_alignment_maps(gt_alignment* ali
   return error_code;
 }
 // Parse Mismatches
-GT_INLINE gt_status gt_buffered_map_input_parse_template_mismatch_string(
-    gt_template* template,const gt_map_version map_file_format) {
+GT_INLINE gt_status gt_buffered_map_input_parse_template_mismatch_string(gt_template* template) {
   GT_TEMPLATE_CHECK(template);
   register gt_status error_code;
   gt_template_iterator template_iterator;
@@ -582,8 +586,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template_mismatch_string(
   free(map_array);
   return 0;
 }
-GT_INLINE gt_status gt_buffered_map_input_parse_alignment_mismatch_string(
-    gt_alignment* alignment,const gt_map_version map_file_format) {
+GT_INLINE gt_status gt_buffered_map_input_parse_alignment_mismatch_string(gt_alignment* alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   register gt_status error_code;
   gt_map* map;

@@ -13,7 +13,7 @@
 
 typedef enum { FORWARD, REVERSE } gt_strand;
 typedef struct {
-  /* Sequence-name(Chromosome), position and strand*/
+  /* Sequence-name(Chromosome), position and strand */
   char *seq_name;
   uint64_t position;
   uint64_t length;

@@ -21,12 +21,13 @@
  */
 typedef enum { FASTA, FASTQ, MAP, UNKNOWN } gt_file_format;
 // MAP specific info
-typedef enum {GEMv0, GEMv1} gt_map_version; // OLD(v0)={chr7:F127708134G27T88} NEW(v2)={chr11:-:51590050:(5)43T46A9>24*}
+#define GEMv0 UINT64_MAX-2
+#define GEMv1 UINT64_MAX-1 // OLD(v0)={chr7:F127708134G27T88} NEW(v2)={chr11:-:51590050:(5)43T46A9>24*}
 typedef struct {
   bool contains_qualities;
   char separator;
   // uint64_t num_blocks_template; /* As we mixed files, this can vary */
-  gt_map_version format_version;
+  // gt_map_version format_version; /* We might even tolerate mixtures */
 } gt_map_file_format;
 // FASTQ/FASTA specific info
 typedef struct {/*TODO*/} gt_fast_file_format;

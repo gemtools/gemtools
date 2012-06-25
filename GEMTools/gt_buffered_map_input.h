@@ -23,6 +23,7 @@
 #define GT_MAP_MCS '+'
 #define GT_MAP_COUNTS_SEP ':'
 #define GT_MAP_COUNTS_TIMES 'x'
+#define GT_MAP_SEP ':'
 
 typedef struct {
   /* Input file */
