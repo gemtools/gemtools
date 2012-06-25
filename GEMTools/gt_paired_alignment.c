@@ -13,7 +13,7 @@
  */
 GT_INLINE gt_paired_alignment* gt_paired_alignment_new() {
   gt_template* template = gt_template_new();
-  gt_template_set_num_blocks_template(template,2);
+//  gt_template_set_num_blocks_template(template,2);
   return (gt_paired_alignment*) template;
 }
 GT_INLINE void gt_paired_alignment_delete(gt_paired_alignment* const paired_alignment) {
@@ -35,9 +35,9 @@ GT_INLINE void gt_paired_alignment_set_ends(
   gt_template_add_block(paired_alignment,alignment_end1);
   gt_template_add_block(paired_alignment,alignment_end2);
 }
-GT_INLINE void gt_paired_alignment_clear_ends(gt_template* const template) {
+GT_INLINE void gt_paired_alignment_clear_ends(gt_paired_alignment* const paired_alignment) {
   GT_PAIRED_ALIGNMENT_CHECK(paired_alignment);
-  gt_template_clear_blocks(template);
+  gt_template_clear_blocks(paired_alignment);
 }
 
 /*
@@ -47,7 +47,7 @@ GT_INLINE void gt_paired_alignment_add_match(
     gt_paired_alignment* const paired_alignment,const uint64_t total_distance,
     gt_map* map_end1,gt_map* map_end2) {
   GT_PAIRED_ALIGNMENT_CHECK(paired_alignment);
-  gt_template_add_match(paired_alignment,total_distance,map_end1,map_end2);
+//  gt_template_add_match(paired_alignment,total_distance,map_end1,map_end2);
 }
 GT_INLINE void gt_paired_alignment_clear_matches(gt_paired_alignment* const paired_alignment) {
   GT_PAIRED_ALIGNMENT_CHECK(paired_alignment);

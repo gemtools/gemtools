@@ -7,15 +7,6 @@
 
 #include "gt_output_map.h"
 
-/*
- * Buffered Map Output File
- */
-typedef struct {
-  uint64_t block_id;
-  gt_output_buffer* buffer;
-  gt_buffered_output_file* buffered_output_file;
-} gt_buffered_map_output;
-
 gt_buffered_map_output* gt_buffered_map_output_new(gt_buffered_output_file* const buffered_output_file) {
 
 }

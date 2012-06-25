@@ -32,7 +32,7 @@
 
 GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size) {
   GT_ZERO_CHECK(element_size);
-  gt_vector* vector=malloc(sizeof(vector));
+  gt_vector* vector=malloc(sizeof(gt_vector));
   gt_cond_fatal_error(!vector,MEM_HANDLER);
   vector->element_size=element_size;
   vector->elements_allocated=num_initial_elements;

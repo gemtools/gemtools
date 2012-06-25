@@ -10,6 +10,8 @@
 
 #include "gt_commons.h"
 #include "gt_template.h"
+#include "gt_output_buffer.h"
+#include "gt_buffered_output_file.h"
 
 /*
  * Buffered Map Output File

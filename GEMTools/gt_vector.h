@@ -40,7 +40,7 @@ typedef struct {
 
 // Checkers
 #define GT_VECTOR_RANGE_CHECK(vector,position) \
-  gt_fatal_check(position>=(vector)->used||position<0,POSITION_OUT_OF_RANGE_INFO,position,0,(uint64_t)(vector)->used);
+  gt_fatal_check(position>=(vector)->used||position<0,POSITION_OUT_OF_RANGE_INFO,(uint64_t)position,0ul,(uint64_t)(vector)->used);
 
 // Get the content of the vector
 #define gt_vector_get_mem(vector,type) ((type*)((vector)->memory))

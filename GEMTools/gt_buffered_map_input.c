@@ -45,6 +45,7 @@ gt_buffered_map_input* gt_buffered_map_input_new(gt_input_file* const input_file
   buffered_map_file->block_buffer = gt_vector_new(GT_BMI_BUFFER_SIZE,sizeof(uint8_t));
   buffered_map_file->cursor = (char*) gt_vector_get_mem(buffered_map_file->block_buffer,uint8_t);
   buffered_map_file->current_line_num = UINT64_MAX;
+  return buffered_map_file;
 }
 gt_status gt_buffered_map_input_close(gt_buffered_map_input* const buffered_map_input) {
   GT_BMI_CHECK(buffered_map_input);
@@ -133,7 +134,7 @@ GT_INLINE bool gt_buffered_map_input_test_map(
   register bool is_prev_number = false;
   for (buffer_pos=begin_counters;buffer_pos<end_counters;++buffer_pos) {
     register const char c = buffer[buffer_pos];
-    if (gt_is_number(c)) {
+    if (gt_is_number(c)) { // FIXME: Use macro gt_commons.h
       is_prev_number = true;
     } else {
       if (gt_expect_false(!is_prev_number || !gt_is_valid_counter_separator(c)) ) {
@@ -592,7 +593,7 @@ GT_INLINE gt_status gt_bmi_get_template(
   }
   // Check file format
   register gt_input_file* input_file = buffered_map_input->input_file;
-  if (!gt_buffered_map_input_check_map_file_format(buffered_map_input)) {
+  if (gt_buffered_map_input_check_map_file_format(buffered_map_input)) {
     gt_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_map_input->current_line_num);
     gt_buffered_map_input_parse_next_record(buffered_map_input);
     return GT_BMI_FAIL;
@@ -607,7 +608,7 @@ GT_INLINE gt_status gt_bmi_get_template(
   }
   template->template_id = line_num;
   // Parse template
-  if (!(error_code=gt_buffered_map_input_parse_template(buffered_map_input,
+  if ((error_code=gt_buffered_map_input_parse_template(buffered_map_input,
       template,input_file->map_type.contains_qualities,parse_mode,UINT64_MAX))) {
     gt_buffered_map_input_parse_error(buffered_map_input,line_num,error_code);
     gt_buffered_map_input_parse_next_record(buffered_map_input);
@@ -615,13 +616,13 @@ GT_INLINE gt_status gt_bmi_get_template(
   }
 //  // Parse ALL template's maps
 //  if (parse_mode==PARSE_READ) return GT_BMI_OK; // Lazy
-//  if (!(error_code=gt_buffered_map_input_parse_template_maps(template,UINT64_MAX))) {
+//  if ((error_code=gt_buffered_map_input_parse_template_maps(template,UINT64_MAX))) {
 //    gt_buffered_map_input_parse_error(buffered_map_input,error_code);
 //    return GT_BMI_FAIL;
 //  }
 //  // Parse ALL mismatch strings
 //  if (parse_mode==PARSE_READ__MAPS) return GT_BMI_OK; // Lazy
-//  if (!(error_code=gt_buffered_map_input_parse_template_mismatch_string(template))) {
+//  if ((error_code=gt_buffered_map_input_parse_template_mismatch_string(template))) {
 //    gt_buffered_map_input_parse_error(buffered_map_input,error_code);
 //    return GT_BMI_FAIL;
 //  }
@@ -640,7 +641,7 @@ GT_INLINE gt_status gt_bmi_get_alignment(
   }
   // Check file format
   register gt_input_file* input_file = buffered_map_input->input_file;
-  if (!gt_buffered_map_input_check_map_file_format(buffered_map_input)) {
+  if (gt_buffered_map_input_check_map_file_format(buffered_map_input)) {
     gt_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_map_input->current_line_num);
     gt_buffered_map_input_parse_next_record(buffered_map_input);
     return GT_BMI_FAIL;
@@ -654,7 +655,7 @@ GT_INLINE gt_status gt_bmi_get_alignment(
   gt_alignment_clear(alignment);
   alignment->alignment_id = line_num;
   // Parse alignment
-  if (!(error_code=gt_buffered_map_input_parse_alignment(buffered_map_input,
+  if ((error_code=gt_buffered_map_input_parse_alignment(buffered_map_input,
       alignment,input_file->map_type.contains_qualities,parse_mode,UINT64_MAX))) {
     gt_buffered_map_input_parse_error(buffered_map_input,line_num,error_code);
     gt_buffered_map_input_parse_next_record(buffered_map_input);
@@ -662,13 +663,13 @@ GT_INLINE gt_status gt_bmi_get_alignment(
   }
 //  // Parse ALL alignment's maps
 //  if (parse_mode==PARSE_READ) return GT_BMI_OK; // Lazy
-//  if (!(error_code=gt_buffered_map_input_parse_alignment_maps(alignment,UINT64_MAX))) {
+//  if ((error_code=gt_buffered_map_input_parse_alignment_maps(alignment,UINT64_MAX))) {
 //    gt_buffered_map_input_parse_error(buffered_map_input,error_code);
 //    return GT_BMI_FAIL;
 //  }
 //  // Parse ALL mismatch strings
 //  if (parse_mode==PARSE_READ__MAPS) return GT_BMI_OK; // Lazy
-//  if (!(error_code=gt_buffered_map_input_parse_alignment_mismatch_string(alignment))) {
+//  if ((error_code=gt_buffered_map_input_parse_alignment_mismatch_string(alignment))) {
 //    gt_buffered_map_input_parse_error(buffered_map_input,error_code);
 //    return GT_BMI_FAIL;
 //  }

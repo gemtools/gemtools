@@ -70,7 +70,11 @@ int main(int argc,char** argv) {
   gt_buffered_map_input* map_input = gt_buffered_map_input_new(input_file);
   gt_template* template = gt_template_new();
   while (gt_buffered_map_input_get_template(map_input,template)) {
-
+    register gt_alignment* alignment = gt_template_get_block(template,0);
+    printf("@%s\n%s\n+\n%s\n",
+        gt_template_get_tag(template),
+        gt_alignment_get_read(alignment),
+        gt_alignment_get_qualities(alignment));
   }
   gt_buffered_map_input_close(map_input);
 

@@ -98,7 +98,7 @@ typedef int32_t gt_status;
 extern bool gt_dna[];
 #define gt_is_dna(character) gt_dna[(int)character]
 #define gt_is_valid_quality(character) (33 >= (character) && (character) <= 127)
-#define gt_is_number(character) ('0' >= (character) && (character) <= '9')
+#define gt_is_number(character) ('0' <= (character) && (character) <= '9')
 #define gt_get_cipher(character) ((character) - '0')
 // MAP/MAPQ related
 #define gt_is_valid_template_separator(character) \

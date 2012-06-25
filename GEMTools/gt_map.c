@@ -98,7 +98,7 @@ GT_INLINE gt_map* gt_map_get_next_map_block(gt_map* const map) {
 GT_INLINE void gt_map_set_next_map_block(gt_map* const map,gt_map* next_map) {
   GT_MAP_CHECK(map);
   GT_MAP_CHECK(next_map);
-  map->next_map = next_map;
+  map->next_map = (struct gt_map*) next_map;
 }
 /*
  * Map.length is a global attribute sum of all Map.blocks.length
@@ -120,7 +120,7 @@ GT_INLINE uint64_t gt_map_get_length(gt_map* const map) {
   register gt_map* aux_map = map;
   do {
     total_length += gt_map_get_map_block_length(aux_map);
-    aux_map = aux_map->next_map;
+    aux_map = (gt_map*) aux_map->next_map;
   } while (aux_map!=NULL);
   return total_length;
 }
@@ -148,7 +148,7 @@ GT_INLINE uint64_t gt_map_get_num_misms(gt_map* const map) {
 /*
  * Miscellaneous
  */
-GT_INLINE gt_map* gt_map_copy(gt_map* const map) {
+GT_INLINE gt_map* gt_map_copy(gt_map* map) {
   GT_MAP_CHECK(map);
   gt_map* map_cpy = gt_map_new();
   map_cpy->seq_name = map->seq_name;
@@ -160,6 +160,6 @@ GT_INLINE gt_map* gt_map_copy(gt_map* const map) {
   map_cpy->mismatches = gt_vector_new(gt_vector_get_used(map->mismatches),sizeof(gt_misms));
   gt_vector_copy(map_cpy->mismatches,map->mismatches);
   map_cpy->mismatches_txt = map->mismatches_txt;
-  map_cpy->next_map = (map->next_map==NULL) ? NULL : gt_map_copy(map->next_map);
+  map_cpy->next_map = (map->next_map==NULL) ? NULL : (struct gt_map*) gt_map_copy((gt_map*)map->next_map);
   return map_cpy;
 }

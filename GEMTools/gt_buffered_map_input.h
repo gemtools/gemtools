@@ -47,7 +47,7 @@ typedef enum {PARSE_READ, PARSE_READ__MAPS, PARSE_ALL } gt_lazy_parse_mode;
  * Checkers
  */
 #define GT_BMI_CHECK(buffered_map_input) gt_fatal_check( \
-  buffered_map_input==NULL||buffered_map_input->input_file|| \
+  buffered_map_input==NULL||buffered_map_input->input_file==NULL|| \
   buffered_map_input->block_buffer==NULL||buffered_map_input->cursor==NULL,NULL_HANDLER)
 
 /*

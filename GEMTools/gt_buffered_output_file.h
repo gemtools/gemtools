@@ -18,7 +18,7 @@ typedef struct {
   /* Output file */
   char* file_name;
   FILE* file;
-  gt_file_type file_type;
+  gt_output_file_type file_type;
   /* Output Buffers */
   gt_output_buffer* buffer[GT_MAX_OUTPUT_BUFFERS];
   uint64_t buffer_state;

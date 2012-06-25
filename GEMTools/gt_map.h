@@ -77,7 +77,7 @@ GT_INLINE uint64_t gt_map_get_num_misms(gt_map* const map);
 /*
  * Miscellaneous
  */
-GT_INLINE gt_map* gt_map_copy(gt_map* const map);
+GT_INLINE gt_map* gt_map_copy(gt_map* map);
 // Macro generic iterator
 //  GT_ALIGNMENT_MISMS_ITERATOR(map,misms_it,misms_pos) {
 //    ..code..
