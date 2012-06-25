@@ -11,9 +11,9 @@ SRCS=gem_tools.c gt_alignment.c gt_buffered_map_input.c gt_buffered_output_file.
      # gt_output_buffer.c gt_output_map.c gt_output_sam.c 
 CC=gcc
 AR=ar
-ARCH_FLAGS= # -D__LINUX__ -msse3 -mssse3 -msse4.2
+ARCH_FLAGS=-D__LINUX__ -msse3 -mssse3 -msse4.2
 SUPPRESS_CHECKS=-DNDEBUG
-OPTIMIZTION_FLAGS= # -O4 -fomit-frame-pointer -ftree-vectorize $(SUPPRESS_CHECKS)
+OPTIMIZTION_FLAGS=-O4 -fomit-frame-pointer -ftree-vectorize $(SUPPRESS_CHECKS)
 DEBUG_FLAGS=-g -ggdb3
 LIBS=-lpthread
 
@@ -25,10 +25,10 @@ gt_library: $(OBJS)
 	$(AR) -rcs gem_tools.a gem_tools.o
 
 $(GEM_TOOLS): $(OBJS)
-	$(CC) $(ARCH_FLAGS) $(DEBUG_FLAGS) $(OPTIMIZTION_FLAGS) -o $@ $@.c $(OBJS) $(LIBS)
+	$(CC) $(ARCH_FLAGS) $(OPTIMIZTION_FLAGS) -o $@ $@.c $(OBJS) $(LIBS)
 
 .c.o:
-	$(CC) $(ARCH_FLAGS) $(DEBUG_FLAGS) $(OPTIMIZTION_FLAGS) -c $<
+	$(CC) $(ARCH_FLAGS) $(OPTIMIZTION_FLAGS) -c $<
 
 clean:
 	@rm -f *.o *.a

@@ -25,7 +25,7 @@ typedef enum {GEMv0, GEMv1} gt_map_version; // OLD(v0)={chr7:F127708134G27T88} N
 typedef struct {
   bool contains_qualities;
   char separator;
-  uint64_t num_blocks_template;
+  // uint64_t num_blocks_template; /* As we mixed files, this can vary */
   gt_map_version format_version;
 } gt_map_file_format;
 // FASTQ/FASTA specific info

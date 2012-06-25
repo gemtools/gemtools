@@ -120,7 +120,7 @@ extern FILE* gt_error_stream;
 
 // Template/Alignment/Map/Misms errors
 #define GT_ERROR_POSITION_OUT_OF_RANGE "Requested position out of range"
-#define GT_ERROR_POSITION_OUT_OF_RANGE_INFO "Requested position (%lu) out of range [%lu,%lu]"
+#define GT_ERROR_POSITION_OUT_OF_RANGE_INFO "Requested position (%lu) out of range [%ld,%ld]"
 #define GT_ERROR_MISMS_TYPE "Misms incorrect type"
 #define GT_ERROR_COUNTERS_POS_STRATUM "Stratum must be strictly positive (stratum>0)"
 #define GT_ERROR_MAP_MISMS_NOT_PARSED "Map's mismatches not parsed yet"
