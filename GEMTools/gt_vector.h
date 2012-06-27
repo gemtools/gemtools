@@ -73,10 +73,10 @@ typedef struct {
   gt_vector_inc_used(vector); \
 }
 
-#ifdef GT_CONSISTENCY_CHECKS
-#define gt_vector_get_elm(vector,position,type) ((type*)gt_vector_get_mem_element(vector,position,sizeof(type)))
-#else
+#ifdef GT_NO_CONSISTENCY_CHECKS
 #define gt_vector_get_elm(vector,position,type) (gt_vector_get_mem(vector,type)+position)
+#else
+#define gt_vector_get_elm(vector,position,type) ((type*)gt_vector_get_mem_element(vector,position,sizeof(type)))
 #endif
 
 GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size);

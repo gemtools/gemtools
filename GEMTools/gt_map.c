@@ -18,6 +18,7 @@ GT_INLINE gt_map* gt_map_new() {
   gt_cond_fatal_error(!map,MEM_HANDLER);
   map->seq_name = NULL;
   map->position = 0;
+  map->length = MISMATCH_STRING_UNKNOWN;
   map->distance = UINT64_MAX;
   map->score = 0.0;
   map->mismatches = gt_vector_new(GT_MAP_NUM_INITIAL_MISMS,sizeof(gt_misms));
@@ -29,6 +30,7 @@ GT_INLINE void gt_map_clear(gt_map* const map) {
   GT_MAP_CHECK(map);
   map->seq_name = NULL;
   map->position = 0;
+  map->length = MISMATCH_STRING_UNKNOWN;
   map->distance = UINT64_MAX;
   map->score = 0.0;
   gt_map_clear_misms(map);

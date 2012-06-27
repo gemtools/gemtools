@@ -7,6 +7,9 @@
 
 #include "gt_misms.h"
 
+/*
+ * Constructors
+ */
 GT_INLINE void gt_misms_set_mismatch(gt_misms misms,const uint64_t position,const char base) {
   misms.misms_type = MISMS;
   misms.position = position;
@@ -15,19 +18,31 @@ GT_INLINE void gt_misms_set_mismatch(gt_misms misms,const uint64_t position,cons
 GT_INLINE void gt_misms_set_indel(gt_misms misms,const uint64_t position,const int64_t size) {
   misms.misms_type = (size>0) ? INS : DEL;
   misms.position = position;
+  misms.size = (size>0) ? size : -size;
+}
+GT_INLINE void gt_misms_set_splice(gt_misms misms,const uint64_t position,const int64_t size) {
+  gt_check(size<=0,MISMS_SPLICE_POS);
+  misms.misms_type = SPLICE;
+  misms.position = position;
   misms.size = size;
 }
+
+/*
+ * Accessors
+ */
 GT_INLINE gt_misms_t gt_misms_get_type(const gt_misms misms) {
   return misms.misms_type;
 }
 GT_INLINE uint64_t gt_misms_get_position(const gt_misms misms) {
   return misms.position;
 }
-GT_INLINE uint64_t gt_misms_get_size(const gt_misms misms) {
-  gt_check(misms.misms_type==MISMS,MISMS_TYPE);
-  return misms.size;
-}
+// Mismatches
 GT_INLINE char gt_misms_get_base(const gt_misms misms) {
   gt_check(misms.misms_type!=MISMS,MISMS_TYPE);
   return misms.base;
+}
+// Insertion/Deletion
+GT_INLINE uint64_t gt_misms_get_size(const gt_misms misms) {
+  gt_check(misms.misms_type==MISMS,MISMS_TYPE);
+  return misms.size;
 }

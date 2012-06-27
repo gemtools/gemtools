@@ -11,7 +11,12 @@
 #include "gt_commons.h"
 #include "gt_misms.h"
 
+#define MISMATCH_STRING_UNKNOWN UINT64_MAX-3
+#define MISMATCH_STRING_GEMv0 UINT64_MAX-2
+#define MISMATCH_STRING_GEMv1 UINT64_MAX-1 // OLD(v0)={chr7:F127708134G27T88} NEW(v2)={chr11:-:51590050:(5)43T46A9>24*}
 typedef enum { FORWARD, REVERSE } gt_strand;
+
+#define map_mismatch_string_format distance  /* Overload field */
 typedef struct {
   /* Sequence-name(Chromosome), position and strand */
   char *seq_name;
@@ -59,6 +64,9 @@ GT_INLINE void gt_map_set_distance(gt_map* const map,const uint64_t distance);
 GT_INLINE float gt_map_get_score(gt_map* const map);
 GT_INLINE void gt_map_set_score(gt_map* const map,const float score);
 
+/*
+ * Nested Maps Handlers
+ */
 GT_INLINE gt_map* gt_map_get_next_map_block(gt_map* const map);
 GT_INLINE void gt_map_set_next_map_block(gt_map* const map,gt_map* const next_map);
 

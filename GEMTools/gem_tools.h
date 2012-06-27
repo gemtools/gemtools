@@ -8,9 +8,6 @@
 #ifndef GEM_TOOLS_H_
 #define GEM_TOOLS_H_
 
-// Do sanity checks in development (suppress at deployment/production)
-#define GT_CONSISTENCY_CHECKS
-
 // Common
 #include "gt_commons.h"
 

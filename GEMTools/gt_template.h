@@ -65,7 +65,8 @@ GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template);
 GT_INLINE void gt_template_set_mcs(gt_template* const template,const uint64_t max_complete_strata);
 
 GT_INLINE void gt_template_add_block(gt_template* const template,gt_alignment* const alignment);
-GT_INLINE gt_alignment* gt_template_get_block(gt_template* const template,uint64_t const position);
+GT_INLINE gt_alignment* gt_template_get_block(gt_template* const template,const uint64_t position);
+GT_INLINE gt_alignment* gt_template_dyn_get_block(gt_template* const template,const uint64_t position);
 GT_INLINE void gt_template_clear_blocks(gt_template* const template);
 GT_INLINE uint64_t gt_template_get_num_blocks(gt_template* const template);
 

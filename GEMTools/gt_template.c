@@ -73,12 +73,18 @@ GT_INLINE void gt_template_add_block(gt_template* const template,gt_alignment* c
   GT_TEMPLATE_CHECK(template);
   gt_vector_insert(template->blocks,alignment,gt_alignment*);
 }
-GT_INLINE gt_alignment* gt_template_get_block(gt_template* const template,uint64_t const position) {
+GT_INLINE gt_alignment* gt_template_get_block(gt_template* const template,const uint64_t position) {
+  GT_TEMPLATE_CHECK(template);
+  gt_cond_fatal_error(position < gt_template_get_num_blocks(template),
+      POSITION_OUT_OF_RANGE_INFO,(uint64_t)position,0ul,gt_template_get_num_blocks(template)-1);
+  return *gt_vector_get_elm(template->blocks,position,gt_alignment*);
+}
+GT_INLINE gt_alignment* gt_template_dyn_get_block(gt_template* const template,const uint64_t position) {
   GT_TEMPLATE_CHECK(template);
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   if (position < num_blocks) {
     return *gt_vector_get_elm(template->blocks,position,gt_alignment*);
-  } else if (position == num_blocks) { // Dynamically allocate a new block
+  } else if (position == num_blocks) { // Dynamically allocate a new block (the next one)
     register gt_alignment* dynamic_allocated_alignment = gt_alignment_new();
     gt_template_add_block(template,dynamic_allocated_alignment);
     return dynamic_allocated_alignment;
