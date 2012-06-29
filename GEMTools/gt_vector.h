@@ -57,7 +57,7 @@ typedef struct {
 #define gt_vector_reserve_additional(vector,additional) gt_vector_reserve(vector,gt_vector_get_used(vector)+additional,false)
 #define gt_vector_prepare(vector,data_type,num_elements) \
   gt_vector_cast__clean(vector,sizeof(data_type)); \
-  gt_vector_reserve(vector,num_elements)
+  gt_vector_reserve(vector,num_elements,false)
 // Macro generic iterator
 //  GT_VECTOR_ITERATE(vector_of_ints,elm_iterator,elm_counter,int) {
 //    ..code..
@@ -69,7 +69,7 @@ typedef struct {
 // Add element to the vector (at the end)
 #define gt_vector_insert(vector,element,type) { \
   gt_vector_reserve_additional(vector,1); \
-  *(gt_vector_get_elm(vector,gt_vector_get_used(vector),type))=element; \
+  *(gt_vector_get_free_elm(vector,type))=element; \
   gt_vector_inc_used(vector); \
 }
 

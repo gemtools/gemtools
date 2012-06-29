@@ -72,12 +72,30 @@ int main(int argc,char** argv) {
   gt_status error_code;
   while ((error_code=gt_buffered_map_input_get_template(map_input,template))) {
     if (error_code==GT_BMI_FAIL) continue;
-    register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-    register uint64_t i;
-    for (i=0;i<num_blocks;++i) {
-      register gt_alignment* alignment = gt_template_get_block(template,0);
-      printf("@%s\n%s\n+\n%s\n",gt_template_get_tag(template),
-          gt_alignment_get_read(alignment),gt_alignment_get_qualities(alignment));
+    // Iterate over all elements
+    GT_ALIGNMENT_ITERATE(template,alignment) {
+      printf(">> %s\n",gt_template_get_tag(template));
+      // coutners();
+      GT_MAPS_ITERATE(alignment,map) {
+        GT_MAP_BLOCKS_ITERATE(map,map_block) {
+          printf("\t%s\t",gt_map_get_seq_name(map));
+          printf("init_pos=%lu\t",gt_map_get_position(map));
+          printf("end_pos=%lu\t",gt_map_get_position(map)+gt_map_get_length(map));
+          printf("length=%lu\t",gt_map_get_length(map));
+          printf("strand=%c\t",gt_map_get_direction(map)==FORWARD?'F':'R');
+          printf("distance=%lu\n",gt_map_get_distance(map));
+          printf("\t\t{ ");
+          GT_MISMS_ITERATE(map_block,misms) {
+            if (gt_misms_get_type(misms)==MISMS) {
+              printf("(M,%lu,%c) ",gt_misms_get_position(misms),gt_misms_get_base(misms));
+            } else {
+              printf("(%c,%lu,%lu) ",gt_misms_get_type(misms)==INS?'I':'D',
+                  gt_misms_get_position(misms),gt_misms_get_size(misms));
+            }
+          }
+          printf("}\n");
+        }
+      }
     }
   }
   gt_buffered_map_input_close(map_input);

@@ -31,4 +31,4 @@ $(GEM_TOOLS): $(OBJS)
 	$(CC) $(ARCH_FLAGS) $(OPTIMIZTION_FLAGS) -c $<
 
 clean:
-	@rm -f *.o *.a
+	@rm -f *.o *.a core

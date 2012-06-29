@@ -42,6 +42,8 @@ typedef int32_t gt_status;
 #define EOL '\n'
 #define TAB '\t'
 #define DOS_EOL '\r'
+#define PLUS '+'
+#define MINUS '-'
 
 // Buffer sizes
 #define GT_BUFFER_SIZE_1K   ((1<<10)-64)

@@ -95,14 +95,29 @@ GT_INLINE uint64_t gt_alignment_get_counter(gt_alignment* const alignment,const 
 GT_INLINE void gt_alignment_set_counter(gt_alignment* const alignment,const uint64_t stratum,const uint64_t value) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
-  // Check distant counter
-  register const uint64_t counts_used = gt_vector_get_used(alignment->counters);
-  if (stratum > counts_used) { // Clear intermediate counters
-    gt_vector_reserve(alignment->counters,stratum,false);
-    memset(gt_vector_get_mem(alignment->counters,uint64_t)+counts_used,0,
-        sizeof(uint64_t)*(stratum-counts_used));
+  gt_vector_reserve(alignment->counters,stratum,true);
+  if (gt_vector_get_used(alignment->counters)<stratum) {
+    gt_vector_set_used(alignment->counters,stratum);
   }
   *gt_vector_get_elm(alignment->counters,stratum-1,uint64_t) = value;
+}
+GT_INLINE void gt_alignment_dec_counter(gt_alignment* const alignment,const uint64_t stratum) {
+  GT_ALIGNMENT_CHECK(alignment);
+  gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
+  gt_vector_reserve(alignment->counters,stratum,true);
+  if (gt_vector_get_used(alignment->counters)<stratum) {
+    gt_vector_set_used(alignment->counters,stratum);
+  }
+  --(*gt_vector_get_elm(alignment->counters,stratum-1,uint64_t));
+}
+GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint64_t stratum) {
+  GT_ALIGNMENT_CHECK(alignment);
+  gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
+  gt_vector_reserve(alignment->counters,stratum,true);
+  if (gt_vector_get_used(alignment->counters)<stratum) {
+    gt_vector_set_used(alignment->counters,stratum);
+  }
+  ++(*gt_vector_get_elm(alignment->counters,stratum-1,uint64_t));
 }
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
@@ -117,16 +132,16 @@ GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,const uint64_t
  * Maps Handlers
  */
 GT_INLINE void gt_alignment_add_map(gt_alignment* const alignment,gt_map* const map) {
-  GT_ALIGNMENT_EDITABLE_CHECK(alignment);
-  gt_fatal_check(map==NULL,NULL_HANDLER);
+  GT_ALIGNMENT_CHECK(alignment);
+  GT_NULL_CHECK(map);
   gt_vector_insert(alignment->maps,map,gt_map*);
 }
 GT_INLINE void gt_alignment_clear_maps(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_alignment_iterator alignment_it;
-  gt_alignment_iterator_new(alignment,&alignment_it);
+  gt_alignment_map_iterator map_iterator;
+  gt_alignment_new_map_iterator(alignment,&map_iterator);
   register gt_map* map;
-  while ((map=gt_alignment_next_map(&alignment_it))!=NULL) {
+  while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
     gt_map_delete(map);
   }
   gt_vector_clean(alignment->maps);
@@ -142,10 +157,32 @@ GT_INLINE uint64_t gt_alignment_get_num_maps(gt_alignment* const alignment) {
 
 /*
  * Higher-level Methods
- *   (Update global state: counters, ...)
  */
+GT_INLINE void gt_alignment_is_contained(gt_alignment* const alignment,gt_map* const map,gt_map** const dup_map) {
+  gt_alignment_map_iterator alignment_map_iterator;
+  gt_alignment_new_map_iterator(alignment,&alignment_map_iterator);
+  register gt_map* aux_map;
+  while ((aux_map=gt_alignment_next_map(&alignment_map_iterator))) {
+    // TODO
+  }
+}
+GT_INLINE void gt_alignment_insert_map__check_dup(gt_alignment* const alignment,gt_map** const map) {
+//  // TODO
+//  GT_ALIGNMENT_CHECK(alignment);
+//  GT_NULL_CHECK(*map);
+//  gt_map* dup_map; // TODO: Solve Duplication
+//  if (gt_alignment_is_contained(alignment,*map,&dup_map)) {
+//    *map = dup_map;
+//  } else {
+//    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
+//    gt_alignment_add_map(alignment,map);
+//  }
+}
 GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map) {
-  // TODO
+  GT_ALIGNMENT_CHECK(alignment);
+  GT_NULL_CHECK(map);
+  gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map)+1);
+  gt_alignment_add_map(alignment,map);
 }
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) {
   // TODO
@@ -179,40 +216,40 @@ GT_INLINE gt_alignment* gt_alignment_deep_copy(gt_alignment* const alignment) {
 /*
  * Alignment's Maps iterator
  */
-GT_INLINE void gt_alignment_iterator_new(gt_alignment* const alignment,gt_alignment_iterator* const alignment_iterator) {
+GT_INLINE void gt_alignment_new_map_iterator(gt_alignment* const alignment,gt_alignment_map_iterator* const alignment_map_iterator) {
+  GT_NULL_CHECK(alignment_map_iterator);
   GT_ALIGNMENT_EDITABLE_CHECK(alignment);
-  gt_fatal_check(alignment_iterator==NULL,NULL_HANDLER);
-  alignment_iterator->alignment = alignment;
-  alignment_iterator->total_pos = gt_vector_get_used(alignment->maps);
-  alignment_iterator->next_map = gt_vector_get_mem(alignment->maps,gt_map*);
-  alignment_iterator->next_pos = 0;
+  alignment_map_iterator->alignment = alignment;
+  alignment_map_iterator->total_pos = gt_vector_get_used(alignment->maps);
+  alignment_map_iterator->next_map = gt_vector_get_mem(alignment->maps,gt_map*);
+  alignment_map_iterator->next_pos = 0;
 }
-GT_INLINE gt_map* gt_alignment_next_map(gt_alignment_iterator* const alignment_iterator) {
-  gt_fatal_check(alignment_iterator==NULL,NULL_HANDLER);
-  GT_ALIGNMENT_CHECK(alignment_iterator->alignment);
-  if (gt_expect_true(alignment_iterator->next_pos<alignment_iterator->total_pos)) {
-    register gt_map* const map = *(alignment_iterator->next_map);
-    ++alignment_iterator->next_map;
-    ++alignment_iterator->next_pos;
+GT_INLINE gt_map* gt_alignment_next_map(gt_alignment_map_iterator* const alignment_map_iterator) {
+  GT_NULL_CHECK(alignment_map_iterator);
+  GT_ALIGNMENT_EDITABLE_CHECK(alignment_map_iterator->alignment);
+  if (gt_expect_true(alignment_map_iterator->next_pos<alignment_map_iterator->total_pos)) {
+    register gt_map* const map = *(alignment_map_iterator->next_map);
+    ++alignment_map_iterator->next_map;
+    ++alignment_map_iterator->next_pos;
     return map;
   } else {
     return NULL;
   }
 }
-GT_INLINE gt_map* gt_alignment_dinamic_next_map(gt_alignment_iterator* const alignment_iterator) {
-  gt_fatal_check(alignment_iterator==NULL,NULL_HANDLER);
-  GT_ALIGNMENT_CHECK(alignment_iterator->alignment);
-  register const gt_alignment* const alignment = alignment_iterator->alignment;
-  if (gt_expect_true(alignment_iterator->next_pos<gt_vector_get_used(alignment->maps))) {
-    register gt_map* const map = *gt_vector_get_elm(alignment->maps,alignment_iterator->next_pos,gt_map*);
-    ++alignment_iterator->next_pos;
+GT_INLINE gt_map* gt_alignment_dinamic_next_map(gt_alignment_map_iterator* const alignment_map_iterator) {
+  GT_NULL_CHECK(alignment_map_iterator);
+  GT_ALIGNMENT_EDITABLE_CHECK(alignment_map_iterator->alignment);
+  register const gt_alignment* const alignment = alignment_map_iterator->alignment;
+  if (gt_expect_true(alignment_map_iterator->next_pos<gt_vector_get_used(alignment->maps))) {
+    register gt_map* const map = *gt_vector_get_elm(alignment->maps,alignment_map_iterator->next_pos,gt_map*);
+    ++alignment_map_iterator->next_pos;
     return map;
   } else {
     return NULL;
   }
 }
-GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_iterator* const alignment_iterator) {
-  gt_fatal_check(alignment_iterator==NULL,NULL_HANDLER);
-  GT_ALIGNMENT_CHECK(alignment_iterator->alignment);
-  return alignment_iterator->next_pos;
+GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const alignment_map_iterator) {
+  GT_NULL_CHECK(alignment_map_iterator);
+  GT_ALIGNMENT_EDITABLE_CHECK(alignment_map_iterator->alignment);
+  return alignment_map_iterator->next_pos;
 }

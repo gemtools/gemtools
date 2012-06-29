@@ -34,6 +34,7 @@
 
 #define GT_MAP_INDEL_INSERTION '+'
 #define GT_MAP_INDEL_DELETION '-'
+#define GT_MAP_INDEL_SPLICE '*'
 
 #define GT_MAP_SKIP_POSITIVE '+'
 #define GT_MAP_SKIP_NEGATIVE '-'
@@ -90,23 +91,23 @@ GT_INLINE bool gt_buffered_map_input_test_map(
  *     (2) Parses MAPS' SEQUENCE,STRAND,POSITION
  *     (3) Parses MAPS' CIGAR string
  */
-GT_INLINE void gt_buffered_map_input_parse_error(
+GT_INLINE void gt_buffered_map_input_prompt_error(
     gt_buffered_map_input* const buffered_map_input,
     const uint64_t line_num,const gt_status error_code);
-GT_INLINE void gt_buffered_map_input_parse_next_record(gt_buffered_map_input* const buffered_map_input);
-// Parse Template/Alignment
-GT_INLINE gt_status gt_buffered_map_input_parse_template(
-    gt_buffered_map_input* const buffered_map_input,gt_template* const template,
-    const bool has_map_quality,const gt_lazy_parse_mode parse_mode,uint64_t num_maps);
-GT_INLINE gt_status gt_buffered_map_input_parse_alignment(
-    gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment,
-    const bool has_map_quality,const gt_lazy_parse_mode parse_mode,uint64_t num_maps);
-// Parse Maps
-GT_INLINE gt_status gt_buffered_map_input_parse_template_maps(gt_template* template,uint64_t num_maps);
-GT_INLINE gt_status gt_buffered_map_input_parse_alignment_maps(gt_alignment* alignment,uint64_t num_maps);
-// Parse Mismatches
+GT_INLINE void gt_buffered_map_input_next_record(gt_buffered_map_input* const buffered_map_input);
+// Parse Mismatches (From lazy parsing)
 GT_INLINE gt_status gt_buffered_map_input_parse_template_mismatch_string(gt_template* template);
 GT_INLINE gt_status gt_buffered_map_input_parse_alignment_mismatch_string(gt_alignment* alignment);
+// Parse Maps (From lazy parsing)
+GT_INLINE gt_status gt_buffered_map_input_parse_template_maps(gt_template* template,uint64_t num_maps);
+GT_INLINE gt_status gt_buffered_map_input_parse_alignment_maps(gt_alignment* alignment,uint64_t num_maps);
+// Lazy Parsers
+GT_INLINE gt_status gt_bmi_get_template(
+    gt_buffered_map_input* const buffered_map_input,gt_template* template,
+    const gt_lazy_parse_mode parse_mode);
+GT_INLINE gt_status gt_bmi_get_alignment(
+    gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment,
+    const gt_lazy_parse_mode parse_mode);
 
 /*
  * MAP/MAPQ/MMAP/MMAPQ High-level Parsers

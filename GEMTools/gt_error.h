@@ -130,6 +130,7 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_TEMPLATE_MAPS_NOT_PARSED "Template's maps not parsed yet"
 #define GT_ERROR_TEMPLATE_ZERO_BLOCKS "Zero alignment blocks (num_blocks_template>0)"
 #define GT_ERROR_TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION "Template inconsistency. Incorrect number of matches' elements (check num_blocks_template)"
+#define GT_ERROR_TEMPLATE_ADD_BAD_NUM_BLOCKS "Trying to add wrong number of blocks to the template"
 #define GT_ERROR_PALIGN_BAD_NUM_BLOCKS "Invalid Paired-alignment. Wrong number of alignment blocks (%lu)"
 
 // Parsing MAP File format errors
