@@ -22,7 +22,7 @@ GT_INLINE gt_map* gt_map_new() {
   map->map_misms_format = MISMATCH_STRING_UNKNOWN;
   map->mismatches = gt_vector_new(GT_MAP_NUM_INITIAL_MISMS,sizeof(gt_misms));
   map->mismatches_txt = NULL;
-  map->next_map = NULL;
+  map->next_block = NULL;
   return map;
 }
 GT_INLINE void gt_map_clear(gt_map* const map) {
@@ -33,7 +33,7 @@ GT_INLINE void gt_map_clear(gt_map* const map) {
   map->map_misms_format = MISMATCH_STRING_UNKNOWN;
   gt_map_clear_misms(map);
   map->mismatches_txt = NULL;
-  map->next_map = NULL;
+  map->next_block = NULL;
 }
 GT_INLINE void gt_map_block_delete(gt_map* map) {
   GT_MAP_CHECK(map);
@@ -42,9 +42,9 @@ GT_INLINE void gt_map_block_delete(gt_map* map) {
 }
 GT_INLINE void gt_map_delete(gt_map* map) {
   GT_MAP_CHECK(map);
-  if (map->next_map != NULL) {
-    gt_map_delete(map->next_map->map);
-    free(map->next_map);
+  if (map->next_block != NULL) {
+    gt_map_delete(map->next_block->map);
+    free(map->next_block);
   }
   gt_map_block_delete(map);
 }
@@ -118,30 +118,30 @@ GT_INLINE void gt_map_set_score(gt_map* const map,const uint64_t score) {
  */
 GT_INLINE bool gt_map_has_next_block(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
-  return (map->next_map!=NULL);
+  return (map->next_block!=NULL);
 }
 GT_INLINE gt_map* gt_map_get_next_block(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
-  return (gt_expect_false(map->next_map==NULL)) ? NULL : map->next_map->map;
+  return (gt_expect_false(map->next_block==NULL)) ? NULL : map->next_block->map;
 }
 GT_INLINE gt_junction_t gt_map_get_next_block_junction(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
   GT_MAP_NEXT_BLOCK_CHECK(map);
-  return map->next_map->junction;
+  return map->next_block->junction;
 }
 GT_INLINE int64_t gt_map_get_next_block_distance(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
   GT_MAP_NEXT_BLOCK_CHECK(map);
-  return (map->next_map->map->position-(map->position+gt_map_get_length(map)));
+  return (map->next_block->map->position-(map->position+gt_map_get_length(map)));
 }
 GT_INLINE void gt_map_set_next_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction) {
   GT_MAP_CHECK(map);
   GT_MAP_CHECK(next_map);
-  register gt_next_map *aux_next_map = map->next_map;
-  map->next_map = malloc(sizeof(gt_next_map));
-  map->next_map->junction = junction;
-  map->next_map->map = next_map;
-  next_map->next_map = aux_next_map;
+  register gt_map_junction *aux_next_block = map->next_block;
+  map->next_block = malloc(sizeof(gt_map_junction));
+  map->next_block->junction = junction;
+  map->next_block->map = next_map;
+  next_map->next_block = aux_next_block;
 }
 GT_INLINE gt_map* gt_map_get_last_block(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
@@ -150,6 +150,16 @@ GT_INLINE gt_map* gt_map_get_last_block(gt_map* const map) {
     aux_map = gt_map_get_next_block(aux_map);
   }
   return aux_map;
+}
+GT_INLINE uint64_t gt_map_get_num_blocks(gt_map* const map) {
+  GT_MAP_EDITABLE_CHECK(map);
+  register uint64_t num_blocks = 1;
+  register gt_map* aux_map = map;
+  while (gt_map_has_next_block(aux_map)) {
+    aux_map = gt_map_get_next_block(aux_map);
+    ++num_blocks;
+  }
+  return num_blocks;
 }
 GT_INLINE void gt_map_append_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction) {
   GT_MAP_EDITABLE_CHECK(map);
@@ -187,7 +197,8 @@ GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
   register uint64_t length = 0;
   GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
-    length += gt_map_get_length(map_it);
+    length += gt_map_get_length(map_it) +
+        (gt_map_has_next_block(map)?gt_map_get_next_block_distance(map):0);
   } GT_END_MAP_BLOCKS_ITERATOR;
   return length;
 }
@@ -195,7 +206,7 @@ GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
   register uint64_t distance = 0;
   GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
-    distance += gt_map_get_distance(map_it);
+    distance += gt_map_get_distance(map_it) + (gt_map_has_next_block(map)?1:0);
   } GT_END_MAP_BLOCKS_ITERATOR;
   return distance;
 }
@@ -271,15 +282,15 @@ GT_INLINE gt_map* gt_map_copy(gt_map* map) {
   gt_vector_copy(map_cpy->mismatches,map->mismatches);
   if (map->mismatches_txt!=NULL) {
     map_cpy->mismatches_txt = map->mismatches_txt;
-    map_cpy->next_map = NULL;
+    map_cpy->next_block = NULL;
   } else {
     map_cpy->mismatches_txt = NULL;
-    if (map->next_map==NULL) {
-      map_cpy->next_map = NULL;
+    if (map->next_block==NULL) {
+      map_cpy->next_block = NULL;
     } else {
-      map_cpy->next_map = malloc(sizeof(gt_next_map));
-      map_cpy->next_map->junction = map->next_map->junction;
-      map_cpy->next_map->map = gt_map_copy(map->next_map->map);
+      map_cpy->next_block = malloc(sizeof(gt_map_junction));
+      map_cpy->next_block->junction = map->next_block->junction;
+      map_cpy->next_block->map = gt_map_copy(map->next_block->map);
     }
   }
   return map_cpy;
@@ -297,8 +308,8 @@ GT_INLINE void gt_map_new_block_iterator(gt_map* const map,gt_map_block_iterator
 GT_INLINE gt_map* gt_map_next_block(gt_map_block_iterator* const map_block_iterator) {
   GT_NULL_CHECK(map_block_iterator);
   register gt_map* returned_map = map_block_iterator->next_map;
-  map_block_iterator->next_map = (returned_map!=NULL && returned_map->next_map!=NULL) ?
-      returned_map->next_map->map : NULL;
+  map_block_iterator->next_map = (returned_map!=NULL && returned_map->next_block!=NULL) ?
+      returned_map->next_block->map : NULL;
   return returned_map;
 }
 
@@ -311,13 +322,13 @@ GT_INLINE void gt_map_new_misms_iterator(gt_map* const map,gt_map_mism_iterator*
   map_mism_iterator->map = map;
   map_mism_iterator->next_pos = 0;
   map_mism_iterator->total_pos = gt_vector_get_used(map->mismatches);
-  map_mism_iterator->next_misms = gt_vector_get_mem(map->mismatches,gt_misms*);
+  map_mism_iterator->next_misms = gt_vector_get_mem(map->mismatches,gt_misms);
 }
 GT_INLINE gt_misms* gt_map_next_misms(gt_map_mism_iterator* const map_mism_iterator) {
   GT_NULL_CHECK(map_mism_iterator);
   GT_MAP_EDITABLE_CHECK(map_mism_iterator->map);
   if (gt_expect_true(map_mism_iterator->next_pos<map_mism_iterator->total_pos)) {
-    register gt_misms* const misms = *(map_mism_iterator->next_misms);
+    register gt_misms* const misms = map_mism_iterator->next_misms;
     ++map_mism_iterator->next_misms;
     ++map_mism_iterator->next_pos;
     return misms;
@@ -330,7 +341,7 @@ GT_INLINE gt_misms* gt_map_dinamic_next_misms(gt_map_mism_iterator* const map_mi
   GT_MAP_EDITABLE_CHECK(map_mism_iterator->map);
   register gt_map* const map = map_mism_iterator->map;
   if (gt_expect_true(map_mism_iterator->next_pos<gt_vector_get_used(map->mismatches))) {
-    register gt_misms* const misms = *gt_vector_get_elm(map->mismatches,map_mism_iterator->next_pos,gt_misms*);
+    register gt_misms* const misms = gt_vector_get_elm(map->mismatches,map_mism_iterator->next_pos,gt_misms);
     ++map_mism_iterator->next_pos;
     return misms;
   } else {

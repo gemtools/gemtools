@@ -120,8 +120,8 @@ GT_INLINE gt_alignment* gt_template_dinamic_next_alignment(gt_template_alignment
 GT_INLINE uint64_t gt_template_next_alignment_pos(gt_template_alignment_iterator* const template_alignment_iterator);
 // Template's Maps iterator ( (end1:map1,end2:map1) , (end1:map2,end2:map2) , ... )
 GT_INLINE void gt_template_new_maps_iterator(gt_template* const template,gt_template_maps_iterator* const template_maps_iterator);
-GT_INLINE gt_status gt_template_next_maps(gt_template_maps_iterator* const template_maps_iterator,gt_map** const map_array);
-GT_INLINE gt_status gt_template_dinamic_next_maps(gt_template_maps_iterator* const template_maps_iterator,gt_map** const map_array);
+GT_INLINE gt_status gt_template_next_maps(gt_template_maps_iterator* const template_maps_iterator,gt_map*** const map_array);
+GT_INLINE gt_status gt_template_dinamic_next_maps(gt_template_maps_iterator* const template_maps_iterator,gt_map*** const map_array);
 GT_INLINE uint64_t gt_template_next_maps_pos(gt_template_maps_iterator* const template_maps_iterator);
 
 #endif /* GT_TEMPLATE_H_ */

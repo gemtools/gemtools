@@ -303,39 +303,32 @@ GT_INLINE void gt_template_new_maps_iterator(
   template_maps_iterator->next_map_array = gt_vector_get_mem(template->mmaps,gt_map*);
 }
 GT_INLINE gt_status gt_template_next_maps(
-    gt_template_maps_iterator* const template_maps_iterator,gt_map** const map_array) {
+    gt_template_maps_iterator* const template_maps_iterator,gt_map*** const map_array) {
   GT_NULL_CHECK(template_maps_iterator); GT_NULL_CHECK(map_array);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_maps_iterator->template);
   register const uint64_t num_blocks = template_maps_iterator->num_blocks;
   if (gt_expect_true(template_maps_iterator->next_pos+num_blocks<=template_maps_iterator->total_pos)) {
-    register gt_map** const map_mem = template_maps_iterator->next_map_array;
-    register uint64_t i;
-    for (i=0;i<num_blocks;++i) {
-      map_array[i]=map_mem[i];
-    }
+    *map_array = template_maps_iterator->next_map_array;
     template_maps_iterator->next_map_array+=num_blocks;
     template_maps_iterator->next_pos+=num_blocks;
     return GT_TEMPLATE_OK;
   } else {
+    *map_array = NULL;
     return GT_TEMPLATE_FAIL;
   }
 }
 GT_INLINE gt_status gt_template_dinamic_next_maps(
-    gt_template_maps_iterator* const template_maps_iterator,gt_map** const map_array) {
+    gt_template_maps_iterator* const template_maps_iterator,gt_map*** const map_array) {
   GT_NULL_CHECK(template_maps_iterator); GT_NULL_CHECK(map_array);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_maps_iterator->template);
   register const uint64_t num_blocks = template_maps_iterator->num_blocks;
   register const gt_template* const template = template_maps_iterator->template;
   if (gt_expect_true(template_maps_iterator->next_pos+num_blocks<=gt_vector_get_used(template->blocks))) {
-    register gt_map** const map_mem =
-        gt_vector_get_elm(template->mmaps,template_maps_iterator->next_pos,gt_map*);
-    register uint64_t i;
-    for (i=0;i<num_blocks;++i) {
-      map_array[i]=map_mem[i];
-    }
+    *map_array = gt_vector_get_elm(template->mmaps,template_maps_iterator->next_pos,gt_map*);
     template_maps_iterator->next_pos+=num_blocks;
     return GT_TEMPLATE_OK;
   } else {
+    *map_array = NULL;
     return GT_TEMPLATE_FAIL;
   }
 }

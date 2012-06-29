@@ -179,7 +179,6 @@ GT_INLINE bool gt_buffered_map_input_test_map(
     }
   }
   // Set extra format attributes
-  map_file_format->separator = block_separator;
   map_file_format->contains_qualities = contains_qualities;
   // map_file_format->num_blocks_template = num_blocks;
   return true;
@@ -221,7 +220,12 @@ GT_INLINE gt_status gt_buffered_map_input_check_map_file_format(gt_buffered_map_
   switch ((**text_line)) { \
     case PLUS: is_negative = false; break; \
     case MINUS: is_negative = true; break; \
-    default: return GT_BMI_PE_BAD_CHARACTER; break; \
+    default: \
+      is_negative = false; \
+      if (gt_expect_false(!gt_is_number((**text_line)))) { \
+        return GT_BMI_PE_BAD_CHARACTER; \
+      } \
+      break; \
   } \
   GT_BMI_TEXT_PARSE_NUMBER(text_line,number); \
   if (is_negative) number = -number; \
@@ -334,7 +338,7 @@ GT_INLINE gt_status gt_bmi_parse_read_block(
   return return_status;
 }
 GT_INLINE gt_status gt_bmi_parse_qualities_block(
-    gt_buffered_map_input* const buffered_map_input,char separator,
+    gt_buffered_map_input* const buffered_map_input,
     uint64_t next_qualities_block_length,char** qualities_block) {
   // Read QUAL_BLOCK
   register uint64_t num_characters = 0;
@@ -351,7 +355,7 @@ GT_INLINE gt_status gt_bmi_parse_qualities_block(
   if (gt_expect_false(num_characters<next_qualities_block_length)) return GT_BMI_PE_QUAL_BAD_PREMATURE_EOB;
   // Return QUAL_BLOCK
   register gt_status return_status;
-  if (buffered_map_input->cursor[0]==separator) {
+  if (gt_is_valid_template_separator(buffered_map_input->cursor[0])) {
     return_status = GT_BMI_PE_PENDING_BLOCKS;
   } else if (buffered_map_input->cursor[0]==TAB) {
     return_status = GT_BMI_PE_EOB;
@@ -498,6 +502,7 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v1(char** text_line,gt_map* map
       misms.base = (**text_line);
       misms.position = position;
       ++position; ++length;
+      GT_BMI_TEXT_NEXT(text_line);
       // Add Mismatch
       gt_map_add_misms(map,&misms);
     } else if ((**text_line)=='(') { // Trim // FIXME: Only at the ends
@@ -514,9 +519,9 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v1(char** text_line,gt_map* map
       // Add Trim
       gt_map_add_misms(map,&misms);
     } else if ((**text_line)=='>') { // Indel/Skip
+      GT_BMI_TEXT_NEXT(text_line);
       // Parse size
       register int64_t size;
-      if (gt_expect_false(!gt_is_number((**text_line)))) return GT_BMI_PE_MISMS_BAD_CHARACTER;
       GT_BMI_TEXT_PARSE_SIGNED_NUMBER(text_line,size);
       // Parse skip type
       if (size > 0 && ((**text_line)==GT_MAP_SKIP_POSITIVE || (**text_line)==GT_MAP_SKIP_NEGATIVE)) {  // INS/DEL
@@ -557,7 +562,7 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v1(char** text_line,gt_map* map
      return GT_BMI_PE_MISMS_BAD_CHARACTER;
     }
   }
-  return (length==map->base_length) ? 0 : GT_BMI_PE_MISMS_BAD_LENGTH;
+  return 0;
 }
 GT_INLINE gt_status gt_bmi_parse_map(char** text_line,gt_map* const map,const gt_lazy_parse_mode parse_mode) {
   GT_NULL_CHECK(text_line);
@@ -786,14 +791,13 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template(
 
   // QUALITIES
   if (input_file->map_type.contains_qualities) {
-    register const char separator = input_file->map_type.separator;
     register uint64_t i;
     error_code=GT_BMI_PE_PENDING_BLOCKS;
     for (i=0;i<num_blocks;++i) {
       if (error_code!=GT_BMI_PE_PENDING_BLOCKS) return GT_BMI_PE_BAD_NUMBER_OF_BLOCKS;
       gt_alignment* alignment = gt_template_get_block(template,i);
-      error_code=gt_bmi_parse_qualities_block(buffered_map_input,
-          separator,alignment->read_length,&alignment->qualities);
+      error_code=gt_bmi_parse_qualities_block(
+          buffered_map_input,alignment->read_length,&alignment->qualities);
       if (error_code!=GT_BMI_PE_PENDING_BLOCKS && error_code!=GT_BMI_PE_EOB) return error_code;
     }
     if (error_code!=GT_BMI_PE_EOB) return GT_BMI_PE_BAD_NUMBER_OF_BLOCKS;
@@ -827,7 +831,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_alignment(
   if (gt_expect_false(error_code!=GT_BMI_PE_EOB)) return error_code;
   // QUALITIES
   if (buffered_map_input->input_file->map_type.contains_qualities) {
-    error_code=gt_bmi_parse_qualities_block(buffered_map_input,0,alignment->read_length,&alignment->qualities);
+    error_code=gt_bmi_parse_qualities_block(buffered_map_input,alignment->read_length,&alignment->qualities);
     if (gt_expect_false(error_code==GT_BMI_PE_PENDING_BLOCKS)) return GT_BMI_PE_BAD_NUMBER_OF_BLOCKS;
     if (gt_expect_false(error_code!=GT_BMI_PE_EOB)) return error_code;
   }
@@ -868,8 +872,8 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template_mismatch_string(gt_temp
   gt_template_maps_iterator template_maps_iterator;
   gt_template_new_maps_iterator(template,&template_maps_iterator);
   register const uint64_t num_blocks_template = gt_vector_get_used(template->blocks);
-  gt_map** map_array = malloc(num_blocks_template*sizeof(gt_map*));
-  while (gt_template_next_maps(&template_maps_iterator,map_array)) {
+  gt_map** map_array;
+  while (gt_template_next_maps(&template_maps_iterator,&map_array)) {
     register uint64_t i;
     for (i=0;i<num_blocks_template;++i) {
       if ((error_code = (map_array[i]->map_misms_format==MISMATCH_STRING_GEMv1) ?

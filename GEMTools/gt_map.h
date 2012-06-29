@@ -27,7 +27,7 @@ typedef struct _gt_map gt_map;
 typedef struct {
   gt_map* map;
   gt_junction_t junction;
-} gt_next_map;
+} gt_map_junction;
 /*
  * Map type
  *   NOTE: Use gt_map (not _gt_map)
@@ -44,7 +44,7 @@ struct _gt_map {
   gt_vector* mismatches; /* (misms_t) */
   char* mismatches_txt;
   /* Multiple Block Map (splice-map, local alignments, ...) */
-  gt_next_map* next_map;
+  gt_map_junction* next_block;
 };
 
 // Iterators
@@ -52,7 +52,7 @@ typedef struct {
   gt_map* map;
   uint64_t next_pos;
   uint64_t total_pos;
-  gt_misms** next_misms;
+  gt_misms* next_misms;
 } gt_map_mism_iterator;
 typedef struct {
   gt_map* map;
@@ -65,8 +65,8 @@ typedef struct {
   GT_MAP_CHECK(map); \
   gt_fatal_check(map->mismatches_txt!=NULL,MAP_MISMS_NOT_PARSED)
 #define GT_MAP_NEXT_BLOCK_CHECK(map) \
-  gt_fatal_check(map->next_map==NULL,NULL_HANDLER); \
-  GT_MAP_CHECK(map->next_map->map)
+  GT_NULL_CHECK(map->next_block); \
+  GT_MAP_CHECK(map->next_block->map)
 
 /*
  * Setup
@@ -105,6 +105,7 @@ GT_INLINE gt_junction_t gt_map_get_next_block_junction(gt_map* const map);
 GT_INLINE int64_t gt_map_get_next_block_distance(gt_map* const map);
 GT_INLINE void gt_map_set_next_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction);
 GT_INLINE gt_map* gt_map_get_last_block(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_num_blocks(gt_map* const map);
 GT_INLINE void gt_map_append_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction);
 /*
  * Map blocks iterator
