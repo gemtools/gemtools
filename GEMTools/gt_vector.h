@@ -57,7 +57,7 @@ typedef struct {
 #define gt_vector_reserve_additional(vector,additional) gt_vector_reserve(vector,gt_vector_get_used(vector)+additional,false)
 #define gt_vector_prepare(vector,data_type,num_elements) \
   gt_vector_cast__clean(vector,sizeof(data_type)); \
-  gt_vector_reserve(vector,num_elements)
+  gt_vector_reserve(vector,num_elements,false)
 // Macro generic iterator
 //  GT_VECTOR_ITERATE(vector_of_ints,elm_iterator,elm_counter,int) {
 //    ..code..
@@ -69,14 +69,14 @@ typedef struct {
 // Add element to the vector (at the end)
 #define gt_vector_insert(vector,element,type) { \
   gt_vector_reserve_additional(vector,1); \
-  *(gt_vector_get_elm(vector,gt_vector_get_used(vector),type))=element; \
+  *(gt_vector_get_free_elm(vector,type))=element; \
   gt_vector_inc_used(vector); \
 }
 
-#ifdef GT_CONSISTENCY_CHECKS
-#define gt_vector_get_elm(vector,position,type) ((type*)gt_vector_get_mem_element(vector,position,sizeof(type)))
-#else
+#ifdef GT_NO_CONSISTENCY_CHECKS
 #define gt_vector_get_elm(vector,position,type) (gt_vector_get_mem(vector,type)+position)
+#else
+#define gt_vector_get_elm(vector,position,type) ((type*)gt_vector_get_mem_element(vector,position,sizeof(type)))
 #endif
 
 GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size);

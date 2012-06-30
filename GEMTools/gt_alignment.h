@@ -30,7 +30,7 @@ typedef struct {
   uint64_t next_pos;
   uint64_t total_pos;
   gt_map** next_map;
-} gt_alignment_iterator;
+} gt_alignment_map_iterator;
 
 /*
  * Checkers
@@ -63,6 +63,8 @@ GT_INLINE void gt_alignment_set_qualities(gt_alignment* const alignment,char* co
 GT_INLINE uint64_t gt_alignment_get_num_counters(gt_alignment* const alignment);
 GT_INLINE uint64_t gt_alignment_get_counter(gt_alignment* const alignment,const uint64_t stratum);
 GT_INLINE void gt_alignment_set_counter(gt_alignment* const alignment,const uint64_t stratum,const uint64_t value);
+GT_INLINE void gt_alignment_dec_counter(gt_alignment* const alignment,const uint64_t stratum);
+GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint64_t stratum);
 
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,const uint64_t max_complete_strata);
@@ -79,6 +81,7 @@ GT_INLINE uint64_t gt_alignment_get_num_maps(gt_alignment* const alignment);
  * Higher-level Methods
  *   (Update global state: counters, ...)
  */
+GT_INLINE void gt_alignment_insert_map__check_dup(gt_alignment* const alignment,gt_map** const map);
 GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map);
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment);
 
@@ -89,9 +92,9 @@ GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment);
 GT_INLINE gt_alignment* gt_alignment_deep_copy(gt_alignment* const alignment);
 
 // Alignment's Maps iterator
-GT_INLINE void gt_alignment_iterator_new(gt_alignment* const alignment,gt_alignment_iterator* const alignment_iterator);
-GT_INLINE gt_map* gt_alignment_next_map(gt_alignment_iterator* const alignment_iterator);
-GT_INLINE gt_map* gt_alignment_dinamic_next_map(gt_alignment_iterator* const alignment_iterator);
-GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_iterator* const alignment_iterator);
+GT_INLINE void gt_alignment_new_map_iterator(gt_alignment* const alignment,gt_alignment_map_iterator* const alignment_map_iterator);
+GT_INLINE gt_map* gt_alignment_next_map(gt_alignment_map_iterator* const alignment_map_iterator);
+GT_INLINE gt_map* gt_alignment_dinamic_next_map(gt_alignment_map_iterator* const alignment_map_iterator);
+GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const alignment_map_iterator);
 
 #endif /* GT_ALIGNMENT_H_ */

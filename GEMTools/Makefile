@@ -5,14 +5,14 @@
 # DESCRIPTION: // TODO
 #============================================================================
 
-GEM_TOOLS=gem-map-filter
+GEM_TOOLS=gem-map-filter gem-map-2-fastq
 SRCS=gem_tools.c gt_alignment.c gt_buffered_map_input.c gt_buffered_output_file.c \
      gt_input_file.c gt_map.c gt_misms.c gt_template.c gt_vector.c gt_error.c gt_commons.c
      # gt_output_buffer.c gt_output_map.c gt_output_sam.c 
 CC=gcc
 AR=ar
 ARCH_FLAGS=-D__LINUX__ -msse3 -mssse3 -msse4.2 -fPIC
-SUPPRESS_CHECKS=-DNDEBUG
+SUPPRESS_CHECKS=-DNDEBUG -DGT_NO_CONSISTENCY_CHECKS
 OPTIMIZTION_FLAGS=-O4 -fomit-frame-pointer -ftree-vectorize $(SUPPRESS_CHECKS)
 DEBUG_FLAGS=-g -ggdb3
 LIBS=-lpthread
@@ -31,4 +31,4 @@ $(GEM_TOOLS): $(OBJS)
 	$(CC) $(ARCH_FLAGS) $(OPTIMIZTION_FLAGS) -c $<
 
 clean:
-	@rm -f *.o *.a
+	@rm -f *.o *.a core

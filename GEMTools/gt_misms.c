@@ -7,27 +7,36 @@
 
 #include "gt_misms.h"
 
-GT_INLINE void gt_misms_set_mismatch(gt_misms misms,const uint64_t position,const char base) {
-  misms.misms_type = MISMS;
-  misms.position = position;
-  misms.base = base;
+/*
+ * Constructors
+ */
+GT_INLINE void gt_misms_set_mismatch(gt_misms* const misms,const uint64_t position,const char base) {
+  misms->misms_type = MISMS;
+  misms->position = position;
+  misms->base = base;
 }
-GT_INLINE void gt_misms_set_indel(gt_misms misms,const uint64_t position,const int64_t size) {
-  misms.misms_type = (size>0) ? INS : DEL;
-  misms.position = position;
-  misms.size = size;
+GT_INLINE void gt_misms_set_indel(gt_misms* const misms,const uint64_t position,const int64_t size) {
+  misms->misms_type = (size>0) ? INS : DEL;
+  misms->position = position;
+  misms->size = (size>0) ? size : -size;
 }
-GT_INLINE gt_misms_t gt_misms_get_type(const gt_misms misms) {
-  return misms.misms_type;
+
+/*
+ * Accessors
+ */
+GT_INLINE gt_misms_t gt_misms_get_type(gt_misms* const misms) {
+  return misms->misms_type;
 }
-GT_INLINE uint64_t gt_misms_get_position(const gt_misms misms) {
-  return misms.position;
+GT_INLINE uint64_t gt_misms_get_position(gt_misms* const misms) {
+  return misms->position;
 }
-GT_INLINE uint64_t gt_misms_get_size(const gt_misms misms) {
-  gt_check(misms.misms_type==MISMS,MISMS_TYPE);
-  return misms.size;
+// Mismatches
+GT_INLINE char gt_misms_get_base(gt_misms* const misms) {
+  gt_check(misms->misms_type!=MISMS,MISMS_TYPE);
+  return misms->base;
 }
-GT_INLINE char gt_misms_get_base(const gt_misms misms) {
-  gt_check(misms.misms_type!=MISMS,MISMS_TYPE);
-  return misms.base;
+// Insertion/Deletion
+GT_INLINE uint64_t gt_misms_get_size(gt_misms* const misms) {
+  gt_check(misms->misms_type==MISMS,MISMS_TYPE);
+  return misms->size;
 }

@@ -83,8 +83,8 @@ extern FILE* gt_error_stream;
   } while (0)
 /*
  * Robust checkers
- */ // FIXME
-#ifndef GT_CONSISTENCY_CHECKS
+ */
+#ifndef GT_NO_CONSISTENCY_CHECKS
   #define gt_fatal_check(condition,gt_error_name,args...) gt_cond_fatal_error(condition,gt_error_name,##args)
   #define gt_check(condition,gt_error_name,args...) gt_cond_error(condition,gt_error_name,##args)
 #else
@@ -122,6 +122,7 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_POSITION_OUT_OF_RANGE "Requested position out of range"
 #define GT_ERROR_POSITION_OUT_OF_RANGE_INFO "Requested position (%lu) out of range [%ld,%ld]"
 #define GT_ERROR_MISMS_TYPE "Misms incorrect type"
+#define GT_ERROR_MISMS_SPLICE_POS "Splicing distance must be positive (non-zero)"
 #define GT_ERROR_COUNTERS_POS_STRATUM "Stratum must be strictly positive (stratum>0)"
 #define GT_ERROR_MAP_MISMS_NOT_PARSED "Map's mismatches not parsed yet"
 #define GT_ERROR_ALIGN_READ_QUAL_LENGTH "Read and quality length differs"
@@ -129,6 +130,7 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_TEMPLATE_MAPS_NOT_PARSED "Template's maps not parsed yet"
 #define GT_ERROR_TEMPLATE_ZERO_BLOCKS "Zero alignment blocks (num_blocks_template>0)"
 #define GT_ERROR_TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION "Template inconsistency. Incorrect number of matches' elements (check num_blocks_template)"
+#define GT_ERROR_TEMPLATE_ADD_BAD_NUM_BLOCKS "Trying to add wrong number of blocks to the template"
 #define GT_ERROR_PALIGN_BAD_NUM_BLOCKS "Invalid Paired-alignment. Wrong number of alignment blocks (%lu)"
 
 // Parsing MAP File format errors
