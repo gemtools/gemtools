@@ -75,7 +75,7 @@ int main(int argc,char** argv) {
     register const uint64_t num_blocks = gt_template_get_num_blocks(template);
     register uint64_t i;
     for (i=0;i<num_blocks;++i) {
-      register gt_alignment* alignment = gt_template_get_block(template,0);
+      register gt_alignment* alignment = gt_template_get_block(template,i);
       printf("@%s\n%s\n+\n%s\n",gt_template_get_tag(template),
           gt_alignment_get_read(alignment),gt_alignment_get_qualities(alignment));
     }
