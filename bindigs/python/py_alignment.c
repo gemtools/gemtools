@@ -15,16 +15,20 @@ PyObject* Alignment_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
 }
 
 PyObject* Alignment_gettag(Alignment *self, void *closure){
-    char* tag = gt_alignment_get_tag(self->alignment);
+    char* tag = gempy_alignment_get_tag(self);
     if(tag){
         return PyString_FromString(tag);
     }else if(self->template){
-        tag = gt_template_get_tag(self->template);
-        if(tag){
-            return PyString_FromString(tag);
-        }else{
-            Py_RETURN_NONE;
-        }
+        Py_RETURN_NONE;
+    }
+}
+
+char* gempy_alignment_get_tag(Alignment* self){
+    char* tag = gt_alignment_get_tag(self->alignment);
+    if(tag){
+        return tag;
+    }else if(self->template){
+        return gt_template_get_tag(self->template);
     }
 }
 
@@ -86,6 +90,21 @@ PyObject* Alignment_getcounters(Alignment *self, void *closure){
 int Alignment_setcounters(Alignment *self, PyObject *value, void *closure){
     PyErr_SetString(PyExc_TypeError, "Setting blocks is currently not supported");
     return -1;
+}
+
+PyObject* Alignment_to_sequence(PyObject *self, PyObject *args){
+    char* fastq = "";
+    Alignment* a = (Alignment*) self;
+    char* tag = gempy_alignment_get_tag(a);
+    char* read = gt_alignment_get_read(a->alignment);
+    char* qualities = gt_alignment_get_read(a->alignment);
+
+    if(qualities){
+        sprintf(fastq, "@%s\n%s\n+\n%s", tag, read, qualities);
+    }else{
+        sprintf(fastq, ">%s\n%s", tag, read);
+    }
+    return PyString_FromString(fastq);
 }
 
 Alignment* create_alignment(gt_alignment* alignment, gt_template* parent){

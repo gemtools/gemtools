@@ -27,8 +27,14 @@ PyObject* Alignment_getmax_complete_strata(Alignment *self, void *closure);
 int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *closure);
 PyObject* Alignment_getcounters(Alignment *self, void *closure);
 int Alignment_setcounters(Alignment *self, PyObject *value, void *closure);
+PyObject* Alignment_to_sequence(PyObject *self, PyObject *args);
+char* gempy_alignment_get_tag(Alignment* self);
 
 
+static PyMethodDef Alignmnt_methods[] = {
+    {"to_sequence", Alignment_to_sequence, METH_VARARGS, "Convert alignment Alignment_to_sequence"},
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
 
 static PyGetSetDef Alignment_getseters[] = {
     {"tag", (getter) Alignment_gettag, (setter) Alignment_settag, "Alignment Tag", NULL},
@@ -70,7 +76,7 @@ static PyTypeObject AlignmentType = {
     0,		               /* tp_weaklistoffset */
     0,		               /* tp_iter */
     0,		               /* tp_iternext */
-    0,             /* tp_methods */
+    Alignmnt_methods,             /* tp_methods */
     0,             /* tp_members */
     Alignment_getseters,                         /* tp_getset */
     0,                         /* tp_base */
