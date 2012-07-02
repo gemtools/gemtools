@@ -12,10 +12,11 @@ typedef struct {
   PyObject* tmpl;
 } gempy_template_iterator;
 
-PyObject* gempy_template_iterator_iter(PyObject *self);
-PyObject* gempy_template_iterator_iternext(PyObject *self);
 gempy_template_iterator* create_template_stream_iterator(FILE* file);
 gempy_template_iterator* create_template_file_iterator(char* filename, bool memorymap);
+
+PyObject* gempy_template_iterator_iter(PyObject *self);
+PyObject* gempy_template_iterator_iternext(PyObject *self);
 
 static PyTypeObject gempy_template_iteratorType = {
     PyObject_HEAD_INIT(NULL)
@@ -49,4 +50,7 @@ static PyTypeObject gempy_template_iteratorType = {
     gempy_template_iterator_iter,  /* tp_iter: __iter__() method */
     gempy_template_iterator_iternext  /* tp_iternext: next() method */
 };
+
+
+
 #endif

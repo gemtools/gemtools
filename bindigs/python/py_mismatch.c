@@ -1,50 +1,50 @@
 #include "py_mismatch.h"
 
-static int Mismatch_init(Mismatch *self, PyObject *args, PyObject *kwds){
+int Mismatch_init(Mismatch *self, PyObject *args, PyObject *kwds){
     gt_misms* ms = gt_misms_new();
     self->misms = ms;
     return 0;
 }
 
-static PyObject* Mismatch_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
+PyObject* Mismatch_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     Mismatch *self;
     self = (Mismatch *)type->tp_alloc(type, 0);
     Mismatch_init(self, args, kwds);
     return (PyObject *)self;
 }
 
-static PyObject* Mismatch_getposition(Mismatch *self, void *closure){
+PyObject* Mismatch_getposition(Mismatch *self, void *closure){
     return PyLong_FromUnsignedLongLong(gt_misms_get_position(self->misms));
 }
 
-static int Mismatch_setposition(Mismatch *self, PyObject *value, void *closure){
+int Mismatch_setposition(Mismatch *self, PyObject *value, void *closure){
     //gt_misms_set_position(self->misms, PyLong_AsUnsignedLongLong(value));
     return 0;
 }
 
-static PyObject* Mismatch_getsize(Mismatch *self, void *closure){
+PyObject* Mismatch_getsize(Mismatch *self, void *closure){
     return PyLong_FromUnsignedLongLong(gt_misms_get_size(self->misms));
 }
 
-static int Mismatch_setsize(Mismatch *self, PyObject *value, void *closure){
+int Mismatch_setsize(Mismatch *self, PyObject *value, void *closure){
     //gt_misms_set_size(self->misms, PyLong_AsUnsignedLongLong(value));
     return 0;
 }
 
-static PyObject* Mismatch_gettype(Mismatch *self, void *closure){
+PyObject* Mismatch_gettype(Mismatch *self, void *closure){
     return PyInt_FromLong(gt_misms_get_type(self->misms));
 }
 
-static int Mismatch_settype(Mismatch *self, PyObject *value, void *closure){
+int Mismatch_settype(Mismatch *self, PyObject *value, void *closure){
     //gt_misms_set_type(self->misms, PyInt_AsLong(value));
     return 0;
 }
 
-static PyObject* Mismatch_getbase(Mismatch *self, void *closure){
+PyObject* Mismatch_getbase(Mismatch *self, void *closure){
     return Py_BuildValue("c", gt_misms_get_base(self->misms));
 }
 
-static int Mismatch_setbase(Mismatch *self, PyObject *value, void *closure){
+int Mismatch_setbase(Mismatch *self, PyObject *value, void *closure){
     //gt_misms_set_base(self->misms, PyInt_AsInt(value));
     return 0;
 }

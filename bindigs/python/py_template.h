@@ -10,19 +10,20 @@ typedef struct {
     gt_template* template;
 } Template;
 
-
-static int Template_init(Template *self, PyObject *args, PyObject *kwds);
-static PyObject* Template_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-
-static PyObject* Template_gettag(Template *self, void *closure);
-static int Template_settag(Template *self, PyObject *value, void *closure);
-static PyObject* Template_getmax_complete_strata(Template *self, void *closure);
-static int Template_setmax_complete_strata(Template *self, PyObject *value, void *closure);
-static PyObject* Template_getblocks(Template *self, void *closure);
-static int Template_setblocks(Template *self, PyObject *value, void *closure);
-static PyObject* Template_getcounters(Template *self, void *closure);
-static int Template_setcounters(Template *self, PyObject *value, void *closure);
 Template* create_template(gt_template* template);
+
+int Template_init(Template *self, PyObject *args, PyObject *kwds);
+PyObject* Template_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+
+PyObject* Template_gettag(Template *self, void *closure);
+int Template_settag(Template *self, PyObject *value, void *closure);
+PyObject* Template_getmax_complete_strata(Template *self, void *closure);
+int Template_setmax_complete_strata(Template *self, PyObject *value, void *closure);
+PyObject* Template_getblocks(Template *self, void *closure);
+int Template_setblocks(Template *self, PyObject *value, void *closure);
+PyObject* Template_getcounters(Template *self, void *closure);
+int Template_setcounters(Template *self, PyObject *value, void *closure);
+
 
 static PyGetSetDef Template_getseters[] = {
     {"tag", (getter) Template_gettag, (setter) Template_settag, "Template Tag", NULL},

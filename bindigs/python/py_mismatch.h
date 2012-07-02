@@ -17,16 +17,18 @@ typedef struct {
  * given gr_misms struct
  */
 Mismatch* create_mismatch(gt_misms* map);
-static int Mismatch_init(Mismatch *self, PyObject *args, PyObject *kwds);
-static PyObject* Mismatch_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-static PyObject* Mismatch_getposition(Mismatch *self, void *closure);
-static int Mismatch_setposition(Mismatch *self, PyObject *value, void *closure);
-static PyObject* Mismatch_getsize(Mismatch *self, void *closure);
-static int Mismatch_setsize(Mismatch *self, PyObject *value, void *closure);
-static PyObject* Mismatch_gettype(Mismatch *self, void *closure);
-static int Mismatch_settype(Mismatch *self, PyObject *value, void *closure);
-static PyObject* Mismatch_getbase(Mismatch *self, void *closure);
-static int Mismatch_setbase(Mismatch *self, PyObject *value, void *closure);
+
+
+int Mismatch_init(Mismatch *self, PyObject *args, PyObject *kwds);
+PyObject* Mismatch_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+PyObject* Mismatch_getposition(Mismatch *self, void *closure);
+int Mismatch_setposition(Mismatch *self, PyObject *value, void *closure);
+PyObject* Mismatch_getsize(Mismatch *self, void *closure);
+int Mismatch_setsize(Mismatch *self, PyObject *value, void *closure);
+PyObject* Mismatch_gettype(Mismatch *self, void *closure);
+int Mismatch_settype(Mismatch *self, PyObject *value, void *closure);
+PyObject* Mismatch_getbase(Mismatch *self, void *closure);
+int Mismatch_setbase(Mismatch *self, PyObject *value, void *closure);
 static PyGetSetDef Mismatch_getseters[] = {
     {"type", (getter) Mismatch_gettype, (setter) Mismatch_settype, "Set type", NULL},
     {"position", (getter) Mismatch_getposition, (setter) Mismatch_setposition, "Set position", NULL},

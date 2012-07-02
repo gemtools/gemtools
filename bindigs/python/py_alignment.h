@@ -13,20 +13,22 @@ typedef struct {
     gt_template* template;
 } Alignment;
 
-static int Alignment_init(Alignment *self, PyObject *args, PyObject *kwds);
-static PyObject* Alignment_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-static PyObject* Alignment_gettag(Alignment *self, void *closure);
-static int Alignment_settag(Alignment *self, PyObject *value, void *closure);
-static PyObject* Alignment_getread(Alignment *self, void *closure);
-static int Alignment_setread(Alignment *self, PyObject *value, void *closure);
-static PyObject* Alignment_getqualities(Alignment *self, void *closure);
-static int Alignment_setqualities(Alignment *self, PyObject *value, void *closure);
-static PyObject* Alignment_getmax_complete_strata(Alignment *self, void *closure);
-static int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *closure);
-static PyObject* Alignment_getcounters(Alignment *self, void *closure);
-static int Alignment_setcounters(Alignment *self, PyObject *value, void *closure);
-
 Alignment* create_alignment(gt_alignment* alignment, gt_template* parent);
+
+int Alignment_init(Alignment *self, PyObject *args, PyObject *kwds);
+PyObject* Alignment_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+PyObject* Alignment_gettag(Alignment *self, void *closure);
+int Alignment_settag(Alignment *self, PyObject *value, void *closure);
+PyObject* Alignment_getread(Alignment *self, void *closure);
+int Alignment_setread(Alignment *self, PyObject *value, void *closure);
+PyObject* Alignment_getqualities(Alignment *self, void *closure);
+int Alignment_setqualities(Alignment *self, PyObject *value, void *closure);
+PyObject* Alignment_getmax_complete_strata(Alignment *self, void *closure);
+int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *closure);
+PyObject* Alignment_getcounters(Alignment *self, void *closure);
+int Alignment_setcounters(Alignment *self, PyObject *value, void *closure);
+
+
 
 static PyGetSetDef Alignment_getseters[] = {
     {"tag", (getter) Alignment_gettag, (setter) Alignment_settag, "Alignment Tag", NULL},

@@ -4,29 +4,30 @@
 #include "Python.h"
 #include "structmember.h"
 #include "gem_tools.h"
+#include "py_mismatch.h"
 
 typedef struct {
     PyObject_HEAD
     gt_map* map;
 } Map;
 
-static int Map_init(Map *self, PyObject *args, PyObject *kwds);
-static PyObject* Map_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-static PyObject* Map_getseq_name(Map *self, void *closure);
-static int Map_setseq_name(Map *self, PyObject *value, void *closure);
-static PyObject* Map_getposition(Map *self, void *closure);
-static int Map_setposition(Map *self, PyObject *value, void *closure);
-static PyObject* Map_getscore(Map *self, void *closure);
-static int Map_setscore(Map *self, PyObject *value, void *closure);
-static PyObject* Map_getbase_lengt(Map *self, void *closure);
-static int Map_setbase_length(Map *self, PyObject *value, void *closure);
-static int Map_setdirection(Map *self, PyObject *value, void *closure);
-static PyObject* Map_getmismatches(Map *self, void *closure);
-static int Map_setmismatches(Map *self, PyObject *value, void *closure);
-static PyObject* Map_getdirection(Map *self, void *closure);
-static int Map_setdirection(Map *self, PyObject *value, void *closure);
-
 Map* create_map(gt_map* map);
+
+int Map_init(Map *self, PyObject *args, PyObject *kwds);
+PyObject* Map_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+PyObject* Map_getseq_name(Map *self, void *closure);
+int Map_setseq_name(Map *self, PyObject *value, void *closure);
+PyObject* Map_getposition(Map *self, void *closure);
+int Map_setposition(Map *self, PyObject *value, void *closure);
+PyObject* Map_getscore(Map *self, void *closure);
+int Map_setscore(Map *self, PyObject *value, void *closure);
+PyObject* Map_getbase_lengt(Map *self, void *closure);
+int Map_setbase_length(Map *self, PyObject *value, void *closure);
+int Map_setdirection(Map *self, PyObject *value, void *closure);
+PyObject* Map_getmismatches(Map *self, void *closure);
+int Map_setmismatches(Map *self, PyObject *value, void *closure);
+PyObject* Map_getdirection(Map *self, void *closure);
+int Map_setdirection(Map *self, PyObject *value, void *closure);
 
 static PyGetSetDef Map_getseters[] = {
     {"seq_name", (getter) Map_getseq_name, (setter) Map_setseq_name, "Genomic sequence name", NULL},
@@ -37,7 +38,6 @@ static PyGetSetDef Map_getseters[] = {
     {"mismatches", (getter) Map_getmismatches, (setter) Map_setmismatches, "Mismatches", NULL},
     {NULL}  /* Sentinel */
 };
-
 
 static PyTypeObject MapType = {
     PyObject_HEAD_INIT(NULL)
