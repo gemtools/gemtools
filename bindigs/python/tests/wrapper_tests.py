@@ -61,8 +61,9 @@ if __name__ == "__main__":
 #            print a.tag
 
     for tmpl in gempy.myiter(sys.stdin):
-         print tmpl.tag
+         print "Tag", tmpl.tag
+         print "MCS", tmpl.max_complete_strata
+         print ":".join([str(x) for x in tmpl.counters])
+         for block in tmpl.blocks:
+             print "Block tag", block.tag
 
-#        for ali in tmpl.alignments:
-#            print ali.tag
-#            #print "@%s\n%s\n+\n%s" % (tmpl.tag, ali.read, ali.qualities)
