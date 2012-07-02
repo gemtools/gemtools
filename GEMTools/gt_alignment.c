@@ -83,6 +83,15 @@ GT_INLINE void gt_alignment_set_qualities(gt_alignment* alignment,char* qualitie
       strlen(alignment->qualities)!=alignment->read_length,ALIGN_READ_QUAL_LENGTH);
   alignment->qualities = qualities;
 }
+
+GT_INLINE gt_vector* gt_alignment_get_counters_vector(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return alignment->counters;
+}
+GT_INLINE void gt_alignment_set_counters_vector(gt_alignment* const alignment,gt_vector* const counters) {
+  GT_ALIGNMENT_CHECK(alignment);
+  alignment->counters = counters;
+}
 GT_INLINE uint64_t gt_alignment_get_num_counters(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   return gt_vector_get_used(alignment->counters);
@@ -186,6 +195,27 @@ GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* con
 }
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) {
   // TODO
+}
+GT_INLINE uint64_t gt_alignment_get_min_matching_strata(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if (*counter!=0) return counter_pos+1;
+  }
+  return UINT64_MAX;
+}
+GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,const uint64_t max_allowed_strata) {
+  GT_ALIGNMENT_CHECK(alignment);
+  register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if ((counter_pos+1)>=max_allowed_strata) return false;
+    else if (*counter!=0) return true;
+  }
+  return false;
+}
+GT_INLINE bool gt_alignment_is_mapped(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return gt_alignment_is_thresholded_mapped(alignment,UINT64_MAX);
 }
 
 /*

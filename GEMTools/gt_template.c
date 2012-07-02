@@ -68,15 +68,6 @@ GT_INLINE void gt_template_set_tag(gt_template* const template,char* const tag) 
   template->tag_length = strlen(tag);
 }
 
-GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
-  GT_TEMPLATE_CHECK(template);
-  return template->max_complete_strata;
-}
-GT_INLINE void gt_template_set_mcs(gt_template* const template,const uint64_t max_complete_strata) {
-  GT_TEMPLATE_CHECK(template);
-  template->max_complete_strata = max_complete_strata;
-}
-
 GT_INLINE void gt_template_add_block(gt_template* const template,gt_alignment* const alignment) {
   GT_TEMPLATE_CHECK(template);
   gt_vector_insert(template->blocks,alignment,gt_alignment*);
@@ -111,6 +102,14 @@ GT_INLINE uint64_t gt_template_get_num_blocks(gt_template* const template) {
   return gt_vector_get_used(template->blocks);
 }
 
+GT_INLINE gt_vector* gt_template_get_counters_vector(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  return template->counters;
+}
+GT_INLINE void gt_template_set_counters_vector(gt_template* const template,gt_vector* const counters) {
+  GT_TEMPLATE_CHECK(template);
+  template->counters = counters;
+}
 GT_INLINE uint64_t gt_template_get_num_counters(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   return gt_vector_get_used(template->counters);
@@ -137,6 +136,15 @@ GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_
   gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
   gt_vector_reserve(template->counters,stratum,true);
   *gt_vector_get_elm(template->counters,stratum-1,uint64_t) = value;
+}
+
+GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  return template->max_complete_strata;
+}
+GT_INLINE void gt_template_set_mcs(gt_template* const template,const uint64_t max_complete_strata) {
+  GT_TEMPLATE_CHECK(template);
+  template->max_complete_strata = max_complete_strata;
 }
 
 /*
@@ -227,6 +235,27 @@ GT_INLINE void gt_template_insert_match_gtvector(gt_template* const template,gt_
 GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
   GT_TEMPLATE_EDITABLE_CHECK(template);
   // TODO
+}
+GT_INLINE uint64_t gt_template_get_min_matching_strata(gt_template* const template) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  register gt_vector* vector = gt_template_get_counters_vector(template);
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if (*counter!=0) return counter_pos+1;
+  }
+  return UINT64_MAX;
+}
+GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  register gt_vector* vector = gt_template_get_counters_vector(template);
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if ((counter_pos+1)>=max_allowed_strata) return false;
+    else if (*counter!=0) return true;
+  }
+  return false;
+}
+GT_INLINE bool gt_template_is_mapped(gt_template* const template) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  return gt_template_is_thresholded_mapped(template,UINT64_MAX);
 }
 
 /*
