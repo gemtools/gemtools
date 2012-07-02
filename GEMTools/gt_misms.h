@@ -20,7 +20,7 @@ typedef struct {
   gt_misms_t misms_type;
   uint64_t position;
   union {
-    int64_t size;
+    uint64_t size;
     char base;
   };
 } gt_misms;
@@ -28,8 +28,11 @@ typedef struct {
 /*
  * Constructors
  */
+GT_INLINE gt_misms* gt_misms_new();
+GT_INLINE void gt_misms_delete(gt_misms* misms);
 GT_INLINE void gt_misms_set_mismatch(gt_misms* const misms,const uint64_t position,const char base);
-GT_INLINE void gt_misms_set_indel(gt_misms* const misms,const uint64_t position,const int64_t size);
+GT_INLINE void gt_misms_set_insertion(gt_misms* const misms,const uint64_t position,const uint64_t size);
+GT_INLINE void gt_misms_set_deletion(gt_misms* const misms,const uint64_t position,const uint64_t size);
 
 /*
  * Accessors

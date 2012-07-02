@@ -60,6 +60,9 @@ GT_INLINE void gt_alignment_set_read(gt_alignment* const alignment,char* const r
 GT_INLINE char* gt_alignment_get_qualities(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_qualities(gt_alignment* const alignment,char* const qualities);
 
+GT_INLINE gt_vector* gt_alignment_get_counters_vector(gt_alignment* const alignment);
+GT_INLINE void gt_alignment_set_counters_vector(gt_alignment* const alignment,gt_vector* const counters);
+
 GT_INLINE uint64_t gt_alignment_get_num_counters(gt_alignment* const alignment);
 GT_INLINE uint64_t gt_alignment_get_counter(gt_alignment* const alignment,const uint64_t stratum);
 GT_INLINE void gt_alignment_set_counter(gt_alignment* const alignment,const uint64_t stratum,const uint64_t value);
@@ -84,6 +87,9 @@ GT_INLINE uint64_t gt_alignment_get_num_maps(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_insert_map__check_dup(gt_alignment* const alignment,gt_map** const map);
 GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map);
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment);
+GT_INLINE uint64_t gt_alignment_get_min_matching_strata(gt_alignment* const alignment);
+GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,const uint64_t max_allowed_strata);
+GT_INLINE bool gt_alignment_is_mapped(gt_alignment* const alignment);
 
 /*
  * Miscellaneous

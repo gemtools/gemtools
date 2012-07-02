@@ -9,9 +9,9 @@
 #define GT_COMMONS_H_
 
 #include <stdio.h>
-#include <malloc.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdlib.h>
 
 #include <sys/stat.h>
@@ -120,10 +120,32 @@ extern bool gt_dna[256];
 #include "gt_vector.h"
 
 /*
- * Helper functions (FUNCTIONAL)
+ * MAP file format constants
  */
-uint64_t gt_calculate_num_maps(
-    const uint64_t num_decoded_strata,const uint64_t num_decoded_matches,
-    const uint64_t first_stratum_threshold);
+#define GT_MAP_MCS '+'
+#define GT_MAP_COUNTS_SEP ':'
+#define GT_MAP_COUNTS_TIMES 'x'
+#define GT_MAP_SEP ':'
+#define GT_MAP_NONE '-'
+#define GT_MAP_NEXT ','
+
+#define GT_MAP_SSEP ":"
+#define GT_MAP_SNEXT ","
+#define GT_MAP_TEMPLATE_SEP "::"
+#define GT_MAP_SMCS "+"
+#define GT_MAP_COUNTS_STIMES "x"
+
+#define GT_MAP_STRAND_FORWARD_SYMBOL '+'
+#define GT_MAP_STRAND_FORWARD_LETTER 'F'
+#define GT_MAP_STRAND_REVERSE_SYMBOL '-'
+#define GT_MAP_STRAND_REVERSE_LETTER 'R'
+
+#define GT_MAP_INDEL_INSERTION '+'
+#define GT_MAP_INDEL_DELETION '-'
+#define GT_MAP_INDEL_SPLICE '*'
+
+#define GT_MAP_SKIP_POSITIVE '+'
+#define GT_MAP_SKIP_NEGATIVE '-'
+#define GT_MAP_SKIP_SPLICE '*'
 
 #endif /* GT_COMMONS_H_ */

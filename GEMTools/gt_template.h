@@ -75,20 +75,23 @@ GT_INLINE void gt_template_clear_mmap_attributes(gt_mmap_attributes* const mmap_
 GT_INLINE char* gt_template_get_tag(gt_template* const template);
 GT_INLINE void gt_template_set_tag(gt_template* const template,char* const tag);
 
-GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template);
-GT_INLINE void gt_template_set_mcs(gt_template* const template,const uint64_t max_complete_strata);
-
 GT_INLINE void gt_template_add_block(gt_template* const template,gt_alignment* const alignment);
 GT_INLINE gt_alignment* gt_template_get_block(gt_template* const template,const uint64_t position);
 GT_INLINE gt_alignment* gt_template_dyn_get_block(gt_template* const template,const uint64_t position);
 GT_INLINE void gt_template_clear_blocks(gt_template* const template);
 GT_INLINE uint64_t gt_template_get_num_blocks(gt_template* const template);
 
+GT_INLINE gt_vector* gt_template_get_counters_vector(gt_template* const template);
+GT_INLINE void gt_template_set_counters_vector(gt_template* const template,gt_vector* const counters);
+
 GT_INLINE uint64_t gt_template_get_num_counters(gt_template* const template);
-GT_INLINE uint64_t gt_template_get_counter(gt_template* const template,const uint64_t stratum);
+GT_INLINE uint64_t gt_template_get_counters(gt_template* const template,const uint64_t stratum);
 GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_t stratum,const uint64_t value);
 GT_INLINE void gt_template_dec_counter(gt_template* const template,const uint64_t stratum);
 GT_INLINE void gt_template_inc_counter(gt_template* const template,const uint64_t stratum);
+
+GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template);
+GT_INLINE void gt_template_set_mcs(gt_template* const template,const uint64_t max_complete_strata);
 
 /*
  * Template's multimaps handlers (Map relation)
@@ -107,6 +110,9 @@ GT_INLINE void gt_template_clear_mmap(gt_template* const template);
  */
 GT_INLINE void gt_template_insert_match_gtvector(gt_template* const template,gt_vector* const maps,gt_mmap_attributes* const mmap_attr);
 GT_INLINE void gt_template_recalculate_counters(gt_template* const template);
+GT_INLINE uint64_t gt_template_get_min_matching_strata(gt_template* const template);
+GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata);
+GT_INLINE bool gt_template_is_mapped(gt_template* const template);
 
 /*
  * Miscellaneous

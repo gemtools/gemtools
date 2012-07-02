@@ -159,7 +159,7 @@ GT_INLINE size_t gt_input_file_next_line(
     GT_INPUT_FILE_CURRENT_CHAR(input_file) = EOL;
     GT_INPUT_FILE_NEXT_CHAR(input_file); // Check DOS EOF
     if (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==DOS_EOL)) {
-      GT_INPUT_FILE_CURRENT_CHAR(input_file) = EOL;
+      GT_INPUT_FILE_CURRENT_CHAR(input_file) = EOS;
       GT_INPUT_FILE_NEXT_CHAR(input_file);
     }
   }

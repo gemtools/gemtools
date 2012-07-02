@@ -19,26 +19,6 @@
 // PE (Parsing Errors)
 // TODO
 
-// Constants
-#define GT_MAP_MCS '+'
-#define GT_MAP_COUNTS_SEP ':'
-#define GT_MAP_COUNTS_TIMES 'x'
-#define GT_MAP_SEP ':'
-#define GT_MAP_NONE '-'
-#define GT_MAP_NEXT ','
-
-#define GT_MAP_STRAND_FORWARD_SYMBOL '+'
-#define GT_MAP_STRAND_FORWARD_LETTER 'F'
-#define GT_MAP_STRAND_REVERSE_SYMBOL '-'
-#define GT_MAP_STRAND_REVERSE_LETTER 'R'
-
-#define GT_MAP_INDEL_INSERTION '+'
-#define GT_MAP_INDEL_DELETION '-'
-#define GT_MAP_INDEL_SPLICE '*'
-
-#define GT_MAP_SKIP_POSITIVE '+'
-#define GT_MAP_SKIP_NEGATIVE '-'
-#define GT_MAP_SKIP_SPLICE '*'
 
 typedef struct {
   /* Input file */
