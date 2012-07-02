@@ -85,7 +85,7 @@ GT_INLINE gt_vector* gt_template_get_counters_vector(gt_template* const template
 GT_INLINE void gt_template_set_counters_vector(gt_template* const template,gt_vector* const counters);
 
 GT_INLINE uint64_t gt_template_get_num_counters(gt_template* const template);
-GT_INLINE uint64_t gt_template_get_counters(gt_template* const template,const uint64_t stratum);
+GT_INLINE uint64_t gt_template_get_counter(gt_template* const template,const uint64_t stratum);
 GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_t stratum,const uint64_t value);
 GT_INLINE void gt_template_dec_counter(gt_template* const template,const uint64_t stratum);
 GT_INLINE void gt_template_inc_counter(gt_template* const template,const uint64_t stratum);
