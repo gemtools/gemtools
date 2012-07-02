@@ -77,27 +77,27 @@ int main(int argc,char** argv) {
     //   Eg. Paired Alignment {(end1.map1,end2.map1),(end1.map2,end2.map2),...}
     GT_TEMPLATE_ITERATE(template,map_array) {
       register const uint64_t template_num_blocks = gt_template_get_num_blocks(template);
-      printf(">> %s  => Is %s (contains %lu blocks)\n", gt_template_get_tag(template),
+      printf(">> %s  => Is %s (contains %"PRIu64" blocks)\n", gt_template_get_tag(template),
         (template_num_blocks==1)?"Single-end":(template_num_blocks==2?"Paired-end":"Weird"),
         template_num_blocks);
       GT_MAP_ARRAY_ITERATE(map_array,map,end_position) {
         // As maps can contain more than one block (due to split maps) we iterate over all of them
-        printf("\t BEGIN_MAPS_BLOCK [TotalDistance=%lu] { ", gt_map_get_global_distance(map));
+        printf("\t BEGIN_MAPS_BLOCK [TotalDistance=%"PRIu64"] { ", gt_map_get_global_distance(map));
         GT_MAP_BLOCKS_ITERATE(map,map_block) {
           printf("\n\t\t%s\t",gt_map_get_seq_name(map_block));
-          printf("InitPos=%lu\t",gt_map_get_position(map_block));
-          printf("EndPos=%lu\t",gt_map_get_position(map_block)+gt_map_get_length(map_block));
-          printf("Len=%lu\t",gt_map_get_length(map_block));
+          printf("InitPos=%"PRIu64"\t",gt_map_get_position(map_block));
+          printf("EndPos=%"PRIu64"\t",gt_map_get_position(map_block)+gt_map_get_length(map_block));
+          printf("Len=%"PRIu64"\t",gt_map_get_length(map_block));
           printf("Strand=%c\t",gt_map_get_direction(map_block)==FORWARD?'F':'R');
-          printf("Dist=%lu\t",gt_map_get_distance(map_block));
-          printf("LevDist=%lu\t",gt_map_get_levenshtein_distance(map_block));
+          printf("Dist=%"PRIu64"\t",gt_map_get_distance(map_block));
+          printf("LevDist=%"PRIu64"\t",gt_map_get_levenshtein_distance(map_block));
 
           printf("Misms{ ");
           GT_MISMS_ITERATE(map_block,misms) {
             if (gt_misms_get_type(misms)==MISMS) {
-              printf("(M,%lu,%c) ",gt_misms_get_position(misms),gt_misms_get_base(misms));
+              printf("(M,%"PRIu64",%c) ",gt_misms_get_position(misms),gt_misms_get_base(misms));
             } else {
-              printf("(%c,%lu,%lu) ",gt_misms_get_type(misms)==INS?'I':'D',
+              printf("(%c,%"PRIu64",%"PRIu64") ",gt_misms_get_type(misms)==INS?'I':'D',
                   gt_misms_get_position(misms),gt_misms_get_size(misms));
             }
           }

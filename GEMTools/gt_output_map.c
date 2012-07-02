@@ -34,12 +34,12 @@ GT_INLINE gt_status gt_output_map_fprint_counters(
       register uint64_t j=i+1;
       while (j<num_counters && *gt_vector_get_elm(counters,j,uint64_t)==0) ++j;
       if (gt_expect_false((j-i)>=GT_BMO_COMPACT_COUNTERS_ZEROS_TH)) {
-        fprintf(file,"0" GT_MAP_COUNTS_STIMES "%lu",(j-i)); i=j;
+        fprintf(file,"0" GT_MAP_COUNTS_STIMES "%"PRIu64,(j-i)); i=j;
       } else {
         fprintf(file,"0"); ++i;
       }
     } else {
-      fprintf(file,"%lu",counter); ++i;
+      fprintf(file,"%"PRIu64,counter); ++i;
     }
   }
   return 0;
