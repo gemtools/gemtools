@@ -73,7 +73,7 @@ GT_INLINE bool gt_buffered_map_input_test_map(
  */
 GT_INLINE void gt_buffered_map_input_prompt_error(
     gt_buffered_map_input* const buffered_map_input,
-    const uint64_t line_num,const gt_status error_code);
+    uint64_t line_num,uint64_t column_pos,const gt_status error_code);
 GT_INLINE void gt_buffered_map_input_next_record(gt_buffered_map_input* const buffered_map_input);
 // Parse Mismatches (From lazy parsing)
 GT_INLINE gt_status gt_buffered_map_input_parse_template_mismatch_string(gt_template* template);
