@@ -9,7 +9,6 @@
 #define GT_COMMONS_H_
 
 #include <stdio.h>
-#include <malloc.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
