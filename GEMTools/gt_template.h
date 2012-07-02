@@ -64,7 +64,7 @@ typedef struct {
 /*
  * Setup
  */
-GT_INLINE gt_template* gt_template_new();
+GT_INLINE gt_template* gt_template_new(void);
 GT_INLINE void gt_template_delete(gt_template* const template);
 GT_INLINE void gt_template_clear(gt_template* const template);
 GT_INLINE void gt_template_clear_mmap_attributes(gt_mmap_attributes* const mmap_attr);

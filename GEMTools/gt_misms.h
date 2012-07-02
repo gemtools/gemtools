@@ -28,7 +28,7 @@ typedef struct {
 /*
  * Constructors
  */
-GT_INLINE gt_misms* gt_misms_new();
+GT_INLINE gt_misms* gt_misms_new(void);
 GT_INLINE void gt_misms_delete(gt_misms* misms);
 GT_INLINE void gt_misms_set_mismatch(gt_misms* const misms,const uint64_t position,const char base);
 GT_INLINE void gt_misms_set_insertion(gt_misms* const misms,const uint64_t position,const uint64_t size);

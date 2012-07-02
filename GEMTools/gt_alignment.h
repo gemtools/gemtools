@@ -44,7 +44,7 @@ typedef struct {
 /*
  * Setup
  */
-GT_INLINE gt_alignment* gt_alignment_new();
+GT_INLINE gt_alignment* gt_alignment_new(void);
 GT_INLINE void gt_alignment_clear(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_delete(gt_alignment* const alignment);
 
