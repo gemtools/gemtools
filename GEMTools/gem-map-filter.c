@@ -81,6 +81,7 @@ int main(int argc,char** argv) {
         (template_num_blocks==1)?"Single-end":(template_num_blocks==2?"Paired-end":"Weird"),
         template_num_blocks);
       GT_MAP_ARRAY_ITERATE(map_array,map,end_position) {
+        gt_alignment* alignment = gt_template_get_block(template,end_position);
         // As maps can contain more than one block (due to split maps) we iterate over all of them
         printf("\t BEGIN_MAPS_BLOCK [TotalDistance=%"PRIu64"] { ", gt_map_get_global_distance(map));
         GT_MAP_BLOCKS_ITERATE(map,map_block) {
@@ -97,10 +98,12 @@ int main(int argc,char** argv) {
           GT_MISMS_ITERATE(map_block,misms) {
             /// IMPORTANT NOTE: Mismatch' Positions are base-0 (like strings in C)
             if (gt_misms_get_type(misms)==MISMS) {
-              printf("(M,%"PRIu64",%c) ",gt_misms_get_position(misms),gt_misms_get_base(misms));
+              printf("(M,%"PRIu64",%c)[%c] ",gt_misms_get_position(misms),gt_misms_get_base(misms),
+                  gt_alignment_get_qualities(alignment)[gt_misms_get_position(misms)]);
             } else {
-              printf("(%c,%"PRIu64",%"PRIu64") ",gt_misms_get_type(misms)==INS?'I':'D',
-                  gt_misms_get_position(misms),gt_misms_get_size(misms));
+              printf("(%c,%"PRIu64",%"PRIu64")[%c] ",gt_misms_get_type(misms)==INS?'I':'D',
+                  gt_misms_get_position(misms),gt_misms_get_size(misms),
+                  gt_alignment_get_qualities(alignment)[gt_misms_get_position(misms)]);
             }
           }
           printf("}");
