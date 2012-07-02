@@ -17,17 +17,17 @@ static PyObject* gempy_open_stream(PyObject *self, PyObject *args){
     p = create_template_stream_iterator(PyFile_AsFile(m));
     if (!p) return NULL;
     return (PyObject *)p;
-}
+};
 
 static PyObject* gempy_open_file(PyObject *self, PyObject *args, PyObject *keywds){
     char* filename;
     gempy_template_iterator *p;
-    if (!PyArg_ParseTuple(args, "s", &m))  return NULL;
+    if (!PyArg_ParseTuple(args, "s", &filename))  return NULL;
 
     p = create_template_file_iterator(filename, false);
     if (!p) return NULL;
     return (PyObject *)p;
-}
+};
 
 static PyMethodDef GempyMethods[] = {
     {"open_file", gempy_open_file, METH_VARARGS, "Iterator over a .map file"},
@@ -38,8 +38,8 @@ static PyMethodDef GempyMethods[] = {
 PyMODINIT_FUNC initgempy(void){
   PyObject* m;
 
-  gempy_iterator.tp_new = PyType_GenericNew;
-  gempy_template_iterator.tp_new = PyType_GenericNew;
+  gempy_iteratorType.tp_new = PyType_GenericNew;
+  gempy_template_iteratorType.tp_new = PyType_GenericNew;
   if (PyType_Ready(&gempy_iteratorType) < 0)  return;
   if (PyType_Ready(&gempy_template_iteratorType) < 0)  return;
   if (PyType_Ready(&MismatchType) < 0)  return;

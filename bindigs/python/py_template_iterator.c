@@ -21,7 +21,7 @@ PyObject* gempy_template_iterator_iternext(PyObject *self){
     }
     /* Raising of standard StopIteration exception with empty value. */
     PyErr_SetNone(PyExc_StopIteration);
-    return NULL;
+    return (PyObject*) NULL;
 }
 
 
@@ -32,7 +32,7 @@ gempy_template_iterator* create_template_stream_iterator(FILE* file){
     p->map_input = gt_buffered_map_input_new(gt_input_stream_open(file));
     p->template = gt_template_new();
     p->tmpl = NULL;
-    return (PyObject *)p;
+    return (gempy_template_iterator *)p;
 }
 
 gempy_template_iterator* create_template_file_iterator(char* filename, bool memorymap){
@@ -42,6 +42,6 @@ gempy_template_iterator* create_template_file_iterator(char* filename, bool memo
     p->map_input = gt_buffered_map_input_new(gt_input_file_open(filename, memorymap)); // false disable memory map
     p->template = gt_template_new();
     p->tmpl = NULL;
-    return (PyObject *)p;
+    return (gempy_template_iterator *)p;
 
 }

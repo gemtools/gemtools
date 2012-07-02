@@ -1,4 +1,5 @@
 #include "py_alignment.h"
+#include "py_iterator.h"
 
 static int Alignment_init(Alignment *self, PyObject *args, PyObject *kwds){
     self->alignment = gt_alignment_new();

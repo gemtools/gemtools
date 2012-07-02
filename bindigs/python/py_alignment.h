@@ -23,7 +23,7 @@ static PyObject* Alignment_getqualities(Alignment *self, void *closure);
 static int Alignment_setqualities(Alignment *self, PyObject *value, void *closure);
 static PyObject* Alignment_getmax_complete_strata(Alignment *self, void *closure);
 static int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *closure);
-static PyObject* Alignment_getcounters(Alignment *self, void *closure)
+static PyObject* Alignment_getcounters(Alignment *self, void *closure);
 static int Alignment_setcounters(Alignment *self, PyObject *value, void *closure);
 
 Alignment* create_alignment(gt_alignment* alignment, gt_template* parent);

@@ -1,4 +1,7 @@
 #include "py_template.h"
+#include "py_iterator.h"
+#include "py_alignment.h"
+#include "gem_tools.h"
 
 static int Template_init(Template *self, PyObject *args, PyObject *kwds){
     self->template = gt_template_new();
@@ -39,7 +42,7 @@ static int Template_setblocks(Template *self, PyObject *value, void *closure){
 }
 
 static PyObject* Template_getcounters(Template *self, void *closure){
-    return create_gempy_iterator(1, gt_template_get_num_counters(self->template), gt_template_get_counter, self->template, PyLong_FromUnsignedLongLong, 0);
+    return create_gempy_iterator(1, gt_template_get_num_counters(self->template), gt_template_get_counters, self->template, PyLong_FromUnsignedLongLong, 0);
 }
 
 static int Template_setcounters(Template *self, PyObject *value, void *closure){

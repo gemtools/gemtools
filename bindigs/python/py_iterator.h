@@ -19,7 +19,7 @@ typedef struct {
 
 PyObject* gempy_iterator_iter(PyObject *self);
 PyObject* gempy_iterator_iternext(PyObject *self);
-static PyObject* create_gempy_iterator(uint64_t start, uint64_t length, void* getter, void* arg, void* converter, int parent);
+PyObject* create_gempy_iterator(uint64_t start, uint64_t length, void* getter, void* arg, void* converter, int parent);
 
 static PyTypeObject gempy_iteratorType = {
     PyObject_HEAD_INIT(NULL)

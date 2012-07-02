@@ -1,5 +1,7 @@
 #include "py_map.h"
+
 #include "py_mismatch.h"
+#include "py_iterator.h"
 
 static int Map_init(Map *self, PyObject *args, PyObject *kwds){
     self->map = gt_map_new();
