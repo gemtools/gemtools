@@ -44,9 +44,26 @@ GT_INLINE gt_status gt_output_map_fprint_counters(
   }
   return 0;
 }
-GT_INLINE gt_status gt_output_map_fprint_map(FILE* file,gt_map* const map,const bool print_scores) {
-  // chr11:-:51590050:(5)43T46A9>24*
+GT_INLINE gt_status gt_output_map_fprint_mismatch_string(FILE* file,gt_map* const map) {
+  GT_MAP_BLOCKS_ITERATE(map,map_block) {
+    GT_MISMS_ITERATE(map_block,misms) {
 
+    }
+  }
+}
+GT_INLINE gt_status gt_output_map_fprint_map(FILE* file,gt_map* const map,const bool print_scores) {
+  // FORMAT => chr11:-:51590050:(5)43T46A9>24*
+  // Print sequence name
+  fprintf(file,"%s",gt_map_get_seq_name(map));
+  // Print strand
+  fprintf(file,GT_MAP_SSEP"%c",gt_map_get_direction(map)==FORWARD?GT_MAP_STRAND_FORWARD_SYMBOL:GT_MAP_STRAND_REVERSE_SYMBOL);
+  // Print position
+  fprintf(file,GT_MAP_SSEP"%"PRIu64,gt_map_get_position(map));
+  // Print mismatch string
+
+  // Print attributes (scores)
+
+  return 0;
 }
 GT_INLINE gt_status gt_output_map_fprint_template_maps(
     FILE* file,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
@@ -56,10 +73,17 @@ GT_INLINE gt_status gt_output_map_fprint_template_maps(
   GT_TEMPLATE_ITERATE(template,map_array) {
     if (i>=num_maps) break;
     if ((i++)>0) fprintf(file,GT_MAP_SNEXT);
-    GT_MAP_ARRAY_ITERATE(map_array,map,end_position) {
-      if (end_position>0) fprintf(file,GT_MAP_TEMPLATE_SEP);
-      gt_output_map_fprint_map(file,map,print_scores);
-    }
+//    GT_MAP_ARRAY_ITERATE(map_array,map,end_position) {
+//      register char* last_sequence_name = NULL;
+//      if (end_position>0) fprintf(file,GT_MAP_TEMPLATE_SEP);
+//      GT_MAP_BLOCKS_ITERATE(map,map_block) {
+//        if (last_sequence_name==NULL || strcmp(last_sequence_name,mmap_block)!=0) {
+//          last_sequence_name = gt_map_get_seq_name(map_block);
+//          gt_output_map_fprint_map(file,map,print_scores);
+//        }
+//      }
+//    }
+    // TODO
   }
   fprintf(file,"\n");
   return 0;

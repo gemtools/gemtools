@@ -36,5 +36,4 @@ GT_INLINE uint64_t gt_calculate_num_maps(
     const uint64_t first_stratum_threshold);
 
 
-
 #endif /* GEM_TOOLS_H_ */

@@ -85,6 +85,7 @@ int main(int argc,char** argv) {
         printf("\t BEGIN_MAPS_BLOCK [TotalDistance=%"PRIu64"] { ", gt_map_get_global_distance(map));
         GT_MAP_BLOCKS_ITERATE(map,map_block) {
           printf("\n\t\t%s\t",gt_map_get_seq_name(map_block));
+          /// IMPORTANT NOTE: Positions are base-1 (Genomic coordinates)
           printf("InitPos=%"PRIu64"\t",gt_map_get_position(map_block));
           printf("EndPos=%"PRIu64"\t",gt_map_get_position(map_block)+gt_map_get_length(map_block));
           printf("Len=%"PRIu64"\t",gt_map_get_length(map_block));
@@ -94,6 +95,7 @@ int main(int argc,char** argv) {
 
           printf("Misms{ ");
           GT_MISMS_ITERATE(map_block,misms) {
+            /// IMPORTANT NOTE: Mismatch' Positions are base-0 (like strings in C)
             if (gt_misms_get_type(misms)==MISMS) {
               printf("(M,%"PRIu64",%c) ",gt_misms_get_position(misms),gt_misms_get_base(misms));
             } else {
