@@ -140,12 +140,30 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_PARSE_MAP_BAD_READ_QUAL_LENGTH "Parsing MAP error(%s:%"PRIu64"). Mismatching Read length (%"PRIu64") and Quality length (%"PRIu64")"
 #define GT_ERROR_PARSE_MAP_COUNTERS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Error parsing counters"
 #define GT_ERROR_PARSE_MAP_BAD_TEMPLATE_SEP "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Read character '%c' not valid (%s)"
-#define GT_ERROR_PARSE_MAP_MISMS_TEMPLATE_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Different number of template blocks {read(%"PRIu64"),qualities(%"PRIu64")}"
+#define GT_ERROR_PARSE_MAP_DIFF_TEMPLATE_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Different number of template blocks {read(%"PRIu64"),qualities(%"PRIu64")}"
 #define GT_ERROR_PARSE_MAP_NOT_AN_ALIGNMENT "Parsing MAP error(%s:%"PRIu64"). File doesn't contains simple alignments (use template)"
-
 #define GT_ERROR_PARSE_MAP_MAP_ALREADY_PARSED "Parsing MAP error(%s:%"PRIu64"). Maps already parsed or null lazy-parsing handler"
 #define GT_ERROR_PARSE_MAP_MISMS_ALREADY_PARSED "Parsing MAP error(%s:%"PRIu64"). Mismatch string already parsed or null lazy-parsing handler"
 
+// BMI (Buffered Map Input). General
+#define GT_ERROR_PARSE_MAP_NOT_IMPLEMENTED "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Not implemented yet (sorry)"
+#define GT_ERROR_PARSE_MAP_PREMATURE_EOL "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Premature End-of-line found"
+#define GT_ERROR_PARSE_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Wrong number of blocks"
+#define GT_ERROR_PARSE_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Bad character found"
+// BMI (Buffered Map Input). Parsing Read Errors
+#define GT_ERROR_PARSE_MAP_READ_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing read, bad character found"
+// BMI (Buffered Map Input). Parsing Qualities Errors
+#define GT_ERROR_PARSE_MAP_QUAL_BAD_SEPARATOR "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing quality string, bad block-separator found"
+#define GT_ERROR_PARSE_MAP_QUAL_BAD_PREMATURE_EOB "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing quality string, premature end of qualities (w.r.t. read length)"
+#define GT_ERROR_PARSE_MAP_QUAL_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing quality string, wrong quality value (bad character)"
+// BMI (Buffered Map Input). Parsing Counters Errors
+#define GT_ERROR_PARSE_MAP_COUNTERS_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing counters, bad character found"
+// BMI (Buffered Map Input). Parsing Maps Errors
+#define GT_ERROR_PARSE_MAP_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, wrong number of blocks"
+#define GT_ERROR_PARSE_MAP_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, bad character found"
+// BMI (Buffered Map Input). Parsing Mismatch String Errors
+#define GT_ERROR_PARSE_MAP_MISMS_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, bad character found"
+#define GT_ERROR_PARSE_MAP_MISMS_BAD_MISMS_POS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, unsorted mismatches"
 
 /*
  * General purpose checkers
