@@ -20,11 +20,13 @@ static PyObject* Map_getscore(Map *self, void *closure);
 static int Map_setscore(Map *self, PyObject *value, void *closure);
 static PyObject* Map_getbase_lengt(Map *self, void *closure);
 static int Map_setbase_length(Map *self, PyObject *value, void *closure);
-static int Map_setdirection(Map *self, PyObject *value, void *closure)
+static int Map_setdirection(Map *self, PyObject *value, void *closure);
 static PyObject* Map_getmismatches(Map *self, void *closure);
 static int Map_setmismatches(Map *self, PyObject *value, void *closure);
+static PyObject* Map_getdirection(Map *self, void *closure);
+static int Map_setdirection(Map *self, PyObject *value, void *closure);
 
-Map* create_map(gt_map* map)
+Map* create_map(gt_map* map);
 
 static PyGetSetDef Map_getseters[] = {
     {"seq_name", (getter) Map_getseq_name, (setter) Map_setseq_name, "Genomic sequence name", NULL},

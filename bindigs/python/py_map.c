@@ -65,7 +65,7 @@ static int Map_setdirection(Map *self, PyObject *value, void *closure){
 
 static PyObject* Map_getmismatches(Map *self, void *closure)
 {
-    return py_iterator(0, gt_map_get_num_misms(self->map), gt_map_get_misms, self->map, create_mismatch, 0);
+    return create_gempy_iterator(0, gt_map_get_num_misms(self->map), gt_map_get_misms, self->map, create_mismatch, 0);
 }
 
 static int Map_setmismatches(Map *self, PyObject *value, void *closure){

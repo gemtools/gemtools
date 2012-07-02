@@ -30,7 +30,7 @@ static int Template_setmax_complete_strata(Template *self, PyObject *value, void
 }
 
 static PyObject* Template_getblocks(Template *self, void *closure){
-    return py_iterator(0, gt_template_get_num_blocks(self->template), gt_template_get_block, self->template, create_alignment, 1);
+    return create_gempy_iterator(0, gt_template_get_num_blocks(self->template), gt_template_get_block, self->template, create_alignment, 1);
 }
 
 static int Template_setblocks(Template *self, PyObject *value, void *closure){
@@ -39,7 +39,7 @@ static int Template_setblocks(Template *self, PyObject *value, void *closure){
 }
 
 static PyObject* Template_getcounters(Template *self, void *closure){
-    return py_iterator(1, gt_template_get_num_counters(self->template), gt_template_get_counter, self->template, PyLong_FromUnsignedLongLong, 0);
+    return create_gempy_iterator(1, gt_template_get_num_counters(self->template), gt_template_get_counter, self->template, PyLong_FromUnsignedLongLong, 0);
 }
 
 static int Template_setcounters(Template *self, PyObject *value, void *closure){

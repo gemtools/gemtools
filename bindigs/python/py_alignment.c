@@ -79,7 +79,7 @@ static int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, vo
 }
 
 static PyObject* Alignment_getcounters(Alignment *self, void *closure){
-    return py_iterator(1, gt_alignment_get_num_counters(self->alignment), gt_alignment_get_counter, self->alignment, PyLong_FromUnsignedLongLong, 0);
+    return create_gempy_iterator(1, gt_alignment_get_num_counters(self->alignment), gt_alignment_get_counter, self->alignment, PyLong_FromUnsignedLongLong, 0);
 }
 
 static int Alignment_setcounters(Alignment *self, PyObject *value, void *closure){

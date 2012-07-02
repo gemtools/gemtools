@@ -13,6 +13,7 @@ typedef struct {
 
 static int Template_init(Template *self, PyObject *args, PyObject *kwds);
 static PyObject* Template_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+
 static PyObject* Template_gettag(Template *self, void *closure);
 static int Template_settag(Template *self, PyObject *value, void *closure);
 static PyObject* Template_getmax_complete_strata(Template *self, void *closure);
