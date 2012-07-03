@@ -50,8 +50,3 @@ int Mismatch_setbase(Mismatch *self, PyObject *value, void *closure){
 }
 
 
-Mismatch* create_mismatch(gt_misms* map){
-    Mismatch* a = PyObject_New(Mismatch, &MismatchType);
-    a->misms = map;
-    return a;
-}

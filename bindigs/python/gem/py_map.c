@@ -76,8 +76,4 @@ int Map_setmismatches(Map *self, PyObject *value, void *closure){
     return -1;
 }
 
-Map* create_map(gt_map* map){
-    Map* a = PyObject_New(Map, &MapType);
-    a->map = map;
-    return a;
-}
+

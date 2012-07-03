@@ -17,4 +17,6 @@ test: gempy
 
 clean:
 	@rm -f *.o *.a *.so gemtools.py *.pyc gem/*.pyc tests/*.pyc
-	@rm -Rf testresults build GemPy.egg-info
+	@rm -Rf testresults build Gem.egg-info
+	@rm -f gem/*.pyc gem/*.so
+	@rm -f test/*.pyc 

@@ -93,23 +93,24 @@ int Alignment_setcounters(Alignment *self, PyObject *value, void *closure){
 }
 
 PyObject* Alignment_to_sequence(PyObject *self, PyObject *args){
-    char* fastq = "";
+
     Alignment* a = (Alignment*) self;
     char* tag = gempy_alignment_get_tag(a);
     char* read = gt_alignment_get_read(a->alignment);
-    char* qualities = gt_alignment_get_read(a->alignment);
+    char* qualities = gt_alignment_get_qualities(a->alignment);
+    char* fastq = NULL;
+    PyObject* result = NULL;
 
     if(qualities){
+        fastq = malloc((strlen(tag)+strlen(read)+strlen(qualities)+5)* sizeof(char));
         sprintf(fastq, "@%s\n%s\n+\n%s", tag, read, qualities);
     }else{
+        fastq = malloc((strlen(tag)+strlen(read)+2)* sizeof(char));
         sprintf(fastq, ">%s\n%s", tag, read);
     }
-    return PyString_FromString(fastq);
+    result = PyString_FromString(fastq);
+    free(fastq);
+    return result;
 }
 
-Alignment* create_alignment(gt_alignment* alignment, gt_template* parent){
-    Alignment* a = PyObject_New(Alignment, &AlignmentType);
-    a->alignment = alignment;
-    a->template = parent;
-    return a;
-}
+

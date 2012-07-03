@@ -27,16 +27,4 @@ PyObject* gempy_iterator_iternext(PyObject *self){
     }
 }
 
-PyObject* create_gempy_iterator(uint64_t start, uint64_t length, void* getter, void* arg, void* converter, int parent){
-    gempy_iterator *p;
-    p = PyObject_New(gempy_iterator, &gempy_iteratorType);
-    if (!p) return NULL;
-    p->start = start;
-    p->length = length;
-    p->pos = 0;
-    p->getter = getter;
-    p->arg = arg;
-    p->converter = converter;
-    p->parent = parent;
-    return (PyObject *)p;
-}
+

@@ -50,8 +50,4 @@ int Template_setcounters(Template *self, PyObject *value, void *closure){
     return -1;
 }
 
-Template* create_template(gt_template* template){
-    Template* tmpl = PyObject_New(Template, &TemplateType);
-    tmpl->template = template;
-    return tmpl;
-}
+
