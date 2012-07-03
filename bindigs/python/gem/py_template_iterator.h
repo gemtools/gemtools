@@ -3,13 +3,11 @@
 
 #include "Python.h"
 #include "gem_tools.h"
-#include "py_template.h"
 
 typedef struct {
   PyObject_HEAD
   gt_template* template;
   gt_buffered_map_input* map_input;
-  PyObject* tmpl;
 } gempy_template_iterator;
 
 gempy_template_iterator* create_template_stream_iterator(FILE* file);
@@ -21,7 +19,7 @@ PyObject* gempy_template_iterator_iternext(PyObject *self);
 static PyTypeObject gempy_template_iteratorType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /*ob_size*/
-    "gempy._template_iterator",            /*tp_name*/
+    "gem.gemtools._template_iterator",            /*tp_name*/
     sizeof(gempy_template_iterator),       /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     0,                         /*tp_dealloc*/

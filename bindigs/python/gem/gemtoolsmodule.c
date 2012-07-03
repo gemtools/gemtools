@@ -21,12 +21,13 @@ static PyObject* gempy_open_stream(PyObject *self, PyObject *args){
 
 static PyObject* gempy_open_file(PyObject *self, PyObject *args, PyObject *keywds){
     char* filename;
+    PyObject* pp;
     gempy_template_iterator *p;
     if (!PyArg_ParseTuple(args, "s", &filename))  return NULL;
-
     p = create_template_file_iterator(filename, false);
     if (!p) return NULL;
-    return (PyObject *)p;
+    pp = (PyObject *)p;
+    return pp;
 };
 
 static PyMethodDef GempyMethods[] = {
@@ -35,7 +36,7 @@ static PyMethodDef GempyMethods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
-PyMODINIT_FUNC initgempy(void){
+PyMODINIT_FUNC initgemtools(void){
   PyObject* m;
 
   gempy_iteratorType.tp_new = PyType_GenericNew;
@@ -47,7 +48,7 @@ PyMODINIT_FUNC initgempy(void){
   if (PyType_Ready(&AlignmentType) < 0)  return;
   if (PyType_Ready(&TemplateType) < 0)  return;
 
-  m = Py_InitModule("gempy", GempyMethods);
+  m = Py_InitModule("gemtools", GempyMethods);
 
   Py_INCREF(&gempy_iteratorType);
   Py_INCREF(&gempy_template_iteratorType);
