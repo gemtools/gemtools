@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-"""Python wrapper around the GEM2 mapper that provides
-ability to feed data into GEM and retreive the mappings"""
+"""Python wrapper around gemtools
+In addition to gemtoosl support, the gem module
+provides ways to start the GEM mapper directly.
+"""
 import os
 import subprocess
 import sys
@@ -13,6 +15,90 @@ from . import filter
 from . import junctions as gemjunctions
 from . import splits
 from . import utils
+
+
+class Template(object):
+    """One line in a gem map file that
+    contains the tag, alignments, counters, map_relations
+    """
+    def __init__(self, gt_template=None):
+        self._gt_template = gt_template
+        self.tag = None
+        self.alignments = []
+        self.counters = []
+        self.multimaps = None
+
+        if(gt_template):
+            self.tag = gt_template.tag
+            # fill alignments ?
+            self.alignments = [Alignment(self, gt.gt_template_get_block(gt_template, i))
+                    for i in xrange(0,
+                                    gt.gt_template_get_num_blocks(gt_template))]
+            self.counters = [gt.gt_template_get_counter(gt_template, i + 1)
+                    for i in xrange(0, gt.gt_template_get_num_counters(gt_template))]
+
+    def __str__(self):
+        if(self.tag):
+            return "\n".join([ str(a) for a in self.alignments])
+        else:
+            return "Empty Template"
+
+
+class Alignment(object):
+    """Alignment"""
+    def __init__(self, tmpl=None, gt_alignment=None):
+        self.tag = None
+        self.qualities = None
+        self.read = None
+        self.counters = []
+        self.maps = []
+        if gt_alignment is not None:
+            ## initialize from alignment
+            tag = gt.gt_alignment_get_tag(gt_alignment)
+            if tag:
+                self.tag = tag
+            else:
+                self.tag = tmpl.tag
+            self.read = gt.gt_alignment_get_read(gt_alignment)
+            self.qualities = gt.gt_alignment_get_qualities(gt_alignment)
+            self.counters = [gt.gt_alignment_get_counter(gt_alignment, i + 1)
+                    for i in xrange(0, gt.gt_alignment_get_num_counters(gt_alignment))]
+            self.maps = [Mapping(self, gt.gt_alignment_get_map(gt_alignment, i))
+                    for i in xrange(0, gt.gt_alignment_get_num_maps(gt_alignment))]
+
+    def __str__(self):
+        return "%s\t%s\t%s\t%s" % (self.tag, self.read, self.qualities, ":".join([str(s) for s in self.counters]))
+
+
+class Mapping(object):
+    def __init__(self, alignment=None, gt_map=None):
+        self.name = None
+        self.position = 0
+        self.length = 0
+        self.strand = "+"
+        self.distance = 0
+        self.score = 0
+        self.mismatches = []
+        self.next_map = None
+        if gt_map:
+            self.name = gt.gt_map_get_seq_name(gt_map)
+            self.position = gt.gt_map_get_position(gt_map)
+            strand = gt.gt_map_get_direction(gt_map)
+            if strand == 1:
+                self.strand = "-"
+            self.length = gt.gt_map_get_base_length(gt_map)
+            self.score = gt.gt_map_get_score(gt_map)
+
+    def __str__(self):
+        return "%s:%s%d:%d" % (self.name, self.strand, self.position, self.length)
+
+
+class Mismatch(object):
+    def __init__(self):
+        self.type = None
+        self.position = 0
+        self.character = None
+        self.size = 0
 
 
 class Read(object):
@@ -33,6 +119,18 @@ class Read(object):
         self.qualities = None
         self.summary = None
         self.mappings = None
+        self.template = None
+        self.alignments = None
+
+    def from_template(self, template, alignment):
+        """Initialize a Read from the given gemtools
+        template"""
+        self.id = gt.gt_template_get_tag(template)
+        self.sequence = gt.gt_alignment_get_read(alignment)
+        self.qualities = gt.gt_alignment_get_qualities(alignment)
+        self.template = template
+        self.alignment = alignment
+
 
     def get_mismatches(self):
         """Parse the mismatch string and return the number
@@ -96,7 +194,6 @@ def _from_fastq(fastq):
         fastq_lines = list(islice(fastq, 4))  # read in chunks of 4
         if not fastq_lines:
             break
-
         read.id = fastq_lines[0].rstrip()[1:]
         read.sequence = fastq_lines[1].rstrip()
         read.qualities = fastq_lines[3].rstrip()
@@ -141,7 +238,7 @@ def _from_map(input):
 
     Arguments
     ---
-    input - a string to a file or an open file descriptor or an iterable
+    input - a string to a file or an open file descriptor
     """
     if input is None:
         raise ValueError("No map input specified")
@@ -154,25 +251,15 @@ def _from_map(input):
         ## open stream
         infile = gt.gt_input_stream_open(input)
 
-    read = Read()
+    py_tmpl = Template()
     template = gt.gt_template_new()
     map_input = gt.gt_buffered_map_input_new(infile)
-
-    error_code = 1
     while True:
-        error_code = gt.gt_buffered_map_input_get_template(map_input, template)
-        if error_code == gt.GT_BMI_FAIL:
-            continue
-        if error_code == 0:
+        value = gt.gtpy_fill_template(py_tmpl, template, map_input)
+        if not value:
             break
-
-        num_blocks = gt.gt_template_get_num_blocks(template)
-        for i in range(0, num_blocks):
-            alignment = gt.gt_template_get_block(template, 0)
-            read.id = gt.gt_template_get_tag(template)
-            read.sequence = gt.gt_alignment_get_read(alignment)
-            read.qualities = gt.gt_alignment_get_qualities(alignment)
-            yield read
+        print "Yielding", py_tmpl, py_tmpl.tag
+        yield py_tmpl
 
     gt.gt_buffered_map_input_close(map_input)
     gt.gt_input_file_close(infile)
@@ -193,34 +280,7 @@ def _open_file(input):
         fd = zcat.stdout
     else:
         fd = open(input, 'r')
-
     return fd
-
-
-def trim(reads, left_trim=0, right_trim=0):
-    """Trim reads"""
-    for read in reads:
-        if right_trim > 0:
-            read.sequence = read.sequence[left_trim:-right_trim]
-            if read.qualities is not None:
-                read.qualities = read.qualities[left_trim:-right_trim]
-        elif left_trim > 0:
-            read.sequence = read.sequence[left_trim:]
-            if  read.qualities is not None:
-                read.qualities = read.qualities[left_trim:]
-        yield read
-
-
-def unmapped(reads, exclude=-1):
-    """Yield only unmapped reads and reads
-    that have only mappings with mismatches >= exclude
-    """
-    for read in reads:
-        mis = read.get_mismatches()
-        if mis < 0:
-            yield read
-        elif exclude > 0 and mis >= exclude:
-            yield read
 
 
 def _create_input(input):
@@ -259,13 +319,38 @@ def gem_open(input):
             gen = _from_map(content)
         elif file.endswith(".fastq"):
             gen = _from_fastq(content)
-        elif file.endswith(".fastq") or file.endswith(".fa"):
+        elif file.endswith(".fasta") or file.endswith(".fa"):
             gen = _from_fasta(content)
         else:
             raise ValueError("Unsupported file %s" % file)
         for read in gen:
             yield read
 
+
+def trim(reads, left_trim=0, right_trim=0):
+    """Generator function that trims reads"""
+    for read in reads:
+        if right_trim > 0:
+            read.sequence = read.sequence[left_trim:-right_trim]
+            if read.qualities is not None:
+                read.qualities = read.qualities[left_trim:-right_trim]
+        elif left_trim > 0:
+            read.sequence = read.sequence[left_trim:]
+            if  read.qualities is not None:
+                read.qualities = read.qualities[left_trim:]
+        yield read
+
+
+def unmapped(reads, exclude=-1):
+    """Yield only unmapped reads and reads
+    that have only mappings with mismatches >= exclude
+    """
+    for read in reads:
+        mis = read.get_mismatches()
+        if mis < 0:
+            yield read
+        elif exclude > 0 and mis >= exclude:
+            yield read
 
 
 def mapper(input, output, index,
@@ -313,6 +398,11 @@ def mapper(input, output, index,
     out_prefix = output
     if out_prefix.endswith(".map"):
         out_prefix = out_prefix[:-4]
+
+    ## create output directories
+    base = os.path.dirname(os.path.abspath(output))
+    if not os.path.exists(base):
+        os.makedirs(base)
 
     ## prepare the input
     pa = ['gem-mapper', '-I', index,
@@ -457,9 +547,6 @@ def pairalign(input, output, index,
 
     ## return a gen generator on the output
     return filter.gemoutput(output)
-
-
-
 
 
 def score(input, index, output, threads=1):

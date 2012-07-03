@@ -5,25 +5,16 @@
 # DESCRIPTION: // TODO
 #============================================================================
 
-GEM_TOOLS=../../GEMTools
-PY_HOME=/apps/PYTHON/2.7.2
-CC=gcc
-FLAGS=-lpthread -lc -fPIC
-PY_INCLUDE=-I/apps/PYTHON/2.7.2/include/python2.7 -I/apps/PYTHON/2.7.2/lib/python2.7/config
-INCLUDES=$(PY_INCLUDE) -I$(GEM_TOOLS)
-all: gemtools.py
 
-gemtools.py: gem_tools_wrap.o
-	ld -shared $(GEM_TOOLS)/*.o gem_tools_wrap.o -o _gemtools.so
+all: gempy
 
-gem_tools_wrap.c: gem_tools.i
-	swig -Wall -I$(GEM_TOOLS) -python gem_tools.i
+gempy: $(OBJS)
+	rm -Rf build/
+	python setup.py build
 
-gem_tools_wrap.o: gem_tools_wrap.c
-	$(CC) $(FLAGS) $(INCLUDES) -c gem_tools_wrap.c
-
-test: gemtools.py
+test: gempy
 	python -m unittest discover  tests '*_tests.py'
 
 clean:
-	@rm -f *.o *.a *.c *.so gemtools.py *.pyc gem/*.pyc
+	@rm -f *.o *.a *.so gemtools.py *.pyc gem/*.pyc tests/*.pyc
+	@rm -Rf testresults

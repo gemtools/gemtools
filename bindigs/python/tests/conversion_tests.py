@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-import sys
 import unittest
 import gemtools as gt
 import gem
 
-test_mapping = "../../testdata/test.map"
-test_zipped_mapping = "../../testdata/test_zipped.map.gz"
-test_fastq = "../../testdata/test.fastq"
+import testfiles
+
+test_mapping = testfiles.test_map
+test_zipped_mapping = testfiles.test_map_gz
+test_fastq = testfiles.test_fastq
 
 
 class ConversionTestCase(unittest.TestCase):
