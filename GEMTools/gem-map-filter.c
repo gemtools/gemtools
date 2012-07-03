@@ -64,7 +64,7 @@ int main(int argc,char** argv) {
 
   // Open input file
   gt_input_file* input_file = (parameters.name_input_file==NULL) ?
-      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,false);
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,true);
 
   // Parallel working threads
   gt_buffered_map_input* map_input = gt_buffered_map_input_new(input_file);
