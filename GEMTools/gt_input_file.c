@@ -134,9 +134,8 @@ GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
       input_file->eof = true;
     }
     return input_file->buffer_size;
-//  } else if (input_file->file_type== || input_file->global_pos >= input_file->file_size) {
-//    input_file->eof = true;
-//    return 0;
+  } else if (input_file->file_type==MAPPED_FILE || input_file->global_pos < input_file->file_size) {
+    return input_file->file_size-input_file->global_pos;
   } else {
     input_file->eof = true;
     return 0;
