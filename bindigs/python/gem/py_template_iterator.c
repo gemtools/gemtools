@@ -13,10 +13,8 @@ PyObject* gempy_template_iterator_iternext(PyObject *self){
     gt_template* template = p->template;
     while ((error_code=gt_buffered_map_input_get_template(p->map_input,p->template))) {
         if (error_code==GT_BMI_FAIL) continue;
-        GT_TEMPLATE_ITERATE(template, map_array) {
-            tmpl = create_template(template);
-            return (PyObject*) tmpl;
-        }
+        tmpl = create_template(template);
+        return (PyObject*) tmpl;
     }
     /* Raising of standard StopIteration exception with empty value. */
     PyErr_SetNone(PyExc_StopIteration);

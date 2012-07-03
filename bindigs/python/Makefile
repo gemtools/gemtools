@@ -9,11 +9,12 @@
 all: gempy
 
 gempy: $(OBJS)
+	$(MAKE) --directory=../../GEMTools
 	rm -Rf build/
 	python setup.py build
 
 test: gempy
-	python -m unittest discover  tests '*_tests.py'
+	python setup.py nosetests 
 
 clean:
 	@rm -f *.o *.a *.so gemtools.py *.pyc gem/*.pyc tests/*.pyc
