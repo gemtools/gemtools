@@ -12,6 +12,8 @@ test_map = testfiles_dir + "/test.map"
 assert os.path.exists(test_map)
 paired_w_splitmap = testfiles_dir + "/paired_w_splitmap.map"
 assert os.path.exists(test_map)
+bedconvert_map = testfiles_dir + "/bedconvert.map"
+assert os.path.exists(bedconvert_map)
 test_map_gz = testfiles_dir + "/test.map.gz"
 assert os.path.exists(test_map_gz)
 index = testfiles_dir + "/genome.gem"

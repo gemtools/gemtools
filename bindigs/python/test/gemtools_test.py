@@ -123,9 +123,10 @@ def test_template_alignment_mapping_iteration_with_paired_splitmap():
     assert block_count == 8
 
 def test_conversion_to_bed():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles.bedconvert_map)
     for tempalte in infile:
         read = "/1"
+        beds = []
         for alignment in tempalte.blocks:
             rname = alignment.tag
             if not rname.endswith("/1"):
@@ -149,9 +150,15 @@ def test_conversion_to_bed():
                             strand = "-"                    
                     block_count += 1
                     block_starts.append(m.position - 1 - start)
-                    block_sizes.append(m.length)
-                assert start + block_starts[-1] + block_sizes[-1] == end
-                print "%s\t%d\t%d\t%s\t0\t%s\t.\t.\t0,0,0\t%d\t%s\t%s" % (name, start, end, rname, strand, 
+                    block_sizes.append(m.length)                    
+                if not (start + block_starts[-1] + block_sizes[-1]) == end:
+                    print start, end
+                    print block_starts
+                    print block_sizes
+                    assert (start + block_starts[-1] + block_sizes[-1]) == end
+                beds.append("%s\t%d\t%d\t%s\t0\t%s\t.\t.\t0,0,0\t%d\t%s\t%s" % (name, start, end, rname, strand, 
                                                                             block_count,
                                                                             ",".join([str(c) for c in block_sizes]),
-                                                                            ",".join([str(c) for c in block_starts]))
+                                                                            ",".join([str(c) for c in block_starts])))
+        for line in set(beds):
+            print line
