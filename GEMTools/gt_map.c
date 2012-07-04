@@ -198,7 +198,7 @@ GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map) {
   register uint64_t length = 0;
   GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
     length += gt_map_get_length(map_it) +
-        (gt_map_has_next_block(map)?gt_map_get_next_block_distance(map):0);
+        (gt_map_has_next_block(map_it)?gt_map_get_next_block_distance(map_it):0);
   } GT_END_MAP_BLOCKS_ITERATOR;
   return length;
 }
@@ -206,7 +206,7 @@ GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
   register uint64_t distance = 0;
   GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
-    distance += gt_map_get_distance(map_it) + (gt_map_has_next_block(map)?1:0);
+    distance += gt_map_get_distance(map_it) + (gt_map_has_next_block(map_it)?1:0);
   } GT_END_MAP_BLOCKS_ITERATOR;
   return distance;
 }
