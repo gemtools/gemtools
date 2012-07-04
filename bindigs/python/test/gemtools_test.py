@@ -102,7 +102,56 @@ def test_template_mapping_iteration_with_paired_splitmap():
             block_count += 1            
             for m, junction, distance in block:                
                 assert m.seq_name == "chr7"                
-                print "%s:%d %d %d" % (m.seq_name, m.position, junction, distance)
+                #print "%s:%d %d %d" % (m.seq_name, m.position, junction, distance)
                 # assert distance == -1
     print block_count
     assert block_count == 4
+
+def test_template_alignment_mapping_iteration_with_paired_splitmap():    
+    infile = gt.open_file(testfiles.paired_w_splitmap)
+    assert infile != None
+    block_count = 0
+    for template in infile:                
+        for block in template.blocks:                        
+            for mapping in block.mappings:
+                block_count += 1            
+                for m, junction, distance in mapping:                
+                    assert m.seq_name == "chr7"                
+                    #print "%s:%d %d %d" % (m.seq_name, m.position, junction, distance)
+                # assert distance == -1
+    print block_count
+    assert block_count == 8
+
+def test_conversion_to_bed():
+    infile = gt.open_file(testfiles.paired_w_splitmap)
+    for tempalte in infile:
+        read = "/1"
+        for alignment in tempalte.blocks:
+            rname = alignment.tag
+            if not rname.endswith("/1"):
+                    rname += read
+                    read = "/2"
+
+            for mapping in alignment.mappings:
+                block_count = 0
+                block_sizes = []
+                block_starts = []
+                start = -1
+                end = -1
+                name = None
+                strand = "+"
+                for m, junction, distance in mapping:
+                    if start == -1:
+                        name = m.seq_name
+                        start = m.position - 1
+                        end = m.position + m.global_length - 1
+                        if m.direction != 0:
+                            strand = "-"                    
+                    block_count += 1
+                    block_starts.append(m.position - 1 - start)
+                    block_sizes.append(m.length)
+                assert start + block_starts[-1] + block_sizes[-1] == end
+                print "%s\t%d\t%d\t%s\t0\t%s\t.\t.\t0,0,0\t%d\t%s\t%s" % (name, start, end, rname, strand, 
+                                                                            block_count,
+                                                                            ",".join([str(c) for c in block_sizes]),
+                                                                            ",".join([str(c) for c in block_starts]))
