@@ -256,13 +256,13 @@ GT_INLINE void gt_alignment_new_map_iterator(gt_alignment* const alignment,gt_al
 }
 GT_INLINE gt_map* gt_alignment_next_map(gt_alignment_map_iterator* const alignment_map_iterator) {
   GT_NULL_CHECK(alignment_map_iterator);
-  GT_ALIGNMENT_EDITABLE_CHECK(alignment_map_iterator->alignment);
+  GT_ALIGNMENT_EDITABLE_CHECK(alignment_map_iterator->alignment);    
   if (gt_expect_true(alignment_map_iterator->next_pos<alignment_map_iterator->total_pos)) {
     register gt_map* const map = *(alignment_map_iterator->next_map);
     ++alignment_map_iterator->next_map;
-    ++alignment_map_iterator->next_pos;
+    ++alignment_map_iterator->next_pos;        
     return map;
-  } else {
+  } else {    
     return NULL;
   }
 }

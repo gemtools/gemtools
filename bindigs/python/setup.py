@@ -17,7 +17,7 @@ gemtools = Extension('gem.gemtools',
                                    '../../GEMTools/gt_misms.o'],
                     sources=['gem/py_iterator.c', 'gem/py_template_iterator.c',
                                'gem/py_mismatch.c', 'gem/py_map.c', 'gem/py_alignment.c',
-                               'gem/py_template.c', 'gem/gemtoolsmodule.c'])
+                               'gem/py_template.c', 'gem/gemtoolsmodule.c', 'gem/py_mappings_iterator.c'])
 
 
 setup(

@@ -24,6 +24,7 @@ int Template_setblocks(Template *self, PyObject *value, void *closure);
 PyObject* Template_getcounters(Template *self, void *closure);
 int Template_setcounters(Template *self, PyObject *value, void *closure);
 
+//PyObject* Tempalte_iterate_mappings(PyObject* self, PyObject* args);
 
 
 #endif

@@ -20,7 +20,7 @@
 // Orientation (strand)
 typedef enum { FORWARD, REVERSE } gt_strand;
 // Types of junctions between map blocks
-typedef enum { SPLICE, POSITIVE_SKIP, NEGATIVE_SKIP } gt_junction_t;
+typedef enum { NO_JUNCTION, SPLICE, POSITIVE_SKIP, NEGATIVE_SKIP, INSERT } gt_junction_t;
 // Forward declaration of gt_map
 typedef struct _gt_map gt_map;
 // Junction

@@ -1,6 +1,6 @@
 #include "py_map.h"
 
-//#include "py_mismatch.h"
+#include "py_mismatch.h"
 #include "py_iterator.h"
 
 
@@ -48,7 +48,12 @@ int Map_setscore(Map *self, PyObject *value, void *closure){
     return 0;
 }
 
-PyObject* Map_getbase_lengt(Map *self, void *closure){
+// distance
+PyObject* Map_getdistance(Map *self, void *closure){
+    return PyLong_FromUnsignedLongLong(gt_map_get_distance(self->map));   
+}
+
+PyObject* Map_getbase_length(Map *self, void *closure){
     return PyLong_FromUnsignedLongLong(gt_map_get_base_length(self->map));
 }
 
@@ -64,6 +69,45 @@ PyObject* Map_getdirection(Map *self, void *closure){
 int Map_setdirection(Map *self, PyObject *value, void *closure){
     gt_map_set_direction(self->map, PyInt_AsLong(value));
     return 0;
+}
+
+
+// length with indels
+PyObject* Map_getlength(Map *self, void *closure){
+    return PyLong_FromUnsignedLongLong(gt_map_get_length(self->map));   
+}
+
+
+// levenshtein
+PyObject* Map_getlevenshtein(Map *self, void *closure){
+    return PyLong_FromUnsignedLongLong(gt_map_get_levenshtein_distance(self->map));   
+}
+
+
+// global length with indels ?
+PyObject* Map_getglobal_length(Map *self, void *closure){
+    return PyLong_FromUnsignedLongLong(gt_map_get_global_length(self->map));   
+}
+
+// global distance
+PyObject* Map_getglobal_distance(Map *self, void *closure){
+    return PyLong_FromUnsignedLongLong(gt_map_get_global_distance(self->map));   
+}
+
+// global score
+PyObject* Map_getglobal_score(Map *self, void *closure){
+    return PyLong_FromUnsignedLongLong(gt_map_get_global_score(self->map));   
+}
+
+// global levenshtein
+PyObject* Map_getglobal_levenshtein(Map *self, void *closure){
+    return PyLong_FromUnsignedLongLong(gt_map_get_global_levenshtein_distance(self->map));   
+}
+
+;
+// number of mismatches
+PyObject* Map_getnum_mismatches(Map *self, void *closure){
+    return PyLong_FromUnsignedLongLong(gt_map_get_num_misms(self->map));   
 }
 
 PyObject* Map_getmismatches(Map *self, void *closure)

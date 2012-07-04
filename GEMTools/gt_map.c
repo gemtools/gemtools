@@ -124,15 +124,15 @@ GT_INLINE gt_map* gt_map_get_next_block(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
   return (gt_expect_false(map->next_block==NULL)) ? NULL : map->next_block->map;
 }
-GT_INLINE gt_junction_t gt_map_get_next_block_junction(gt_map* const map) {
+GT_INLINE gt_junction_t gt_map_get_next_block_junction(gt_map* const map) {  
   GT_MAP_EDITABLE_CHECK(map);
   GT_MAP_NEXT_BLOCK_CHECK(map);
-  return map->next_block->junction;
+  return (map->next_block == NULL) ? NO_JUNCTION : map->next_block->junction;
 }
 GT_INLINE int64_t gt_map_get_next_block_distance(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
   GT_MAP_NEXT_BLOCK_CHECK(map);
-  return (map->next_block->map->position-(map->position+gt_map_get_length(map)));
+  return (map->next_block == NULL) ? -1 : (map->next_block->map->position-(map->position+gt_map_get_length(map)));
 }
 GT_INLINE void gt_map_set_next_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction) {
   GT_MAP_CHECK(map);
