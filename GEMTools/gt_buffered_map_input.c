@@ -428,8 +428,9 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
   if (gt_expect_false(*text_line==NULL)) return GT_BMI_PE_MISMS_ALREADY_PARSED;
   gt_map_clear_misms(map);
   // Parse Misms
-  register uint64_t last_position = 0;
-  while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=GT_MAP_SEP && (**text_line)!=EOL) {
+  register uint64_t last_position = 0, last_cut_point = 0;  
+  register const uint64_t global_length = map->base_length;
+  while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=GT_MAP_SEP && (**text_line)!=EOL) {      
     gt_misms misms;
     if (gt_is_dna((**text_line))) { // Mismatch
       misms.misms_type = MISMS;
@@ -491,9 +492,10 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
         next_map->seq_name = map->seq_name;
         next_map->position = map->position+position+size;
         next_map->direction = map->direction;
-        next_map->base_length = map->base_length-position;
+        next_map->base_length = global_length-position;        
         // Close current map block
-        map->base_length = position;
+        map->base_length = position - last_cut_point;
+        last_cut_point = position;
         gt_map_set_next_block(map,next_map,SPLICE);
         // Swap maps & Reset length,position
         map = next_map;
