@@ -388,6 +388,9 @@ GT_INLINE gt_status gt_bmi_parse_counters(
   register uint64_t number, strata=1;
   *mcs = 0;
   gt_vector_clean(counters);
+  if (buffered_map_input->cursor[0]==GT_MAP_COUNTS_NOT_UNIQUE) {
+    ++buffered_map_input->cursor;
+  }
   while (gt_expect_true(buffered_map_input->cursor[0]!=TAB && buffered_map_input->cursor[0]!=EOL)) {
     if (gt_is_number(buffered_map_input->cursor[0])) {
       GT_BMI_PARSE_NUMBER(buffered_map_input,number);
@@ -748,7 +751,7 @@ GT_INLINE gt_status gt_bmi_parse_alignment_maps(
   alignment->maps_txt = NULL;
   // Check null maps
   if ((**text_line)!=GT_MAP_NONE) {
-    GT_BMI_TEXT_SKIP_LINE(text_line);
+    GT_BMI_TEXT_SKIP_LINE(text_line); // FIXME: Think twice
     return 0;
   }
   // Parse MAPS

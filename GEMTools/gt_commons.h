@@ -134,6 +134,7 @@ extern bool gt_dna[256];
 #define GT_MAP_TEMPLATE_SEP "::"
 #define GT_MAP_SMCS "+"
 #define GT_MAP_COUNTS_STIMES "x"
+#define GT_MAP_COUNTS_NOT_UNIQUE '!'
 
 #define GT_MAP_STRAND_FORWARD_SYMBOL '+'
 #define GT_MAP_STRAND_FORWARD_LETTER 'F'
