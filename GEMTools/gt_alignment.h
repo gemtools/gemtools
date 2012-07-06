@@ -21,6 +21,7 @@ typedef struct {
   char* qualities;
   gt_vector* counters;
   uint64_t max_complete_strata;
+  bool not_unique_flag;
   gt_vector* maps; /* (gt_map*) */
   char* maps_txt;
 } gt_alignment;

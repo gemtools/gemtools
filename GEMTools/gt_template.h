@@ -21,6 +21,7 @@ typedef struct {
   char* tag;
   uint64_t tag_length;
   uint64_t max_complete_strata;
+  bool not_unique_flag;
   gt_vector* blocks; /* (gt_alignment*) */ /* paired::blocks->used=2 */
   gt_vector* counters;
   gt_vector* mmaps; /* ( (gt_map*) ) */

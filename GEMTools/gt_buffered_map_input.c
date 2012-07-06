@@ -384,12 +384,16 @@ GT_INLINE gt_status gt_bmi_parse_qualities_block(
   return return_status;
 }
 GT_INLINE gt_status gt_bmi_parse_counters(
-    gt_buffered_map_input* const buffered_map_input,gt_vector* const counters,uint64_t* const mcs) {
+    gt_buffered_map_input* const buffered_map_input,gt_vector* const counters,
+    uint64_t* const mcs,bool* const not_unique_flag) {
   register uint64_t number, strata=1;
   *mcs = 0;
   gt_vector_clean(counters);
   if (buffered_map_input->cursor[0]==GT_MAP_COUNTS_NOT_UNIQUE) {
+    *not_unique_flag = true;
     ++buffered_map_input->cursor;
+  } else {
+    *not_unique_flag = false;
   }
   while (gt_expect_true(buffered_map_input->cursor[0]!=TAB && buffered_map_input->cursor[0]!=EOL)) {
     if (gt_is_number(buffered_map_input->cursor[0])) {
@@ -831,7 +835,8 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template(
   }
   // COUNTERS
   if ((error_code=gt_bmi_parse_counters(buffered_map_input,
-      template->counters,&template->max_complete_strata))) return error_code;
+      template->counters,&template->max_complete_strata,
+      &template->not_unique_flag))) return error_code;
   // MAPS (lazy parsing)
   if (GT_BMI_IS_EOL(buffered_map_input)) return GT_BMI_PE_PREMATURE_EOL;
   if (parse_mode!=PARSE_READ) {
@@ -863,7 +868,8 @@ GT_INLINE gt_status gt_buffered_map_input_parse_alignment(
   }
   // COUNTERS
   if ((error_code=gt_bmi_parse_counters(buffered_map_input,
-      alignment->counters,&alignment->max_complete_strata))) return error_code;
+      alignment->counters,&alignment->max_complete_strata,
+      &alignment->not_unique_flag))) return error_code;
   // MAPS (lazy parsing)
   if (GT_BMI_IS_EOL(buffered_map_input)) return GT_BMI_PE_PREMATURE_EOL;
   if (parse_mode!=PARSE_READ) {
