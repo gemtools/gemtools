@@ -497,7 +497,7 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
       } else { // Create a new map block
         gt_map* next_map = gt_map_new();
         next_map->seq_name = map->seq_name;
-        next_map->position = map->position+position+size;
+        next_map->position = map->position+position-last_cut_point+size;
         next_map->direction = map->direction;
         next_map->base_length = global_length-position;        
         // Close current map block
