@@ -17,6 +17,7 @@ typedef struct {
  * given gr_misms struct
  */
 Mismatch* create_mismatch(gt_misms* map);
+void Mismatch_dealloc(Mismatch* map);
 
 
 int Mismatch_init(Mismatch *self, PyObject *args, PyObject *kwds);

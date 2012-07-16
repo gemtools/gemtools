@@ -5,6 +5,11 @@ PyObject* gempy_iterator_iter(PyObject *self){
   return self;
 }
 
+void gempy_iterator_dealloc(gempy_iterator* self){
+    Py_DECREF(self);
+    self->ob_type->tp_free((PyObject*)self);
+}
+
 PyObject* gempy_iterator_iternext(PyObject *self){
     gempy_iterator *p = (gempy_iterator *) self;
     if(p->pos >= p->length){
@@ -16,15 +21,18 @@ PyObject* gempy_iterator_iternext(PyObject *self){
     uint64_t s = p->pos + p->start;
     p->pos++;
     void* result = getter(p->arg, s);
+    PyObject* ret = NULL;
     if(!result){
         Py_RETURN_NONE;
     }else{
         if(p->parent){
-            return converter(result, p->arg);
+            ret = converter(result, p->arg);
         }else{
-            return converter(result);
+            ret = converter(result);
         }
     }
+    //Py_DECREF(ret);
+    return ret;
 }
 
 
