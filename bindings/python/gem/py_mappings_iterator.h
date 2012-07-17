@@ -29,16 +29,16 @@ typedef struct {
 
 PyObject* gempy_alignment_iterator_iter(PyObject *self);
 PyObject* gempy_alignment_iterator_iternext(PyObject *self);
-void gempy_alignment_iterator_dealloc(gempy_alignment_iterator* self);
+void gempy_alignment_iterator_dealloc(PyObject* self);
 
 PyObject* gempy_alignment_mappings_iterator_iter(PyObject *self);
 PyObject* gempy_alignment_mappings_iterator_iternext(PyObject *self);
-void gempy_alignment_mappings_iterator_dealloc(gempy_alignment_iterator* self);
+void gempy_alignment_mappings_iterator_dealloc(PyObject* self);
 
 
 PyObject* gempy_mappings_iterator_iter(PyObject *self);
 PyObject* gempy_mappings_iterator_iternext(PyObject *self);
-void gempy_mappings_iterator_dealloc(gempy_mappings_iterator* self);
+void gempy_mappings_iterator_dealloc(PyObject* self);
 
 gempy_alignment_mappings_iterator* create_alignment_mappings_iterator(gt_alignment* alignment);
 gempy_alignment_iterator* create_template_mappings_iterator(gt_template* template);

@@ -8,21 +8,16 @@ PyObject* gempy_alignment_iterator_iter(PyObject *self){
 
 PyObject* gempy_alignment_iterator_iternext(PyObject *self){
     gempy_alignment_iterator* p = (gempy_alignment_iterator*) self;
-    gt_template* template = p->template;
     gempy_mappings_iterator* iterator = NULL;
     if(p->end_position < p->num_blocks){
         iterator = create_mappings_iterator(p->map_array[p->end_position++]);
         iterator->alignment_iterator = p;
-        //Py_INCREF(iterator);
-        //Py_DECREF(iterator);
         return (PyObject*) iterator;
     }else{
         p->end_position = 1;
         if(gt_template_next_maps(&(p->maps_iterator),&(p->map_array))){
             iterator = create_mappings_iterator(p->map_array[0]);
             iterator->alignment_iterator = p;
-            //Py_INCREF(iterator);
-            //Py_DECREF(iterator);
             return (PyObject*) iterator;
         }
     }
@@ -31,9 +26,8 @@ PyObject* gempy_alignment_iterator_iternext(PyObject *self){
     return (PyObject*) NULL;
 }
 
-void gempy_alignment_iterator_dealloc(gempy_alignment_iterator* self){
-    ////printf("Dealloc alignment_iterator %p\n", self);
-    self->ob_type->tp_free((PyObject*)self);
+void gempy_alignment_iterator_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 
@@ -60,9 +54,8 @@ PyObject* gempy_alignment_mappings_iterator_iternext(PyObject *self){
     return (PyObject*) NULL;
 }
 
-void gempy_alignment_mappings_iterator_dealloc(gempy_alignment_iterator* self){
-    //printf("Dealloc alignment_mappings_iterator %p\n", self);
-    self->ob_type->tp_free((PyObject*)self);
+void gempy_alignment_mappings_iterator_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 
@@ -121,8 +114,7 @@ PyObject* gempy_mappings_iterator_iternext(PyObject *self){
     return (PyObject*) NULL;
 }
 
-void gempy_mappings_iterator_dealloc(gempy_mappings_iterator* self){
-    //printf("Dealloc mappings_iterator %p\n", self);
-    self->ob_type->tp_free((PyObject*)self);
+void gempy_mappings_iterator_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 

@@ -8,8 +8,8 @@ int Template_init(Template *self, PyObject *args, PyObject *kwds){
     return 0;
 }
 
-void Template_dealloc(Template* self){
-    self->ob_type->tp_free((PyObject*)self);
+void Template_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 
@@ -41,15 +41,11 @@ int Template_setmax_complete_strata(Template *self, PyObject *value, void *closu
     return 0;
 }
 
-PyObject* Template_getblocks(Template *self, void *closure){
-    PyObject* ret = create_gempy_iterator(0, gt_template_get_num_blocks(self->template), gt_template_get_block, self->template, create_alignment, 1);
+PyObject* Template_getblocks(PyObject *self, PyObject *closure){
+    Template* tmpl = (Template*) self;
+    PyObject* ret = create_gempy_iterator(0, gt_template_get_num_blocks(tmpl->template), gt_template_get_block, tmpl->template, create_alignment, 1);
     //Py_DECREF(ret);
     return ret;
-}
-
-int Template_setblocks(Template *self, PyObject *value, void *closure){
-    PyErr_SetString(PyExc_TypeError, "Setting blocks is currently not supported");
-    return -1;
 }
 
 PyObject* Template_getcounters(Template *self, void *closure){

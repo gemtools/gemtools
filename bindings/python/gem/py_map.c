@@ -16,8 +16,8 @@ PyObject* Map_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     return (PyObject *)self;
 }
 
-void Map_dealloc(Map* self){
-    self->ob_type->tp_free((PyObject*)self);
+void Map_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 

@@ -16,6 +16,12 @@ gempy: $(OBJS)
 test: gempy
 	python setup.py nosetests --with-xunit 
 
+install: test
+	python setup.py install
+
+install-user: test
+	python setup.py install --user
+
 clean:
 	@rm -f *.o *.a *.so gemtools.py *.pyc gem/*.pyc tests/*.pyc
 	@rm -Rf testresults build Gem.egg-info

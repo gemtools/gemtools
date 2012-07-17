@@ -5,9 +5,8 @@ PyObject* gempy_iterator_iter(PyObject *self){
   return self;
 }
 
-void gempy_iterator_dealloc(gempy_iterator* self){
-    Py_DECREF(self);
-    self->ob_type->tp_free((PyObject*)self);
+void gempy_iterator_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 PyObject* gempy_iterator_iternext(PyObject *self){

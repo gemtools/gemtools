@@ -152,7 +152,7 @@ gempy_template_iterator* create_template_file_iterator(char* filename, bool memo
 
 /******* ALIGNMENT  ********/
 
-static PyObject* Alignment_iterate_mappings(Alignment* self, void* closure){
+static PyObject* Alignment_iterate_mappings(PyObject* self, PyObject* closure){
     Alignment* t = (Alignment*)self;
 
     PyObject* ret =  (PyObject*) create_alignment_mappings_iterator(t->alignment);

@@ -13,9 +13,8 @@ PyObject* Mismatch_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     return (PyObject *)self;
 }
 
-void Mismatch_dealloc(Mismatch* self){
-    Py_DECREF(self);
-    self->ob_type->tp_free((PyObject*)self);
+void Mismatch_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 PyObject* Mismatch_getposition(Mismatch *self, void *closure){

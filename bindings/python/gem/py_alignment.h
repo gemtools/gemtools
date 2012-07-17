@@ -14,7 +14,7 @@ typedef struct {
 } Alignment;
 
 Alignment* create_alignment(gt_alignment* alignment, gt_template* parent);
-void Alignment_dealloc(Alignment* self);
+void Alignment_dealloc(PyObject* self);
 
 int Alignment_init(Alignment *self, PyObject *args, PyObject *kwds);
 PyObject* Alignment_new(PyTypeObject *type, PyObject *args, PyObject *kwds);

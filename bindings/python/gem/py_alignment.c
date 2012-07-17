@@ -14,9 +14,8 @@ PyObject* Alignment_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     return (PyObject *)self;
 }
 
-void Alignment_dealloc(Alignment* self){
-    Py_DECREF(self);
-    self->ob_type->tp_free((PyObject*)self);
+void Alignment_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 
@@ -26,9 +25,8 @@ PyObject* Alignment_gettag(Alignment *self, void *closure){
         PyObject* ret = PyString_FromString(tag);
         //Py_DECREF(ret);
         return ret;
-    }else if(self->template){
-        Py_RETURN_NONE;
     }
+    Py_RETURN_NONE;    
 }
 
 char* gempy_alignment_get_tag(Alignment* self){
@@ -38,6 +36,7 @@ char* gempy_alignment_get_tag(Alignment* self){
     }else if(self->template){
         return gt_template_get_tag(self->template);
     }
+    return NULL;
 }
 
 int Alignment_settag(Alignment *self, PyObject *value, void *closure){

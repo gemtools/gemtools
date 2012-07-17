@@ -17,7 +17,7 @@ int Map_init(Map *self, PyObject *args, PyObject *kwds);
 PyObject* Map_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 // internal construction
 Map* create_map(gt_map* map);
-void Map_dealloc(Map* map);
+void Map_dealloc(PyObject* map);
 
 // seq name
 PyObject* Map_getseq_name(Map *self, void *closure);
