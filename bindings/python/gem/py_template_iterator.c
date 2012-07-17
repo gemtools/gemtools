@@ -27,7 +27,7 @@ PyObject* gempy_template_iterator_iternext(PyObject *self){
 }
 
 void gempy_template_iterator_dealloc(gempy_template_iterator* self){
-    // close the stream and map
+    // close the stream and map    
     gt_buffered_map_input_close(self->map_input);
     // Close files
     gt_input_file_close(self->input_file);

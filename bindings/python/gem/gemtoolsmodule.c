@@ -143,6 +143,7 @@ gempy_template_iterator* create_template_file_iterator(char* filename, bool memo
     p->input_file = gt_input_file_open(filename, memorymap);
     p->map_input = gt_buffered_map_input_new(p->input_file); // false disable memory map
     p->template = gt_template_new();
+    p->tmpl = NULL;
     return (gempy_template_iterator *)p;
 }
 /******* END TEMPLATE ITERATOR ********/

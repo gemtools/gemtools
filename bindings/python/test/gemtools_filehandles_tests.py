@@ -10,4 +10,4 @@ test_fastq = testfiles.test_fastq
 
 def test_open_map_file():
     infile = gt.open_file(testfiles.bedconvert_map)
-    assert infile != null
+    assert infile != None
