@@ -9,6 +9,7 @@ typedef struct {
   gt_template* template;
   gt_buffered_map_input* map_input;
   gt_input_file* input_file;
+  PyObject* tmpl;
 } gempy_template_iterator;
 
 gempy_template_iterator* create_template_stream_iterator(FILE* file);

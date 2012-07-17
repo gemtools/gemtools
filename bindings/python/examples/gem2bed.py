@@ -7,13 +7,13 @@ if __name__ == "__main__":
     for tempalte in infile:
         beds = []
         read = "/1"
-        for alignment in tempalte.blocks:
+        for alignment in tempalte.blocks():
             rname = alignment.tag
             if not rname.endswith("/1"):
                     rname += read
                     read = "/2"
-
-            for mapping in alignment.mappings:
+            mm = alignment.mappings()
+            for mapping in mm:
                 block_count = 0
                 block_sizes = []
                 block_starts = []

@@ -16,10 +16,16 @@ PyObject* Map_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     return (PyObject *)self;
 }
 
+void Map_dealloc(Map* self){
+    self->ob_type->tp_free((PyObject*)self);
+}
+
+
 PyObject* Map_getseq_name(Map *self, void *closure){
     char* tag = gt_map_get_seq_name(self->map);
     if(tag){
-        return PyString_FromString(tag);
+        PyObject* ret = PyString_FromString(tag);
+        return ret;
     }else{
         Py_RETURN_NONE;
     }
@@ -31,7 +37,8 @@ int Map_setseq_name(Map *self, PyObject *value, void *closure){
 }
 
 PyObject* Map_getposition(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_position(self->map));
+    PyObject* ret =  PyLong_FromUnsignedLongLong(gt_map_get_position(self->map));
+    return ret;
 }
 
 int Map_setposition(Map *self, PyObject *value, void *closure){
@@ -40,7 +47,8 @@ int Map_setposition(Map *self, PyObject *value, void *closure){
 }
 
 PyObject* Map_getscore(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_score(self->map));
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_map_get_score(self->map));
+    return ret;
 }
 
 int Map_setscore(Map *self, PyObject *value, void *closure){
@@ -50,11 +58,13 @@ int Map_setscore(Map *self, PyObject *value, void *closure){
 
 // distance
 PyObject* Map_getdistance(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_distance(self->map));   
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_map_get_distance(self->map));
+    return ret;
 }
 
 PyObject* Map_getbase_length(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_base_length(self->map));
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_map_get_base_length(self->map));
+    return ret;
 }
 
 int Map_setbase_length(Map *self, PyObject *value, void *closure){
@@ -63,7 +73,8 @@ int Map_setbase_length(Map *self, PyObject *value, void *closure){
 }
 
 PyObject* Map_getdirection(Map *self, void *closure){
-    return PyInt_FromLong(gt_map_get_direction(self->map));
+    PyObject* ret = PyInt_FromLong(gt_map_get_direction(self->map));
+    return ret;
 }
 
 int Map_setdirection(Map *self, PyObject *value, void *closure){
@@ -74,45 +85,53 @@ int Map_setdirection(Map *self, PyObject *value, void *closure){
 
 // length with indels
 PyObject* Map_getlength(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_length(self->map));   
+    PyObject* ret =  PyLong_FromUnsignedLongLong(gt_map_get_length(self->map));
+    return ret;
 }
 
 
 // levenshtein
 PyObject* Map_getlevenshtein(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_levenshtein_distance(self->map));   
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_map_get_levenshtein_distance(self->map));
+    return ret;
 }
 
 
 // global length with indels ?
 PyObject* Map_getglobal_length(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_global_length(self->map));   
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_map_get_global_length(self->map));
+    return ret;
 }
 
 // global distance
 PyObject* Map_getglobal_distance(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_global_distance(self->map));   
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_map_get_global_distance(self->map));
+    return ret;
 }
 
 // global score
 PyObject* Map_getglobal_score(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_global_score(self->map));   
+    PyObject* ret =  PyLong_FromUnsignedLongLong(gt_map_get_global_score(self->map));
+    return ret;
 }
 
 // global levenshtein
 PyObject* Map_getglobal_levenshtein(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_global_levenshtein_distance(self->map));   
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_map_get_global_levenshtein_distance(self->map));
+    return ret;
 }
 
 ;
 // number of mismatches
 PyObject* Map_getnum_mismatches(Map *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_map_get_num_misms(self->map));   
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_map_get_num_misms(self->map));
+    return ret;
 }
 
 PyObject* Map_getmismatches(Map *self, void *closure)
 {
-    return create_gempy_iterator(0, gt_map_get_num_misms(self->map), gt_map_get_misms, self->map, create_mismatch, 0);
+    PyObject* ret = create_gempy_iterator(0, gt_map_get_num_misms(self->map), gt_map_get_misms, self->map, create_mismatch, 0);
+    return ret;
 }
 
 int Map_setmismatches(Map *self, PyObject *value, void *closure){

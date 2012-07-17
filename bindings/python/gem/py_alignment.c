@@ -14,10 +14,18 @@ PyObject* Alignment_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     return (PyObject *)self;
 }
 
+void Alignment_dealloc(Alignment* self){
+    Py_DECREF(self);
+    self->ob_type->tp_free((PyObject*)self);
+}
+
+
 PyObject* Alignment_gettag(Alignment *self, void *closure){
     char* tag = gempy_alignment_get_tag(self);
     if(tag){
-        return PyString_FromString(tag);
+        PyObject* ret = PyString_FromString(tag);
+        //Py_DECREF(ret);
+        return ret;
     }else if(self->template){
         Py_RETURN_NONE;
     }
@@ -40,7 +48,9 @@ int Alignment_settag(Alignment *self, PyObject *value, void *closure){
 PyObject* Alignment_getread(Alignment *self, void *closure){
     char* read = gt_alignment_get_read(self->alignment);
     if(read){
-        return PyString_FromString(read);
+        PyObject* ret = PyString_FromString(read);
+        //Py_DECREF(ret);
+        return ret;
     }else{
         Py_RETURN_NONE;
     }
@@ -54,7 +64,9 @@ int Alignment_setread(Alignment *self, PyObject *value, void *closure){
 PyObject* Alignment_getqualities(Alignment *self, void *closure){
     char* qual = gt_alignment_get_qualities(self->alignment);
     if(qual){
-        return PyString_FromString(qual);
+        PyObject* ret = PyString_FromString(qual);
+        //Py_DECREF(ret);
+        return ret;
     }else{
         Py_RETURN_NONE;
     }
@@ -66,7 +78,9 @@ int Alignment_setqualities(Alignment *self, PyObject *value, void *closure){
 }
 
 PyObject* Alignment_getmax_complete_strata(Alignment *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_alignment_get_mcs(self->alignment));
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_alignment_get_mcs(self->alignment));
+    //Py_DECREF(ret);
+    return ret;
 }
 
 int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *closure){
@@ -84,7 +98,9 @@ int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *clo
 }
 
 PyObject* Alignment_getcounters(Alignment *self, void *closure){
-    return create_gempy_iterator(1, gt_alignment_get_num_counters(self->alignment), gt_alignment_get_counter, self->alignment, PyLong_FromUnsignedLongLong, 0);
+    PyObject* ret = create_gempy_iterator(1, gt_alignment_get_num_counters(self->alignment), gt_alignment_get_counter, self->alignment, PyLong_FromUnsignedLongLong, 0);
+    //Py_DECREF(ret);
+    return ret;
 }
 
 int Alignment_setcounters(Alignment *self, PyObject *value, void *closure){
@@ -109,8 +125,7 @@ PyObject* Alignment_to_sequence(PyObject *self, PyObject *args){
         sprintf(fastq, ">%s\n%s", tag, read);
     }
     result = PyString_FromString(fastq);
+    Py_DECREF(result);
     free(fastq);
     return result;
 }
-
-

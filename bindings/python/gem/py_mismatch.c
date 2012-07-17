@@ -13,8 +13,14 @@ PyObject* Mismatch_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     return (PyObject *)self;
 }
 
+void Mismatch_dealloc(Mismatch* self){
+    Py_DECREF(self);
+    self->ob_type->tp_free((PyObject*)self);
+}
+
 PyObject* Mismatch_getposition(Mismatch *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_misms_get_position(self->misms));
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_misms_get_position(self->misms));
+    return ret;
 }
 
 int Mismatch_setposition(Mismatch *self, PyObject *value, void *closure){
@@ -23,7 +29,8 @@ int Mismatch_setposition(Mismatch *self, PyObject *value, void *closure){
 }
 
 PyObject* Mismatch_getsize(Mismatch *self, void *closure){
-    return PyLong_FromUnsignedLongLong(gt_misms_get_size(self->misms));
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_misms_get_size(self->misms));
+    return ret;
 }
 
 int Mismatch_setsize(Mismatch *self, PyObject *value, void *closure){
@@ -32,7 +39,8 @@ int Mismatch_setsize(Mismatch *self, PyObject *value, void *closure){
 }
 
 PyObject* Mismatch_gettype(Mismatch *self, void *closure){
-    return PyInt_FromLong(gt_misms_get_type(self->misms));
+    PyObject* ret = PyInt_FromLong(gt_misms_get_type(self->misms));
+    return ret;
 }
 
 int Mismatch_settype(Mismatch *self, PyObject *value, void *closure){
@@ -41,12 +49,11 @@ int Mismatch_settype(Mismatch *self, PyObject *value, void *closure){
 }
 
 PyObject* Mismatch_getbase(Mismatch *self, void *closure){
-    return Py_BuildValue("c", gt_misms_get_base(self->misms));
+    PyObject* ret = Py_BuildValue("c", gt_misms_get_base(self->misms));
+    return ret;
 }
 
 int Mismatch_setbase(Mismatch *self, PyObject *value, void *closure){
     //gt_misms_set_base(self->misms, PyInt_AsInt(value));
     return 0;
 }
-
-

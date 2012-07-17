@@ -505,7 +505,11 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
         gt_map* next_map = gt_map_new();
         gt_map_set_next_block(map,next_map,SPLICE);
         next_map->seq_name = map->seq_name;
+<<<<<<< HEAD
         next_map->position = map->position+map->base_length+size;
+=======
+        next_map->position = map->position+position-last_cut_point+size;
+>>>>>>> 6eee125b45d569551f5b1a88de4bebe5ccdbd303
         next_map->direction = map->direction;
         next_map->base_length = global_length-position;        
         // Swap maps & Reset length,position

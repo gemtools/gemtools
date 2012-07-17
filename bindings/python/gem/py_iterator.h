@@ -17,6 +17,7 @@ typedef struct {
     int parent;
 } gempy_iterator;
 
+void gempy_iterator_dealloc(gempy_iterator* self);
 PyObject* gempy_iterator_iter(PyObject *self);
 PyObject* gempy_iterator_iternext(PyObject *self);
 PyObject* create_gempy_iterator(uint64_t start, uint64_t length, void* getter, void* arg, void* converter, int parent);

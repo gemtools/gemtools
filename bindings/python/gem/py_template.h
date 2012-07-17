@@ -13,6 +13,8 @@ typedef struct {
 Template* create_template(gt_template* template);
 
 int Template_init(Template *self, PyObject *args, PyObject *kwds);
+void Template_dealloc(Template* self);
+
 PyObject* Template_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 
 PyObject* Template_gettag(Template *self, void *closure);

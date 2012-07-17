@@ -18,8 +18,8 @@ static PyGetSetDef Template_getseters[] = {
     {"tag", (getter) Template_gettag, (setter) Template_settag, "Template Tag", NULL},
     {"max_complete_strata", (getter) Template_getmax_complete_strata,
         (setter) Template_setmax_complete_strata, "Max Complete Strata", NULL},
-    {"blocks", (getter) Template_getblocks,
-        (setter) Template_setblocks, "Alignment blocks", NULL},
+//    {"blocks", (getter) Template_getblocks,
+//        (setter) Template_setblocks, "Alignment blocks", NULL},
     {"counters", (getter) Template_getcounters,
         (setter) Template_setcounters, "Counters", NULL},
     {"mappings", (getter) Template_iterate_mappings,
@@ -30,7 +30,7 @@ static PyGetSetDef Template_getseters[] = {
 };
 
 static PyMethodDef Template_Methods[] = {
-    //{"mappings", Template_iterate_mappings, METH_VARARGS, "Iterator over a the mappings of the alignments"},
+    {"blocks", Template_getblocks, METH_VARARGS, "Iterator over the alignment blocks in the template"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -41,7 +41,7 @@ static PyTypeObject TemplateType = {
     "gempy.Template",             /*tp_name*/
     sizeof(Template),             /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
+    Template_dealloc,                         /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -126,6 +126,7 @@ gempy_template_iterator* create_template_stream_iterator(FILE* file){
     p->input_file = gt_input_stream_open(file);
     p->map_input = gt_buffered_map_input_new(p->input_file);
     p->template = gt_template_new();
+    p->tmpl = NULL;
     return (gempy_template_iterator *)p;
 }
 
@@ -152,11 +153,16 @@ gempy_template_iterator* create_template_file_iterator(char* filename, bool memo
 
 static PyObject* Alignment_iterate_mappings(Alignment* self, void* closure){
     Alignment* t = (Alignment*)self;
-    return (PyObject*) create_alignment_mappings_iterator(t->alignment);
+
+    PyObject* ret =  (PyObject*) create_alignment_mappings_iterator(t->alignment);
+    //printf("Create alignment mappings iterator %p\n", ret);
+    //Py_DECREF(ret);
+    return ret;
 }
 
 static PyMethodDef Alignmnt_methods[] = {
     {"to_sequence", Alignment_to_sequence, METH_VARARGS, "Convert alignment Alignment_to_sequence"},
+    {"mappings", Alignment_iterate_mappings, METH_VARARGS, "Iterator over all mappings fir this alignment"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -168,8 +174,8 @@ static PyGetSetDef Alignment_getseters[] = {
         (setter) Alignment_setmax_complete_strata, "Max Complete Strata", NULL},
     {"counters", (getter) Alignment_getcounters, 
         (setter) Alignment_setcounters, "Counters", NULL},
-    {"mappings", (getter) Alignment_iterate_mappings, 
-        NULL, "Iterate the mappings of the alignment", NULL},
+//    {"mappings", (getter) Alignment_iterate_mappings, 
+//        NULL, "Iterate the mappings of the alignment", NULL},
 
     {NULL}  /* Sentinel */
 };
@@ -180,7 +186,7 @@ static PyTypeObject AlignmentType = {
     "gempy.Alignment",             /*tp_name*/
     sizeof(Alignment),             /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, /*tp_dealloc*/
+    Alignment_dealloc, /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -252,7 +258,7 @@ static PyTypeObject MapType = {
     "gempy.Map",             /*tp_name*/
     sizeof(Map),             /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0, /*tp_dealloc*/
+    Map_dealloc, /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -310,7 +316,7 @@ static PyTypeObject MismatchType = {
     "gempy.Mismatch",          /*tp_name*/
     sizeof(Mismatch),          /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
+    Mismatch_dealloc,                         /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -361,7 +367,7 @@ static PyTypeObject gempy_iteratorType = {
     "gempy._iterator",            /*tp_name*/
     sizeof(gempy_iterator),       /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
+    gempy_iterator_dealloc,                         /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -449,6 +455,7 @@ gempy_mappings_iterator* create_mappings_iterator(gt_map* map_block){
     }
     p->map_block = map_block;
     p->alignment_iterator = NULL;
+    //printf("Created mappings_iterator %p\n", p);
     return p;
 }
 
@@ -567,6 +574,7 @@ static PyObject* gempy_open_stream(PyObject *self, PyObject *args){
     if (!PyArg_ParseTuple(args, "O", &m))  return NULL;
     p = create_template_stream_iterator(PyFile_AsFile(m));
     if (!p) return NULL;
+    Py_DECREF(m);
     return (PyObject *)p;
 };
 
