@@ -1,1 +1,10 @@
 bindigs/python/.ropeproject
+*.pyc
+*.o
+*.so
+*.a
+bindings/python/Gem.egg-info/
+bindings/python/build/
+bindings/python/dist/
+bindings/python/nosetests.xml
+

@@ -14,7 +14,7 @@ gempy: $(OBJS)
 	python setup.py build
 
 test: gempy
-	python setup.py nosetests 
+	python setup.py nosetests --with-xunit 
 
 clean:
 	@rm -f *.o *.a *.so gemtools.py *.pyc gem/*.pyc tests/*.pyc
