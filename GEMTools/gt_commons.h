@@ -44,6 +44,7 @@ typedef int32_t gt_status;
 #define DOS_EOL '\r'
 #define PLUS '+'
 #define MINUS '-'
+#define FORMAT '%'
 
 // Buffer sizes
 #define GT_BUFFER_SIZE_1K   ((1<<10)-64)
@@ -114,10 +115,24 @@ extern bool gt_dna[256];
 #define gt_cfree(handler) if (handler!=NULL) free(handler);
 
 /*
+ * Mutex Helpers
+ */
+#define GT_BEGIN_MUTEX_SECTION(mutex) \
+  gt_cond_fatal_error(pthread_mutex_lock(&(mutex)),SYS_MUTEX);
+#define GT_END_MUTEX_SECTION(mutex) \
+  gt_cond_fatal_error(pthread_mutex_unlock(&(mutex)),SYS_MUTEX);
+
+/*
  * GEM-Tools basic includes
  */
 #include "gt_error.h"
 #include "gt_vector.h"
+
+/*
+ * Common constants
+ */
+#define GT_STREAM_FILE_NAME "<<STREAM>>"
+#define GT_ALL UINT64_MAX
 
 /*
  * MAP file format constants
@@ -129,12 +144,14 @@ extern bool gt_dna[256];
 #define GT_MAP_NONE '-'
 #define GT_MAP_NEXT ','
 
-#define GT_MAP_SSEP ":"
-#define GT_MAP_SNEXT ","
+#define GT_MAP_SEP_S ":"
+#define GT_MAP_NEXT_S ","
 #define GT_MAP_TEMPLATE_SEP "::"
+#define GT_MAP_TEMPLATE_SCORE ":::"
 #define GT_MAP_SMCS "+"
 #define GT_MAP_COUNTS_STIMES "x"
 #define GT_MAP_COUNTS_NOT_UNIQUE '!'
+#define GT_MAP_COUNTS_NOT_UNIQUE_S "!"
 
 #define GT_MAP_STRAND_FORWARD_SYMBOL '+'
 #define GT_MAP_STRAND_FORWARD_LETTER 'F'

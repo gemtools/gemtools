@@ -10,47 +10,48 @@
 
 #include "gt_commons.h"
 #include "gt_template.h"
+#include "gt_iterators.h"
 #include "gt_output_buffer.h"
 #include "gt_buffered_output_file.h"
-#include "gt_iterators.h"
-
-/*
- * Buffered Map Output File
- */
-typedef struct {
-  uint64_t block_id;
-  gt_output_buffer* buffer;
-  gt_buffered_output_file* buffered_output_file;
-} gt_buffered_map_output;
-
-/*
- * Setup
- */
-gt_buffered_map_output* gt_buffered_map_output_new(gt_buffered_output_file* const buffered_output_file);
-gt_status gt_buffered_map_output_close(gt_buffered_map_output* const buffered_map_output);
+#include "gt_generic_printer.h"
 
 /*
  * MAP building block printers
  */
-GT_INLINE gt_status gt_output_map_fprint_counters(
-    FILE* file,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact);
+// Generic Printer [G]
+GT_INLINE gt_status gt_output_map_gprint_counters(gt_generic_printer* const gprinter,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact);
+GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,gt_map* const map,const bool print_scores);
+GT_INLINE gt_status gt_output_map_gprint_template_maps(gt_generic_printer* const gprinter,gt_template* const template,const uint64_t num_maps,const bool print_scores);
+GT_INLINE gt_status gt_output_map_gprint_alignment_maps(gt_generic_printer* const gprinter,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
+// Output Buffer [B]
+GT_INLINE gt_status gt_output_map_bprint_counters(gt_output_buffer* const output_buffer,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact);
+GT_INLINE gt_status gt_output_map_bprint_map(gt_output_buffer* const output_buffer,gt_map* const map,const bool print_scores);
+GT_INLINE gt_status gt_output_map_bprint_template_maps(gt_output_buffer* const output_buffer,gt_template* const template,const uint64_t num_maps,const bool print_scores);
+GT_INLINE gt_status gt_output_map_bprint_alignment_maps(gt_output_buffer* const output_buffer,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
+// String [S]
+GT_INLINE gt_status gt_output_map_sprint_counters(char **line_ptr,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact);
+GT_INLINE gt_status gt_output_map_sprint_map(char **line_ptr,gt_map* const map,const bool print_scores);
+GT_INLINE gt_status gt_output_map_sprint_template_maps(char **line_ptr,gt_template* const template,const uint64_t num_maps,const bool print_scores);
+GT_INLINE gt_status gt_output_map_sprint_alignment_maps(char **line_ptr,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
+// File [F]
+GT_INLINE gt_status gt_output_map_fprint_counters(FILE* file,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact);
 GT_INLINE gt_status gt_output_map_fprint_map(FILE* file,gt_map* const map,const bool print_scores);
-GT_INLINE gt_status gt_output_map_fprint_template_maps(
-    FILE* file,gt_template* const template,const uint64_t num_maps,const bool print_scores);
-GT_INLINE gt_status gt_output_map_fprint_alignment_maps(
-    FILE* file,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
-
+GT_INLINE gt_status gt_output_map_fprint_template_maps(FILE* file,gt_template* const template,const uint64_t num_maps,const bool print_scores);
+GT_INLINE gt_status gt_output_map_fprint_alignment_maps(FILE* file,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
 
 /*
  * High-level MAP Printers
  */
-GT_INLINE gt_status gt_buffered_map_output_print_template(gt_buffered_map_output* const buffered_map_output,gt_template* const template);
-GT_INLINE gt_status gt_buffered_map_output_print_alignment(gt_buffered_map_output* const buffered_map_output,gt_alignment* const alignment);
-/* */
-GT_INLINE gt_status gt_output_map_bprint_template(gt_output_buffer *output_buffer,gt_template* const template,const uint64_t num_maps);
-GT_INLINE gt_status gt_output_map_bprint_alignment(gt_output_buffer *output_buffer,gt_alignment* const alignment,const uint64_t num_maps);
-GT_INLINE gt_status gt_output_map_sprint_template(char **line_ptr,gt_template* const template,const uint64_t num_maps);
-GT_INLINE gt_status gt_output_map_sprint_alignment(char **line_ptr,gt_alignment* const alignment,const uint64_t num_maps);
+// Generic Printer [G]
+GT_INLINE gt_status gt_output_map_gprint_template(gt_generic_printer* const gprinter,gt_template* const template,const uint64_t num_maps,const bool print_scores);
+GT_INLINE gt_status gt_output_map_gprint_alignment(gt_generic_printer* const gprinter,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
+// Output Buffer [B]
+GT_INLINE gt_status gt_output_map_bprint_template(gt_output_buffer* const output_buffer,gt_template* const template,const uint64_t num_maps,const bool print_scores);
+GT_INLINE gt_status gt_output_map_bprint_alignment(gt_output_buffer* const output_buffer,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
+// String [S]
+GT_INLINE gt_status gt_output_map_sprint_template(char **line_ptr,gt_template* const template,const uint64_t num_maps,const bool print_scores);
+GT_INLINE gt_status gt_output_map_sprint_alignment(char **line_ptr,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
+// File [F]
 GT_INLINE gt_status gt_output_map_fprint_template(FILE* file,gt_template* const template,const uint64_t num_maps,const bool print_scores);
 GT_INLINE gt_status gt_output_map_fprint_alignment(FILE* file,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
 

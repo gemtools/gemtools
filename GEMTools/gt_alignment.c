@@ -137,6 +137,15 @@ GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,const uint64_t
   alignment->max_complete_strata = max_complete_strata;
 }
 
+GT_INLINE bool gt_alignment_has_qualities(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return (gt_alignment_get_qualities(alignment)!=NULL);
+}
+GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return alignment->not_unique_flag;
+}
+
 /*
  * Maps Handlers
  */

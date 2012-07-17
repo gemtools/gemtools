@@ -6,6 +6,7 @@
  */
 
 #include "gt_template.h"
+#include "gt_iterators.h"
 
 #define GT_TEMPLATE_NUM_INITIAL_BLOCKS 2
 #define GT_TEMPLATE_INITIAL_LENGTH_COUNTERS 10
@@ -147,6 +148,27 @@ GT_INLINE void gt_template_set_mcs(gt_template* const template,const uint64_t ma
   template->max_complete_strata = max_complete_strata;
 }
 
+GT_INLINE bool gt_template_has_qualities(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  if (num_blocks==0) {
+    return false;
+  } else {
+    register uint64_t i;
+    for (i=0;i<num_blocks;++i) {
+      register gt_alignment* alignment = gt_template_get_block(template,i);
+      if (gt_alignment_get_qualities(alignment)==NULL) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  return template->not_unique_flag;
+}
+
 /*
  * Template's matches handlers
  */
@@ -194,6 +216,10 @@ GT_INLINE void gt_template_set_mmap_gtvector(
   }
   *gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes) = *mmap_attr;
 }
+GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position) {
+  GT_TEMPLATE_EDITABLE_CHECK(template);
+  return gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes);
+}
 GT_INLINE uint64_t gt_template_get_num_mmap(gt_template* const template) {
   GT_TEMPLATE_EDITABLE_CHECK(template);
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
@@ -206,22 +232,6 @@ GT_INLINE void gt_template_clear_mmap(gt_template* const template) {
   gt_vector_clean(template->mmaps);
   gt_vector_clean(template->mmaps_attributes);
 }
-//GT_INLINE void gt_template_add_match_v(gt_template* const template,va_list vl_maps/*(gt_map*)*/) {
-//GT_INLINE void gt_template_add_match_va(gt_template* const template,.../*(gt_map*)*/) {
-//GT_INLINE void gt_template_get_mmap(  // FIXME: Not public yet
-//    gt_template* const template,const uint64_t position,gt_map** mmap_array,gt_mmap_attributes* mmap_attr) {
-//  GT_TEMPLATE_EDITABLE_CHECK(template);
-//  gt_fatal_check(mmap_array==NULL,NULL_HANDLER);
-//  gt_fatal_check(position>=(gt_vector_get_used(template->mmaps)/gt_template_get_num_blocks(template)),POSITION_OUT_OF_RANGE);
-//  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-//  register const uint64_t begin_map_pos = num_blocks*position;
-//  register gt_map** map_relation_at_pos = gt_vector_get_elm(template->mmaps,begin_map_pos,gt_map*);
-//  register uint64_t i;
-//  for(i=0;i<num_blocks;i++) {
-//    mmap_array[i] = map_relation_at_pos[i];
-//  }
-//  mmap_attr = gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes);
-//}
 
 /*
  * Higher-level Procedures

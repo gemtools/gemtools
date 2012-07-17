@@ -13,9 +13,11 @@
 
 // Map format
 #define map_misms_format score  /* Overload field */
-#define MISMATCH_STRING_UNKNOWN UINT64_MAX-3
-#define MISMATCH_STRING_GEMv0 UINT64_MAX-2
-#define MISMATCH_STRING_GEMv1 UINT64_MAX-1 // OLD(v0)={chr7:F127708134G27T88} NEW(v2)={chr11:-:51590050:(5)43T46A9>24*}
+#define GT_MISMATCH_STRING_UNKNOWN UINT64_MAX
+#define GT_MISMATCH_STRING_GEMv0 UINT64_MAX-2
+#define GT_MISMATCH_STRING_GEMv1 UINT64_MAX-1 // OLD(v0)={chr7:F127708134G27T88} NEW(v2)={chr11:-:51590050:(5)43T46A9>24*}
+
+#define GT_MAP_NO_SCORE UINT64_MAX
 
 // Orientation (strand)
 typedef enum { FORWARD, REVERSE } gt_strand;

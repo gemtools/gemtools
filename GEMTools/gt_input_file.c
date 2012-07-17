@@ -8,7 +8,6 @@
 #include "gt_input_file.h"
 
 // Internal constants
-#define GT_INPUT_STREAM_FILE_NAME "<<STREAM>>"
 #define GT_INPUT_BUFFER_SIZE GT_BUFFER_SIZE_16M
 
 /*
@@ -19,14 +18,14 @@ gt_input_file* gt_input_stream_open(FILE* stream) {
   gt_input_file* input_file = malloc(sizeof(gt_input_file));
   gt_cond_fatal_error(!input_file,MEM_HANDLER);
   // Input file
-  input_file->file_name = GT_INPUT_STREAM_FILE_NAME;
+  input_file->file_name = GT_STREAM_FILE_NAME;
   input_file->file_type = STREAM;
   input_file->file = stream;
   input_file->fildes = -1;
   input_file->eof = feof(stream);
   input_file->file_size = UINT64_MAX;
   input_file->file_format = UNKNOWN;
-  pthread_mutex_init(&input_file->input_mutex, NULL);
+  gt_cond_fatal_error(pthread_mutex_init(&input_file->input_mutex, NULL),SYS_MUTEX_INIT);
   // Auxiliary Buffer (for synch purposes)
   input_file->file_buffer = malloc(GT_INPUT_BUFFER_SIZE);
   gt_cond_fatal_error(!input_file->file_buffer,MEM_ALLOC);
@@ -52,7 +51,7 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
   input_file->file_size = stat_info.st_size;
   input_file->eof = (input_file->file_size==0);
   input_file->file_format = UNKNOWN;
-  pthread_mutex_init(&input_file->input_mutex,NULL);
+  gt_cond_fatal_error(pthread_mutex_init(&input_file->input_mutex,NULL),SYS_MUTEX_INIT);
   if (mmap_file) {
     input_file->file = NULL;
     input_file->fildes = open(file_name,O_RDONLY,0); // TODO: O_NOATIME condCompl (Thanks Jordi Camps)
@@ -215,9 +214,7 @@ GT_INLINE void gt_input_file_unlock(gt_input_file* const input_file) {
   gt_cond_fatal_error(pthread_mutex_unlock(&input_file->input_mutex),SYS_MUTEX);
 }
 GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file) {
-  register const uint64_t id = input_file->processed_id;
-  ++input_file->processed_id;
-  return id;
+  return (input_file->processed_id)++;
 }
 
 /*

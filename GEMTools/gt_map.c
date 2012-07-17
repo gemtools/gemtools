@@ -19,7 +19,7 @@ GT_INLINE gt_map* gt_map_new() {
   map->seq_name = NULL;
   map->position = 0;
   map->base_length = UINT32_MAX;
-  map->map_misms_format = MISMATCH_STRING_UNKNOWN;
+  map->map_misms_format = GT_MISMATCH_STRING_UNKNOWN;
   map->mismatches = gt_vector_new(GT_MAP_NUM_INITIAL_MISMS,sizeof(gt_misms));
   map->mismatches_txt = NULL;
   map->next_block = NULL;
@@ -30,7 +30,7 @@ GT_INLINE void gt_map_clear(gt_map* const map) {
   map->seq_name = NULL;
   map->position = 0;
   map->base_length = UINT32_MAX;
-  map->map_misms_format = MISMATCH_STRING_UNKNOWN;
+  map->map_misms_format = GT_MISMATCH_STRING_UNKNOWN;
   gt_map_clear_misms(map);
   map->mismatches_txt = NULL;
   map->next_block = NULL;
@@ -212,11 +212,11 @@ GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map) {
 }
 GT_INLINE uint64_t gt_map_get_global_score(gt_map* const map) {
   GT_MAP_EDITABLE_CHECK(map);
-  register uint64_t score = 0;
-  GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
-    score += gt_map_get_score(map_it);
-  } GT_END_MAP_BLOCKS_ITERATOR;
-  return score;
+//  register uint64_t score = 0; // FIXME: How to do this?
+//  GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
+//    score += gt_map_get_score(map_it);
+//  } GT_END_MAP_BLOCKS_ITERATOR;
+  return map->score;
 }
 // Vector based ( Metrics out of a set of maps )
 GT_INLINE uint64_t gt_map_vector_get_length(gt_vector* const maps) {

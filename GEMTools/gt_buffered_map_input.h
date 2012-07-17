@@ -11,6 +11,7 @@
 #include "gt_commons.h"
 #include "gt_input_file.h"
 #include "gt_template.h"
+#include "gt_buffered_output_file.h"
 
 // Codes gt_status
 #define GT_BMI_OK 1
@@ -83,11 +84,11 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template_maps(gt_template* templ
 GT_INLINE gt_status gt_buffered_map_input_parse_alignment_maps(gt_alignment* alignment,uint64_t num_maps);
 // Lazy Parsers
 GT_INLINE gt_status gt_bmi_get_template(
-    gt_buffered_map_input* const buffered_map_input,gt_template* template,
-    const gt_lazy_parse_mode parse_mode);
+    gt_buffered_map_input* const buffered_map_input,gt_template* template,const gt_lazy_parse_mode parse_mode,
+    gt_buffered_output_file* const buffered_output_file,gt_output_buffer** const output_buffer);
 GT_INLINE gt_status gt_bmi_get_alignment(
-    gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment,
-    const gt_lazy_parse_mode parse_mode);
+    gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment,const gt_lazy_parse_mode parse_mode,
+    gt_buffered_output_file* const buffered_output_file,gt_output_buffer** const output_buffer);
 
 /*
  * MAP/MAPQ/MMAP/MMAPQ High-level Parsers
@@ -100,5 +101,13 @@ GT_INLINE gt_status gt_buffered_map_input_get_template(
     gt_buffered_map_input* const buffered_map_input,gt_template* const template);
 GT_INLINE gt_status gt_buffered_map_input_get_alignment(
     gt_buffered_map_input* const buffered_map_input,gt_alignment* const alignment);
+// Synchronized BMI. Attached to an output file & buffer, dumps the output
+// whenever the end-of-input-block is reached
+GT_INLINE gt_status gt_buffered_map_input_get_template__sync_output(
+    gt_buffered_map_input* const buffered_map_input,gt_template* template,
+    gt_buffered_output_file* const buffered_output_file,gt_output_buffer** const output_buffer);
+GT_INLINE gt_status gt_buffered_map_input_get_alignment__sync_output(
+    gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment,
+    gt_buffered_output_file* const buffered_output_file,gt_output_buffer** const output_buffer);
 
 #endif /* GT_BUFFERED_MAP_FILE_H_ */

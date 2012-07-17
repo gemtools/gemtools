@@ -73,6 +73,9 @@ GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,const uint64_t max_complete_strata);
 
+GT_INLINE bool gt_alignment_has_qualities(gt_alignment* const alignment);
+GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment);
+
 /*
  * Maps Handlers
  */

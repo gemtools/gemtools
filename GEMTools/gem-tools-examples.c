@@ -1,6 +1,6 @@
 /*
  * PROJECT: GEM-Tools library
- * FILE: gem-map-filter.c
+ * FILE: gem-tools-examples.c
  * DATE: 01/06/2012
  * DESCRIPTION: Basic tool to perform simple map file conversions, filters and treatment in general
  */
@@ -23,7 +23,12 @@ gem_map_filter_args parameters = {
 };
 
 void usage() {
-  fprintf(stderr, "USE: ./gem-map-filter -i input -o output \n"
+  fprintf(stderr, "USE: ./gem-tools-examples <command> -i input -o output \n"
+                  "      Commands::\n"
+                  "        map-2-fastq\n"
+                  "        parse-fields\n"
+                  "        map-2-map\n"
+                  "      Options::\n"
                   "        --input     <File>\n"
                   "        --output    <File>\n"
                   "        --help|h    \n");
@@ -58,15 +63,41 @@ void parse_arguments(int argc,char** argv) {
   }
 }
 
-int main(int argc,char** argv) {
-  // Parsing command-line options
-  parse_arguments(argc, argv);
 
+void gt_example_map_2_fastq() {
+  // Open input file
+  gt_input_file* input_file = (parameters.name_input_file==NULL) ?
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,false);
+
+  // Buffered reading of the file
+  gt_buffered_map_input* map_input = gt_buffered_map_input_new(input_file);
+  gt_template* template = gt_template_new();
+  gt_status error_code;
+  while ((error_code=gt_buffered_map_input_get_template(map_input,template))) {
+    if (error_code==GT_BMI_FAIL) continue;
+    register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+    register uint64_t i;
+    for (i=0;i<num_blocks;++i) {
+      register gt_alignment* alignment = gt_template_get_block(template,i);
+      printf("@%s\n%s\n+\n%s\n",gt_template_get_tag(template),
+          gt_alignment_get_read(alignment),gt_alignment_get_qualities(alignment));
+    }
+  }
+  gt_buffered_map_input_close(map_input);
+
+  // Close files
+  gt_input_file_close(input_file);
+}
+
+/*
+ * Single thread MAP file parsing
+ */
+void gt_example_map_parsing() {
   // Open input file
   gt_input_file* input_file = (parameters.name_input_file==NULL) ?
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,true);
 
-  // Parallel working threads
+  // Buffered reading of the file
   gt_buffered_map_input* map_input = gt_buffered_map_input_new(input_file);
   gt_template* template = gt_template_new();
   gt_status error_code;
@@ -118,6 +149,85 @@ int main(int argc,char** argv) {
 
   // Close files
   gt_input_file_close(input_file);
+}
+
+/*
+ * Single thread MAP file parsing and dump to a MAP file
+ *   POST: input.map == output.map
+ */
+void gt_example_map_dump_map() {
+  // Open input file
+  gt_input_file* input_file = (parameters.name_input_file==NULL) ?
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,true);
+
+  // Open output file
+  gt_buffered_output_file* output_file = (parameters.name_output_file==NULL) ?
+      gt_buffered_output_stream_new(stdout,SORTED_FILE) :
+      gt_buffered_output_file_new(parameters.name_output_file,SORTED_FILE);
+
+  /*** BEGIN PPAR REGION */
+
+  // Create I/O buffers
+  gt_buffered_map_input* map_input_buffer = gt_buffered_map_input_new(input_file);
+  gt_output_buffer* output_buffer = gt_buffered_output_file_request_buffer(output_file);
+  // Read all templates
+  gt_template* template = gt_template_new();
+  gt_status error_code;
+  while ((error_code=gt_buffered_map_input_get_template__sync_output(
+      map_input_buffer,template,output_file,&output_buffer))) {
+    if (error_code==GT_BMI_FAIL) continue;
+
+    // Print MAP template
+    gt_output_map_bprint_template(output_buffer,template,GT_ALL,true);
+
+    // NOTE:: In case the parsing is not synch
+    //    if (gt_buffered_map_input_eob(map_input_buffer)) {
+    //      output_buffer = gt_buffered_output_file_dump_buffer(output_file,output_buffer);
+    //    }
+  }
+  // Close I/O buffers
+  gt_buffered_map_input_close(map_input_buffer);
+  gt_buffered_output_file_release_buffer(output_file,output_buffer);
+
+  /*** END PPAR REGION */
+
+  // Close files
+  gt_buffered_output_file_close(output_file);
+  gt_input_file_close(input_file);
+}
+
+void gt_example_map_dump_map_parallel() {
+//  // Parallel working threads
+//  #pragma omp parallel num_threads(parameters.num_threads)
+//  {
+//
+//  }
+}
+
+int main(int argc,char** argv) {
+  // Parsing command-line options
+  register char* const example_name = argv[1];
+  if (argc==1) { usage(); exit(0); }
+  parse_arguments(argc-1, argv+1);
+
+  //
+  // Examples
+  //
+
+  // MAP to FASTQ conversion
+  if (strcmp(example_name,"map-2-fastq")==0) {
+    gt_example_map_2_fastq();
+  }
+
+  // Single thread MAP file parsing
+  if (strcmp(example_name,"parse-fields")==0) {
+    gt_example_map_parsing();
+  }
+
+  // Single thread MAP file parsing and dump to a MAP file
+  if (strcmp(example_name,"map-2-map")==0) {
+    gt_example_map_dump_map();
+  }
 
   return 0;
 }

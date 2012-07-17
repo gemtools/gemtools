@@ -94,6 +94,9 @@ GT_INLINE void gt_template_inc_counter(gt_template* const template,const uint64_
 GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template);
 GT_INLINE void gt_template_set_mcs(gt_template* const template,const uint64_t max_complete_strata);
 
+GT_INLINE bool gt_template_has_qualities(gt_template* const template);
+GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template);
+
 /*
  * Template's multimaps handlers (Map relation)
  */
@@ -103,6 +106,7 @@ GT_INLINE void gt_template_get_mmap_gtvector(
     gt_template* const template,const uint64_t position,gt_vector* const maps,gt_mmap_attributes* const mmap_attr);
 GT_INLINE void gt_template_set_mmap_gtvector(
     gt_template* const template,const uint64_t position,gt_vector* const maps,gt_mmap_attributes* const mmap_attr);
+GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position);
 GT_INLINE uint64_t gt_template_get_num_mmap(gt_template* const template);
 GT_INLINE void gt_template_clear_mmap(gt_template* const template);
 

@@ -109,6 +109,11 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_SYS_UNMAP "Could not unmap memory"
 #define GT_ERROR_SYS_THREAD "Could not create thread"
 #define GT_ERROR_SYS_MUTEX "Mutex call error"
+#define GT_ERROR_SYS_MUTEX_INIT "Mutex initialization error"
+#define GT_ERROR_SYS_MUTEX_DESTROY "Mutex destroy call error"
+#define GT_ERROR_SYS_COND_VAR "Conditional variable call error"
+#define GT_ERROR_SYS_COND_VAR_INIT "Conditional variable initialization error"
+#define GT_ERROR_SYS_COND_VAR_DESTROY "Conditional variable destroy call error"
 
 // File errors
 #define GT_ERROR_FILE_STAT "Could not stat file '%s'"
@@ -117,6 +122,17 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_FILE_WRITE "Could not write to file '%s'"
 #define GT_ERROR_FILE_CLOSE "Could not close file '%s'"
 #define GT_ERROR_FILE_FORMAT "Could not determine file format"
+
+// Output errors
+#define GT_ERROR_FPRINTF "Printing output. 'fprintf' call failed"
+#define GT_ERROR_SPRINTF "Printing output. 'sprintf' call failed"
+#define GT_ERROR_BPRINTF "Printing output. Buffered print formated call failed"
+
+// Library/Program errors
+#define GT_ERROR_SELECTION_NOT_IMPLEMENTED "Library error. Selection not implemented or corrupted value"
+#define GT_ERROR_SELECTION_NOT_VALID "Library error. Selection not valid"
+#define GT_ERROR_ALG_INCONSISNTENCY "Library error. Algorithmic inconsistency, check your program"
+#define GT_ERROR_PRINT_FORMAT "Incorrect print format. Expected format character"
 
 // Template/Alignment/Map/Misms errors
 #define GT_ERROR_POSITION_OUT_OF_RANGE "Requested position out of range"
@@ -146,7 +162,7 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_PARSE_MAP_MISMS_ALREADY_PARSED "Parsing MAP error(%s:%"PRIu64"). Mismatch string already parsed or null lazy-parsing handler"
 
 // BMI (Buffered Map Input). General
-#define GT_ERROR_PARSE_MAP_NOT_IMPLEMENTED "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Not implemented yet (sorry)"
+#define GT_ERROR_PARSE_MAP_NOT_IMPLEMENTED "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Feature not implemented yet (sorry)"
 #define GT_ERROR_PARSE_MAP_PREMATURE_EOL "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Premature End-of-line found"
 #define GT_ERROR_PARSE_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Wrong number of blocks"
 #define GT_ERROR_PARSE_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Bad character found"
@@ -164,6 +180,11 @@ extern FILE* gt_error_stream;
 // BMI (Buffered Map Input). Parsing Mismatch String Errors
 #define GT_ERROR_PARSE_MAP_MISMS_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, bad character found"
 #define GT_ERROR_PARSE_MAP_MISMS_BAD_MISMS_POS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, unsorted mismatches"
+
+// BOF (Buffered Output File)
+#define GT_ERROR_BOF_BUFFER_INCONSISTENCY "Buffered output file state inconsistent"
+
+#define GT_ERROR_BUFFER_SAFETY_DUMP "Output buffer. Could not perform safety dump"
 
 /*
  * General purpose checkers

@@ -434,10 +434,12 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
   GT_MAP_CHECK(map);
   if (gt_expect_false(*text_line==NULL)) return GT_BMI_PE_MISMS_ALREADY_PARSED;
   gt_map_clear_misms(map);
+  register gt_map* const initial_map_block = map;
+  initial_map_block->score = GT_MAP_NO_SCORE;
   // Parse Misms
   register uint64_t last_position = 0, last_cut_point = 0;  
   register const uint64_t global_length = map->base_length;
-  while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=GT_MAP_SEP && (**text_line)!=EOL) {      
+  while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=EOL) {
     gt_misms misms;
     if (gt_is_dna((**text_line))) { // Mismatch
       misms.misms_type = MISMS;
@@ -451,6 +453,7 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
       }
       --misms.position; // Zero based position
       last_position = misms.position;
+      misms.position -= last_cut_point; // Split-offset correction
       // Add Mismatch
       gt_map_add_misms(map,&misms);
     } else if ((**text_line)=='<') { // Indel
@@ -491,22 +494,33 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
       last_position = position;
       // Add Indel
       if (gt_expect_true(!is_splice)) {
-        misms.position = position;
+        misms.position = position-last_cut_point;
         misms.size = size;
         gt_map_add_misms(map,&misms);
-      } else { // Create a new map block
+      } else {
+        // Close current map block
+        map->base_length = position-last_cut_point;
+        last_cut_point = position;
+        // Create a new map block
         gt_map* next_map = gt_map_new();
+        gt_map_set_next_block(map,next_map,SPLICE);
         next_map->seq_name = map->seq_name;
-        next_map->position = map->position+position+size;
+        next_map->position = map->position+map->base_length+size;
         next_map->direction = map->direction;
         next_map->base_length = global_length-position;        
-        // Close current map block
-        map->base_length = position - last_cut_point;
-        last_cut_point = position;
-        gt_map_set_next_block(map,next_map,SPLICE);
         // Swap maps & Reset length,position
         map = next_map;
       }
+    } else if ((**text_line)=='@') { // Quality Score
+      GT_BMI_TEXT_NEXT(text_line);
+      if (gt_expect_false(!gt_is_number((**text_line)))) return GT_BMI_PE_MAP_BAD_CHARACTER;
+      GT_BMI_TEXT_PARSE_NUMBER(text_line,initial_map_block->score);
+      if ((**text_line)==GT_MAP_NEXT || (**text_line)!=EOL) return 0;
+      if ((**text_line)!='/') return GT_BMI_PE_MISMS_BAD_CHARACTER;
+      GT_BMI_TEXT_NEXT(text_line);
+      GT_BMI_TEXT_READ_UNTIL(text_line,!gt_is_number((**text_line)));
+      if ((**text_line)==GT_MAP_NEXT || (**text_line)!=EOL) return 0;
+      else return GT_BMI_PE_MISMS_BAD_CHARACTER;
     } else { // ?¿ Parsing error
       return GT_BMI_PE_MISMS_BAD_CHARACTER;
     }
@@ -519,6 +533,7 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v1(char** text_line,gt_map* map
   GT_MAP_CHECK(map);
   if (gt_expect_false(*text_line==NULL)) return GT_BMI_PE_MISMS_ALREADY_PARSED;
   gt_map_clear_misms(map);
+  register gt_map* const initial_map_block = map;
   // Parse Misms
   register uint64_t position=0, length=0;
   while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=GT_MAP_SEP && (**text_line)!=EOL) {
@@ -593,6 +608,14 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v1(char** text_line,gt_map* map
      return GT_BMI_PE_MISMS_BAD_CHARACTER;
     }
   }
+  // Parse Quality Score (if any)
+  if ((**text_line)==GT_MAP_SEP && gt_is_number((*(*text_line+1)))) { // ':'
+    GT_BMI_TEXT_NEXT(text_line);
+    if (gt_expect_false(!gt_is_number((**text_line)))) return GT_BMI_PE_MAP_BAD_CHARACTER;
+    GT_BMI_TEXT_PARSE_NUMBER(text_line,initial_map_block->score);
+  } else { // No Score
+    initial_map_block->score = GT_MAP_NO_SCORE;
+  }
   return 0;
 }
 GT_INLINE gt_status gt_bmi_parse_map(char** text_line,gt_map* const map,const gt_lazy_parse_mode parse_mode) {
@@ -621,10 +644,10 @@ GT_INLINE gt_status gt_bmi_parse_map(char** text_line,gt_map* const map,const gt
   GT_BMI_TEXT_NEXT(text_line);
   // Determine format version
   if ((**text_line)==GT_MAP_SEP) { // GEMv1
-    map->map_misms_format = MISMATCH_STRING_GEMv1;
+    map->map_misms_format = GT_MISMATCH_STRING_GEMv1;
     GT_BMI_TEXT_NEXT(text_line);
   } else if (gt_is_number((**text_line))) { // GEMv0
-    map->map_misms_format = MISMATCH_STRING_GEMv0;
+    map->map_misms_format = GT_MISMATCH_STRING_GEMv0;
   } else { // ?¿
     return GT_BMI_PE_MAP_BAD_CHARACTER;
   }
@@ -632,7 +655,7 @@ GT_INLINE gt_status gt_bmi_parse_map(char** text_line,gt_map* const map,const gt
   if (gt_expect_false(!gt_is_number((**text_line)))) return GT_BMI_PE_MAP_BAD_CHARACTER;
   GT_BMI_TEXT_PARSE_NUMBER(text_line,map->position);
   // Synch with mismatch string (GEMv1)
-  if (map->map_misms_format==MISMATCH_STRING_GEMv1) {
+  if (map->map_misms_format==GT_MISMATCH_STRING_GEMv1) {
     if (gt_expect_false((**text_line)!=GT_MAP_SEP)) return GT_BMI_PE_MAP_BAD_CHARACTER;
     GT_BMI_TEXT_NEXT(text_line);
   }
@@ -640,7 +663,7 @@ GT_INLINE gt_status gt_bmi_parse_map(char** text_line,gt_map* const map,const gt
   if (parse_mode==PARSE_ALL) {
     register gt_status error_code;
     map->mismatches_txt = NULL;
-    if (map->map_misms_format==MISMATCH_STRING_GEMv1) {
+    if (map->map_misms_format==GT_MISMATCH_STRING_GEMv1) {
       error_code=gt_bmi_parse_mismatch_string_v1(text_line,map);
     } else {
       error_code=gt_bmi_parse_mismatch_string_v0(text_line,map);
@@ -649,12 +672,6 @@ GT_INLINE gt_status gt_bmi_parse_map(char** text_line,gt_map* const map,const gt
   } else {
     map->mismatches_txt = *text_line;
     GT_BMI_TEXT_READ_UNTIL(text_line,(**text_line)==GT_MAP_SEP || (**text_line)==GT_MAP_NEXT);
-  }
-  // Parse Quality Score (if any)
-  if ((**text_line)==GT_MAP_SEP && (*(*text_line+1))!=GT_MAP_SEP) { // ':'
-    GT_BMI_TEXT_NEXT(text_line);
-    if (gt_expect_false(!gt_is_number((**text_line)))) return GT_BMI_PE_MAP_BAD_CHARACTER;
-    GT_BMI_TEXT_PARSE_NUMBER(text_line,map->score);
   }
   // Detect next character (MAP,BLOCK,EOL)
   if ((**text_line)==GT_MAP_NEXT) { // ','
@@ -735,6 +752,8 @@ GT_INLINE gt_status gt_bmi_parse_template_maps(
       (*text_line)+=3;
       if (gt_expect_false(!gt_is_number((**text_line)))) return GT_BMI_PE_MAP_BAD_CHARACTER;
       GT_BMI_TEXT_PARSE_NUMBER(text_line,mmap_attr.score);
+    } else { // No Score
+      mmap_attr.score = GT_MAP_NO_SCORE;
     }
     // Store MAP blocks parsed
     gt_template_add_mmap_gtvector(template,vector_maps,&mmap_attr);
@@ -907,7 +926,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_template_mismatch_string(gt_temp
   while (gt_template_next_maps(&template_maps_iterator,&map_array)) {
     register uint64_t i;
     for (i=0;i<num_blocks_template;++i) {
-      if ((error_code = (map_array[i]->map_misms_format==MISMATCH_STRING_GEMv1) ?
+      if ((error_code = (map_array[i]->map_misms_format==GT_MISMATCH_STRING_GEMv1) ?
           gt_bmi_parse_mismatch_string_v1(&(map_array[i]->mismatches_txt),map_array[i]):
           gt_bmi_parse_mismatch_string_v0(&(map_array[i]->mismatches_txt),map_array[i]))) {
         return error_code;
@@ -924,7 +943,7 @@ GT_INLINE gt_status gt_buffered_map_input_parse_alignment_mismatch_string(gt_ali
   gt_alignment_map_iterator map_iterator;
   gt_alignment_new_map_iterator(alignment,&map_iterator);
   while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
-    if ((error_code = (map->map_misms_format==MISMATCH_STRING_GEMv1) ?
+    if ((error_code = (map->map_misms_format==GT_MISMATCH_STRING_GEMv1) ?
         gt_bmi_parse_mismatch_string_v1(&map->mismatches_txt,map):
         gt_bmi_parse_mismatch_string_v0(&map->mismatches_txt,map))) {
       return error_code;
@@ -940,14 +959,18 @@ GT_INLINE gt_status gt_buffered_map_input_parse_alignment_mismatch_string(gt_ali
  *   - Template/Alignment transparent memory management
  */
 GT_INLINE gt_status gt_bmi_get_template(
-    gt_buffered_map_input* const buffered_map_input,gt_template* template,
-    const gt_lazy_parse_mode parse_mode) {
+    gt_buffered_map_input* const buffered_map_input,gt_template* template,const gt_lazy_parse_mode parse_mode,
+    gt_buffered_output_file* const buffered_output_file,gt_output_buffer** const output_buffer) {
   GT_BMI_CHECK(buffered_map_input);
   GT_TEMPLATE_CHECK(template);
   register const char* line_start = buffered_map_input->cursor;
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_map_input_eob(buffered_map_input)) {
+    // Dump buffer is Output it attached to Map-input
+    if (buffered_output_file!=NULL && *output_buffer!=NULL) {
+      *output_buffer = gt_buffered_output_file_dump_buffer(buffered_output_file,*output_buffer);
+    }
     register const uint64_t read_lines = gt_buffered_map_input_get_block(buffered_map_input);
     if (gt_expect_false(read_lines==0)) return GT_BMI_EOF;
   }
@@ -986,14 +1009,18 @@ GT_INLINE gt_status gt_bmi_get_template(
   return GT_BMI_OK;
 }
 GT_INLINE gt_status gt_bmi_get_alignment(
-    gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment,
-    const gt_lazy_parse_mode parse_mode) {
+    gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment,const gt_lazy_parse_mode parse_mode,
+    gt_buffered_output_file* const buffered_output_file,gt_output_buffer** const output_buffer) {
   GT_BMI_CHECK(buffered_map_input);
   GT_ALIGNMENT_CHECK(alignment);
   register const char* line_start = buffered_map_input->cursor;
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_map_input_eob(buffered_map_input)) {
+    // Dump buffer is Output it attached to Map-input
+    if (buffered_output_file!=NULL && *output_buffer!=NULL) {
+      *output_buffer = gt_buffered_output_file_dump_buffer(buffered_output_file,*output_buffer);
+    }
     register const uint64_t read_lines = gt_buffered_map_input_get_block(buffered_map_input);
     if (gt_expect_false(read_lines==0)) return GT_BMI_EOF;
   }
@@ -1033,9 +1060,19 @@ GT_INLINE gt_status gt_bmi_get_alignment(
 }
 GT_INLINE gt_status gt_buffered_map_input_get_template(
     gt_buffered_map_input* const buffered_map_input,gt_template* template) {
-  return gt_bmi_get_template(buffered_map_input,template,PARSE_ALL);
+  return gt_bmi_get_template(buffered_map_input,template,PARSE_ALL,NULL,NULL);
 }
 GT_INLINE gt_status gt_buffered_map_input_get_alignment(
     gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment) {
-  return gt_bmi_get_alignment(buffered_map_input,alignment,PARSE_ALL);
+  return gt_bmi_get_alignment(buffered_map_input,alignment,PARSE_ALL,NULL,NULL);
+}
+GT_INLINE gt_status gt_buffered_map_input_get_template__sync_output(
+    gt_buffered_map_input* const buffered_map_input,gt_template* template,
+    gt_buffered_output_file* const buffered_output_file,gt_output_buffer** const output_buffer) {
+  return gt_bmi_get_template(buffered_map_input,template,PARSE_ALL,buffered_output_file,output_buffer);
+}
+GT_INLINE gt_status gt_buffered_map_input_get_alignment__sync_output(
+    gt_buffered_map_input* const buffered_map_input,gt_alignment* alignment,
+    gt_buffered_output_file* const buffered_output_file,gt_output_buffer** const output_buffer) {
+  return gt_bmi_get_alignment(buffered_map_input,alignment,PARSE_ALL,buffered_output_file,output_buffer);
 }

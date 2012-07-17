@@ -34,6 +34,15 @@
   gt_template_maps_iterator __##template##_maps_iterator; \
   gt_template_new_maps_iterator(template,&(__##template##_maps_iterator)); \
   while (gt_template_next_maps(&(__##template##_maps_iterator),&map_array))
+// Querying also attributes {distance, score, ...}
+#define GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) \
+  register const uint64_t __map_array##_num_blocks = gt_template_get_num_blocks(template); \
+  gt_map** map_array; \
+  gt_mmap_attributes* map_array_attr = gt_template_get_mmap_attr(template,0); \
+  gt_template_maps_iterator __##template##_maps_iterator; \
+  gt_template_new_maps_iterator(template,&(__##template##_maps_iterator)); \
+  while (gt_template_next_maps(&(__##template##_maps_iterator),&map_array) && (++map_array_attr))
+
 /*
  * Iterate over array of maps provided by GT_TEMPLATE_ITERATE
  *   map_array = (end1.map1,end2.map1)
