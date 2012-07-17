@@ -95,7 +95,7 @@ void gt_example_map_2_fastq() {
 void gt_example_map_parsing() {
   // Open input file
   gt_input_file* input_file = (parameters.name_input_file==NULL) ?
-      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,true);
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,false);
 
   // Buffered reading of the file
   gt_buffered_map_input* map_input = gt_buffered_map_input_new(input_file);
@@ -158,7 +158,7 @@ void gt_example_map_parsing() {
 void gt_example_map_dump_map() {
   // Open input file
   gt_input_file* input_file = (parameters.name_input_file==NULL) ?
-      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,true);
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,false);
 
   // Open output file
   gt_buffered_output_file* output_file = (parameters.name_output_file==NULL) ?
@@ -217,19 +217,24 @@ int main(int argc,char** argv) {
   // MAP to FASTQ conversion
   if (strcmp(example_name,"map-2-fastq")==0) {
     gt_example_map_2_fastq();
+    return 0;
   }
 
   // Single thread MAP file parsing
   if (strcmp(example_name,"parse-fields")==0) {
     gt_example_map_parsing();
+    return 0;
   }
 
   // Single thread MAP file parsing and dump to a MAP file
   if (strcmp(example_name,"map-2-map")==0) {
     gt_example_map_dump_map();
+    return 0;
   }
 
-  return 0;
+  gt_error_msg("Incorrect test name provided");
+  usage();
+  return -1;
 }
 
 

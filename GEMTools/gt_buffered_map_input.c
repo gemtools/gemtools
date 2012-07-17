@@ -439,7 +439,7 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
   // Parse Misms
   register uint64_t last_position = 0, last_cut_point = 0;  
   register const uint64_t global_length = map->base_length;
-  while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=EOL) {
+  while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=GT_MAP_SEP && (**text_line)!=EOL) {
     gt_misms misms;
     if (gt_is_dna((**text_line))) { // Mismatch
       misms.misms_type = MISMS;
@@ -515,11 +515,11 @@ GT_INLINE gt_status gt_bmi_parse_mismatch_string_v0(char** text_line,gt_map* map
       GT_BMI_TEXT_NEXT(text_line);
       if (gt_expect_false(!gt_is_number((**text_line)))) return GT_BMI_PE_MAP_BAD_CHARACTER;
       GT_BMI_TEXT_PARSE_NUMBER(text_line,initial_map_block->score);
-      if ((**text_line)==GT_MAP_NEXT || (**text_line)!=EOL) return 0;
+      if ((**text_line)==GT_MAP_NEXT || (**text_line)==GT_MAP_SEP || (**text_line)==EOL) return 0;
       if ((**text_line)!='/') return GT_BMI_PE_MISMS_BAD_CHARACTER;
       GT_BMI_TEXT_NEXT(text_line);
       GT_BMI_TEXT_READ_UNTIL(text_line,!gt_is_number((**text_line)));
-      if ((**text_line)==GT_MAP_NEXT || (**text_line)!=EOL) return 0;
+      if ((**text_line)==GT_MAP_NEXT || (**text_line)==GT_MAP_SEP || (**text_line)==EOL) return 0;
       else return GT_BMI_PE_MISMS_BAD_CHARACTER;
     } else { // ?¿ Parsing error
       return GT_BMI_PE_MISMS_BAD_CHARACTER;

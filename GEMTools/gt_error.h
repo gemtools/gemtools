@@ -58,6 +58,26 @@ extern FILE* gt_error_stream;
     error_handling_function; \
   } _gt_error_end_block()
 /*
+ * Error msg
+ */
+#define gt_error_msg(gt_error_msg,args...) \
+  do { \
+  register FILE* const error_stream=gt_error_get_stream(); \
+  fprintf(error_stream, \
+    "Fatal error (%s:%d,%s)\n "gt_error_msg"\n", \
+     GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
+  fflush(error_stream); \
+  } while (0)
+#define gt_fatal_error_msg(gt_error_msg,args...) \
+  do { \
+  register FILE* const error_stream=gt_error_get_stream(); \
+  fprintf(error_stream, \
+    "Fatal error (%s:%d,%s)\n "gt_error_msg"\n", \
+     GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
+  fflush(error_stream); \
+  exit(1); \
+  } while (0)
+/*
  * Succinct error handlers
  */
 #define gt_fatal_error(gt_error_name,args...) \
