@@ -23,10 +23,14 @@ PyObject* Alignment_gettag(Alignment *self, void *closure){
     char* tag = gempy_alignment_get_tag(self);
     if(tag){
         PyObject* ret = PyString_FromString(tag);
-        //Py_DECREF(ret);
+        // GT-13 workaround we need to free the tag if we
+        // appended /1 or /2
+        if(self->index){
+            free(tag);
+        }
         return ret;
     }
-    Py_RETURN_NONE;    
+    Py_RETURN_NONE;
 }
 
 char* gempy_alignment_get_tag(Alignment* self){
@@ -34,7 +38,14 @@ char* gempy_alignment_get_tag(Alignment* self){
     if(tag){
         return tag;
     }else if(self->template){
-        return gt_template_get_tag(self->template);
+        char* org = gt_template_get_tag(self->template);
+        // GT-13 workaround
+        if(self->index){
+            char* new = malloc((strlen(org)+2)* sizeof(char));
+            sprintf(new, "%s/%"PRIx64, org, self->index);
+            return new;
+        }
+        return org;
     }
     return NULL;
 }
@@ -125,6 +136,11 @@ PyObject* Alignment_to_sequence(PyObject *self, PyObject *args){
     }
     result = PyString_FromString(fastq);
     Py_DECREF(result);
-    free(fastq);
+    free(fastq);  
+    // GT-13 workaround we need to free the tag if we
+    // appended /1 or /2
+    if(a->index){
+       free(tag);
+    }
     return result;
 }

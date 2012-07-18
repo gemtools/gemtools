@@ -9,28 +9,24 @@
 #include "py_iterator.h"
 
 /******* TEMPLATE ********/
-static PyObject* Template_iterate_mappings(Template* self, void* closure){
+static PyObject* Template_iterate_mappings(PyObject* self, PyObject* closure){
     Template* t = (Template*)self;
     return (PyObject*) create_template_mappings_iterator(t->template);
 }
 
 static PyGetSetDef Template_getseters[] = {
     {"tag", (getter) Template_gettag, (setter) Template_settag, "Template Tag", NULL},
-    {"max_complete_strata", (getter) Template_getmax_complete_strata,
-        (setter) Template_setmax_complete_strata, "Max Complete Strata", NULL},
-//    {"blocks", (getter) Template_getblocks,
-//        (setter) Template_setblocks, "Alignment blocks", NULL},
-    {"counters", (getter) Template_getcounters,
-        (setter) Template_setcounters, "Counters", NULL},
-    {"mappings", (getter) Template_iterate_mappings,
-       NULL, "Counters", NULL},
-
+    {"max_complete_strata", (getter) Template_getmax_complete_strata, NULL, "Max Complete Strata", NULL},
+    {"num_blocks", (getter) Template_get_num_blocks, NULL, "Get the number of blocks in the template", NULL},
+    {"num_counters", (getter) Template_get_num_blocks, NULL, "Get the number of counters for the template", NULL},
     {NULL}  /* Sentinel */
 
 };
 
 static PyMethodDef Template_Methods[] = {
-    {"blocks", Template_getblocks, METH_VARARGS, "Iterator over the alignment blocks in the template"},
+    {"blocks", Template_get_blocks, METH_VARARGS, "Iterator over the alignment blocks in the template"},
+    {"counters", Template_get_counters, METH_VARARGS, "Iterator over the counter list"},
+    {"mappings", Template_iterate_mappings, METH_VARARGS, "Iterate over the mappings"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -224,10 +220,11 @@ static PyTypeObject AlignmentType = {
 };
 
 
-Alignment* create_alignment(gt_alignment* alignment, gt_template* parent){
+Alignment* create_alignment(gt_alignment* alignment, gt_template* parent, uint64_t index){
     Alignment* a = PyObject_New(Alignment, &AlignmentType);
     a->alignment = alignment;
     a->template = parent;
+    a->index = index;
     return a;
 }
 /******* END ALIGNMENT  ********/
@@ -362,6 +359,12 @@ Mismatch* create_mismatch(gt_misms* map){
 
 
 /******* GENERIC ITERATOR ********/
+
+
+static PySequenceMethods gempy_iterator_sequence_methods = {
+    gempy_iterator_len, /* sq_length */
+};
+
 static PyTypeObject gempy_iteratorType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /*ob_size*/
@@ -375,7 +378,7 @@ static PyTypeObject gempy_iteratorType = {
     0,                         /*tp_compare*/
     0,                         /*tp_repr*/
     0,                         /*tp_as_number*/
-    0,                         /*tp_as_sequence*/
+    &gempy_iterator_sequence_methods, /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
     0,                         /*tp_call*/

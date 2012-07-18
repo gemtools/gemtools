@@ -20,6 +20,7 @@ typedef struct {
 void gempy_iterator_dealloc(PyObject* self);
 PyObject* gempy_iterator_iter(PyObject *self);
 PyObject* gempy_iterator_iternext(PyObject *self);
+Py_ssize_t gempy_iterator_len(PyObject* self);
 PyObject* create_gempy_iterator(uint64_t start, uint64_t length, void* getter, void* arg, void* converter, int parent);
 
 

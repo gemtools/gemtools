@@ -21,17 +21,16 @@ PyObject* gempy_iterator_iternext(PyObject *self){
     p->pos++;
     void* result = getter(p->arg, s);
     PyObject* ret = NULL;
-    if(!result){
-        Py_RETURN_NONE;
+    if(p->parent){
+        ret = converter(result, p->arg, (p->length > 1) ? s+1 : 0);
     }else{
-        if(p->parent){
-            ret = converter(result, p->arg);
-        }else{
-            ret = converter(result);
-        }
+        ret = converter(result);
     }
-    //Py_DECREF(ret);
     return ret;
+}
+Py_ssize_t gempy_iterator_len(PyObject *self){
+    gempy_iterator* i = (gempy_iterator*) self;
+    return i->length;
 }
 
 

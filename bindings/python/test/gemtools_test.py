@@ -44,7 +44,7 @@ def test_template_mapping_iteration():
     read_chrs = []
     read_positions = []
     for template in infile:
-        for mappings in template.mappings:
+        for mappings in template.mappings():
             for m, junction, distance in mappings:
                 assert junction == 0
                 # assert distance == -1
@@ -98,7 +98,7 @@ def test_template_mapping_iteration_with_paired_splitmap():
     assert infile != None
     block_count = 0
     for template in infile:
-        for block in template.mappings:
+        for block in template.mappings():
             block_count += 1
             for m, junction, distance in block:
                 assert m.seq_name == "chr7"

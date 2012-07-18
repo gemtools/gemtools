@@ -36,27 +36,24 @@ PyObject* Template_getmax_complete_strata(Template *self, void *closure){
     return ret;
 }
 
-int Template_setmax_complete_strata(Template *self, PyObject *value, void *closure){
-    gt_template_set_mcs(self->template, PyLong_AsUnsignedLongLong(value));
-    return 0;
-}
-
-PyObject* Template_getblocks(PyObject *self, PyObject *closure){
+PyObject* Template_get_blocks(PyObject *self, PyObject* closure){
     Template* tmpl = (Template*) self;
     PyObject* ret = create_gempy_iterator(0, gt_template_get_num_blocks(tmpl->template), gt_template_get_block, tmpl->template, create_alignment, 1);
-    //Py_DECREF(ret);
     return ret;
 }
 
-PyObject* Template_getcounters(Template *self, void *closure){
-    PyObject* ret = create_gempy_iterator(1, gt_template_get_num_counters(self->template), gt_template_get_counter, self->template, PyLong_FromUnsignedLongLong, 0);
-    //Py_DECREF(ret);
+PyObject* Template_get_counters(PyObject* self, PyObject *closure){
+    Template* tmpl = (Template*) self;
+    PyObject* ret = create_gempy_iterator(1, gt_template_get_num_counters(tmpl->template), gt_template_get_counter, tmpl->template, PyLong_FromUnsignedLongLong, 0);
     return ret;
 }
 
-int Template_setcounters(Template *self, PyObject *value, void *closure){
-    PyErr_SetString(PyExc_TypeError, "Setting blocks is currently not supported");
-    return -1;
+PyObject* Template_get_num_blocks(Template *self, void *closure){
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_template_get_num_blocks(self->template));
+    return ret;
 }
-
+PyObject* Template_get_num_counters(Template *self, void *closure){
+    PyObject* ret = PyLong_FromUnsignedLongLong(gt_template_get_num_counters(self->template));
+    return ret;
+}
 
