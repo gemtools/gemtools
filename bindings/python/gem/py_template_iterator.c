@@ -15,7 +15,7 @@ PyObject* gempy_template_iterator_iternext(PyObject *self){
         if (error_code==GT_BMI_FAIL) continue;
         if (tmpl == NULL){
             tmpl = create_template(template);
-            p->tmpl = tmpl;
+            p->tmpl = (PyObject*)tmpl;
         }
         Py_INCREF(tmpl);
         //Py_DECREF(tmpl);

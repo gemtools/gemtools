@@ -150,11 +150,9 @@ gempy_template_iterator* create_template_file_iterator(char* filename, bool memo
 
 static PyObject* Alignment_iterate_mappings(PyObject* self, PyObject* closure){
     Alignment* t = (Alignment*)self;
-
-    PyObject* ret =  (PyObject*) create_alignment_mappings_iterator(t->alignment);
-    //printf("Create alignment mappings iterator %p\n", ret);
-    //Py_DECREF(ret);
-    return ret;
+    gempy_alignment_mappings_iterator* ret =  create_alignment_mappings_iterator(t->alignment);
+    ret->template = t->template;
+    return (PyObject*) ret;
 }
 
 static PyMethodDef Alignmnt_methods[] = {
@@ -415,6 +413,12 @@ PyObject* create_gempy_iterator(uint64_t start, uint64_t length, void* getter, v
 /******* END GENERIC ITERATOR  ********/
 
 /******* MAPPINGS ITERATOR ********/
+static PyMemberDef gempy_mappings_iterator_members[] = {
+    {"distance", T_ULONGLONG, offsetof(gempy_mappings_iterator, distance), 1, "Edit distance of the mapping"},
+    {"score", T_ULONGLONG, offsetof(gempy_mappings_iterator, score), 1, "Score of the mapping"},
+    {NULL}
+};
+
 static PyTypeObject gempy_mappings_iteratorType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /*ob_size*/
@@ -445,7 +449,10 @@ static PyTypeObject gempy_mappings_iteratorType = {
     0,  /* tp_richcompare */
     0,  /* tp_weaklistoffset */
     gempy_mappings_iterator_iter,  /* tp_iter: __iter__() method */
-    gempy_mappings_iterator_iternext  /* tp_iternext: next() method */
+    gempy_mappings_iterator_iternext,  /* tp_iternext: next() method */
+    0,             /* tp_methods */
+    gempy_mappings_iterator_members,             /* tp_members */
+    0,        /* tp_getset */
 };
 
 gempy_mappings_iterator* create_mappings_iterator(gt_map* map_block){
@@ -459,6 +466,8 @@ gempy_mappings_iterator* create_mappings_iterator(gt_map* map_block){
     }
     p->map_block = map_block;
     p->alignment_iterator = NULL;
+    p->distance = 0;
+    p->score = 0;
     //printf("Created mappings_iterator %p\n", p);
     return p;
 }
@@ -544,8 +553,9 @@ gempy_alignment_iterator* create_template_mappings_iterator(gt_template* templat
     }
     p->template = template;
     p->map_array = NULL;
+    p->jump=-1;
     p->num_blocks = gt_template_get_num_blocks(template);
-    p->end_position = p->num_blocks;
+    p->position = 0;
     gt_template_new_maps_iterator(template,&(p->maps_iterator));
     return p;
 }
@@ -562,6 +572,7 @@ gempy_alignment_mappings_iterator* create_alignment_mappings_iterator(gt_alignme
     p->alignment = alignment;
     p->total = gt_alignment_get_num_maps(alignment);
     p->current = 0;
+    p->template = NULL;
     return p;
 }
 
@@ -638,4 +649,15 @@ PyMODINIT_FUNC initgemtools(void){
   PyModule_AddObject(m, "_mappings_iterator", (PyObject *)&gempy_mappings_iteratorType);
   PyModule_AddObject(m, "_alignment_iterator", (PyObject *)&gempy_alignment_iteratorType);
   PyModule_AddObject(m, "_alignment_mappings_iterator", (PyObject *)&gempy_alignment_mappings_iteratorType);
+
+
+  // define some constants in the gemtools module
+  PyModule_AddObject(m, "FORWARD", PyInt_FromLong(FORWARD));
+  PyModule_AddObject(m, "REVERSE", PyInt_FromLong(REVERSE));
+  PyModule_AddObject(m, "SKIP_NO_JUNCTION", PyInt_FromLong(NO_JUNCTION));
+  PyModule_AddObject(m, "SKIP_SPLICE", PyInt_FromLong(SPLICE));
+  PyModule_AddObject(m, "SKIP_POSITIVE", PyInt_FromLong(POSITIVE_SKIP));
+  PyModule_AddObject(m, "SKIP_NEGATIVE", PyInt_FromLong(NEGATIVE_SKIP));
+  PyModule_AddObject(m, "SKIP_INSERT", PyInt_FromLong(INSERT));
+
 }

@@ -35,7 +35,6 @@ def test_template_block_list():
         blocks = []
         for c in tmpl.blocks():
             blocks.append(c)
-            print "Original tag", c.tag
         assert len(blocks) == 2
         ##assert c[0] != c[1]
         ## test that we have two different alignments
@@ -45,4 +44,52 @@ def test_template_block_list():
         assert blocks[0].read == "GCGCGGCCGGGACCGCAGAGCCCCGGGAGCCCGCTCGAGGAGGAGCGGCAGACGCAGCGCTCTAAACCGCAGCCG"
         assert blocks[1].read == "TTCCGCTTGGTGCTCTCGCTGCAGCGGTTCAGGATGAGGTCGGCGCTCGGCCGCGGGGGCACCGCCGGCTGCGGT"
         assert len(tmpl.blocks()) == 2
+
+
+## test without iterating the mismatch blocks
+def test_template_mapping_iteration_with_paired_splitmap_number_of_blocks():
+    infile = gt.open_file(testfiles.paired_w_splitmap)
+    assert infile != None
+    block_count = 0
+    for template in infile:
+        for block in template.mappings():
+            block_count += 1
+    assert block_count == 4
+
+
+## test with iterating the mismatch blocks
+def test_template_mapping_iteration_with_paired_splitmap():
+    infile = gt.open_file(testfiles.paired_w_splitmap)
+    assert infile != None
+    block_count = 0
+    for template in infile:
+        for block in template.mappings():
+            block_count += 1
+            for m, junction, distance in block:
+                assert m.seq_name == "chr7"
+    assert block_count == 4
+
+
+def test_template_mappings_iterator():
+    infile = gt.open_file(testfiles.paired_w_splitmap)
+    c = 0
+    for tmpl in infile:
+        maps = []
+        for mappings in tmpl.mappings():
+            maps.append(mappings)
+            if c == 0:
+                mps = [(mis, skip_type, skip_distance) for mis, skip_type, skip_distance in mappings]
+                assert [m[1] for m in mps] == [gt.SKIP_SPLICE, gt.SKIP_INSERT, gt.SKIP_NO_JUNCTION]
+                assert [m[2] for m in mps] == [334, 65, -1]
+            elif c == 1:
+                mps = [(mis, skip_type, skip_distance) for mis, skip_type, skip_distance in mappings]
+                assert [m[1] for m in mps] == [gt.SKIP_SPLICE, gt.SKIP_INSERT, gt.SKIP_NO_JUNCTION]
+                assert [m[2] for m in mps] == [334, 399, -1]
+            elif c == 2:
+                mps = [(mis, skip_type, skip_distance) for mis, skip_type, skip_distance in mappings]
+                assert [m[1] for m in mps] == [gt.SKIP_SPLICE, gt.SKIP_INSERT, gt.SKIP_NO_JUNCTION]
+                assert [m[2] for m in mps] == [1554014, 399, -1]
+            c += 1
+    assert c == 4
+
 

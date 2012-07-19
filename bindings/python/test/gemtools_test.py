@@ -104,8 +104,9 @@ def test_template_mapping_iteration_with_paired_splitmap():
                 assert m.seq_name == "chr7"
                 #print "%s:%d %d %d" % (m.seq_name, m.position, junction, distance)
                 # assert distance == -1
-    print block_count
+    print "Number of blocks ???? ", block_count
     assert block_count == 4
+
 
 def test_template_alignment_mapping_iteration_with_paired_splitmap():
     infile = gt.open_file(testfiles.paired_w_splitmap)

@@ -10,13 +10,15 @@ typedef struct {
   gt_template* template;
   gt_map** map_array;
   gt_template_maps_iterator maps_iterator;
-  uint64_t end_position;
+  uint64_t position;
+  int64_t jump;
   uint64_t num_blocks;
 } gempy_alignment_iterator;
 
 typedef struct {
   PyObject_HEAD
   gt_alignment* alignment;
+  gt_template* template;
   uint64_t current;
   uint64_t total;
 } gempy_alignment_mappings_iterator;
@@ -25,6 +27,8 @@ typedef struct {
   PyObject_HEAD
   gt_map* map_block;
   gempy_alignment_iterator* alignment_iterator;
+  uint64_t distance;
+  uint64_t score;
 } gempy_mappings_iterator;
 
 PyObject* gempy_alignment_iterator_iter(PyObject *self);
