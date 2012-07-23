@@ -158,6 +158,7 @@ static PyObject* Alignment_iterate_mappings(PyObject* self, PyObject* closure){
 static PyMethodDef Alignmnt_methods[] = {
     {"to_sequence", Alignment_to_sequence, METH_VARARGS, "Convert alignment Alignment_to_sequence"},
     {"mappings", Alignment_iterate_mappings, METH_VARARGS, "Iterator over all mappings fir this alignment"},
+    {"counters", Alignment_get_counters, METH_VARARGS, "Counters"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -167,11 +168,6 @@ static PyGetSetDef Alignment_getseters[] = {
     {"qualities", (getter) Alignment_getqualities, (setter) Alignment_setqualities, "Alignment Qualities", NULL},
     {"max_complete_strata", (getter) Alignment_getmax_complete_strata, 
         (setter) Alignment_setmax_complete_strata, "Max Complete Strata", NULL},
-    {"counters", (getter) Alignment_getcounters, 
-        (setter) Alignment_setcounters, "Counters", NULL},
-//    {"mappings", (getter) Alignment_iterate_mappings, 
-//        NULL, "Iterate the mappings of the alignment", NULL},
-
     {NULL}  /* Sentinel */
 };
 
@@ -247,6 +243,7 @@ static PyGetSetDef Map_getseters[] = {
     {"mismatches", (getter) Map_getmismatches, (setter) Map_setmismatches, "Mismatches", NULL},
     {NULL}  /* Sentinel */
 };
+
 
 static PyTypeObject MapType = {
     PyObject_HEAD_INIT(NULL)

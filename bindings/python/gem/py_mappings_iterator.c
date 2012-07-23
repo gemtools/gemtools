@@ -88,7 +88,6 @@ PyObject* gempy_mappings_iterator_iternext(PyObject *self){
         int64_t junction_distance = gt_map_get_next_block_distance(p->map_block);
         gt_junction_t junction = gt_map_get_next_block_junction(p->map_block);
         p->map_block = gt_map_get_next_block(p->map_block);
-        //p->map_block = p->map_block->next_block == NULL ? NULL : p->map_block->next_block->map;
         // jump to the next block ?
         if(p->map_block == NULL && p->alignment_iterator != NULL){
             gempy_alignment_iterator* ali_iter = p->alignment_iterator;

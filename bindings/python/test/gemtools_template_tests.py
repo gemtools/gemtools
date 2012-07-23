@@ -93,3 +93,16 @@ def test_template_mappings_iterator():
     assert c == 4
 
 
+# def test_template_mappings_iterator_outside_loop_throws_exception():
+#     print("Error iteration")
+#     infile = gt.open_file(testfiles.paired_w_splitmap)
+#     c = 0
+#     for tmpl in infile:
+#         maps = []
+#         for mappings in tmpl.mappings():
+#             maps.append(mappings)
+#     for m in maps:
+#         for (mis, skip_type, skip_distance) in m:
+#             print mis
+#     assert c == 4
+

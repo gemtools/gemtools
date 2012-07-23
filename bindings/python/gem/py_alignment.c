@@ -107,15 +107,10 @@ int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *clo
     return 0;
 }
 
-PyObject* Alignment_getcounters(Alignment *self, void *closure){
-    PyObject* ret = create_gempy_iterator(1, gt_alignment_get_num_counters(self->alignment), gt_alignment_get_counter, self->alignment, PyLong_FromUnsignedLongLong, 0);
-    //Py_DECREF(ret);
+PyObject* Alignment_get_counters(PyObject *self, PyObject *closure){
+    Alignment* ali = (Alignment*) self;
+    PyObject* ret = create_gempy_iterator(1, gt_alignment_get_num_counters(ali->alignment), gt_alignment_get_counter, ali->alignment, PyLong_FromUnsignedLongLong, 0);
     return ret;
-}
-
-int Alignment_setcounters(Alignment *self, PyObject *value, void *closure){
-    PyErr_SetString(PyExc_TypeError, "Setting blocks is currently not supported");
-    return -1;
 }
 
 PyObject* Alignment_to_sequence(PyObject *self, PyObject *args){
