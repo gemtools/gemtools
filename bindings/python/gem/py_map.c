@@ -128,15 +128,9 @@ PyObject* Map_getnum_mismatches(Map *self, void *closure){
     return ret;
 }
 
-PyObject* Map_getmismatches(Map *self, void *closure)
+PyObject* Map_get_mismatches(PyObject *self, PyObject *closure)
 {
-    PyObject* ret = create_gempy_iterator(0, gt_map_get_num_misms(self->map), gt_map_get_misms, self->map, create_mismatch, 0);
+    Map* mm = (Map*) self;
+    PyObject* ret = create_gempy_iterator(0, gt_map_get_num_misms(mm->map), gt_map_get_misms, mm->map, create_mismatch, 0);
     return ret;
 }
-
-int Map_setmismatches(Map *self, PyObject *value, void *closure){
-    PyErr_SetString(PyExc_TypeError, "Setting mismatches is currently not supported");
-    return -1;
-}
-
-

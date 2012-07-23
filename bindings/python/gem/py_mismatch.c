@@ -28,8 +28,11 @@ int Mismatch_setposition(Mismatch *self, PyObject *value, void *closure){
 }
 
 PyObject* Mismatch_getsize(Mismatch *self, void *closure){
-    PyObject* ret = PyLong_FromUnsignedLongLong(gt_misms_get_size(self->misms));
-    return ret;
+    if(gt_misms_get_type(self->misms) != MISMS){
+      PyObject* ret = PyLong_FromUnsignedLongLong(gt_misms_get_size(self->misms));
+      return ret;
+    }
+    return PyLong_FromLongLong(-1);
 }
 
 int Mismatch_setsize(Mismatch *self, PyObject *value, void *closure){

@@ -61,10 +61,7 @@ PyObject* Map_getglobal_score(Map *self, void *closure);
 PyObject* Map_getglobal_levenshtein(Map *self, void *closure);
 
 // iterate the mismatches
-PyObject* Map_getmismatches(Map *self, void *closure);
-int Map_setmismatches(Map *self, PyObject *value, void *closure);
+PyObject* Map_get_mismatches(PyObject *self, PyObject *closure);
 PyObject* Map_getnum_mismatches(Map *self, void *closure);
-
-
 
 #endif

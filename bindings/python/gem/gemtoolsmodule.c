@@ -240,10 +240,13 @@ static PyGetSetDef Map_getseters[] = {
     {"global_distance", (getter) Map_getglobal_distance, NULL, "Map global_distance", NULL},
     {"global_levenshtein", (getter) Map_getglobal_levenshtein, NULL, "Map global_levenshtein", NULL},
     {"num_mismatches", (getter) Map_getnum_mismatches, NULL, "Mismatches", NULL},
-    {"mismatches", (getter) Map_getmismatches, (setter) Map_setmismatches, "Mismatches", NULL},
     {NULL}  /* Sentinel */
 };
 
+static PyMethodDef Map_methods[] = {
+    {"mismatches", Map_get_mismatches, METH_VARARGS, "Iterator over the mismatches"},
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
 
 static PyTypeObject MapType = {
     PyObject_HEAD_INIT(NULL)
@@ -274,7 +277,7 @@ static PyTypeObject MapType = {
     0,		               /* tp_weaklistoffset */
     0,		               /* tp_iter */
     0,		               /* tp_iternext */
-    0,             /* tp_methods */
+    Map_methods,             /* tp_methods */
     0,             /* tp_members */
     Map_getseters,                         /* tp_getset */
     0,                         /* tp_base */
@@ -656,5 +659,9 @@ PyMODINIT_FUNC initgemtools(void){
   PyModule_AddObject(m, "SKIP_POSITIVE", PyInt_FromLong(POSITIVE_SKIP));
   PyModule_AddObject(m, "SKIP_NEGATIVE", PyInt_FromLong(NEGATIVE_SKIP));
   PyModule_AddObject(m, "SKIP_INSERT", PyInt_FromLong(INSERT));
+
+  PyModule_AddObject(m, "MISMS", PyInt_FromLong(MISMS));
+  PyModule_AddObject(m, "INS", PyInt_FromLong(INS));
+  PyModule_AddObject(m, "DEL", PyInt_FromLong(DEL));
 
 }
