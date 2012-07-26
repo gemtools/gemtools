@@ -62,7 +62,7 @@ typedef struct {
 } gt_map_block_iterator;
 
 // Checkers
-#define GT_MAP_CHECK(map) gt_fatal_check(map==NULL||map->mismatches==NULL,NULL_HANDLER)
+#define GT_MAP_CHECK(map) gt_fatal_check((map)==NULL||(map)->mismatches==NULL,NULL_HANDLER)
 #define GT_MAP_EDITABLE_CHECK(map) \
   GT_MAP_CHECK(map); \
   gt_fatal_check(map->mismatches_txt!=NULL,MAP_MISMS_NOT_PARSED)
@@ -145,6 +145,11 @@ GT_INLINE uint64_t gt_map_vector_get_score(gt_vector* const maps);
 // Distance procedures
 GT_INLINE uint64_t gt_map_get_levenshtein_distance(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_global_levenshtein_distance(gt_map* const map);
+// Map compare
+GT_INLINE bool gt_map_cmp(gt_map* const map_1,gt_map* const map_2);
+GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated);
+GT_INLINE bool gt_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps);
+GT_INLINE int64_t gt_mmap_range_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps,const uint64_t range_tolerated);
 
 /*
  * Miscellaneous

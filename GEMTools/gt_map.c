@@ -261,11 +261,49 @@ GT_INLINE uint64_t gt_map_get_levenshtein_distance(gt_map* const map) {
   return lev_distance;
 }
 GT_INLINE uint64_t gt_map_get_global_levenshtein_distance(gt_map* const map) {
+  GT_MAP_CHECK(map);
   register uint64_t lev_distance = 0;
   GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
     lev_distance += gt_map_get_levenshtein_distance(map_it);
   } GT_END_MAP_BLOCKS_ITERATOR;
   return lev_distance;
+}
+// Map compare
+GT_INLINE bool gt_map_cmp(gt_map* const map_1,gt_map* const map_2) {
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  return (gt_map_range_cmp(map_1,map_2,0)==0);
+}
+GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated) {
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  if (gt_string_eq(map_1->seq_name,map_2->seq_name) &&
+      map_1->direction==map_2->direction) {
+    register const int64_t begin_distance = (int64_t)map_1->position-(int64_t)map_2->position;
+    if (GT_ABS(begin_distance)<=range_tolerated) return 0;
+    register const int64_t end_distance = (int64_t)(map_1->position+gt_map_get_global_length(map_1)) -
+        (int64_t)(map_2->position+gt_map_get_global_length(map_2));
+    if (GT_ABS(end_distance)<=range_tolerated) return 0;
+    return begin_distance;
+  } else {
+    return INT64_MAX;
+  }
+}
+GT_INLINE bool gt_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps) {
+  GT_NULL_CHECK(map_1); GT_NULL_CHECK(map_2);
+  register uint64_t i;
+  for (i=0;i<num_maps;++i) {
+    if (gt_map_cmp(map_1[i],map_2[i])) return false;
+  }
+  return true;
+}
+GT_INLINE int64_t gt_mmap_range_cmp(
+    gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps,const uint64_t range_tolerated) {
+  GT_NULL_CHECK(map_1); GT_NULL_CHECK(map_2);
+  register uint64_t i;
+  for (i=0;i<num_maps;++i) {
+    register const int64_t map_cmp = gt_map_range_cmp(map_1[i],map_2[i],range_tolerated);
+    if (map_cmp!=0) return map_cmp;
+  }
+  return 0;
 }
 
 /*

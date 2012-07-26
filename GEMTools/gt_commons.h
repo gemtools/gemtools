@@ -45,6 +45,11 @@ typedef int32_t gt_status;
 #define PLUS '+'
 #define MINUS '-'
 #define FORMAT '%'
+#define SPACE ' '
+#define SLASH '/'
+#define STAR '*'
+#define EQUAL '='
+#define COMA ','
 
 // Buffer sizes
 #define GT_BUFFER_SIZE_1K   ((1<<10)-64)
@@ -99,7 +104,9 @@ typedef int32_t gt_status;
  * Is functions
  */
 extern bool gt_dna[256];
+extern char gt_complement_table[256];
 #define gt_is_dna(character) gt_dna[(int)character]
+#define gt_get_complement(character) (gt_complement_table[(int)character])
 #define gt_is_valid_quality(character) (33 <= (character) && (character) <= 127)
 #define gt_is_number(character) ('0' <= (character) && (character) <= '9')
 #define gt_get_cipher(character) ((character) - '0')
@@ -113,6 +120,20 @@ extern bool gt_dna[256];
  * Helper functions (OPERATIVE)
  */
 #define gt_cfree(handler) if (handler!=NULL) free(handler);
+#define gt_string_eq(a,b) (strcmp(a,b)==0)
+GT_INLINE void gt_reverse_complent(char* const sequence,const uint64_t length);
+GT_INLINE void gt_cpy_reverse_complent(char* const sequence_dst,char* const sequence_ori,const uint64_t length);
+GT_INLINE void gt_reverse(char* const sequence,const uint64_t length);
+GT_INLINE void gt_cpy_reverse(char* const sequence_dst,char* const sequence_ori,const uint64_t length);
+GT_INLINE char* gt_string_cpy(char* sequence,const uint64_t length);
+#define GT_MIN(a,b) ((a)<=(b)?(a):(b))
+#define GT_MAX(a,b) ((a)>=(b)?(a):(b))
+#define GT_ABS(a) ((a)>=0?(a):-(a))
+
+/*
+ * Error value return wrapper
+ */
+#define GT_DELEGATE_ERROR(funtion_call,error_code) if ((error_code=funtion_call)) { return error_code; }
 
 /*
  * Mutex Helpers
@@ -127,43 +148,12 @@ extern bool gt_dna[256];
  */
 #include "gt_error.h"
 #include "gt_vector.h"
+#include "gt_hash.h"
 
 /*
  * Common constants
  */
 #define GT_STREAM_FILE_NAME "<<STREAM>>"
 #define GT_ALL UINT64_MAX
-
-/*
- * MAP file format constants
- */
-#define GT_MAP_MCS '+'
-#define GT_MAP_COUNTS_SEP ':'
-#define GT_MAP_COUNTS_TIMES 'x'
-#define GT_MAP_SEP ':'
-#define GT_MAP_NONE '-'
-#define GT_MAP_NEXT ','
-
-#define GT_MAP_SEP_S ":"
-#define GT_MAP_NEXT_S ","
-#define GT_MAP_TEMPLATE_SEP "::"
-#define GT_MAP_TEMPLATE_SCORE ":::"
-#define GT_MAP_SMCS "+"
-#define GT_MAP_COUNTS_STIMES "x"
-#define GT_MAP_COUNTS_NOT_UNIQUE '!'
-#define GT_MAP_COUNTS_NOT_UNIQUE_S "!"
-
-#define GT_MAP_STRAND_FORWARD_SYMBOL '+'
-#define GT_MAP_STRAND_FORWARD_LETTER 'F'
-#define GT_MAP_STRAND_REVERSE_SYMBOL '-'
-#define GT_MAP_STRAND_REVERSE_LETTER 'R'
-
-#define GT_MAP_INDEL_INSERTION '+'
-#define GT_MAP_INDEL_DELETION '-'
-#define GT_MAP_INDEL_SPLICE '*'
-
-#define GT_MAP_SKIP_POSITIVE '+'
-#define GT_MAP_SKIP_NEGATIVE '-'
-#define GT_MAP_SKIP_SPLICE '*'
 
 #endif /* GT_COMMONS_H_ */

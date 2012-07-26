@@ -6,6 +6,7 @@
  */
 
 #include "gt_commons.h"
+#include "gt_input_map_parser.h"
 #include "gt_output_map.h"
 
 #define GT_OUTPUT_MAP_COMPACT_COUNTERS_ZEROS_TH 5
@@ -51,10 +52,10 @@ GT_INLINE gt_status gt_output_map_gprint_mismatch_string(gt_generic_printer* con
         centinel=misms_pos;
         break;
       case INS:
-        gt_gprintf(gprinter,">%c+",gt_misms_get_size(misms));
+        gt_gprintf(gprinter,">%"PRIu64"+",gt_misms_get_size(misms));
         break;
       case DEL:
-        gt_gprintf(gprinter,">%c-",gt_misms_get_size(misms));
+        gt_gprintf(gprinter,">%"PRIu64"-",gt_misms_get_size(misms));
         centinel-=gt_misms_get_size(misms);
         break;
       default:
@@ -85,7 +86,7 @@ GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,
     gt_output_map_gprint_mismatch_string(gprinter,map_it);
     if (gt_map_has_next_block(map_it)) {
       next_map = gt_map_get_next_block(map_it);
-      if ((cigar_pending=(strcmp(last_seq_name,gt_map_get_seq_name(map_it))==0))){
+      if ((cigar_pending=(gt_string_eq(last_seq_name,gt_map_get_seq_name(map_it))))){
         switch (gt_map_get_next_block_junction(map_it)) {
           case SPLICE:
             gt_gprintf(gprinter,">""%"PRIu64"*",gt_map_get_next_block_distance(map_it));
@@ -154,7 +155,6 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps(
     if ((i++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
     gt_output_map_gprint_map(gprinter,map,print_scores);
   }
-  gt_gprintf(gprinter,"\n");
   return 0;
 }
 // Output Buffer [B]
@@ -254,6 +254,7 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   // Print MAPS
   gt_gprintf(gprinter,"\t");
   gt_output_map_gprint_template_maps(gprinter,template,num_maps,print_scores);
+  gt_gprintf(gprinter,"\n");
   return 0;
 }
 GT_INLINE gt_status gt_output_map_gprint_alignment(
@@ -276,6 +277,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   // Print MAPS
   gt_gprintf(gprinter,"\t");
   gt_output_map_gprint_alignment_maps(gprinter,alignment,num_maps,print_scores);
+  gt_gprintf(gprinter,"\n");
   return 0;
 }
 // Output Buffer [B]

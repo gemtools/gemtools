@@ -62,7 +62,7 @@ GT_INLINE void gt_vgprintf(gt_generic_printer* const generic_printer,const char 
   switch (generic_printer->printer_type) {
     case GT_FILE_PRINTER:
       GT_NULL_CHECK(generic_printer->file);
-      gt_fatal_check(vfprintf(generic_printer->file,template,v_args)<0,FPRINTF);
+      gt_cond_fatal_error(vfprintf(generic_printer->file,template,v_args)<0,FPRINTF);
       break;
     case GT_STRING_PRINTER:
       GT_NULL_CHECK(generic_printer->buffer);
@@ -73,12 +73,12 @@ GT_INLINE void gt_vgprintf(gt_generic_printer* const generic_printer,const char 
       }
       register const int64_t mem_used = vsprintf(
           gt_vector_get_free_elm(generic_printer->buffer,char),template,v_args);
-      gt_fatal_check(mem_used<0,SPRINTF);
+      gt_cond_fatal_error(mem_used<0,SPRINTF);
       gt_vector_add_used(generic_printer->buffer,mem_used);
       break;
     case GT_BUFFER_PRINTER:
       GT_NULL_CHECK(generic_printer->output_buffer);
-      gt_fatal_check(gt_vbprintf(generic_printer->output_buffer,template,v_args)<0,BPRINTF);
+      gt_cond_fatal_error(gt_vbprintf(&generic_printer->output_buffer,template,v_args)<0,BPRINTF);
       break;
     default:
       gt_fatal_error(SELECTION_NOT_IMPLEMENTED);

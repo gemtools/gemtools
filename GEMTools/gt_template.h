@@ -10,6 +10,7 @@
 
 #include "gt_commons.h"
 #include "gt_alignment.h"
+#include "gt_iterators.h"
 
 // Codes gt_status
 #define GT_TEMPLATE_OK 1
@@ -100,24 +101,33 @@ GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template);
 /*
  * Template's multimaps handlers (Map relation)
  */
+GT_INLINE uint64_t gt_template_get_num_mmap(gt_template* const template);
+GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position);
+GT_INLINE void gt_template_clear_mmap(gt_template* const template);
+/* */
+GT_INLINE void gt_template_add_mmap(
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
+GT_INLINE gt_map** gt_template_get_mmap(
+    gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr);
+GT_INLINE void gt_template_set_mmap(
+    gt_template* const template,const uint64_t position,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
+/* */
 GT_INLINE void gt_template_add_mmap_gtvector(
     gt_template* const template,gt_vector* const maps,gt_mmap_attributes* const mmap_attr);
 GT_INLINE void gt_template_get_mmap_gtvector(
     gt_template* const template,const uint64_t position,gt_vector* const maps,gt_mmap_attributes* const mmap_attr);
 GT_INLINE void gt_template_set_mmap_gtvector(
     gt_template* const template,const uint64_t position,gt_vector* const maps,gt_mmap_attributes* const mmap_attr);
-GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position);
-GT_INLINE uint64_t gt_template_get_num_mmap(gt_template* const template);
-GT_INLINE void gt_template_clear_mmap(gt_template* const template);
-
-/*
- * Higher-level Procedures
- */
-GT_INLINE void gt_template_insert_match_gtvector(gt_template* const template,gt_vector* const maps,gt_mmap_attributes* const mmap_attr);
-GT_INLINE void gt_template_recalculate_counters(gt_template* const template);
-GT_INLINE uint64_t gt_template_get_min_matching_strata(gt_template* const template);
-GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata);
-GT_INLINE bool gt_template_is_mapped(gt_template* const template);
+/* */
+GT_INLINE void gt_template_add_mmap_v(
+    gt_template* const template,gt_mmap_attributes* const mmap_attr,va_list v_args);
+GT_INLINE void gt_template_set_mmap_v(
+    gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr,va_list v_args);
+/* */
+GT_INLINE void gt_template_add_mmap_va(
+    gt_template* const template,gt_mmap_attributes* const mmap_attr,...);
+GT_INLINE void gt_template_set_mmap_va(
+    gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr,...);
 
 /*
  * Miscellaneous

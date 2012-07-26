@@ -25,11 +25,6 @@
 
 #define GT_VECTOR_EXPAND_FACTOR (3.0/2.0)
 
-#define GT_VECTOR_CHECK(vector) \
-  GT_NULL_CHECK(vector); \
-  GT_NULL_CHECK(vector->memory); \
-  GT_ZERO_CHECK(vector->element_size)
-
 GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size) {
   GT_ZERO_CHECK(element_size);
   gt_vector* vector=malloc(sizeof(gt_vector));

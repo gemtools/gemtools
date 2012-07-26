@@ -5,12 +5,15 @@
 # DESCRIPTION: // TODO
 #============================================================================
 
-GEM_TOOLS=gem-tools-examples gem-map-2-fastq
-SRCS=gem_tools.c gt_input_file.c gt_buffered_map_input.c  \
+GEM_TOOLS=gem-source #gem-tools-examples
+SRCS=gem_tools.c \
+     gt_input_file.c gt_buffered_input_file.c \
+       gt_input_map_parser.c gt_input_sam_parser.c gt_input_fastq_parser.c \
+     gt_buffered_output_file.c gt_output_buffer.c \
+       gt_output_map.c gt_generic_printer.c \
      gt_template.c gt_alignment.c gt_map.c gt_misms.c \
-     gt_vector.c gt_error.c gt_commons.c \
-     gt_buffered_output_file.c gt_output_map.c gt_generic_printer.c gt_output_buffer.c
-     # gt_output_sam.c 
+     gt_template_handling.c gt_alignment_handling.c \
+     gt_vector.c gt_error.c gt_commons.c 
 CC=gcc
 AR=ar
 ARCH_FLAGS=-D__LINUX__ -msse3 -mssse3 -msse4.2 -fPIC

@@ -141,7 +141,7 @@ GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_
 
 GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  return template->max_complete_strata;
+  return template->max_complete_strata; // FIXME: Not defined.......
 }
 GT_INLINE void gt_template_set_mcs(gt_template* const template,const uint64_t max_complete_strata) {
   GT_TEMPLATE_CHECK(template);
@@ -172,6 +172,62 @@ GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template) {
 /*
  * Template's matches handlers
  */
+GT_INLINE uint64_t gt_template_get_num_mmap(gt_template* const template) {
+  GT_TEMPLATE_EDITABLE_CHECK(template);
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  register const uint64_t num_mmaps = gt_vector_get_used(template->mmaps);
+  gt_fatal_check(num_mmaps % num_blocks != 0,TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION);
+  return num_mmaps/num_blocks;
+}
+GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position) {
+  GT_TEMPLATE_EDITABLE_CHECK(template);
+  return gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes);
+}
+GT_INLINE void gt_template_clear_mmap(gt_template* const template) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  gt_vector_clean(template->mmaps);
+  gt_vector_clean(template->mmaps_attributes);
+}
+/* */
+GT_INLINE void gt_template_add_mmap(
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_NULL_CHECK(mmap);
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  register uint64_t i;
+  for (i=0;i<num_blocks;++i) {
+    GT_MAP_CHECK(mmap[i]);
+    gt_vector_insert(template->mmaps,mmap[i],gt_map*);
+  }
+  gt_vector_insert(template->mmaps_attributes,*mmap_attr,gt_mmap_attributes);
+}
+GT_INLINE gt_map** gt_template_get_mmap(
+    gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr) {
+  GT_TEMPLATE_EDITABLE_CHECK(template);
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  gt_fatal_check(position>=(gt_vector_get_used(template->mmaps)/num_blocks),POSITION_OUT_OF_RANGE);
+  // Retrieve the maps from the mmap vector
+  register const uint64_t init_map_pos = num_blocks*position;
+  register gt_map** mmap = gt_vector_get_elm(template->mmaps,init_map_pos,gt_map*);
+  if (mmap_attr) *mmap_attr = *gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes);
+  return mmap;
+}
+GT_INLINE void gt_template_set_mmap(
+    gt_template* const template,const uint64_t position,gt_map** const mmap,gt_mmap_attributes* const mmap_attr) {
+  GT_TEMPLATE_EDITABLE_CHECK(template);
+  GT_NULL_CHECK(mmap); GT_NULL_CHECK(mmap_attr);
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  gt_fatal_check(position>=(gt_vector_get_used(template->mmaps)/num_blocks),POSITION_OUT_OF_RANGE);
+  // Store the maps into the mmap vector
+  register const uint64_t init_map_pos = num_blocks*position;
+  register gt_map** mmap_template = gt_vector_get_elm(template->mmaps,init_map_pos,gt_map*);
+  register uint64_t i = 0;
+  for (i=0;i<num_blocks;++i) {
+    mmap_template[i] = mmap[i];
+  }
+  gt_vector_set_elm(template->mmaps_attributes,position,gt_mmap_attributes,*mmap_attr);
+}
+/* */
 GT_INLINE void gt_template_add_mmap_gtvector(
     gt_template* const template,gt_vector* const maps,gt_mmap_attributes* const mmap_attr) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
@@ -198,7 +254,7 @@ GT_INLINE void gt_template_get_mmap_gtvector(
   for(i=0;i<num_blocks;i++) {
     gt_vector_insert(maps,mmap[i],gt_map*);
   }
-  *mmap_attr = *gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes);
+  if (mmap_attr) *mmap_attr = *gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes);
 }
 GT_INLINE void gt_template_set_mmap_gtvector(
     gt_template* const template,const uint64_t position,gt_vector* const maps,gt_mmap_attributes* const mmap_attr) {
@@ -214,58 +270,51 @@ GT_INLINE void gt_template_set_mmap_gtvector(
   GT_VECTOR_ITERATE(maps,map,map_pos,gt_map*) {
     mmap[i++] = *map;
   }
-  *gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes) = *mmap_attr;
+  gt_vector_set_elm(template->mmaps_attributes,position,gt_mmap_attributes,*mmap_attr);
 }
-GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position) {
-  GT_TEMPLATE_EDITABLE_CHECK(template);
-  return gt_vector_get_elm(template->mmaps_attributes,position,gt_mmap_attributes);
-}
-GT_INLINE uint64_t gt_template_get_num_mmap(gt_template* const template) {
-  GT_TEMPLATE_EDITABLE_CHECK(template);
+/* */
+GT_INLINE void gt_template_add_mmap_v(
+    gt_template* const template,gt_mmap_attributes* const mmap_attr,va_list v_args) {
+  GT_TEMPLATE_CHECK(template);
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-  register const uint64_t num_mmaps = gt_vector_get_used(template->mmaps);
-  gt_fatal_check(num_mmaps % num_blocks != 0,TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION);
-  return num_mmaps/num_blocks;
-}
-GT_INLINE void gt_template_clear_mmap(gt_template* const template) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  gt_vector_clean(template->mmaps);
-  gt_vector_clean(template->mmaps_attributes);
-}
-
-/*
- * Higher-level Procedures
- */
-GT_INLINE void gt_template_insert_match_gtvector(gt_template* const template,gt_vector* const maps,gt_mmap_attributes* const mmap_attr) {
-  GT_TEMPLATE_EDITABLE_CHECK(template);
-  GT_NULL_CHECK(maps); GT_NULL_CHECK(mmap_attr);
-  gt_template_inc_counter(template,mmap_attr->distance);
-  gt_template_add_mmap_gtvector(template,maps,mmap_attr);
-}
-GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
-  GT_TEMPLATE_EDITABLE_CHECK(template);
-  // TODO
-}
-GT_INLINE uint64_t gt_template_get_min_matching_strata(gt_template* const template) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  register gt_vector* vector = gt_template_get_counters_vector(template);
-  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
-    if (*counter!=0) return counter_pos+1;
+  register uint64_t i;
+  for (i=0;i<num_blocks;++i) {
+    register gt_map* const map = va_arg(v_args,gt_map*);
+    GT_MAP_CHECK(map);
+    gt_vector_insert(template->mmaps,map,gt_map*);
   }
-  return UINT64_MAX;
+  gt_vector_insert(template->mmaps_attributes,*mmap_attr,gt_mmap_attributes);
 }
-GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  register gt_vector* vector = gt_template_get_counters_vector(template);
-  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
-    if ((counter_pos+1)>=max_allowed_strata) return false;
-    else if (*counter!=0) return true;
+GT_INLINE void gt_template_set_mmap_v(
+    gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr,va_list v_args) {
+  GT_TEMPLATE_CHECK(template);
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  gt_fatal_check(position>=(gt_vector_get_used(template->mmaps)/num_blocks),POSITION_OUT_OF_RANGE);
+  // Store the maps into the mmap vector
+  register const uint64_t init_map_pos = num_blocks*position;
+  register gt_map** mmap_template = gt_vector_get_elm(template->mmaps,init_map_pos,gt_map*);
+  register uint64_t i = 0;
+  for (i=0;i<num_blocks;++i) {
+    register gt_map* const map = va_arg(v_args,gt_map*);
+    GT_MAP_CHECK(map);
+    mmap_template[i] = map;
   }
-  return false;
+  gt_vector_set_elm(template->mmaps_attributes,position,gt_mmap_attributes,*mmap_attr);
 }
-GT_INLINE bool gt_template_is_mapped(gt_template* const template) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  return gt_template_is_thresholded_mapped(template,UINT64_MAX);
+/* */
+GT_INLINE void gt_template_add_mmap_va(
+    gt_template* const template,gt_mmap_attributes* const mmap_attr,...) {
+  GT_TEMPLATE_CHECK(template);
+  va_list v_args;
+  va_start(v_args,mmap_attr);
+  gt_template_add_mmap_v(template,mmap_attr,v_args);
+}
+GT_INLINE void gt_template_set_mmap_va(
+    gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr,...) {
+  GT_TEMPLATE_CHECK(template);
+  va_list v_args;
+  va_start(v_args,mmap_attr);
+  gt_template_set_mmap_v(template,position,mmap_attr,v_args);
 }
 
 /*
