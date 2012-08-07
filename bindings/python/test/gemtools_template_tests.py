@@ -27,7 +27,7 @@ def test_template_counters_list():
         # test list direct list conversion
         assert list(tmpl.counters()) == [0, 4]
         assert len(tmpl.counters()) == 2
-
+              
 
 def test_template_block_list():
     infile = gt.open_file(testfiles.paired_w_splitmap)
