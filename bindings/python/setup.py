@@ -18,9 +18,9 @@ gemtools = Extension('gem.gemtools',
                                    ('MINOR_VERSION', '0')],
                     include_dirs=['../../GEMTools'],
                     extra_objects=objs,
-                    sources=['gem/py_iterator.c', 'gem/py_template_iterator.c',
-                               'gem/py_mismatch.c', 'gem/py_map.c', 'gem/py_alignment.c',
-                               'gem/py_template.c', 'gem/gemtoolsmodule.c', 'gem/py_mappings_iterator.c'])
+                    sources=['src/py_iterator.c', 'src/py_template_iterator.c',
+                               'src/py_mismatch.c', 'src/py_map.c', 'src/py_alignment.c',
+                               'src/py_template.c', 'src/gemtoolsmodule.c', 'src/py_mappings_iterator.c'])
 
 setup(
         name='Gem',
