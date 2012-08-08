@@ -1,10 +1,4 @@
 #!/usr/bin/env python
-import testfiles
-
-test_mapping = testfiles.test_map
-test_zipped_mapping = testfiles.test_map_gz
-test_fastq = testfiles.test_fastq
-
 
 #class ConversionTestCase(unittest.TestCase):
 #    def test_map_2_fastq_conversion_lib(self):

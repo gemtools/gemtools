@@ -1,36 +1,67 @@
 #!/usr/bin/env python
-
-import testfiles
-import unittest
 import os
-
+import shutil
+from nose.tools import with_setup
 import gem
+from gem import files
+from testfiles import testfiles
+
+__author__ = 'Thasso Griebel <thasso.griebel@gmail.com>'
+
+index = testfiles["genome.gem"]
+results_dir = None
+
+def setup_func():
+    global results_dir
+    results_dir = "test_results"
+    if not os.path.exists(results_dir):
+        os.mkdir(results_dir)
+    results_dir = os.path.abspath(results_dir)
 
 
-#class MapperTests(unittest.TestCase):
-#    def test_simple_mapper_run(self):
-#        if os.path.exists("testresults/output.map"):
-#            os.remove("testresults/output.map")
-#        output = gem.mapper(testfiles.test_fastq, "testresults/output.map", testfiles.index)
-#        assert os.path.exists("testresults/output.map")
-#        assert output is not None
-#        counter = 0
-#        for read in output:
-#           counter += 1
-#        assert counter == 10
-#
-#    def test_simple_mapper_run_with_trimming(self):
-#        if os.path.exists("testresults/output.map"):
-#            os.remove("testresults/output.map")
-#        output = gem.mapper(testfiles.test_fastq, "testresults/output.map", testfiles.index)
+def cleanup():
+    shutil.rmtree(results_dir, ignore_errors=True)
 
-#        for read in gem.unmapped(output):
-#            print str(read)
-        #output = gem.mapper(gem.trim(gem.unmapped(output, 3), 0, 10), "testresults/output.map", testfiles.index)
-        #assert os.path.exists("testresults/output.map")
-        #assert output is not None
-        #counter = 0
-        #for read in output:
-        #    counter += 1
-        #    assert len(read.sequence) == 65
-        #assert counter == 2
+
+@with_setup(setup_func, cleanup)
+def test_sync_mapper_execution():
+    input = files.open(testfiles["reads_1.fastq"])
+    mappings = gem.mapper(input, index, results_dir + "/result.mapping")
+    assert mappings is not None
+    assert mappings.process is not None
+    assert mappings.filename is not None
+    assert mappings.filename == results_dir + "/result.mapping"
+    assert sum(1 for x in mappings) == 10000
+
+
+@with_setup(setup_func, cleanup)
+def test_async_mapper_execution():
+    input = files.open(testfiles["reads_1.fastq"])
+    mappings = gem.mapper(input, index)
+    assert mappings is not None
+    assert mappings.process is not None
+    assert mappings.filename is None
+    assert sum(1 for x in mappings) == 10000
+
+
+@with_setup(setup_func, cleanup)
+def test_async_mapper_pipes_with_filter():
+    def on_half_filter(reads):
+        count = 0
+        for read in reads:
+            count += 1
+            if count % 2 == 0: yield read
+
+
+    input = files.open(testfiles["reads_1.fastq"])
+    initial = gem.mapper(input, index)
+    mappings = gem.mapper(on_half_filter(initial), index, results_dir + "/piped_out.mapping")
+
+    assert mappings is not None
+    assert mappings.process is not None
+    assert mappings.filename is not None
+    assert mappings.filename == results_dir + "/piped_out.mapping"
+    assert os.path.exists(results_dir + "/piped_out.mapping")
+    assert sum(1 for x in mappings) == 5000
+    print os.listdir(results_dir)
+

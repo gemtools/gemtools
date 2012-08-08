@@ -1,201 +1,109 @@
 #!/usr/bin/env python
-"""Python wrapper around gemtools
-In addition to gemtoosl support, the gem module
-provides ways to start the GEM mapper directly.
-"""
-import os
+"""Python wrapper around the GEM2 mapper that provides
+ability to feed data into GEM and retreive the mappings"""
 import subprocess
 import sys
-import types
-from  itertools import islice
-
-from . import filter
-from . import junctions as gemjunctions
-from . import splits
-from . import utils
+import logging
 
 
-def _from_fastq(fastq):
-    """Generator function that return a Read
-    created from a fastq file
+# set this to true to cpli qualities to
+# read length and print a waring instead of raising an
+# exception
+import files
+from gem import utils
 
-    Arguments
-    ---
-    fastq - a string to a file or an open file descriptor or an iterable
+_trim_qualities = False
+
+class Read(object):
+    """A single read. The read info covers
+    its id, the raw sequence, qualities, the mapping summary
+    and the actual mappings. Qualities, the summary, and the mappings
+    are optional.
+
+    The read can be transformed to GEM input using the to_sequence
+    method. The __str__ implementation returns the GEM representation.
     """
-    if fastq is None:
-        raise ValueError("No fastq input specified")
-    if isinstance(fastq, basestring):
-        ## open a file
-        fastq = open(fastq, "r")
+    def __init__(self):
+        """Create a new empty read the is supposed to be used as a
+        container
+        """
+        self.id = None
+        self.sequence = None
+        self.qualities = None
+        self.summary = None
+        self.mappings = None
 
-    read = None
-    while True:
-        fastq_lines = list(islice(fastq, 4))  # read in chunks of 4
-        if not fastq_lines:
-            break
-        read.id = fastq_lines[0].rstrip()[1:]
-        read.sequence = fastq_lines[1].rstrip()
-        read.qualities = fastq_lines[3].rstrip()
-        yield read
-    try:
-        fastq.close()
-    except:
-        pass  # ignore, exception in case fastq is not file descriptor
+    def min_mismatches(self):
+        """Parse the mismatch string and return the minimum number
+        of mismatches of the first mapping found
+        or return -1 if no mapping was found
+        """
+        ## get the mappings
+        mismatches = -1
+        if self.summary is None:
+            return -1
+        if self.summary in ["-", "*", "+"]:
+            return -1
 
-
-def _from_fasta(fastq):
-    """Generator function that return a Read
-    created from a fasta file
-
-    Arguments
-    ---
-    fastq - a string to a file or an open file descriptor or an iterable
-    """
-    if fastq is None:
-        raise ValueError("No fasta input specified")
-    if isinstance(fastq, basestring):
-        ## open a file
-        fastq = open(fastq, "r")
-
-    read = None
-    while True:
-        fastq_lines = list(islice(fastq, 2))  # read in chunks of 4
-        if not fastq_lines:
-            break
-        read.id = fastq_lines[0].rstrip()[1:]
-        read.sequence = fastq_lines[1].rstrip()
-        yield read
-    try:
-        fastq.close()
-    except:
-        pass  # ignore, exception in case fastq is not file descriptor
+        for idx, s in enumerate(utils.multisplit(self.summary, [':', '+'])):
+            if int(s) > 0:
+                mismatches = idx
+                break
+        return mismatches
 
 
-def _from_map(input):
-    """Generator function that return a Read
-    created from a map file
-
-    Arguments
-    ---
-    input - a string to a file or an open file descriptor
-    """
-    if input is None:
-        raise ValueError("No map input specified")
-
-    infile = None
-    if isinstance(input, basestring):
-        ## open a file
-        infile = gt.gt_input_file_open(input, False)
-    else:
-        ## open stream
-        infile = gt.gt_input_stream_open(input)
-
-    py_tmpl = Template()
-    template = gt.gt_template_new()
-    map_input = gt.gt_buffered_map_input_new(infile)
-    while True:
-        value = gt.gtpy_fill_template(py_tmpl, template, map_input)
-        if not value:
-            break
-        print "Yielding", py_tmpl, py_tmpl.tag
-        yield py_tmpl
-
-    gt.gt_buffered_map_input_close(map_input)
-    gt.gt_input_file_close(infile)
+    def get_maps(self):
+        print self.summary, self.mappings
+        if self.summary == None or self.summary in ['-','+','*']:
+            return ([0], ["-"])
+        sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
+        maps = self.mappings.split(',')
+        return (sums, maps)
 
 
-def _open_file(input):
-    """Generator that opens the given file and yields
-    the lines. The function can handle gzipped files
-    and uses zcat to read the content (extra process)
-    """
-    if not isinstance(input, basestring):
-        raise ValueError("Zcat input is not a stirng")
-
-    fd = None
-    if input.endswith(".gz"):
-        zcat = subprocess.Popen(["zcat", "-f", input],
-                                    stdout=subprocess.PIPE)
-        fd = zcat.stdout
-    else:
-        fd = open(input, 'r')
-    return fd
-
-
-def _create_input(input):
-    """Check the input and return it if its a generator,
-    otherwise open as file
-    """
-    if isinstance(input, types.GeneratorType):
-        return input
-    else:
-        return gem_open(input)
-
-
-def gem_open(input):
-    """Generator function that opens the input and
-    yields Read objects. Automatic type detection is
-    done using the file extension. .map .fastq .fa and
-    .fastq are supported file formats. If a generator function
-    is passed, the content of the generator is
-    yield
-
-    ---
-    Arguments:
-    input - single string or a list of strings with the file names
-    """
-    inputs = input
-    if isinstance(input, basestring):
-        inputs = [input]
-
-    for file in inputs:
-        content = _open_file(file)
-        gen = None
-        # remove .gz from name
-        if file.endswith(".gz"):
-            file = file[:-3]
-        if file.endswith(".map"):
-            gen = _from_map(content)
-        elif file.endswith(".fastq"):
-            gen = _from_fastq(content)
-        elif file.endswith(".fasta") or file.endswith(".fa"):
-            gen = _from_fasta(content)
+    def __str__(self):
+        """Returns GEM string representaton of the reads"""
+        if self.qualities is None:
+            return "%s\t%s\t%s\t%s" % (self.id,
+                                           self.sequence,
+                                           self.summary,
+                                           self.mappings)
         else:
-            raise ValueError("Unsupported file %s" % file)
-        for read in gen:
-            yield read
+            return "%s\t%s\t%s\t%s\t%s" % (self.id,
+                                           self.sequence,
+                                           self.qualities,
+                                           self.summary,
+                                           self.mappings)
+
+    def to_sequence(self):
+        """Convert to sequence format. FastQ or FastA depending
+        on qualities"""
+        if self.qualities is None:
+            ## print fasta
+            return ">%s\n%s" % (self.id, self.sequence)
+        else:
+            ## do a sanity check for sequence and quality lengths
+            if len(self.sequence) != len(self.qualities):
+                if _trim_qualities:
+                    logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
+                    sizes = [len(self.qualities), len(self.sequence)]
+                    sizes.sort()
+                    self.qualities = self.qualities[:(sizes[0]-sizes[1])]
+                else:
+                    raise ValueError("Different sequence and quality sizes for :\n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
+            if len(self.sequence) <= 0:
+                raise ValueError("Sequence length is < 0 for : \n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
+            return "@%s\n%s\n+\n%s" % (self.id, self.sequence, self.qualities)
+
+    def length(self):
+        return len(self.sequence)
 
 
-def trim(reads, left_trim=0, right_trim=0):
-    """Generator function that trims reads"""
-    for read in reads:
-        if right_trim > 0:
-            read.sequence = read.sequence[left_trim:-right_trim]
-            if read.qualities is not None:
-                read.qualities = read.qualities[left_trim:-right_trim]
-        elif left_trim > 0:
-            read.sequence = read.sequence[left_trim:]
-            if  read.qualities is not None:
-                read.qualities = read.qualities[left_trim:]
-        yield read
-
-
-def unmapped(reads, exclude=-1):
-    """Yield only unmapped reads and reads
-    that have only mappings with mismatches >= exclude
-    """
-    for read in reads:
-        mis = read.get_mismatches()
-        if mis < 0:
-            yield read
-        elif exclude > 0 and mis >= exclude:
-            yield read
-
-
-def mapper(input, output, index,
-           mismatches=0.04, delta=0,
-           quality=None, quality_threshold=26,
+def mapper(input, index, output=None,
+           mismatches=0.04,
+           delta=0,
+           quality=33,
+           quality_threshold=26,
            max_decoded_matches=20,
            min_decoded_strata=0,
            min_matched_bases=0.80,
@@ -211,7 +119,7 @@ def mapper(input, output, index,
     the output file. In case output is a file handle,
     the GEM output is written there.
 
-    input -- string with the input file or a file handle or a generator
+    input -- A ReadIterator with the input
     output -- output file name
     index -- valid GEM2 index
     mismatches - number or % mismatches, default=0.04
@@ -232,21 +140,12 @@ def mapper(input, output, index,
         index = index + ".gem"
 
     ## set default values
-    if quality is None:
-        quality = "offset-33"
+    if quality is not None:
+        quality = "offset-%d" % quality
 
-    out_prefix = output
-    if out_prefix.endswith(".map"):
-        out_prefix = out_prefix[:-4]
-
-    ## create output directories
-    base = os.path.dirname(os.path.abspath(output))
-    if not os.path.exists(base):
-        os.makedirs(base)
 
     ## prepare the input
     pa = ['gem-mapper', '-I', index,
-         '-o', out_prefix,
          '-q', quality,
          '-m', str(mismatches),
          '-s', str(delta),
@@ -258,8 +157,18 @@ def mapper(input, output, index,
     ]
 
     ## run the mapper
-    utils.run_tool(_create_input(input), output, pa, "GEM-Mapper")
-    return _from_map(output)
+    process = utils.run_tool(pa, input, output, name="GEM-Mapper")
+    if output is not None:
+        # we are writing to a file
+        # wait for the process to finish
+        if process.wait() != 0:
+            raise ValueError("GEM-Mapper execution failed!")
+        return files.open(output, type="map", process=process)
+    else:
+        ## running in async mode, return iterator on
+        ## the output stream
+        return files.open(process.stdout, type="map", process=process)
+
 
 
 def splitmapper(input,
@@ -288,24 +197,6 @@ def splitmapper(input,
                 quality,
                 threads,
                 tmpdir)
-
-
-def extract_junctions(annotation, output=None):
-    """Extract junctions from given gtf annotation. This checks for
-    and existing junctions file and returns it if it exists. Otherwise
-    the annotation is parsed and junctions are extracted before the name of the
-    file is returned
-    """
-    if output == None:
-        output = os.path.basename(annotation) + ".junctions"
-    if os.path.exists(output):
-        return os.path.abspath(output)
-
-    out_fd = open(output, 'wb')
-    for j in gemjunctions.from_gtf(annotation):
-        print >>out_fd, str(j)
-    out_fd.close()
-    return os.path.abspath(output)
 
 
 def stats(input, output=None):
@@ -389,6 +280,9 @@ def pairalign(input, output, index,
     return filter.gemoutput(output)
 
 
+
+
+
 def score(input, index, output, threads=1):
     ## check the index
     if index is None:
@@ -432,7 +326,7 @@ def score(input, index, output, threads=1):
     return filter.gemoutput(output)
 
 
-def sam(input, index, output, single_end=False, compact=False, threads=1):
+def sam(input, index, output, single_end=False, compact=False, bam=False, sort_bam=True, threads=1):
     ## check the index
     if index is None:
         raise ValueError("No valid GEM index specified!")
@@ -440,12 +334,20 @@ def sam(input, index, output, single_end=False, compact=False, threads=1):
         raise ValueError("GEM index must be a string")
     if index.endswith(".gem"):
         index = index[:-4]
+    outname = output
+    if outname.endswith(".sam") or outname.endswith(".bam"):
+        outname = outname[:-4]
 
-    output_fd = open(output, 'w')
+    gem_2_sam_threads = max(threads - 1, 1)
+    if bam:
+        gem_2_sam_threads = max(threads - 2, 1)
+        if sort_bam:
+            gem_2_sam_threads = max(threads - 3, 1)
+
 
     gem_2_sam_p = ['gem-2-sam',
                 '-I', index,
-                '-T', str(threads)
+                '-T', str(gem_2_sam_threads)
     ]
     if single_end:
         gem_2_sam_p.append("--expect-single-end-reads")
@@ -453,27 +355,62 @@ def sam(input, index, output, single_end=False, compact=False, threads=1):
         gem_2_sam_p.append("-c")
 
     sam_2_bam_p = ['samtools',
-               'view', index,
-               '-s', '+U,+u,-t,-s,-i,-a'
+               'view',
+               '-S', '-b', '-'
     ]
-    print >> sys.stderr, " ".join(gem_2_sam_p)
-    print >> sys.stderr, " ".join(sam_2_bam_p)
 
+    bam_sort_p = ['samtools', 'sort', '-', outname]
+
+    print >> sys.stderr, " ".join([str(x) for x in gem_2_sam_p])
+    if bam:
+        print >> sys.stderr, " ".join([str(x) for x in sam_2_bam_p])
+        if sort_bam:
+            print >> sys.stderr, " ".join([str(x) for x in bam_sort_p])
+
+
+    # prepare outputs
+    gem_2_sam_out = None
+    if bam:
+        gem_2_sam_out = subprocess.PIPE
+    else:
+        gem_2_sam_out = open('w', output)
+
+
+    # start gem 2 stam conversion
     gem_2_sam = subprocess.Popen(gem_2_sam_p, stdin=subprocess.PIPE,
-                           stdout=output_fd, bufsize=-1)
-    #sam_2_bam = subprocess.Popen(score_p, stdin=validate.stdout,
-    #                         stdout=output_fd, bufsize=-1, close_fds=True)
+                           stdout=gem_2_sam_out, bufsize=-1)
+    gem_2_sam_out = gem_2_sam.stdout
+    sam_2_bam = None
+    bam_sort = None
+    if bam:
+        sam_2_bam_out = subprocess.PIPE
+        if not sort_bam:
+            sam_2_bam_out = open(output,  "w")
+
+        sam_2_bam = subprocess.Popen(sam_2_bam_p, stdin=gem_2_sam_out,
+                             stdout=sam_2_bam_out, bufsize=-1, close_fds=True)
+        if sort_bam:
+            bam_sort = subprocess.Popen(bam_sort_p, stdin=sam_2_bam.stdout, close_fds=True)
+
+
     ## read from input and pipe to process
     for l in input:
         print >>gem_2_sam.stdin, "\t".join(l)
+
     gem_2_sam.stdin.close()
-
     if gem_2_sam.wait() != 0:
-        output_fd.close()
+        gem_2_sam.stdout.close()
         raise ValueError("GEM 2 sam failed")
-    output_fd.close()
-    return filter.gemoutput(output)
+    gem_2_sam.stdout.close()
 
+    if sam_2_bam is not None:
+        if sam_2_bam.wait() != 0:
+            sam_2_bam.stdout.close()
+            raise ValueError("Sam to Bam conversion failed")
+        sam_2_bam.stdout.close()
+        if bam_sort is not None:
+            if bam_sort.wait() != 0:
+                raise ValueError("Bam sorting failed")
 
 def merge(target, source, output):
     """Merge all mappings from the source files into the target file.
@@ -511,22 +448,21 @@ def merge(target, source, output):
         id = mapping.split("\t")[0]
         ## read one line from each handle
         for i, h in enumerate(handles):
-            while True:
-                source_line = lines[i]
-                if source_line is None:
-                    source_line = h.readline()
+            source_line = lines[i]
+            if source_line is None:
+                source_line = h.readline()
                 lines[i] = source_line
-                if not source_line:
-                    break
-                ss = source_line.split("\t")
-                sid = ss[0]
-                if id == sid:
-                    mis = utils.get_mismatches(ss[3])
+            if not source_line:
+                continue
+
+            ss = source_line.split("\t")
+            sid = ss[0]
+            if id == sid:
+                mis = utils.get_mismatches(ss[3])
                 if mis >= 0:
                     mapping = source_line  # mattchin mapping, replace
                 ## read next into cache
                 lines[i] = h.readline()
-                break
         output.write(mapping)
 
     ### close everything

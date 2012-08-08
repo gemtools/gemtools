@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-import sys
 import os
 import re
 import subprocess
+import gem.filter
+
 """Module that handles junction sites and provides extraction
 methods to prepare junction files used by the split mapper.
 
@@ -38,7 +39,7 @@ class Exon(object):
 class Junction(object):
     """A junction holds a list of exons and can
     create a list of compatible sites. The string representation
-    is in the valid gem forma and sorted by exon start positions
+    is in the valid gem format and sorted by exon start positions
     """
     def __init__(self):
         """Create a new junction
@@ -61,10 +62,37 @@ class JunctionSite(object):
     string representation is in the proper format and
     and junction sites are comparable with == and !=
     """
-    def __init__(self, start_exon, stop_exon):
+    def __init__(self, start_exon=None, stop_exon=None, line=None):
         """Create a junction site from the start and stop exon"""
-        self.descriptor = self.__descriptor(start_exon, stop_exon)
+        if start_exon is not None:
+            self.descriptor = self.__descriptor(start_exon, stop_exon)
+        else:
+            ## parse from line
+            self.descriptor = self.__descriptor_from_line(line)
+
         self.hash = hash(str(self))
+
+
+    def __descriptor_from_line(self, line):
+        s = line.split("\t")
+        chr_1 = s[0]
+        strand_1 = s[1]
+        pos_1 = long(s[2])
+        chr_2 = s[3]
+        strand_2 = s[4]
+        pos_2 = long(s[5])
+
+        if pos_1 > pos_2:
+            pos_1, pos_2 = pos_2, pos_1
+            strand_1 = self.__invert(strand_1)
+            strand_2 = self.__invert(strand_2)
+        desc = [chr_1, strand_1, pos_1, chr_2, strand_2, pos_2]
+        return desc
+
+    def __invert(self, strand):
+        if strand == "+": return "-"
+        else: return "+"
+
 
     def __descriptor(self, start_exon, stop_exon):
         desc = []
@@ -95,7 +123,8 @@ class JunctionSite(object):
             return True
         if s[0] == o[0] and s[2] < o[2]:
             return True
-        return False
+        ## compare the string representation
+        return str(s) < str(o)
 
     def __le__(self, other):
         return self < other or self == other
@@ -120,6 +149,25 @@ def filter_junctions(index, junctions, output):
     jf.close()
     return os.path.abspath(output)
 
+
+def write_junctions(junctions, index, output):
+    chrs = _get_chromosomes(index)
+    jf = open(output, 'w')
+    s = None
+    for js in junctions:
+        if s is None:
+            s = set(js)
+        else:
+            s = s.union(js)
+
+    for junction in s:
+        if junction.descriptor[0] in chrs and junction.descriptor[3] in chrs:
+            jf.write(str(junction))
+            jf.write("\n")
+    jf.close()
+    return os.path.abspath(output)
+
+
 def _get_chromosomes(index):
     """Return the list of chromosome names contained in the given index file"""
     if not isinstance(index, basestring):
@@ -137,9 +185,10 @@ def _get_chromosomes(index):
         raise ValueError("gem-info failed")
     return sorted(set(chrs))
 
+
 def from_gtf(annotation):
     """Extract junctions from given gtf annotation"""
-    in_fd = open(annotation, 'rb')
+    in_fd = gem.filter.zcat(annotation)  ##open(annotation, 'rb')
     trans_re = re.compile('.*transcript_id "(.*)";.*')
     junctions = {}
     for line in in_fd:

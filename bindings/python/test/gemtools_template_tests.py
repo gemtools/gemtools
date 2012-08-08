@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
 import gem.gemtools as gt
-import testfiles
+from testfiles import testfiles
 
-test_mapping = testfiles.test_map
-test_zipped_mapping = testfiles.test_map_gz
-test_fastq = testfiles.test_fastq
+test_mapping = testfiles["test.map"]
+test_zipped_mapping = testfiles["test.map.gz"]
+test_fastq = testfiles["test.fastq"]
 
 
 def test_template_attribute_reading():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     for tmpl in infile:
         assert tmpl.tag == "HWI-ST661:131:C051TACXX:2:1101:1653:2244"
         assert tmpl.num_blocks == 2
@@ -18,7 +18,7 @@ def test_template_attribute_reading():
 
 
 def test_template_counters_list():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     for tmpl in infile:
         counters = []
         for c in tmpl.counters():
@@ -30,7 +30,7 @@ def test_template_counters_list():
               
 
 def test_template_block_list():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     for tmpl in infile:
         blocks = []
         for c in tmpl.blocks():
@@ -48,7 +48,7 @@ def test_template_block_list():
 
 ## test without iterating the mismatch blocks
 def test_template_mapping_iteration_with_paired_splitmap_number_of_blocks():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     assert infile != None
     block_count = 0
     for template in infile:
@@ -59,7 +59,7 @@ def test_template_mapping_iteration_with_paired_splitmap_number_of_blocks():
 
 ## test with iterating the mismatch blocks
 def test_template_mapping_iteration_with_paired_splitmap():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     assert infile != None
     block_count = 0
     for template in infile:
@@ -71,7 +71,7 @@ def test_template_mapping_iteration_with_paired_splitmap():
 
 
 def test_template_mappings_iterator():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     c = 0
     for tmpl in infile:
         maps = []

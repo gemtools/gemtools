@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 import gem.gemtools as gt
-import testfiles
+from testfiles import testfiles
 
-test_mapping = testfiles.test_map
-test_zipped_mapping = testfiles.test_map_gz
-test_fastq = testfiles.test_fastq
+test_mapping = testfiles["test.map"]
+test_zipped_mapping = testfiles["test.map.gz"]
+test_fastq = testfiles["test.fastq"]
 
 
 def test_map_2_fastq_conversion():
@@ -94,7 +94,7 @@ def test_template_alignment_mapping_iteration():
 
 
 def test_template_mapping_iteration_with_paired_splitmap():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     assert infile != None
     block_count = 0
     for template in infile:
@@ -109,7 +109,7 @@ def test_template_mapping_iteration_with_paired_splitmap():
 
 
 def test_template_alignment_mapping_iteration_with_paired_splitmap():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     assert infile != None
     block_count = 0
     for template in infile:
@@ -124,7 +124,7 @@ def test_template_alignment_mapping_iteration_with_paired_splitmap():
     assert block_count == 8
 
 def test_conversion_to_bed():
-    infile = gt.open_file(testfiles.bedconvert_map)
+    infile = gt.open_file(testfiles["bedconvert.map"])
     for tempalte in infile:
         read = "/1"
         beds = []

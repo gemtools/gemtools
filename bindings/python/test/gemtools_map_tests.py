@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
 import gem.gemtools as gt
-import testfiles
+from testfiles import testfiles
 
-test_mapping = testfiles.test_map
-test_zipped_mapping = testfiles.test_map_gz
-test_fastq = testfiles.test_fastq
+test_mapping = testfiles["test.map"]
+test_zipped_mapping = testfiles["test.map.gz"]
+test_fastq = testfiles["test.fastq"]
 
 def test_maps_paired_alignment_iteratoion():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     maps = []
     for tmpl in infile:
         for alignment_block in tmpl.blocks():
@@ -23,7 +23,7 @@ def test_maps_paired_alignment_iteratoion():
     assert len(maps[0].mismatches()) == 0
 
 def test_map_mismatches():
-    infile = gt.open_file(testfiles.paired_sm_mm)
+    infile = gt.open_file(testfiles["paired_sm_mm.map"])
     maps = []
     for tmpl in infile:
         for alignment_block in tmpl.blocks():

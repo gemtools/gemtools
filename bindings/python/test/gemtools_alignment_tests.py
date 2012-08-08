@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
 import gem.gemtools as gt
-import testfiles
+from testfiles import testfiles
 
-test_mapping = testfiles.test_map
-test_zipped_mapping = testfiles.test_map_gz
-test_fastq = testfiles.test_fastq
+test_mapping = testfiles["test.map"]
+test_zipped_mapping = testfiles["test.map.gz"]
+test_fastq = testfiles["test.fastq"]
 
 
 def test_alignment_attribute_reading_in_loop():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     alis = []
     for tmpl in infile:
         for block in tmpl.blocks():
@@ -32,7 +32,7 @@ def test_alignment_attribute_reading_in_loop():
 
 
 def test_alignment_attribute_reading_in_list():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     alis = [ali for tmpl in infile for ali in tmpl.blocks()]
     assert alis[0].tag == "HWI-ST661:131:C051TACXX:2:1101:1653:2244/1"  
     assert alis[0].read == "GCGCGGCCGGGACCGCAGAGCCCCGGGAGCCCGCTCGAGGAGGAGCGGCAGACGCAGCGCTCTAAACCGCAGCCG"  
@@ -47,13 +47,13 @@ def test_alignment_attribute_reading_in_list():
 
 
 def test_alignment_to_sequencet():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     alis = [ali for tmpl in infile for ali in tmpl.blocks()]
     assert alis[0].to_sequence() == "@HWI-ST661:131:C051TACXX:2:1101:1653:2244/1\nGCGCGGCCGGGACCGCAGAGCCCCGGGAGCCCGCTCGAGGAGGAGCGGCAGACGCAGCGCTCTAAACCGCAGCCG\n+\nCCCFFFFFHHHHHJJIEHJIIIJJGIH>4=ADDDDDDBDD@DDBDBDDDBDBBDDDDDDDBBDDCC>CBD@BDDD"
     assert alis[1].to_sequence() == "@HWI-ST661:131:C051TACXX:2:1101:1653:2244/2\nTTCCGCTTGGTGCTCTCGCTGCAGCGGTTCAGGATGAGGTCGGCGCTCGGCCGCGGGGGCACCGCCGGCTGCGGT\n+\nCCCFFFFFHHHHHJJGIIJJJIGIJJJFHIJIICHIIGIHIIJIJHFFDD?BDDDDDDDD@BDDDDDDBDDDDDD"
 
 def test_alignment_counters():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     alis = [ali for tmpl in infile for ali in tmpl.blocks()]
     print [list(c.counters()) for c in alis ]
     assert len(alis[0].counters()) == 2    
@@ -63,7 +63,7 @@ def test_alignment_counters():
 
 
 def test_alignment_mappings_counts():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     alis = [ali for tmpl in infile for ali in tmpl.blocks()]
     mappings = [ali.mappings()  for ali in alis]
     assert len(mappings) == 2
@@ -72,7 +72,7 @@ def test_alignment_mappings_counts():
     assert len(maps[1]) == 4
 
 def test_alignment_mappings_content():
-    infile = gt.open_file(testfiles.paired_w_splitmap)
+    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     alis = [ali for tmpl in infile for ali in tmpl.blocks()]
     mappings = [ali.mappings()  for ali in alis]
     assert len(mappings) == 2
