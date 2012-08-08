@@ -27,6 +27,11 @@ def length(input, min=-1, max=65536):
 
 
 class interleave(object):
+    """Interleaving iterator that takes a sequence
+    of Reads and interleaves them. By default the read
+    ids are checked for /1 /2 endings and the endings
+    are appended if not found.
+    """
     def __init__(self, streams, add_id=True):
         self.streams = streams
         self.idx = 0

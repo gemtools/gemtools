@@ -142,9 +142,11 @@ def mapper(input, index, output=None,
     ## set default values
     if quality is not None:
         quality = "offset-%d" % quality
+    else:
+        quality = 'ignore'
 
 
-    ## prepare the input
+        ## prepare the input
     pa = ['gem-mapper', '-I', index,
          '-q', quality,
          '-m', str(mismatches),
@@ -225,8 +227,9 @@ def stats(input, output=None):
 #     --max-matches-per-extension <number>     (default=1)
 #     --unique-pairing                         (default=false)
 
-def pairalign(input, output, index,
-           quality=None, quality_threshold=26,
+def pairalign(input, index, output=None,
+           quality=33,
+           quality_threshold=26,
            max_decoded_matches=20,
            min_decoded_strata=0,
            min_insert_size=0,
@@ -248,11 +251,11 @@ def pairalign(input, output, index,
         index = index + ".gem"
 
     ## set default values
-    if quality is None:
-        quality = "offset-33"
+    if quality is not None:
+        quality = "offset-%d" % quality
+    else:
+        quality = 'ignore'
 
-    ## prepare the input
-    input_generator = filter.prepare_input(input)
 
     pa = ['gem-mapper',
          '-I', index,
@@ -273,13 +276,18 @@ def pairalign(input, output, index,
     if map_both_ends:
         pa.append("--map-both-ends")
 
-    ## run the mapper
-    utils.run_tool(input_generator, output, pa, "GEM-pair-aligner")
-
-    ## return a gen generator on the output
-    return filter.gemoutput(output)
-
-
+        ## run the mapper
+    process = utils.run_tool(pa, input, output, name="GEM-Pair-align")
+    if output is not None:
+        # we are writing to a file
+        # wait for the process to finish
+        if process.wait() != 0:
+            raise ValueError("GEM-Pair-align execution failed!")
+        return files.open(output, type="map", process=process)
+    else:
+        ## running in async mode, return iterator on
+        ## the output stream
+        return files.open(process.stdout, type="map", process=process)
 
 
 

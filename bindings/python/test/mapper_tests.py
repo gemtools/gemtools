@@ -4,6 +4,7 @@ import shutil
 from nose.tools import with_setup
 import gem
 from gem import files
+from gem import filter
 from testfiles import testfiles
 
 __author__ = 'Thasso Griebel <thasso.griebel@gmail.com>'
@@ -64,4 +65,22 @@ def test_async_mapper_pipes_with_filter():
     assert os.path.exists(results_dir + "/piped_out.mapping")
     assert sum(1 for x in mappings) == 5000
 
+@with_setup(setup_func, cleanup)
+def test_interleaved_mapper_run():
+    input1 = files.open(testfiles["reads_1.fastq"])
+    input2 = files.open(testfiles["reads_2.fastq"])
+    mappings = gem.mapper(gem.filter.interleave([input1, input2]), index)
+    assert mappings is not None
+    assert mappings.process is not None
+    assert mappings.filename is None
+    assert sum(1 for x in mappings) == 20000
+
+@with_setup(setup_func, cleanup)
+def test_interleaved_pair_aligner_run():
+    input1 = files.open(testfiles["reads_1.fastq"])
+    input2 = files.open(testfiles["reads_2.fastq"])
+    mappings = gem.mapper(gem.filter.interleave([input1, input2]), index)
+    paired = gem.pairalign(mappings, index)
+    assert paired is not None
+    assert sum(1 for x in mappings) == 20000  ## test dataset does not pair at all
 
