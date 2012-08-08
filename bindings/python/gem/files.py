@@ -3,6 +3,7 @@
 gem.files handles opening files and streams
 """
 from itertools import islice
+import os
 
 import subprocess
 import __builtin__
@@ -30,6 +31,7 @@ class Parser(object):
 class parse_fasta(Parser):
     """Parse fasta entries from a stream
     """
+
     def next(self, stream):
         fasta_lines = list(islice(stream, 2))  # read in chunks of 2
         if not fasta_lines:
@@ -48,6 +50,7 @@ class parse_fasta(Parser):
 
 class parse_fastq(Parser):
     """Parse fastq entries from a stream"""
+
     def next(self, stream):
         fastq_lines = list(islice(stream, 4))  # read in chunks of 2
         if not fastq_lines:
@@ -66,6 +69,7 @@ class parse_fastq(Parser):
 
 class parse_map(Parser):
     """Parse gem map entries from a stream"""
+
     def next(self, stream):
         line = stream.readline()
         if not line:
@@ -89,9 +93,8 @@ class parse_map(Parser):
         return self.read
 
 
-
 class ReadIterator(object):
-    def __init__(self, stream, parser, filename=None, process=None):
+    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False):
         """
         Create a ReadIterator from a stream with a given parser.
         If the filename is given, the iterator can be cloned to re-read
@@ -107,11 +110,14 @@ class ReadIterator(object):
         @type filename: string
         @param process: optinal process associated with this reader
         @type process: process
+        @param remove_after_iteration: if set to True, the input file is removed after a completed iteration of the content
+        @type remove_after_iteration: boolean
         """
         self.stream = stream
         self.parser = parser
         self.filename = filename
         self.process = process
+        self.remove_after_iteration = remove_after_iteration
 
     def __iter__(self):
         return self
@@ -123,15 +129,19 @@ class ReadIterator(object):
         ret = self.parser.next(self.stream)
         if not ret:
             self.stream.close()
+            if self.remove_after_iteration and self.filename:
+                os.remove(self.filename)
             raise StopIteration()
         return ret
 
     def close(self):
         self.stream.close()
+        if self.remove_after_iteration and self.filename:
+            os.remove(self.filename)
 
     def clone(self):
-        if not self.filename:
-            raise ValueError("No filename given, this reader can not be cloned!")
+        if not self.filename or self.remove_after_iteration:
+            raise ValueError("No filename given or file is marked for deletion, this reader can not be cloned!")
         return ReadIterator(open_file(self.filename), self.parser.__class__(), self.filename)
 
 
@@ -143,8 +153,7 @@ supported_types = {
 }
 
 
-
-def open(input, type=None, process=None):
+def open(input, type=None, process=None, remove_after_iteration=False):
     """
     Open the given file and return on iterator
     over Reads.
@@ -157,8 +166,10 @@ def open(input, type=None, process=None):
     @type type: string
     @param process: optional process associated with the input
     @type process: Process
+    @param remove_after_iteration: if set to True, the input file is removed after a completed iteration of the content
+    @type remove_after_iteration: boolean
     """
-    is_string  = isinstance(input, basestring)
+    is_string = isinstance(input, basestring)
     if type is None and is_string:
         type = _guess_type(input)
         if type is None:
@@ -171,7 +182,8 @@ def open(input, type=None, process=None):
         stream = open_file(input)
     else:
         input = None  ## reset filename
-    return ReadIterator(stream, supported_types[type](), input, process=process)
+    return ReadIterator(stream, supported_types[type](), input, process=process,
+                        remove_after_iteration=remove_after_iteration)
 
 
 def open_file(file):
@@ -252,6 +264,7 @@ def __which(program):
     Find programm in path
     """
     import os
+
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 

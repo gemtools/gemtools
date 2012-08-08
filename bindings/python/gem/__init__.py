@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Python wrapper around the GEM2 mapper that provides
 ability to feed data into GEM and retreive the mappings"""
+import os
+import shutil
 import subprocess
 import sys
 import logging
@@ -9,10 +11,23 @@ import logging
 # set this to true to cpli qualities to
 # read length and print a waring instead of raising an
 # exception
+import tempfile
 import files
-from gem import utils
+from . import utils
+import junctions as gemjunctions
+import splits
+import filter as gemfilter
 
 _trim_qualities = False
+default_splice_consensus = [("GT","AG"),("CT","AC")]
+extended_splice_consensus = [("GT","AG"),("CT","AC"),
+    ("GC","AG"),("CT","GC"),
+    ("ATATC","A."),(".T","GATAT"),
+    ("GTATC", "AT"),("AT","GATAC")
+]
+
+default_filter = "same-chromosome,same-strand"
+
 
 class Read(object):
     """A single read. The read info covers
@@ -53,7 +68,6 @@ class Read(object):
 
 
     def get_maps(self):
-        print self.summary, self.mappings
         if self.summary == None or self.summary in ['-','+','*']:
             return ([0], ["-"])
         sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
@@ -82,21 +96,46 @@ class Read(object):
             ## print fasta
             return ">%s\n%s" % (self.id, self.sequence)
         else:
-            ## do a sanity check for sequence and quality lengths
-            if len(self.sequence) != len(self.qualities):
-                if _trim_qualities:
-                    logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
-                    sizes = [len(self.qualities), len(self.sequence)]
-                    sizes.sort()
-                    self.qualities = self.qualities[:(sizes[0]-sizes[1])]
-                else:
-                    raise ValueError("Different sequence and quality sizes for :\n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
-            if len(self.sequence) <= 0:
-                raise ValueError("Sequence length is < 0 for : \n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
-            return "@%s\n%s\n+\n%s" % (self.id, self.sequence, self.qualities)
+            return self.to_fastq()
+
+    def to_fastq(self):
+        """Convert to Fastq and fakes qualities if they are not present"""
+        if len(self.sequence) <= 0:
+            raise ValueError("Sequence length is < 0 for : \n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
+
+        ## do a sanity check for sequence and quality lengths
+        qualities = self.qualities
+        if qualities is None or len(qualities) == 0:
+            ## fake the qualities
+            qualities = '['*len(self.sequence)
+
+        if len(self.sequence) != len(qualities) and self.qualities is not None:
+            if _trim_qualities:
+                logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
+                sizes = [len(self.qualities), len(self.sequence)]
+                sizes.sort()
+                self.qualities = self.qualities[:(sizes[0]-sizes[1])]
+            else:
+                raise ValueError("Different sequence and quality sizes for :\n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
+
+        return "@%s\n%s\n+\n%s" % (self.id, self.sequence, qualities)
 
     def length(self):
         return len(self.sequence)
+
+
+def _prepare_index_parameter(index, gem_suffix=True):
+    if index is None:
+        raise ValueError("No valid GEM index specified!")
+    if not isinstance(index, basestring):
+        raise ValueError("GEM index must be a string")
+    if gem_suffix:
+        if not index.endswith(".gem"):
+            index = index + ".gem"
+    else:
+        if index.endswith(".gem"):
+            index = index[:-4]
+    return index
 
 
 def mapper(input, index, output=None,
@@ -132,19 +171,9 @@ def mapper(input, index, output=None,
     """
 
     ## check the index
-    if index is None:
-        raise ValueError("No valid GEM index specified!")
-    if not isinstance(index, basestring):
-        raise ValueError("GEM index must be a string")
-    if not index.endswith(".gem"):
-        index = index + ".gem"
+    index = _prepare_index_parameter(index)
 
-    ## set default values
-    if quality is not None:
-        quality = "offset-%d" % quality
-    else:
-        quality = 'ignore'
-
+    quality = _prepare_quality_parameter(quality)
 
         ## prepare the input
     pa = ['gem-mapper', '-I', index,
@@ -172,60 +201,194 @@ def mapper(input, index, output=None,
         return files.open(process.stdout, type="map", process=process)
 
 
+def _prepare_splice_consensus_parameter(splice_consensus):
+    """
+    Convert the splice consensus tuple to
+    valid gem parameter input.
+    If the given splice_consensus is None, the
+    default splice consensus is used
+    """
+    if splice_consensus is None:
+        splice_consensus = default_splice_consensus
+    if isinstance(splice_consensus, basestring):
+        splice_cons = splice_consensus
+    else:
+        ## translate the splice consensus tupel structure
+        splice_cons = ",".join(['"%s"+"%s"' % (x[0], x[1]) for x in splice_consensus])
+    return splice_cons
+
+
+def _prepare_quality_parameter(quality):
+    ## check quality
+    if quality is not None:
+        quality = "offset-%d" % quality
+    else:
+        quality = 'ignore'
+
+    return quality
+
+
+def _write_sequence_file(input, tmpdir = None):
+    """Takes a Read sequence and writes it to a tempfile
+    in fastq or fasta format
+    """
+    (fifo, inputfile) = tempfile.mkstemp(suffix=".fastq", prefix="mapper_input", dir=tmpdir)
+    fifo = open(inputfile, 'w')
+    ## the splitmapper does not support fifo or piping from stdin
+    ## so we have to write a tmp file
+    try:
+        for l in input:
+            fifo.write(l.to_fastq())
+            fifo.write("\n")
+        fifo.close()
+    except:
+        fifo.close()
+        ## kill the process
+        os.unlink(inputfile)
+        raise
+    return inputfile
+
+
 
 def splitmapper(input,
-                output,
                 index,
+                output=None,
                 junctions=0.02,
                 junctions_file=None,
-                filter=None,
+                splice_consensus=None,
+                filter=default_filter,
                 refinement_step_size=2,
                 min_split_size=15,
                 matches_threshold=100,
-                splice_consensus=None,
                 quality=None,
                 threads=1,
                 tmpdir=None):
-    return splits.splitmapper(input,
-                output,
-                index,
-                junctions,
-                junctions_file,
-                filter,
-                refinement_step_size,
-                min_split_size,
-                matches_threshold,
-                splice_consensus,
-                quality,
-                threads,
-                tmpdir)
+    """Start the GEM split mapper on the given input.
+    If input is a file handle, it is assumed to
+    provide fastq entries. If input is a string,
+    it is checked for its extension. In case of a
+    .map file, the input is converted from gem format
+    to fastq and passed to the mapper.
 
+    Output can be a string, which will be translated to
+    the output file. In case output is a file handle,
+    the GEM output is written there.
 
-def stats(input, output=None):
-    """Run the gemtools stats in the mapping input
-
-    input -- mapping input file or file descriptor or generator function
-             that produces mappings
-    output -- output prefix
+    input -- string with the input file or a file handle or a generator
+    output -- output file name or file handle
+    index -- valid GEM2 index
     """
-    ## prepare the input
-    input_generator = filter.prepare_input(input)
-    pa = ['gemtools', '-s', '-p', output, '-']
-    ## run the mapper
-    utils.run_tool(input_generator, output, pa, "GEM-Stats")
+
+    ## check the index
+    index = _prepare_index_parameter(index, False)
+    quality = _prepare_quality_parameter(quality)
+    splice_cons = _prepare_splice_consensus_parameter(splice_consensus)
+
+    input_file = _write_sequence_file(input, tmpdir=tmpdir)
+    (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
+
+    pa = ['gem-rna-mapper',
+          '-I', index,
+          '-i', input_file,
+          '-o', output_file[:-4],
+          '-q', quality,
+          '--min-split-size',str(min_split_size),
+          '--refinement-step-size', str(refinement_step_size),
+          '--matches-threshold', str(matches_threshold),
+          '-T', str(threads)
+    ]
+
+    if junctions_file is not None:
+        pa.append("-J")
+        pa.append(os.path.abspath(junctions_file))
+        pa.append("-j")
+        pa.append(str(junctions))
+    if filter is not None:
+        pa.append("-f")
+        pa.append(filter)
+    if splice_cons is not None and junctions_file is None:
+        pa.append("-s")
+        pa.append(splice_cons)
 
 
-#
-#-b|--map-both-ends                       (default=false)
-#     --min-insert-size <number>               (default=0)
-#     --max-insert-size <number>               (default=1000)
-#     -E <max_edit_distance>|<%_differences>   (default=0.08)
-#     --min-matched-bases <number>|<%>         (default=0.80)
-#     --extension-triggering-mismatches <number>|<%>
-#                                              (default=0.00)
-#     --max-extendable-matches <number>|'all'  (default=all)
-#     --max-matches-per-extension <number>     (default=1)
-#     --unique-pairing                         (default=false)
+    ## run the split-mapper
+    process = utils.run_tool(pa, None, None, name="GEM-Split-Mapper")
+
+    exit_value = process.wait()
+    ## cleanup
+    os.remove(input_file)
+
+    if exit_value != 0:
+        raise ValueError("GEM-Mapper execution failed, output file is : %s!" % (output_file))
+
+    if output is not None:
+        ## move temp file to specified output
+        shutil.move(output_file, output)
+        return files.open(output, type="map", process=process)
+    else:
+        return files.open(output_file, type="map", process=process, remove_after_iteration=True)
+
+
+def extract_junctions(input,
+                       index,
+                       index_hash,
+                       output=None,
+                       junctions=0.02,
+                       filter="ordered",
+                       refinement_step_size=2,
+                       min_split_size=15,
+                       matches_threshold=200,
+                       splice_consensus=extended_splice_consensus,
+                       quality=33,
+                       threads=1,
+                       tmpdir=None,
+                       merge_with=None,
+                       keep_short_indels=True):
+    ## run the splitmapper
+    splitmap = splitmapper(input,
+                           index,
+                           output=None,
+                           junctions=junctions,
+                           filter=filter,
+                           refinement_step_size=refinement_step_size,
+                           min_split_size=min_split_size,
+                           matches_threshold=matches_threshold,
+                           splice_consensus=splice_consensus,
+                           quality=quality,
+                           threads=threads,
+                           tmpdir=tmpdir)
+    ## make sure we have an output file
+    ## for the splitmap results
+    output_file = output
+    if output is None:
+        (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
+
+    ## helper filter to pass the read on to the junction extractor,
+    ## kill the splitmap as long as it is no short indel and
+    ## write the result to the output file
+    def write_helper(reads):
+        of = open(output_file, 'w')
+        for read in reads:
+            yield read
+            if keep_short_indels:
+                gemfilter.keep_short_indel(read)
+            ## and write the read
+            of.write(str(read))
+            of.write("\n")
+        of.close()
+
+    denovo_junctions = splits.extract_denovo_junctions(write_helper(splitmap), index_hash)
+    if merge_with is not None:
+        to_merge = [x for x in merge_with]
+        to_merge.append(denovo_junctions)
+        denovo_junctions = gemjunctions.merge_junctions(to_merge)
+
+    if output is None:
+        ## return delete iterator
+        return ( files.open(output_file, type="map", process=splitmapper, remove_after_iteration=True), denovo_junctions)
+    else:
+        return ( files.open(output_file, type="map", process=splitmapper), denovo_junctions)
+
 
 def pairalign(input, index, output=None,
            quality=33,
@@ -251,11 +414,7 @@ def pairalign(input, index, output=None,
         index = index + ".gem"
 
     ## set default values
-    if quality is not None:
-        quality = "offset-%d" % quality
-    else:
-        quality = 'ignore'
-
+    quality = _prepare_quality_parameter(quality)
 
     pa = ['gem-mapper',
          '-I', index,

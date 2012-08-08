@@ -1,17 +1,20 @@
 #!/usr/bin/env python
-import os
-import re
-import subprocess
-import gem.filter
-
 """Module that handles junction sites and provides extraction
 methods to prepare junction files used by the split mapper.
 
 Junctions can be extracted from GTF file and split mappings.
 """
+import os
+import re
+import subprocess
+import sys
+import gem.filter
+import gem
+
 
 class Exon(object):
     """Exons representation"""
+
     def __init__(self, chr, id, start, stop, strand):
         """Create a new exon
 
@@ -36,11 +39,13 @@ class Exon(object):
             if self.strand == "+": self.strand = "-"
             else: self.strand = "+"
 
+
 class Junction(object):
     """A junction holds a list of exons and can
     create a list of compatible sites. The string representation
     is in the valid gem format and sorted by exon start positions
     """
+
     def __init__(self):
         """Create a new junction
         """
@@ -57,11 +62,13 @@ class Junction(object):
                 yield JunctionSite(last_exon, exon)
             last_exon = exon
 
+
 class JunctionSite(object):
     """A junction site is created from two exons. The
     string representation is in the proper format and
     and junction sites are comparable with == and !=
     """
+
     def __init__(self, start_exon=None, stop_exon=None, line=None):
         """Create a junction site from the start and stop exon"""
         if start_exon is not None:
@@ -111,7 +118,7 @@ class JunctionSite(object):
 
     def __eq__(self, other):
         return (isinstance(other, self.__class__)
-            and self.descriptor == other.descriptor)
+                and self.descriptor == other.descriptor)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -123,7 +130,7 @@ class JunctionSite(object):
             return True
         if s[0] == o[0] and s[2] < o[2]:
             return True
-        ## compare the string representation
+            ## compare the string representation
         return str(s) < str(o)
 
     def __le__(self, other):
@@ -138,7 +145,20 @@ class JunctionSite(object):
     def __hash__(self):
         return self.hash
 
+
 def filter_junctions(index, junctions, output):
+    """
+    Filter a junctions file by chromosomes
+    contained in the given index. The result is written to
+    output
+
+    @param index: path to the gem index
+    @type index: string
+    @param junctions: path to junctions file
+    @type junctions: string
+    @param output: path to the output file
+    @type output: output
+    """
     chrs = _get_chromosomes(index)
     jf = open(output, 'w')
     with open(os.path.abspath(junctions), 'r') as f:
@@ -147,25 +167,56 @@ def filter_junctions(index, junctions, output):
             if split[0] in chrs and split[3] in chrs:
                 jf.write(line)
     jf.close()
-    return os.path.abspath(output)
 
 
-def write_junctions(junctions, index, output):
-    chrs = _get_chromosomes(index)
-    jf = open(output, 'w')
-    s = None
-    for js in junctions:
+def merge_junctions(junction_sets):
+    """
+    Merge the given set of junctions and return
+    the union
+
+    @param junction_sets: list of list of junctions
+    @type junction_sets: list
+    @return: merged junctions
+    @rtype: set
+    """
+    s = set([])
+    for js in junction_sets:
         if s is None:
             s = set(js)
         else:
             s = s.union(js)
+    return s
 
-    for junction in s:
-        if junction.descriptor[0] in chrs and junction.descriptor[3] in chrs:
+
+def write_junctions(junctions, output=None, index=None):
+    """Write the given list of JunctionSites to output file.
+    If an index is specified, only junctions that are contained
+    in the index are written
+
+    @param junctions: the list of junction sites
+    @type junctions: list
+    @param output: filename or none for stdout
+    @type output: string
+    @param index: path to the index file
+    @type index: string
+    @return: void
+    @rtype: void
+    """
+    chrs = None
+    if index:
+        chrs = _get_chromosomes(index)
+    jf = sys.stdout
+    if output:
+        jf = open(output, 'w')
+
+
+    ## write the junctions
+    for junction in junctions:
+        if (chrs is None) or (junction.descriptor[0] in chrs and junction.descriptor[3] in chrs):
             jf.write(str(junction))
             jf.write("\n")
-    jf.close()
-    return os.path.abspath(output)
+    if output:
+        jf.close()
 
 
 def _get_chromosomes(index):
@@ -174,11 +225,11 @@ def _get_chromosomes(index):
         raise ValueError("The index must be a string")
     if index.endswith(".gem"):
         index = index[:-4]
-    pa = subprocess.Popen('gem-info '+index, stdout=subprocess.PIPE,shell=True)
+    pa = subprocess.Popen('gem-info ' + index, stdout=subprocess.PIPE, shell=True)
     chrs = []
     for line in pa.stdout:
         line = line.strip()
-        split = re.split("\s+",line)
+        split = re.split("\s+", line)
         if len(split) == 5 and split[0][0] == "#":
             chrs.append(split[1][1:-1])
     if pa.wait() != 0:
@@ -186,21 +237,36 @@ def _get_chromosomes(index):
     return sorted(set(chrs))
 
 
+def from_junctions(junctions_file):
+    """
+    Read junctions file and return a list of JunctionSites
+    @param junctions_file: path to the junctions file
+    @type junctions_file: string
+    @return: list of junction sites
+    @rtype: list
+    """
+    junctions = []
+    with open(os.path.abspath(junctions_file), 'r') as f:
+        for line in f:
+            junctions.append(JunctionSite(line=line))
+    return junctions
+
+
 def from_gtf(annotation):
     """Extract junctions from given gtf annotation"""
-    in_fd = gem.filter.zcat(annotation)  ##open(annotation, 'rb')
+    in_fd = gem.files.open_file(annotation)  ##open(annotation, 'rb')
     trans_re = re.compile('.*transcript_id "(.*)";.*')
     junctions = {}
     for line in in_fd:
-      split = line.split("\t")
-      if split[2] != "exon":
-        continue
-      id = trans_re.match(split[8]).group(1)+split[0]
-      exon = Exon(split[0], id, int(split[3]), int(split[4]), split[6])
-      junctions.setdefault(id, Junction()).append(exon)
+        split = line.split("\t")
+        if split[2] != "exon":
+            continue
+        id = trans_re.match(split[8]).group(1) + split[0]
+        exon = Exon(split[0], id, int(split[3]), int(split[4]), split[6])
+        junctions.setdefault(id, Junction()).append(exon)
 
     for j in sorted(set((
-                site for sites in
-                (junction.sites() for k,junction in junctions.items())
-                for site in sites))):
+        site for sites in
+        (junction.sites() for k, junction in junctions.items())
+        for site in sites))):
         yield j

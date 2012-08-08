@@ -84,6 +84,36 @@ def trim(reads, left_trim=0, right_trim=0, min_length=10):
         yield read
 
 
+def keep_short_indel(read):
+    """
+    Takes a read and removes all splitmaps that are not short indels
+
+    @param read: the read
+    @type read: Read
+    """
+    (sums, maps) = read.get_maps()
+    accs = []
+    for s in sums:
+        accs.append(0)
+    map_idx = 0
+    matches = []
+    for i, sum in enumerate(sums):
+        for j in range(sum):
+            match = re.search(">([0-9]+)\*", maps[map_idx])
+            if match:
+                hit = int(match.groups()[0])
+                if 0 < hit and hit < 4:
+                    accs[i] += 1
+                    matches.append(maps[map_idx])
+            map_idx += 1
+    if len(matches) > 0:
+        read.mappings = ",".join(matches)
+        read.summary = ":".join(str(x) for x in accs)
+    else:
+        read.mappings = "-"
+        read.summary = "0"
+
+
 def keep_short_indels(geminput):
     """Filter gem output and remove all split-mappings
     (the mapping, not the read!) where the
@@ -91,27 +121,7 @@ def keep_short_indels(geminput):
     split-maps are kept.
     """
     for read in geminput:
-        (sums, maps) = read.get_maps()
-        accs = []
-        for s in sums:
-            accs.append(0)
-        map_idx = 0
-        matches = []
-        for i, sum in enumerate(sums):
-            for j in range(sum):
-                match = re.search(">([0-9]+)\*", maps[map_idx])
-                if match:
-                    hit = int(match.groups()[0])
-                    if 0 < hit and hit < 4:
-                        accs[i] += 1
-                        matches.append(maps[map_idx])
-                map_idx += 1
-        if len(matches) > 0:
-            read.mappings = ",".join(matches)
-            read.summary = ":".join(str(x) for x in accs)
-        else:
-            read.mappings = "-"
-            read.summary = "0"
+        keep_short_indel(read)
         yield read
 
 
