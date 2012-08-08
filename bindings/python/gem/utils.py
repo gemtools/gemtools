@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Gem tools utilities
 """
-from Queue import Queue
 import re
 
 import subprocess
@@ -22,13 +21,9 @@ def read_to_sequence(read):
 def __parse_error_output(stream):
     """Parse the GEM error output stream and
     raise an exception if 'error' occurs"""
-    lines = Queue(10)
     for line in stream:
-        lines.put(line)
         if re.search("error", line):
-            all_lines = list(lines)
-
-            raise
+            raise ValueError("GEM run error : %s " % (line))
 
 
 def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None):
@@ -60,8 +55,12 @@ def run_tool(params, input=None, output=None, name="", transform_fun=read_to_seq
     process_in = None
     process_out = None
     process_err = None
+
+    ## handle input stream
     if input is not None:
         process_in = subprocess.PIPE
+
+    ## handle output stream
     if output is not None:
         if isinstance(output, basestring):
             process_out = open(output, 'w')
@@ -69,22 +68,25 @@ def run_tool(params, input=None, output=None, name="", transform_fun=read_to_seq
             process_out = output
     else:
         process_out = subprocess.PIPE
+
+    ## handle error stream
     if logfile is not None:
-        process_out = logfile
+        process_err = logfile
         if isinstance(logfile, basestring):
-            process_out = open(logfile, 'w')
+            process_err = open(logfile, 'w')
     else:
-        process_out = subprocess.PIPE
+        process_err = subprocess.PIPE
 
     logging.info("Starting %s :\n\t%s" % (name, " ".join(params)))
     process = subprocess.Popen(params, stdin=process_in, stdout=process_out, stderr=process_err, close_fds=True)
 
-    input_thread = None
+
     if input is not None:
         input_thread = Thread(target=__write_input, args=(input, process.stdin, transform_fun))
         input_thread.start()
+
     if logfile is None:
-        err_thread = Thread(target=__parse_error_output, args=(process.stderr))
+        err_thread = Thread(target=__parse_error_output, args=(process.stderr,))
         err_thread.start()
 
 

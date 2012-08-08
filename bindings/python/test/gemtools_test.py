@@ -104,7 +104,6 @@ def test_template_mapping_iteration_with_paired_splitmap():
                 assert m.seq_name == "chr7"
                 #print "%s:%d %d %d" % (m.seq_name, m.position, junction, distance)
                 # assert distance == -1
-    print "Number of blocks ???? ", block_count
     assert block_count == 4
 
 
@@ -120,7 +119,6 @@ def test_template_alignment_mapping_iteration_with_paired_splitmap():
                     assert m.seq_name == "chr7"
                     #print "%s:%d %d %d" % (m.seq_name, m.position, junction, distance)
                 # assert distance == -1
-    print block_count
     assert block_count == 8
 
 def test_conversion_to_bed():
@@ -153,13 +151,10 @@ def test_conversion_to_bed():
                     block_starts.append(m.position - 1 - start)
                     block_sizes.append(m.length)
                 if not (start + block_starts[-1] + block_sizes[-1]) == end:
-                    print start, end
-                    print block_starts
-                    print block_sizes
                     assert (start + block_starts[-1] + block_sizes[-1]) == end
                 beds.append("%s\t%d\t%d\t%s\t0\t%s\t.\t.\t0,0,0\t%d\t%s\t%s" % (name, start, end, rname, strand,
                                                                             block_count,
                                                                             ",".join([str(c) for c in block_sizes]),
                                                                             ",".join([str(c) for c in block_starts])))
-        for line in set(beds):
-            print line
+#        for line in set(beds):
+#            print line

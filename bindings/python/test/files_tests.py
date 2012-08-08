@@ -79,10 +79,9 @@ def test_guess_type():
 
 
 def test_open_gzip_file():
-    reader = files.open_gzip(testfiles["reads_1.fastq"])
+    reader = files.open_gzip(testfiles["reads_1.fastq.gz"])
     assert reader is not None
     lines = reader.readlines()
     assert lines is not None
-    print lines
     assert len(lines) == 40000
 

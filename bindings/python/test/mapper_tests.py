@@ -63,5 +63,5 @@ def test_async_mapper_pipes_with_filter():
     assert mappings.filename == results_dir + "/piped_out.mapping"
     assert os.path.exists(results_dir + "/piped_out.mapping")
     assert sum(1 for x in mappings) == 5000
-    print os.listdir(results_dir)
+
 

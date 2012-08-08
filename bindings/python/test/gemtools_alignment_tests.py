@@ -55,7 +55,6 @@ def test_alignment_to_sequencet():
 def test_alignment_counters():
     infile = gt.open_file(testfiles["paired_w_splitmap.map"])
     alis = [ali for tmpl in infile for ali in tmpl.blocks()]
-    print [list(c.counters()) for c in alis ]
     assert len(alis[0].counters()) == 2    
     assert len(alis[1].counters()) == 1
     assert list(alis[0].counters()) == [0, 4]
