@@ -260,7 +260,7 @@ def splitmapper(input,
                 refinement_step_size=2,
                 min_split_size=15,
                 matches_threshold=100,
-                quality=None,
+                quality=33,
                 threads=1,
                 tmpdir=None):
     """Start the GEM split mapper on the given input.

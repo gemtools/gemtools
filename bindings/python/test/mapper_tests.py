@@ -142,4 +142,3 @@ def test_junction_extraction_from_splitmap():
     assert junctions is not None
     assert len(jj) == 260
     assert sum(1 for x in splitmap) == 10000
-
