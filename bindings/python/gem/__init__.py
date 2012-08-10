@@ -197,6 +197,25 @@ def _write_sequence_file(input, tmpdir = None):
     return inputfile
 
 
+def _prepare_output(process, output=None, type="map", name="GEM"):
+    """If output is not None, this waits for the process to
+    finish and opens a ReadIterator
+    on the output file using the given type.
+    If output is not given, this opens a ReadIterator on the
+    stdout stream of the process.
+    """
+    if output is not None:
+        # we are writing to a file
+        # wait for the process to finish
+        if process.wait() != 0:
+            raise ValueError("%s execution failed!" % name)
+        return files.open(output, type=type, process=process)
+    else:
+        ## running in async mode, return iterator on
+        ## the output stream
+        return files.open(process.stdout, type=type, process=process)
+
+
 def validate():
     """Validate the gem executables
     """
@@ -260,17 +279,7 @@ def mapper(input, index, output=None,
 
     ## run the mapper
     process = utils.run_tool(pa, input, output, name="GEM-Mapper")
-    if output is not None:
-        # we are writing to a file
-        # wait for the process to finish
-        if process.wait() != 0:
-            raise ValueError("GEM-Mapper execution failed!")
-        return files.open(output, type="map", process=process)
-    else:
-        ## running in async mode, return iterator on
-        ## the output stream
-        return files.open(process.stdout, type="map", process=process)
-
+    return _prepare_output(process, output, type="map", name="GEM-Mapper")
 
 
 def splitmapper(input,
@@ -460,51 +469,52 @@ def pairalign(input, index, output=None,
 
         ## run the mapper
     process = utils.run_tool(pa, input, output, name="GEM-Pair-align")
-    if output is not None:
-        # we are writing to a file
-        # wait for the process to finish
-        if process.wait() != 0:
-            raise ValueError("GEM-Pair-align execution failed!")
-        return files.open(output, type="map", process=process)
-    else:
-        ## running in async mode, return iterator on
-        ## the output stream
-        return files.open(process.stdout, type="map", process=process)
+    return _prepare_output(process, output, type="map", name="GEM-Pair-aling")
+
+
+def validate(input,
+             index,
+             output=None,
+             validate_score="-s,-b,-i",
+             validate_filter="2,25",
+             threads=1,):
+    index = _prepare_index_parameter(index, gem_suffix=False)
+    validate_p = [executables['gem-map-2-map'],
+                  '-I', index,
+                  '-v', '-r',
+                  '-s', validate_score,
+                  '-f', validate_filter,
+                  '-T', str(max(threads - 2, 1))
+    ]
+    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
+    return _prepare_output(process, output, type="map", name="GEM-Validate")
 
 
 
 def score(input,
           index,
           output=None,
-          threads=1,
           scoring="+U,+u,-t,-s,-i,-a",
-          validate_score="-s,-b,-i",
-          validate_filter="2,25"):
+          threads=1):
     index = _prepare_index_parameter(index, gem_suffix=False)
-    validate_p = [executables['gem-map-2-map'],
-                '-I', index,
-                '-v', '-r',
-                '-s', validate_score,
-                '-f', validate_filter,
-                '-T', str(max(threads - 2, 1))
-    ]
     score_p = [executables['gem-map-2-map'],
                '-I', index,
-               '-s', scoring
+               '-s', scoring,
+               '-T', str(threads)
     ]
+    process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map)
+    return _prepare_output(process, output, type="map", name="GEM-Score")
 
-    process = utils.run_tools([validate_p, score_p], input, output, "GEM-Score", utils.read_to_map)
-    if output is not None:
-        # we are writing to a file
-        # wait for the process to finish
-        if process.wait() != 0:
-            raise ValueError("GEM-Score execution failed!")
-        return files.open(output, type="map", process=process)
-    else:
-        ## running in async mode, return iterator on
-        ## the output stream
-        return files.open(process.stdout, type="map", process=process)
 
+def validate_and_score(input,
+          index,
+          output=None,
+          scoring="+U,+u,-t,-s,-i,-a",
+          validate_score="-s,-b,-i",
+          validate_filter="2,25",
+          threads=1):
+    validator = validate(input, index, None, validate_score, validate_filter, max(threads-2, 1))
+    return score(validator, index, output, scoring, 1)
 
 
 def sam(input, index, output, single_end=False, compact=False, bam=False, sort_bam=True, threads=1):

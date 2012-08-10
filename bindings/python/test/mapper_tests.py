@@ -148,7 +148,7 @@ def test_junction_extraction_from_splitmap():
 def test_sync_score_execution():
     input = files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
-    scored = gem.score(mappings, index, results_dir + "/scored.mapping")
+    scored = gem.validate_and_score(mappings, index, results_dir + "/scored.mapping")
     assert scored is not None
     assert scored.process is not None
     assert scored.filename is not None
