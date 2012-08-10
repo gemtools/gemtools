@@ -140,6 +140,12 @@ def _prepare_index_parameter(index, gem_suffix=True):
         raise ValueError("No valid GEM index specified!")
     if not isinstance(index, basestring):
         raise ValueError("GEM index must be a string")
+    file_name = index
+    if not file_name.endswith(".gem"):
+        file_name = file_name+".gem"
+    if not os.path.exists(file_name):
+        raise ValueError("Index file not found : %s"%file_name)
+
     if gem_suffix:
         if not index.endswith(".gem"):
             index = index + ".gem"
