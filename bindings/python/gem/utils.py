@@ -104,6 +104,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
 
     for i, params in enumerate(tools):
         logging.info("Starting %s :\n\t%s" % (name, " ".join(params)))
+        #print "Starting %s :\n\t%s" % (name, " ".join(params))
         p_in = process_in
         p_out = process_out
 
@@ -121,7 +122,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             if i < num_tools - 1:
                 p_out = subprocess.PIPE
             current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err, close_fds=True)
-        append_logger(current_process, logfile)
+        #append_logger(current_process, logfile)
         last_process = current_process
 
 
@@ -198,7 +199,7 @@ def which(program):
     ## use which command
     try:
         params = ["which", program]
-        output = subprocess.check_output(params, stderr=open("/dev/null", 'w'))
+        output = subprocess.check_output(params)
         path = output.split("\n")[0]
         if path is None or len(path) == 0:
             return None

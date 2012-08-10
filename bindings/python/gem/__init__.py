@@ -3,7 +3,6 @@
 ability to feed data into GEM and retreive the mappings"""
 import os
 import shutil
-import subprocess
 import sys
 import logging
 
@@ -217,7 +216,7 @@ def _prepare_output(process, output=None, type="map", name="GEM"):
         return files.open(process.stdout, type=type, process=process)
 
 
-def validate():
+def validate_executables():
     """Validate the gem executables
     """
     for exe, path in executables.items():
@@ -518,16 +517,6 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, 1)
 
 
-def _sam_compute_threads(threads, bam, sort_bam):
-    """Returns the number of threads that can be assigned to
-    the gem-2-sam converter, based on the other tasks that have to be done"""
-    gem_2_sam_threads = max(threads - 1, 1)
-    if bam:
-        gem_2_sam_threads = max(threads - 2, 1)
-        if sort_bam:
-            gem_2_sam_threads = max(threads - 3, 1)
-    return gem_2_sam_threads
-
 
 def gem2sam(input, index, output=None, single_end=False, compact=False, threads=1):
     index = _prepare_index_parameter(index, False)
@@ -541,69 +530,6 @@ def gem2sam(input, index, output=None, single_end=False, compact=False, threads=
         gem_2_sam_p.append("-c")
     process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", utils.read_to_map)
     return _prepare_output(process, output, "sam", name="GEM-2-SAM")
-
-def sam(input, index, output, single_end=False, compact=False, bam=False, sort_bam=True, threads=1):
-    ## check the index
-
-    outname = output
-    if outname.endswith(".sam") or outname.endswith(".bam"):
-        outname = outname[:-4]
-
-    gem_2_sam_threads = _sam_compute_threads(threads, bam, sort_bam )
-
-
-
-    sam_2_bam_p = [executables['samtools'],
-               'view',
-               '-S', '-b', '-'
-    ]
-
-    bam_sort_p = [executables['samtools'], 'sort', '-', outname]
-
-
-    # prepare outputs
-    gem_2_sam_out = None
-    if bam:
-        gem_2_sam_out = subprocess.PIPE
-    else:
-        gem_2_sam_out = open('w', output)
-
-
-    # start gem 2 stam conversion
-    gem_2_sam = subprocess.Popen(gem_2_sam_p, stdin=subprocess.PIPE,
-                           stdout=gem_2_sam_out, bufsize=-1)
-    gem_2_sam_out = gem_2_sam.stdout
-    sam_2_bam = None
-    bam_sort = None
-    if bam:
-        sam_2_bam_out = subprocess.PIPE
-        if not sort_bam:
-            sam_2_bam_out = open(output,  "w")
-
-        sam_2_bam = subprocess.Popen(sam_2_bam_p, stdin=gem_2_sam_out,
-                             stdout=sam_2_bam_out, bufsize=-1, close_fds=True)
-        if sort_bam:
-            bam_sort = subprocess.Popen(bam_sort_p, stdin=sam_2_bam.stdout, close_fds=True)
-
-
-    ## read from input and pipe to process
-    for l in input:
-        print >>gem_2_sam.stdin, "\t".join(l)
-
-    gem_2_sam.stdin.close()
-    if gem_2_sam.wait() != 0:
-        gem_2_sam.stdout.close()
-        raise ValueError("GEM 2 sam failed")
-    gem_2_sam.stdout.close()
-
-    if sam_2_bam is not None:
-        if sam_2_bam.wait() != 0:
-            sam_2_bam.stdout.close()
-            raise ValueError("Sam to Bam conversion failed")
-        sam_2_bam.stdout.close()
-        if bam_sort is not None:
-            if bam_sort.wait() != 0:
-                raise ValueError("Bam sorting failed")
 
 
 def merge(target, source, output):
