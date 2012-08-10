@@ -98,22 +98,25 @@ class parse_sam(Parser):
     """Parse gem map entries from a stream"""
 
     def next(self, stream):
-        line = stream.readline()
-        if not line:
-            return None
-        line = line.rstrip()
-        split = line.split("\t")
+        while True:
+            line = stream.readline()
+            if not line:
+                return None
+            if line.startswith("@"):
+                continue
+            line = line.rstrip()
+            split = line.split("\t")
 
-        self.read.line = line
-        self.read.id = split[0]
-        self.read.sequence = split[9]
-        self.read.qualities = split[10]
-        self.read.mappings = None
-        self.read.summary = None
-        if self.read.qualities in ["", "*"]:
-            self.read.qualities = None
+            self.read.line = line
+            self.read.id = split[0]
+            self.read.sequence = split[9]
+            self.read.qualities = split[10]
+            self.read.mappings = None
+            self.read.summary = None
+            if self.read.qualities in ["", "*"]:
+                self.read.qualities = None
 
-        return self.read
+            return self.read
 
 
 class ReadIterator(object):

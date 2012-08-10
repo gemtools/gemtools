@@ -163,11 +163,11 @@ def test_sync_score_and_validate_execution():
 def test_gem2sam_execution():
     input = files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
-    sam = gem.gem2sam(mappings, index)
+    sam = gem.gem2sam(mappings, index, compact=True)
     assert sam is not None
     assert sam.process is not None
-    assert sam.filename is not None
+    assert sam.filename is None
     count = 0
-    for read in scored:
+    for read in sam:
         count += 1
     assert count == 10000
