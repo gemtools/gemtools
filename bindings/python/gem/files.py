@@ -77,6 +77,7 @@ class parse_map(Parser):
             return None
         line = line.rstrip()
         split = line.split("\t")
+        self.read.line = line
         self.read.id = split[0]
         self.read.sequence = split[1]
         if len(split) == 5:
@@ -91,6 +92,28 @@ class parse_map(Parser):
             self.read.qualities = None
         if self.read.summary in ["+", "-", "*"]:
             self.read.summary = "0"
+        return self.read
+
+
+class parse_sam(Parser):
+    """Parse gem map entries from a stream"""
+
+    def next(self, stream):
+        line = stream.readline()
+        if not line:
+            return None
+        line = line.rstrip()
+        split = line.split("\t")
+
+        self.read.line = line
+        self.read.id = split[0]
+        self.read.sequence = split[9]
+        self.read.qualities = split[10]
+        self.read.mappings = None
+        self.read.summary = None
+        if self.read.qualities in ["", "*"]:
+            self.read.qualities = None
+
         return self.read
 
 
@@ -150,7 +173,9 @@ class ReadIterator(object):
 supported_types = {
     "fasta": parse_fasta,
     "fastq": parse_fastq,
-    "map": parse_map
+    "map": parse_map,
+    "sam": parse_sam,
+    "bam": parse_sam
 }
 
 
@@ -180,7 +205,14 @@ def open(input, type=None, process=None, remove_after_iteration=False):
 
     stream = input
     if is_string:
-        stream = open_file(input)
+        if type == "bam":
+            process = subprocess.Popen(["samtools", "view", input],
+                stdout=subprocess.PIPE,
+                stderr=open("/dev/null", 'w'),
+                close_fds=True)
+            stream = process.stdout
+        else:
+            stream = open_file(input)
     else:
         input = None  ## reset filename
     return ReadIterator(stream, supported_types[type](), input, process=process,

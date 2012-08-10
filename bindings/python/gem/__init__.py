@@ -58,6 +58,7 @@ class Read(object):
         self.qualities = None
         self.summary = None
         self.mappings = None
+        self.line = None
 
     def min_mismatches(self):
         """Parse the mismatch string and return the minimum number
@@ -517,33 +518,40 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, 1)
 
 
-def sam(input, index, output, single_end=False, compact=False, bam=False, sort_bam=True, threads=1):
-    ## check the index
-    if index is None:
-        raise ValueError("No valid GEM index specified!")
-    if not isinstance(index, basestring):
-        raise ValueError("GEM index must be a string")
-    if index.endswith(".gem"):
-        index = index[:-4]
-    outname = output
-    if outname.endswith(".sam") or outname.endswith(".bam"):
-        outname = outname[:-4]
-
+def _sam_compute_threads(threads, bam, sort_bam):
+    """Returns the number of threads that can be assigned to
+    the gem-2-sam converter, based on the other tasks that have to be done"""
     gem_2_sam_threads = max(threads - 1, 1)
     if bam:
         gem_2_sam_threads = max(threads - 2, 1)
         if sort_bam:
             gem_2_sam_threads = max(threads - 3, 1)
+    return gem_2_sam_threads
 
 
+def gem2sam(input, index, output=None, single_end=False, compact=False, threads=1):
+    index = _prepare_index_parameter(index, False)
     gem_2_sam_p = [executables['gem-2-sam'],
-                '-I', index,
-                '-T', str(gem_2_sam_threads)
+                   '-I', index,
+                   '-T', str(threads)
     ]
     if single_end:
         gem_2_sam_p.append("--expect-single-end-reads")
     if compact:
         gem_2_sam_p.append("-c")
+    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", utils.read_to_map)
+    return _prepare_output(process, output, "sam", name="GEM-2-SAM")
+
+def sam(input, index, output, single_end=False, compact=False, bam=False, sort_bam=True, threads=1):
+    ## check the index
+
+    outname = output
+    if outname.endswith(".sam") or outname.endswith(".bam"):
+        outname = outname[:-4]
+
+    gem_2_sam_threads = _sam_compute_threads(threads, bam, sort_bam )
+
+
 
     sam_2_bam_p = [executables['samtools'],
                'view',
@@ -551,12 +559,6 @@ def sam(input, index, output, single_end=False, compact=False, bam=False, sort_b
     ]
 
     bam_sort_p = [executables['samtools'], 'sort', '-', outname]
-
-    print >> sys.stderr, " ".join([str(x) for x in gem_2_sam_p])
-    if bam:
-        print >> sys.stderr, " ".join([str(x) for x in sam_2_bam_p])
-        if sort_bam:
-            print >> sys.stderr, " ".join([str(x) for x in bam_sort_p])
 
 
     # prepare outputs
