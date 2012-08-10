@@ -38,7 +38,7 @@ def __parse_error_output(stream):
             raise ValueError("GEM run error : %s " % (line))
 
 
-def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None):
+def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None, raw_stream=False):
     """
     Run the tools defined in the tools list using a new process per tools.
     The input is a ReadIterator and the method checks
@@ -78,7 +78,10 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
 
     ## handle input stream
     if input is not None:
-        process_in = subprocess.PIPE
+        if raw_stream:
+            process_in = input.stream
+        else:
+            process_in = subprocess.PIPE
 
     ## handle output stream
     if output is not None:
@@ -127,14 +130,14 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
 
 
     ## start the input thread
-    if input is not None:
+    if input is not None and not raw_stream:
         input_thread = Thread(target=__write_input, args=(input, first_process.stdin, transform_fun))
         input_thread.start()
 
     return last_process
 
 
-def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None):
+def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None, raw_stream=False):
     """
     Run the tool defined in the params array using a new process.
     The input is a ReadIterator and the method checks
@@ -159,7 +162,7 @@ def run_tool(params, input=None, output=None, name="", transform_fun=read_to_seq
     @raise: ValueError in case the execution failed
 
     """
-    return run_tools([params], input, output, name, transform_fun, logfile)
+    return run_tools([params], input, output, name, transform_fun, logfile, raw_stream)
 
 def __write_input(sequence, stream, transformer=None):
     """

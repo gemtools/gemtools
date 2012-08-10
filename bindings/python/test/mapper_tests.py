@@ -106,7 +106,6 @@ def test_async_splitmapper_execution():
     assert mappings is not None
     assert mappings.process is not None
     assert mappings.filename is not None
-    print mappings.filename
     assert os.path.exists(mappings.filename)
     assert mappings.remove_after_iteration
     assert sum(1 for x in mappings) == 10000
@@ -163,11 +162,41 @@ def test_sync_score_and_validate_execution():
 def test_gem2sam_execution():
     input = files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
-    sam = gem.gem2sam(mappings, index)
+    sam = gem.gem2sam(mappings, index, compact=True)
     assert sam is not None
     assert sam.process is not None
-    assert sam.filename is not None
+    assert sam.filename is None
     count = 0
-    for read in scored:
+    for read in sam:
         count += 1
     assert count == 10000
+
+
+@with_setup(setup_func, cleanup)
+def test_sam2bam_no_sort_sync_execution():
+    result = results_dir + "/reads_1.bam"
+    input = files.open(testfiles["reads_1.sam"])
+    bam = gem.sam2bam(input, result, False)
+    assert bam is not None
+    assert os.path.exists(result)
+    assert sum(1 for x in bam) == 10000
+
+
+@with_setup(setup_func, cleanup)
+def test_sam2bam_sort_sync_execution():
+    result = results_dir + "/reads_1.bam"
+    input = files.open(testfiles["reads_1.sam"])
+    bam = gem.sam2bam(input, result, True)
+    assert bam is not None
+    assert os.path.exists(result)
+    assert sum(1 for x in bam) == 10000
+
+
+@with_setup(setup_func, cleanup)
+def test_sam2bam_sort_async_execution():
+    input = files.open(testfiles["reads_1.sam"])
+    bam = gem.sam2bam(input, sorted=True)
+    assert bam is not None
+    for read in bam:
+        print read.line
+        ##assert sum(1 for x in bam) == 10000

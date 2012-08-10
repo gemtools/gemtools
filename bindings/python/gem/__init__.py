@@ -197,7 +197,7 @@ def _write_sequence_file(input, tmpdir = None):
     return inputfile
 
 
-def _prepare_output(process, output=None, type="map", name="GEM"):
+def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False):
     """If output is not None, this waits for the process to
     finish and opens a ReadIterator
     on the output file using the given type.
@@ -209,11 +209,11 @@ def _prepare_output(process, output=None, type="map", name="GEM"):
         # wait for the process to finish
         if process.wait() != 0:
             raise ValueError("%s execution failed!" % name)
-        return files.open(output, type=type, process=process)
+        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration)
     else:
         ## running in async mode, return iterator on
         ## the output stream
-        return files.open(process.stdout, type=type, process=process)
+        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration)
 
 
 def validate_executables():
@@ -517,7 +517,6 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, 1)
 
 
-
 def gem2sam(input, index, output=None, single_end=False, compact=False, threads=1):
     index = _prepare_index_parameter(index, False)
     gem_2_sam_p = [executables['gem-2-sam'],
@@ -530,6 +529,24 @@ def gem2sam(input, index, output=None, single_end=False, compact=False, threads=
         gem_2_sam_p.append("-c")
     process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", utils.read_to_map)
     return _prepare_output(process, output, "sam", name="GEM-2-SAM")
+
+
+def sam2bam(input, output=None, sorted=False, tmpdir=None):
+    sam2bam_p = ['samtools', 'view', '-S', '-b', '-']
+    tools = [sam2bam_p]
+    out_name = output
+    if sorted:
+        # we can not pipe samtools sort :(
+        if out_name is not None:
+            if out_name.endswith('.bam'):
+                out_name = out_name[:-4]
+        else:
+            (fifo, out_name) = tempfile.mkstemp(suffix="", prefix="bam_sort", dir=tmpdir)
+        bam_sort = ['samtools', 'sort', '-', out_name]
+        out_name = out_name + ".bam"
+        tools.append(bam_sort)
+    process = utils.run_tools(tools, input, output, "SAM-2-BAM", raw_stream=True)
+    return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None))
 
 
 def merge(target, source, output):
