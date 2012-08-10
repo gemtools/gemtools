@@ -15,7 +15,7 @@ for f in os.listdir(gemtools_dir):
 
 gemtools = Extension('gem.gemtools',
                     define_macros=[('MAJOR_VERSION', '1'),
-                                   ('MINOR_VERSION', '0')],
+                                   ('MINOR_VERSION', '1')],
                     include_dirs=['../../GEMTools'],
                     extra_objects=objs,
                     sources=['src/py_iterator.c', 'src/py_template_iterator.c',
@@ -24,7 +24,7 @@ gemtools = Extension('gem.gemtools',
 
 setup(
         name='Gem',
-        version='1.0',
+        version='1.1',
         description='Python support library for the GEM mapper and gemtools',
         author='Thasso Griebel',
         author_email='thasso.griebel@gmail.com',
