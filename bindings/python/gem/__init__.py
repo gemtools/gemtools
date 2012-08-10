@@ -201,13 +201,12 @@ def validate():
     """Validate the gem executables
     """
     for exe, path in executables.items():
-        abs_path = os.path.abspath(path)
-        exe_path = utils.which(abs_path)
-        found = not exe_path
+        exe_path = utils.which(path)
+        found = exe_path is not None
         if found:
-            print sys.stderr << "Executable '%s' : %s" % (exe, exe_path)
+            print >> sys.stderr, "Executable '%s' : %s" % (exe, exe_path)
         else:
-            print sys.stderr << "Executable '%s' : Unknown"
+            print >> sys.stderr, "Executable '%s' : Unknown" % (exe)
 
 
 def mapper(input, index, output=None,
@@ -474,19 +473,24 @@ def pairalign(input, index, output=None,
 
 
 
-def score(input, index, output=None, threads=1):
+def score(input,
+          index,
+          output=None,
+          threads=1,
+          scoring="+U,+u,-t,-s,-i,-a",
+          validate_score="-s,-b,-i",
+          validate_filter="2,25"):
     index = _prepare_index_parameter(index, gem_suffix=False)
     validate_p = [executables['gem-map-2-map'],
                 '-I', index,
                 '-v', '-r',
-                '-s', '-s,-b,-i',
-                '-f', '2,25',
-                '-S',
+                '-s', validate_score,
+                '-f', validate_filter,
                 '-T', str(max(threads - 2, 1))
     ]
     score_p = [executables['gem-map-2-map'],
                '-I', index,
-               '-s', '+U,+u,-t,-s,-i,-a'
+               '-s', scoring
     ]
 
     process = utils.run_tools([validate_p, score_p], input, output, "GEM-Score", utils.read_to_map)
@@ -647,7 +651,3 @@ def merge(target, source, output):
     target.close()
     map(lambda x: x.close(), handles)
     output.close()
-
-
-if __name__ == "__main__":
-    validate()

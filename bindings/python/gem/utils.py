@@ -197,11 +197,17 @@ def which(program):
 
     ## use which command
     try:
-        output = subprocess.check_output(["which", program])
-        return output.split("\n")[0]
+        params = ["which", program]
+        output = subprocess.check_output(params, stderr=open("/dev/null", 'w'))
+        path = output.split("\n")[0]
+        if path is None or len(path) == 0:
+            return None
+        return path
     except Exception:
+        raise
         ## ignore exceptions and try path search
-        return None
+        #return None
+
 
 def find_in_path(program):
     """
