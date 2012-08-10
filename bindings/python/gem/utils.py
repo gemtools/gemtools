@@ -158,48 +158,7 @@ def run_tool(params, input=None, output=None, name="", transform_fun=read_to_seq
     @raise: ValueError in case the execution failed
 
     """
-
-    process_in = None
-    process_out = None
-    process_err = None
-
-    ## handle input stream
-    if input is not None:
-        process_in = subprocess.PIPE
-
-    ## handle output stream
-    if output is not None:
-        if isinstance(output, basestring):
-            process_out = open(output, 'w')
-        else:
-            process_out = output
-    else:
-        process_out = subprocess.PIPE
-
-    ## handle error stream
-    if logfile is not None:
-        process_err = logfile
-        if isinstance(logfile, basestring):
-            process_err = open(logfile, 'w')
-    else:
-        process_err = subprocess.PIPE
-
-    logging.info("Starting %s :\n\t%s" % (name, " ".join(params)))
-    process = subprocess.Popen(params, stdin=process_in, stdout=process_out, stderr=process_err, close_fds=True)
-
-
-    if input is not None:
-        input_thread = Thread(target=__write_input, args=(input, process.stdin, transform_fun))
-        input_thread.start()
-
-    if logfile is None:
-        err_thread = Thread(target=__parse_error_output, args=(process.stderr,))
-        err_thread.start()
-
-
-    return process
-
-
+    return run_tools([params], input, output, name, transform_fun, logfile)
 
 def __write_input(sequence, stream, transformer=None):
     """
