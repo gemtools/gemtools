@@ -225,7 +225,7 @@ def _get_chromosomes(index):
         raise ValueError("The index must be a string")
     if index.endswith(".gem"):
         index = index[:-4]
-    pa = subprocess.Popen('gem-info ' + index, stdout=subprocess.PIPE, shell=True)
+    pa = subprocess.Popen(gem.executables['gem-info'] + ' ' + index, stdout=subprocess.PIPE, shell=True)
     chrs = []
     for line in pa.stdout:
         line = line.strip()

@@ -16,13 +16,13 @@ from gem.junctions import Exon, JunctionSite
 
 def extract_denovo_junctions(gemoutput, index_hash, minsplit=4, maxsplit=2500000):
     splits2junctions_p = [
-        'splits-2-junctions',
+        gem.executables['splits-2-junctions'],
         str(minsplit),
         str(maxsplit)
     ]
     p = subprocess.Popen(splits2junctions_p, stdin=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True, bufsize=0)
     ## start the retriever
-    retriever = subprocess.Popen(['gem-retriever', 'query', index_hash], stdin=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True, bufsize=0)
+    retriever = subprocess.Popen([gem.executables['gem-retriever'], 'query', index_hash], stdin=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True, bufsize=0)
 
     ## start pipe thread
     input_thread = Thread(target=_pipe_geminput, args=(gemoutput, p))

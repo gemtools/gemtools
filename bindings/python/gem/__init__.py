@@ -28,6 +28,17 @@ extended_splice_consensus = [("GT","AG"),("CT","AC"),
 
 default_filter = "same-chromosome,same-strand"
 
+## paths to the executables
+executables = {
+    "gem-mapper": "gem-mapper",
+    "gem-rna-mapper": "gem-rna-mapper",
+    "gem-map-2-map": "gem-map-2-map",
+    "gem-2-sam": "gem-2-sam",
+    "samtools": "samtools",
+    "gem-info": "gem-info",
+    "splits-2-junctions": "splits-2-junctions",
+    "gem-retriever": "gem-retriever",
+}
 
 class Read(object):
     """A single read. The read info covers
@@ -138,69 +149,6 @@ def _prepare_index_parameter(index, gem_suffix=True):
     return index
 
 
-def mapper(input, index, output=None,
-           mismatches=0.04,
-           delta=0,
-           quality=33,
-           quality_threshold=26,
-           max_decoded_matches=20,
-           min_decoded_strata=0,
-           min_matched_bases=0.80,
-           threads=1):
-    """Start the GEM mapper on the given input.
-    If input is a file handle, it is assumed to
-    provide fastq entries. If input is a string,
-    it is checked for its extension. In case of a
-    .map file, the input is converted from gem format
-    to fastq and passed to the mapper.
-
-    Output can be a string, which will be translated to
-    the output file. In case output is a file handle,
-    the GEM output is written there.
-
-    input -- A ReadIterator with the input
-    output -- output file name
-    index -- valid GEM2 index
-    mismatches - number or % mismatches, default=0.04
-    delta -- strata after best <number> (default=0)
-    quality -- one of 'ignore'|'offset-33'|'offset-64' defaults to offset-33
-    quality_threshold <number> -- (default=26, that is e<=2e-3)
-    max_decoded_matches -- maximum decoded matches, defaults to 20
-    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 0
-    min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
-    """
-
-    ## check the index
-    index = _prepare_index_parameter(index)
-
-    quality = _prepare_quality_parameter(quality)
-
-        ## prepare the input
-    pa = ['gem-mapper', '-I', index,
-         '-q', quality,
-         '-m', str(mismatches),
-         '-s', str(delta),
-         '--max-decoded-matches', str(max_decoded_matches),
-         '--min-decoded-strata', str(min_decoded_strata),
-         '--min-matched-bases', str(min_matched_bases),
-         '--gem-quality-threshold', str(quality_threshold),
-         '-T', str(threads)
-    ]
-
-    ## run the mapper
-    process = utils.run_tool(pa, input, output, name="GEM-Mapper")
-    if output is not None:
-        # we are writing to a file
-        # wait for the process to finish
-        if process.wait() != 0:
-            raise ValueError("GEM-Mapper execution failed!")
-        return files.open(output, type="map", process=process)
-    else:
-        ## running in async mode, return iterator on
-        ## the output stream
-        return files.open(process.stdout, type="map", process=process)
-
-
 def _prepare_splice_consensus_parameter(splice_consensus):
     """
     Convert the splice consensus tuple to
@@ -249,6 +197,82 @@ def _write_sequence_file(input, tmpdir = None):
     return inputfile
 
 
+def validate():
+    """Validate the gem executables
+    """
+    for exe, path in executables.items():
+        abs_path = os.path.abspath(path)
+        exe_path = utils.which(abs_path)
+        found = not exe_path
+        if found:
+            print sys.stderr << "Executable '%s' : %s" % (exe, exe_path)
+        else:
+            print sys.stderr << "Executable '%s' : Unknown"
+
+
+def mapper(input, index, output=None,
+           mismatches=0.04,
+           delta=0,
+           quality=33,
+           quality_threshold=26,
+           max_decoded_matches=20,
+           min_decoded_strata=0,
+           min_matched_bases=0.80,
+           threads=1):
+    """Start the GEM mapper on the given input.
+    If input is a file handle, it is assumed to
+    provide fastq entries. If input is a string,
+    it is checked for its extension. In case of a
+    .map file, the input is converted from gem format
+    to fastq and passed to the mapper.
+
+    Output can be a string, which will be translated to
+    the output file. In case output is a file handle,
+    the GEM output is written there.
+
+    input -- A ReadIterator with the input
+    output -- output file name
+    index -- valid GEM2 index
+    mismatches - number or % mismatches, default=0.04
+    delta -- strata after best <number> (default=0)
+    quality -- one of 'ignore'|'offset-33'|'offset-64' defaults to offset-33
+    quality_threshold <number> -- (default=26, that is e<=2e-3)
+    max_decoded_matches -- maximum decoded matches, defaults to 20
+    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 0
+    min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
+    """
+
+    ## check the index
+    index = _prepare_index_parameter(index)
+
+    quality = _prepare_quality_parameter(quality)
+
+    ## prepare the input
+    pa = [executables['gem-mapper'], '-I', index,
+          '-q', quality,
+          '-m', str(mismatches),
+          '-s', str(delta),
+          '--max-decoded-matches', str(max_decoded_matches),
+          '--min-decoded-strata', str(min_decoded_strata),
+          '--min-matched-bases', str(min_matched_bases),
+          '--gem-quality-threshold', str(quality_threshold),
+          '-T', str(threads)
+    ]
+
+    ## run the mapper
+    process = utils.run_tool(pa, input, output, name="GEM-Mapper")
+    if output is not None:
+        # we are writing to a file
+        # wait for the process to finish
+        if process.wait() != 0:
+            raise ValueError("GEM-Mapper execution failed!")
+        return files.open(output, type="map", process=process)
+    else:
+        ## running in async mode, return iterator on
+        ## the output stream
+        return files.open(process.stdout, type="map", process=process)
+
+
 
 def splitmapper(input,
                 index,
@@ -287,7 +311,7 @@ def splitmapper(input,
     input_file = _write_sequence_file(input, tmpdir=tmpdir)
     (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
 
-    pa = ['gem-rna-mapper',
+    pa = [executables['gem-rna-mapper'],
           '-I', index,
           '-i', input_file,
           '-o', output_file[:-4],
@@ -416,7 +440,7 @@ def pairalign(input, index, output=None,
     ## set default values
     quality = _prepare_quality_parameter(quality)
 
-    pa = ['gem-mapper',
+    pa = [executables['gem-mapper'],
          '-I', index,
          '-q', quality,
          '--gem-quality-threshold', str(quality_threshold),
@@ -460,7 +484,7 @@ def score(input, index, output, threads=1):
         index = index[:-4]
 
     output_fd = open(output, "w")
-    validate_p = ['gem-map-2-map',
+    validate_p = [executables['gem-map-2-map'],
                 '-I', index,
                 '-v', '-r',
                 '-s', '-s,-b,-i',
@@ -468,7 +492,7 @@ def score(input, index, output, threads=1):
                 '-S',
                 '-T', str(max(threads - 2, 1))
     ]
-    score_p = ['gem-map-2-map',
+    score_p = [executables['gem-map-2-map'],
                '-I', index,
                '-s', '+U,+u,-t,-s,-i,-a'
     ]
@@ -512,7 +536,7 @@ def sam(input, index, output, single_end=False, compact=False, bam=False, sort_b
             gem_2_sam_threads = max(threads - 3, 1)
 
 
-    gem_2_sam_p = ['gem-2-sam',
+    gem_2_sam_p = [executables['gem-2-sam'],
                 '-I', index,
                 '-T', str(gem_2_sam_threads)
     ]
@@ -521,12 +545,12 @@ def sam(input, index, output, single_end=False, compact=False, bam=False, sort_b
     if compact:
         gem_2_sam_p.append("-c")
 
-    sam_2_bam_p = ['samtools',
+    sam_2_bam_p = [executables['samtools'],
                'view',
                '-S', '-b', '-'
     ]
 
-    bam_sort_p = ['samtools', 'sort', '-', outname]
+    bam_sort_p = [executables['samtools'], 'sort', '-', outname]
 
     print >> sys.stderr, " ".join([str(x) for x in gem_2_sam_p])
     if bam:
@@ -578,6 +602,7 @@ def sam(input, index, output, single_end=False, compact=False, bam=False, sort_b
         if bam_sort is not None:
             if bam_sort.wait() != 0:
                 raise ValueError("Bam sorting failed")
+
 
 def merge(target, source, output):
     """Merge all mappings from the source files into the target file.
@@ -636,3 +661,7 @@ def merge(target, source, output):
     target.close()
     map(lambda x: x.close(), handles)
     output.close()
+
+
+if __name__ == "__main__":
+    validate()

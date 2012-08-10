@@ -8,6 +8,7 @@ import os
 import subprocess
 import __builtin__
 import gem
+from utils import which
 
 
 __author__ = 'Thasso Griebel'
@@ -251,31 +252,12 @@ def __zcat():
     global __zcat_path
     if __zcat_path is not None:
         return __zcat_path
-    __zcat_path = __which("zcat")
+    __zcat_path = which("zcat")
     if not __zcat_path:
-        __zcat_path = __which("gzcat")
+        __zcat_path = which("gzcat")
     if not __zcat_path:
         raise ValueError("Unable to find a zcat|gzcat executable in PATH!")
     return __zcat_path
 
 
-def __which(program):
-    """
-    Find programm in path
-    """
-    import os
 
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None

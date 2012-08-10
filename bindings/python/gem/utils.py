@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Gem tools utilities
 """
+import os
 import re
 
 import subprocess
@@ -121,3 +122,41 @@ def multisplit(s, seps):
         for seq in s:
             res += seq.split(sep)
     return res
+
+
+def which(program):
+    """
+    Find programm in path
+    """
+    import subprocess
+
+    ## use which command
+    try:
+        return subprocess.check_output(["which", program])
+    except Exception:
+        ## ignore exceptions and try path search
+        return None
+
+def find_in_path(program):
+    """
+    Explicitly search the PATH for the given program
+
+    @param programm: the program
+    @type programm: string
+    @return: absolute path to the program or None
+    @rtype: string
+    """
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
