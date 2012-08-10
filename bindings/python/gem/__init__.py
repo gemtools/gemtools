@@ -474,16 +474,8 @@ def pairalign(input, index, output=None,
 
 
 
-def score(input, index, output, threads=1):
-    ## check the index
-    if index is None:
-        raise ValueError("No valid GEM index specified!")
-    if not isinstance(index, basestring):
-        raise ValueError("GEM index must be a string")
-    if index.endswith(".gem"):
-        index = index[:-4]
-
-    output_fd = open(output, "w")
+def score(input, index, output=None, threads=1):
+    index = _prepare_index_parameter(index, gem_suffix=False)
     validate_p = [executables['gem-map-2-map'],
                 '-I', index,
                 '-v', '-r',
@@ -497,24 +489,18 @@ def score(input, index, output, threads=1):
                '-s', '+U,+u,-t,-s,-i,-a'
     ]
 
-    print >> sys.stderr, " ".join(validate_p)
-    print >> sys.stderr, " ".join(score_p)
+    process = utils.run_tools([validate_p, score_p], input, output, "GEM-Score", utils.read_to_map)
+    if output is not None:
+        # we are writing to a file
+        # wait for the process to finish
+        if process.wait() != 0:
+            raise ValueError("GEM-Score execution failed!")
+        return files.open(output, type="map", process=process)
+    else:
+        ## running in async mode, return iterator on
+        ## the output stream
+        return files.open(process.stdout, type="map", process=process)
 
-    validate = subprocess.Popen(validate_p, stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, bufsize=-1)
-    score = subprocess.Popen(score_p, stdin=validate.stdout,
-                             stdout=output_fd, bufsize=-1, close_fds=True)
-
-    ## read from input and pipe to process
-    for l in input:
-        print >> validate.stdin, "\t".join(l)
-    validate.stdin.close()
-
-    if validate.wait() != 0 or score.wait() != 0:
-        output_fd.close()
-        raise ValueError("GEM map 2 map scoring failed")
-    output_fd.close()
-    return filter.gemoutput(output)
 
 
 def sam(input, index, output, single_end=False, compact=False, bam=False, sort_bam=True, threads=1):

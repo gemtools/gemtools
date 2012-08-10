@@ -240,7 +240,8 @@ def open_gzip(file_name):
     """
     if not isinstance(file_name, basestring):
         raise ValueError("The provided file name is not a string : %s" % (file_name))
-    zcat = subprocess.Popen([__zcat(), file_name], stdout=subprocess.PIPE)
+    parameter = [__zcat(), file_name]
+    zcat = subprocess.Popen(parameter, stdout=subprocess.PIPE)
     return zcat.stdout
 
 

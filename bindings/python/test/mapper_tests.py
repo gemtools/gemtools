@@ -142,3 +142,18 @@ def test_junction_extraction_from_splitmap():
     assert junctions is not None
     assert len(jj) == 260
     assert sum(1 for x in splitmap) == 10000
+
+
+@with_setup(setup_func, cleanup)
+def test_sync_score_execution():
+    input = files.open(testfiles["reads_1.fastq"])
+    mappings = gem.mapper(input, index)
+    scored = gem.score(mappings, index, results_dir + "/scored.mapping")
+    assert scored is not None
+    assert scored.process is not None
+    assert scored.filename is not None
+    assert scored.filename == results_dir + "/scored.mapping"
+    count = 0
+    for read in scored:
+        count += 1
+    assert count == 10000
