@@ -27,3 +27,4 @@ clean:
 	@rm -Rf testresults build Gem.egg-info
 	@rm -f gem/*.pyc gem/*.so
 	@rm -f test/*.pyc 
+	@rm -Rf dist 
