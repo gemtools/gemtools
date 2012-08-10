@@ -145,7 +145,7 @@ def test_junction_extraction_from_splitmap():
 
 
 @with_setup(setup_func, cleanup)
-def test_sync_score_execution():
+def test_sync_score_and_validate_execution():
     input = files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
     scored = gem.validate_and_score(mappings, index, results_dir + "/scored.mapping")
@@ -153,6 +153,20 @@ def test_sync_score_execution():
     assert scored.process is not None
     assert scored.filename is not None
     assert scored.filename == results_dir + "/scored.mapping"
+    count = 0
+    for read in scored:
+        count += 1
+    assert count == 10000
+
+
+@with_setup(setup_func, cleanup)
+def test_gem2sam_execution():
+    input = files.open(testfiles["reads_1.fastq"])
+    mappings = gem.mapper(input, index)
+    sam = gem.gem2sam(mappings, index)
+    assert sam is not None
+    assert sam.process is not None
+    assert sam.filename is not None
     count = 0
     for read in scored:
         count += 1
