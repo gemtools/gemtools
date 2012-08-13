@@ -26,6 +26,49 @@ def cleanup():
 
 
 @with_setup(setup_func, cleanup)
+def test_merging_maps():
+    input = files.open(testfiles["test_merge_target.map"])
+    source_1 = files.open(testfiles["test_merge_source_1.map"])
+    source_2 = files.open(testfiles["test_merge_source_2.map"])
+    #result = gem.mapper(input, index, results_dir + "/merged.mapping")
+    merger = gem.merger(input, [source_1, source_2])
+    count = 0
+    for read in merger:
+        count += 1
+        if read.id == "HWI-ST661:153:D0FTJACXX:2:1102:13866:124450 1:N:0:GCCAAT":
+            assert read.summary == "0:1"
+            assert read.mappings == "chr2:-:162359617:74G"
+        elif read.id == "HWI-ST661:153:D0FTJACXX:2:1102:13753:124452 1:N:0:GCCAAT":
+            assert read.summary == "0:1"
+            assert read.mappings == "chr9:+:38397301:54G20"
+        elif read.id == "HWI-ST661:153:D0FTJACXX:2:1102:14211:124259 1:N:0:GCCAAT":
+            assert read.summary == "1"
+            assert read.mappings == "chr15:+:72492866:75"
+    assert count == 10
+
+@with_setup(setup_func, cleanup)
+def test_merging_maps_to_file():
+    input = files.open(testfiles["test_merge_target.map"])
+    source_1 = files.open(testfiles["test_merge_source_1.map"])
+    source_2 = files.open(testfiles["test_merge_source_2.map"])
+    result = results_dir + "/merged.mapping"
+    merger = gem.merger(input, [source_1, source_2])
+    count = 0
+    for read in merger.merge(result):
+        count += 1
+        if read.id == "HWI-ST661:153:D0FTJACXX:2:1102:13866:124450 1:N:0:GCCAAT":
+            assert read.summary == "0:1"
+            assert read.mappings == "chr2:-:162359617:74G"
+        elif read.id == "HWI-ST661:153:D0FTJACXX:2:1102:13753:124452 1:N:0:GCCAAT":
+            assert read.summary == "0:1"
+            assert read.mappings == "chr9:+:38397301:54G20"
+        elif read.id == "HWI-ST661:153:D0FTJACXX:2:1102:14211:124259 1:N:0:GCCAAT":
+            assert read.summary == "1"
+            assert read.mappings == "chr15:+:72492866:75"
+    assert count == 10
+    assert os.path.exists(result)
+
+@with_setup(setup_func, cleanup)
 def test_sync_mapper_execution():
     input = files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index, results_dir + "/result.mapping")
@@ -197,6 +240,4 @@ def test_sam2bam_sort_async_execution():
     input = files.open(testfiles["reads_1.sam"])
     bam = gem.sam2bam(input, sorted=True)
     assert bam is not None
-    for read in bam:
-        print read.line
-        ##assert sum(1 for x in bam) == 10000
+    assert sum(1 for x in bam) == 10000

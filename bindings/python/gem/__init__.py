@@ -555,7 +555,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None):
     return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None))
 
 
-def merge(target, source, output):
+class merger(object):
     """Merge all mappings from the source files into the target file.
     The target file must contain all available mappings and the sort order
     of all files must be the same.
@@ -563,52 +563,56 @@ def merge(target, source, output):
     target -- either an open file descriptor or a file name.
     source -- an open file descriptor to a single source file, a file name or a
               list of file names
-    output -- either an open file descriptor that is used to write the output
-              or the target file name
     """
-    if target is None:
-        raise ValueError("No target file specified")
-    if source is None:
-        raise ValueError("No source file specified")
-    if output is None:
-        raise ValueError("No output file specified")
-    if isinstance(target, basestring):
-        target = open(target, 'r')
-    if isinstance(output, basestring):
-        output = open(output, 'w')
+    def __init__(self, target, source):
+        if target is None:
+            raise ValueError("No target file specified")
+        if source is None:
+            raise ValueError("No source file specified")
 
-    handles = [source]
-    if isinstance(source, basestring):
-        handles = [open(source, 'r')]
-    elif isinstance(source, (list, tuple)):
-        handles = [open(s, 'r') for s in source]
+        self.target = target
+        self.source = source
+        self.reads = []
+        for x in self.source:
+            self.reads.append(None)
 
-    lines = []
-    for x in handles:
-        lines.append(None)
-    ## merge the files
-    for mapping in target:
-        id = mapping.split("\t")[0]
+    def __iter__(self):
+        return self
+
+    def __get_next_read(self, stream):
+        try:
+            return stream.next()
+        except :
+            return None
+
+    def next(self):
+        target_read = self.__get_next_read(self.target)
+        if not target_read:
+            raise StopIteration()
         ## read one line from each handle
-        for i, h in enumerate(handles):
-            source_line = lines[i]
-            if source_line is None:
-                source_line = h.readline()
-                lines[i] = source_line
-            if not source_line:
+        source_read = None
+        result_read = target_read
+        for i, h in enumerate(self.source):
+            source_read = self.reads[i]
+            if source_read is None:
+                source_read = self.__get_next_read(h)
+                self.reads[i] = source_read
+            if not source_read:
                 continue
 
-            ss = source_line.split("\t")
-            sid = ss[0]
-            if id == sid:
-                mis = utils.get_mismatches(ss[3])
+            if target_read.id == source_read.id:
+                mis = source_read.min_mismatches()
                 if mis >= 0:
-                    mapping = source_line  # mattchin mapping, replace
-                ## read next into cache
-                lines[i] = h.readline()
-        output.write(mapping)
+                    result_read = source_read  # matching mapping, replace
+                    ## read next into cache
+                self.reads[i] = self.__get_next_read(h)
+        return result_read
 
-    ### close everything
-    target.close()
-    map(lambda x: x.close(), handles)
-    output.close()
+    def merge(self, output):
+        of = open(output, 'w')
+        for read in self:
+            of.write(str(read))
+            of.write("\n")
+        of.close()
+        return files.open(output, type="map")
+
