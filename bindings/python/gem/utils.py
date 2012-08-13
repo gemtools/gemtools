@@ -236,3 +236,12 @@ def find_in_path(program):
                 return exe_file
 
     return None
+
+
+def gzip(file):
+    """Helper to call gzip on the given file name
+    and compress the file
+    """
+    if subprocess.Popen(['gzip', file]).wait() != 0:
+        raise ValueError("Error wile executing gzip on %s" % file)
+    return "%s.gz" % file
