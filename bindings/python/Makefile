@@ -16,10 +16,10 @@ gempy: $(OBJS)
 test: gempy
 	python setup.py nosetests --with-xunit 
 
-install: test
+install: gempy
 	python setup.py install
 
-install-user: test
+install-user: gempy
 	python setup.py install --user
 
 clean:
