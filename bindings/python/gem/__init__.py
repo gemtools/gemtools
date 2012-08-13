@@ -122,10 +122,10 @@ class Read(object):
 
         if len(self.sequence) != len(qualities) and self.qualities is not None:
             if _trim_qualities:
-                logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
-                sizes = [len(self.qualities), len(self.sequence)]
+                #logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
+                sizes = [len(qualities), len(self.sequence)]
                 sizes.sort()
-                self.qualities = self.qualities[:(sizes[0]-sizes[1])]
+                qualities = self.qualities[:(sizes[0]-sizes[1])]
             else:
                 raise ValueError("Different sequence and quality sizes for :\n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
 

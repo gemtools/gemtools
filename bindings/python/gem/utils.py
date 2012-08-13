@@ -34,6 +34,7 @@ def __parse_error_output(stream):
     """Parse the GEM error output stream and
     raise an exception if 'error' occurs"""
     for line in stream:
+        line = line.rstrip()
         if re.search("error", line):
             raise ValueError("GEM run error : %s " % (line))
 
@@ -125,7 +126,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             if i < num_tools - 1:
                 p_out = subprocess.PIPE
             current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err, close_fds=True)
-        #append_logger(current_process, logfile)
+        append_logger(current_process, logfile)
         last_process = current_process
 
 
