@@ -131,6 +131,42 @@ class Read(object):
 
         return "@%s\n%s\n+\n%s" % (self.id, self.sequence, qualities)
 
+
+    def sam_2_gem(self):
+        """Extract minimal information from the sam line
+        and create a GEM mapping that can be passed to the
+        realigner. NOTE: Without realigning the
+        mapping will be invalid !!"""
+        s = self.line.split("\t")
+        flag = int(s[1])
+        chr = s[2]
+
+        ## update read id if paired end
+        if 0x1 & flag == 0x1:
+            ## multiple segments
+            if 0x40 & flag == 0x40:
+                self.id += "/1"
+            else:
+                self.id += "/2"
+
+        if chr == "*":
+            ## unmapped read
+            self.summary = 0
+            self.mappings = '-'
+        else:
+            pos = int(s[3])
+            strand = "+"
+            if flag & 0x10 == 0x10:
+                ## seq is reverser complement
+                self.sequence = utils.reverseComplement(self.sequence)
+                if self.qualities:
+                    self.qualities = self.qualities[::-1]
+                strand = '-'
+
+            self.summary = "1"
+            self.mappings = "%s:%s:%d:%d" %(chr, strand, pos, len(self.sequence))
+
+
     def length(self):
         return len(self.sequence)
 
@@ -242,6 +278,7 @@ def mapper(input, index, output=None,
            max_decoded_matches=20,
            min_decoded_strata=0,
            min_matched_bases=0.80,
+           max_big_indel_length=15,
            threads=1):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
@@ -280,6 +317,7 @@ def mapper(input, index, output=None,
           '--min-decoded-strata', str(min_decoded_strata),
           '--min-matched-bases', str(min_matched_bases),
           '--gem-quality-threshold', str(quality_threshold),
+          '--max-big-indel-length', str(max_big_indel_length),
           '-T', str(threads)
     ]
 
@@ -476,6 +514,20 @@ def pairalign(input, index, output=None,
         ## run the mapper
     process = utils.run_tool(pa, input, output, name="GEM-Pair-align")
     return _prepare_output(process, output, type="map", name="GEM-Pair-aling")
+
+
+def realign(input,
+             index,
+             output=None,
+             threads=1,):
+    index = _prepare_index_parameter(index, gem_suffix=False)
+    validate_p = [executables['gem-map-2-map'],
+                  '-I', index,
+                  '-r',
+                  '-T', str(threads)
+    ]
+    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
+    return _prepare_output(process, output, type="map", name="GEM-Validate")
 
 
 def validate(input,

@@ -3,6 +3,7 @@
 """
 import os
 import re
+import string
 
 import subprocess
 import logging
@@ -37,6 +38,13 @@ def __parse_error_output(stream):
         line = line.rstrip()
         if re.search("error", line):
             raise ValueError("GEM run error : %s " % (line))
+
+
+complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
+
+def reverseComplement(sequence):
+    """Returns the reverse complement of the given sequence"""
+    return sequence.translate(complement)[::-1]
 
 
 def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None, raw_stream=False):

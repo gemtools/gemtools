@@ -106,7 +106,6 @@ class parse_sam(Parser):
                 continue
             line = line.rstrip()
             split = line.split("\t")
-
             self.read.line = line
             self.read.id = split[0]
             self.read.sequence = split[9]
@@ -217,6 +216,7 @@ def open(input, type=None, process=None, remove_after_iteration=False):
             stream = open_file(input)
     else:
         input = None  ## reset filename
+
     return ReadIterator(stream, supported_types[type](), input, process=process,
                         remove_after_iteration=remove_after_iteration)
 
@@ -261,6 +261,10 @@ def _guess_type(name):
         return "fastq"
     elif name.endswith(".MAP"):
         return "map"
+    elif name.endswith(".SAM"):
+        return "sam"
+    elif name.endswith(".BAM"):
+        return "bam"
     return None
 
 
