@@ -11,6 +11,7 @@ assert os.path.exists(test_fastq)
 test_map = testfiles_dir + "/test.map"
 assert os.path.exists(test_map)
 paired_w_splitmap = testfiles_dir + "/paired_w_splitmap.map"
+paired_sm_mm = testfiles_dir + "/paired_sm_mm.map"
 assert os.path.exists(test_map)
 bedconvert_map = testfiles_dir + "/bedconvert.map"
 assert os.path.exists(bedconvert_map)

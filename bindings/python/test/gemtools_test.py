@@ -14,7 +14,7 @@ def test_map_2_fastq_conversion():
     lines = []
     counter = 0
     for template in infile:
-        for alignment in template.blocks:
+        for alignment in template.blocks():
             fq = alignment.to_sequence()
             assert fq != None
             counter += 1
@@ -26,15 +26,15 @@ def test_map_2_fastq_conversion():
     assert original_lines == lines
 
 
-def test_template_mapping_iteration():    
+def test_template_mapping_iteration():
     infile = gt.open_file(test_mapping)
     assert infile != None
     map_count = 0
     map_mismatches = [1, 1, 2, 3, 41, 0, 1, 1, 1, 2, 2, 0, 1, 1, 0, 0, 0]
-    map_chrs = ["chr11", "chrX", "chr1", "chrM", 
-                "chr5", "chrM", "chr1", "chr6", 
+    map_chrs = ["chr11", "chrX", "chr1", "chrM",
+                "chr5", "chrM", "chr1", "chr6",
                 "chr16", "chr19", "chr1", "chr1",
-                "chr2", "chr9", "chr15", "chr12", 
+                "chr2", "chr9", "chr15", "chr12",
                 "chr1"]
     map_positions = [77597507,  108297381, 237766340, 11809,
                      134997659, 7109, 567659, 113902972, 61089473, 7731168,
@@ -43,8 +43,8 @@ def test_template_mapping_iteration():
     read_mismatches = []
     read_chrs = []
     read_positions = []
-    for template in infile:            
-        for mappings in template.mappings:
+    for template in infile:
+        for mappings in template.mappings():
             for m, junction, distance in mappings:
                 assert junction == 0
                 # assert distance == -1
@@ -59,15 +59,15 @@ def test_template_mapping_iteration():
     assert map_positions == read_positions
 
 
-def test_template_alignment_mapping_iteration():    
+def test_template_alignment_mapping_iteration():
     infile = gt.open_file(test_mapping)
     assert infile != None
     map_count = 0
     map_mismatches = [1, 1, 2, 3, 41, 0, 1, 1, 1, 2, 2, 0, 1, 1, 0, 0, 0]
-    map_chrs = ["chr11", "chrX", "chr1", "chrM", 
-                "chr5", "chrM", "chr1", "chr6", 
+    map_chrs = ["chr11", "chrX", "chr1", "chrM",
+                "chr5", "chrM", "chr1", "chr6",
                 "chr16", "chr19", "chr1", "chr1",
-                "chr2", "chr9", "chr15", "chr12", 
+                "chr2", "chr9", "chr15", "chr12",
                 "chr1"]
     map_positions = [77597507,  108297381, 237766340, 11809,
                      134997659, 7109, 567659, 113902972, 61089473, 7731168,
@@ -76,10 +76,10 @@ def test_template_alignment_mapping_iteration():
     read_mismatches = []
     read_chrs = []
     read_positions = []
-    for template in infile: 
-        for block in template.blocks:                       
-            for mappings in block.mappings: 
-                for m, junction, distance in mappings:                    
+    for template in infile:
+        for block in template.blocks():
+            for mappings in block.mappings():
+                for m, junction, distance in mappings:
                     assert junction == 0
                     # assert distance == -1
                     map_count += 1
@@ -93,30 +93,31 @@ def test_template_alignment_mapping_iteration():
     assert map_positions == read_positions
 
 
-def test_template_mapping_iteration_with_paired_splitmap():    
+def test_template_mapping_iteration_with_paired_splitmap():
     infile = gt.open_file(testfiles.paired_w_splitmap)
     assert infile != None
     block_count = 0
-    for template in infile:         
-        for block in template.mappings:            
-            block_count += 1            
-            for m, junction, distance in block:                
-                assert m.seq_name == "chr7"                
+    for template in infile:
+        for block in template.mappings():
+            block_count += 1
+            for m, junction, distance in block:
+                assert m.seq_name == "chr7"
                 #print "%s:%d %d %d" % (m.seq_name, m.position, junction, distance)
                 # assert distance == -1
-    print block_count
+    print "Number of blocks ???? ", block_count
     assert block_count == 4
 
-def test_template_alignment_mapping_iteration_with_paired_splitmap():    
+
+def test_template_alignment_mapping_iteration_with_paired_splitmap():
     infile = gt.open_file(testfiles.paired_w_splitmap)
     assert infile != None
     block_count = 0
-    for template in infile:                
-        for block in template.blocks:                        
-            for mapping in block.mappings:
-                block_count += 1            
-                for m, junction, distance in mapping:                
-                    assert m.seq_name == "chr7"                
+    for template in infile:
+        for block in template.blocks():
+            for mapping in block.mappings():
+                block_count += 1
+                for m, junction, distance in mapping:
+                    assert m.seq_name == "chr7"
                     #print "%s:%d %d %d" % (m.seq_name, m.position, junction, distance)
                 # assert distance == -1
     print block_count
@@ -127,13 +128,13 @@ def test_conversion_to_bed():
     for tempalte in infile:
         read = "/1"
         beds = []
-        for alignment in tempalte.blocks:
+        for alignment in tempalte.blocks():
             rname = alignment.tag
             if not rname.endswith("/1"):
                     rname += read
                     read = "/2"
 
-            for mapping in alignment.mappings:
+            for mapping in alignment.mappings():
                 block_count = 0
                 block_sizes = []
                 block_starts = []
@@ -147,16 +148,16 @@ def test_conversion_to_bed():
                         start = m.position - 1
                         end = m.position + m.global_length - 1
                         if m.direction != 0:
-                            strand = "-"                    
+                            strand = "-"
                     block_count += 1
                     block_starts.append(m.position - 1 - start)
-                    block_sizes.append(m.length)                    
+                    block_sizes.append(m.length)
                 if not (start + block_starts[-1] + block_sizes[-1]) == end:
                     print start, end
                     print block_starts
                     print block_sizes
                     assert (start + block_starts[-1] + block_sizes[-1]) == end
-                beds.append("%s\t%d\t%d\t%s\t0\t%s\t.\t.\t0,0,0\t%d\t%s\t%s" % (name, start, end, rname, strand, 
+                beds.append("%s\t%d\t%d\t%s\t0\t%s\t.\t.\t0,0,0\t%d\t%s\t%s" % (name, start, end, rname, strand,
                                                                             block_count,
                                                                             ",".join([str(c) for c in block_sizes]),
                                                                             ",".join([str(c) for c in block_starts])))

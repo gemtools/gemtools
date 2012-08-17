@@ -17,6 +17,6 @@ gempy_template_iterator* create_template_file_iterator(char* filename, bool memo
 
 PyObject* gempy_template_iterator_iter(PyObject *self);
 PyObject* gempy_template_iterator_iternext(PyObject *self);
-void gempy_template_iterator_dealloc(gempy_template_iterator* self);
+void gempy_template_iterator_dealloc(PyObject* self);
 
 #endif

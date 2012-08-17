@@ -13,9 +13,8 @@ PyObject* Mismatch_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     return (PyObject *)self;
 }
 
-void Mismatch_dealloc(Mismatch* self){
-    Py_DECREF(self);
-    self->ob_type->tp_free((PyObject*)self);
+void Mismatch_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 PyObject* Mismatch_getposition(Mismatch *self, void *closure){
@@ -29,8 +28,11 @@ int Mismatch_setposition(Mismatch *self, PyObject *value, void *closure){
 }
 
 PyObject* Mismatch_getsize(Mismatch *self, void *closure){
-    PyObject* ret = PyLong_FromUnsignedLongLong(gt_misms_get_size(self->misms));
-    return ret;
+    if(gt_misms_get_type(self->misms) != MISMS){
+      PyObject* ret = PyLong_FromUnsignedLongLong(gt_misms_get_size(self->misms));
+      return ret;
+    }
+    return PyLong_FromLongLong(-1);
 }
 
 int Mismatch_setsize(Mismatch *self, PyObject *value, void *closure){

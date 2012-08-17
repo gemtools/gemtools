@@ -17,7 +17,7 @@ int Map_init(Map *self, PyObject *args, PyObject *kwds);
 PyObject* Map_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 // internal construction
 Map* create_map(gt_map* map);
-void Map_dealloc(Map* map);
+void Map_dealloc(PyObject* map);
 
 // seq name
 PyObject* Map_getseq_name(Map *self, void *closure);
@@ -61,10 +61,7 @@ PyObject* Map_getglobal_score(Map *self, void *closure);
 PyObject* Map_getglobal_levenshtein(Map *self, void *closure);
 
 // iterate the mismatches
-PyObject* Map_getmismatches(Map *self, void *closure);
-int Map_setmismatches(Map *self, PyObject *value, void *closure);
+PyObject* Map_get_mismatches(PyObject *self, PyObject *closure);
 PyObject* Map_getnum_mismatches(Map *self, void *closure);
-
-
 
 #endif

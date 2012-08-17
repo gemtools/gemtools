@@ -14,9 +14,8 @@ PyObject* Alignment_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
     return (PyObject *)self;
 }
 
-void Alignment_dealloc(Alignment* self){
-    Py_DECREF(self);
-    self->ob_type->tp_free((PyObject*)self);
+void Alignment_dealloc(PyObject* self){
+    self->ob_type->tp_free(self);
 }
 
 
@@ -24,11 +23,14 @@ PyObject* Alignment_gettag(Alignment *self, void *closure){
     char* tag = gempy_alignment_get_tag(self);
     if(tag){
         PyObject* ret = PyString_FromString(tag);
-        //Py_DECREF(ret);
+        // GT-13 workaround we need to free the tag if we
+        // appended /1 or /2
+        if(self->index){
+            free(tag);
+        }
         return ret;
-    }else if(self->template){
-        Py_RETURN_NONE;
     }
+    Py_RETURN_NONE;
 }
 
 char* gempy_alignment_get_tag(Alignment* self){
@@ -36,8 +38,16 @@ char* gempy_alignment_get_tag(Alignment* self){
     if(tag){
         return tag;
     }else if(self->template){
-        return gt_template_get_tag(self->template);
+        char* org = gt_template_get_tag(self->template);
+        // GT-13 workaround
+        if(self->index){
+            char* new = malloc((strlen(org)+2)* sizeof(char));
+            sprintf(new, "%s/%"PRIx64, org, self->index);
+            return new;
+        }
+        return org;
     }
+    return NULL;
 }
 
 int Alignment_settag(Alignment *self, PyObject *value, void *closure){
@@ -97,15 +107,10 @@ int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *clo
     return 0;
 }
 
-PyObject* Alignment_getcounters(Alignment *self, void *closure){
-    PyObject* ret = create_gempy_iterator(1, gt_alignment_get_num_counters(self->alignment), gt_alignment_get_counter, self->alignment, PyLong_FromUnsignedLongLong, 0);
-    //Py_DECREF(ret);
+PyObject* Alignment_get_counters(PyObject *self, PyObject *closure){
+    Alignment* ali = (Alignment*) self;
+    PyObject* ret = create_gempy_iterator(1, gt_alignment_get_num_counters(ali->alignment), gt_alignment_get_counter, ali->alignment, PyLong_FromUnsignedLongLong, 0);
     return ret;
-}
-
-int Alignment_setcounters(Alignment *self, PyObject *value, void *closure){
-    PyErr_SetString(PyExc_TypeError, "Setting blocks is currently not supported");
-    return -1;
 }
 
 PyObject* Alignment_to_sequence(PyObject *self, PyObject *args){
@@ -126,6 +131,11 @@ PyObject* Alignment_to_sequence(PyObject *self, PyObject *args){
     }
     result = PyString_FromString(fastq);
     Py_DECREF(result);
-    free(fastq);
+    free(fastq);  
+    // GT-13 workaround we need to free the tag if we
+    // appended /1 or /2
+    if(a->index){
+       free(tag);
+    }
     return result;
 }

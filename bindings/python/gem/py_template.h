@@ -10,23 +10,28 @@ typedef struct {
     gt_template* template;
 } Template;
 
+// allocation and creation
 Template* create_template(gt_template* template);
-
 int Template_init(Template *self, PyObject *args, PyObject *kwds);
-void Template_dealloc(Template* self);
-
+void Template_dealloc(PyObject* self);
 PyObject* Template_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 
+// set/get tag
 PyObject* Template_gettag(Template *self, void *closure);
 int Template_settag(Template *self, PyObject *value, void *closure);
-PyObject* Template_getmax_complete_strata(Template *self, void *closure);
-int Template_setmax_complete_strata(Template *self, PyObject *value, void *closure);
-PyObject* Template_getblocks(Template *self, void *closure);
-int Template_setblocks(Template *self, PyObject *value, void *closure);
-PyObject* Template_getcounters(Template *self, void *closure);
-int Template_setcounters(Template *self, PyObject *value, void *closure);
 
-//PyObject* Tempalte_iterate_mappings(PyObject* self, PyObject* args);
+// get mcs
+PyObject* Template_getmax_complete_strata(Template *self, void *closure);
+
+// num blocks
+PyObject* Template_get_num_blocks(Template *self, void *closure);
+// num counters
+PyObject* Template_get_num_counters(Template *self, void *closure);
+
+// get counters
+PyObject* Template_get_counters(PyObject *self, PyObject *closure);
+// get blocks
+PyObject* Template_get_blocks(PyObject* self, PyObject *closure);
 
 
 #endif
