@@ -17,18 +17,36 @@
 #define GT_INPUT_FILE_LINE_READ 1
 
 /*
- * File formats
+ * Checkers // TODO: Augment check
  */
-typedef enum { FASTA, FASTQ, MAP, UNKNOWN } gt_file_format;
-// MAP specific info
+#define GT_INPUT_FILE_CHECK(input_file) gt_fatal_check( \
+  input_file==NULL||input_file->file_name==NULL,NULL_HANDLER)
+
+/*
+ * File specifics (formats, attributes, ...)
+ */
+typedef enum { MULTI_FASTA, FASTQ, MAP, SAM, UNKNOWN } gt_file_format;
+/*
+ * MAP specific info
+ */
 typedef struct {
   bool contains_qualities;
-  // char separator; /* This can vary and not even exist (SE)*/
-  // uint64_t num_blocks_template; /* As we mixed files, this can vary */
-  // gt_map_version format_version; /* We might even tolerate mixtures */
 } gt_map_file_format;
-// FASTQ/FASTA specific info
-typedef struct {/*TODO*/} gt_fast_file_format;
+/*
+ * FASTQ/FASTA specific info
+ */
+typedef struct {
+  bool contains_qualities;
+} gt_fastq_file_format;
+/*
+ * SAM specific info (headers)
+ */
+typedef struct {
+  // gt_reference_sequences reference_sequences;
+  char* program_name;
+  char* program_version;
+  /* ... */
+} gt_sam_headers;
 /* */
 
 // GT Input file
@@ -45,7 +63,8 @@ typedef struct {
   gt_file_format file_format;
   union {
     gt_map_file_format map_type;
-    gt_fast_file_format fast_type;
+    gt_fastq_file_format fastq_type;
+    gt_sam_headers sam_headers;
   };
   pthread_mutex_t input_mutex;
   /* Auxiliary Buffer (for synch purposes) */
@@ -90,10 +109,25 @@ GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file);
 gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file);
 
 /*
- * Reading from input (NO thread safe, must call mutex functions before)
+ * Reading from input (NO thread-safe, must call mutex functions before)
  */
+GT_INLINE uint64_t gt_input_file_add_lines(
+    gt_input_file* const input_file,gt_vector* buffer_dst,const uint64_t num_lines);
 GT_INLINE uint64_t gt_input_file_get_lines(
-    gt_input_file* const input_file,
-    gt_vector* buffer_dst,const uint64_t num_lines);
+    gt_input_file* const input_file,gt_vector* buffer_dst,const uint64_t num_lines);
+
+/*
+ * Processing Macros (direct parsing from input file)
+ */
+#define GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst) \
+  if (gt_expect_false(input_file->buffer_pos >= input_file->buffer_size)) { \
+    if (gt_expect_true(buffer_dst!=NULL)) gt_input_file_dump_to_buffer(input_file,buffer_dst); \
+    gt_input_file_fill_buffer(input_file); \
+  }
+#define GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst) \
+  ++input_file->buffer_pos; \
+  GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst)
+#define GT_INPUT_FILE_CURRENT_CHAR(input_file) input_file->file_buffer[input_file->buffer_pos]
+
 
 #endif /* GT_INPUT_FILE_H_ */

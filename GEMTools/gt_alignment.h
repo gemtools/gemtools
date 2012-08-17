@@ -24,6 +24,7 @@ typedef struct {
   bool not_unique_flag;
   gt_vector* maps; /* (gt_map*) */
   char* maps_txt;
+  gt_shash* maps_dictionary;
 } gt_alignment;
 
 typedef struct {
@@ -47,7 +48,9 @@ typedef struct {
  */
 GT_INLINE gt_alignment* gt_alignment_new(void);
 GT_INLINE void gt_alignment_clear(gt_alignment* const alignment);
+GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_delete(gt_alignment* const alignment);
+GT_INLINE void gt_alignment_delete_handler(gt_alignment* const alignment);
 
 /*
  * Accessors
@@ -79,27 +82,19 @@ GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment);
 /*
  * Maps Handlers
  */
+GT_INLINE char* gt_alignment_record_seq_name(gt_alignment* const alignment,char* const seq_name);
 GT_INLINE void gt_alignment_add_map(gt_alignment* const alignment,gt_map* const map);
 GT_INLINE void gt_alignment_clear_maps(gt_alignment* const alignment);
 GT_INLINE gt_map* gt_alignment_get_map(gt_alignment* const alignment,const uint64_t position);
 GT_INLINE uint64_t gt_alignment_get_num_maps(gt_alignment* const alignment);
 
 /*
- * Higher-level Methods
- *   (Update global state: counters, ...)
- */
-GT_INLINE void gt_alignment_insert_map__check_dup(gt_alignment* const alignment,gt_map** const map);
-GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map);
-GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment);
-GT_INLINE uint64_t gt_alignment_get_min_matching_strata(gt_alignment* const alignment);
-GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,const uint64_t max_allowed_strata);
-GT_INLINE bool gt_alignment_is_mapped(gt_alignment* const alignment);
-
-/*
  * Miscellaneous
  */
 GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment);
 GT_INLINE gt_alignment* gt_alignment_deep_copy(gt_alignment* const alignment);
+GT_INLINE void gt_alignment_handler_dup(gt_alignment* const alignment_dst,gt_alignment* const alignment_src);
+GT_INLINE void gt_alignment_dup(gt_alignment* const alignment_dst,gt_alignment* const alignment_src);
 
 // Alignment's Maps iterator
 GT_INLINE void gt_alignment_new_map_iterator(gt_alignment* const alignment,gt_alignment_map_iterator* const alignment_map_iterator);

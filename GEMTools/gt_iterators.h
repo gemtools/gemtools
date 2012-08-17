@@ -8,8 +8,6 @@
 #ifndef GT_ITERATORS_H_
 #define GT_ITERATORS_H_
 
-#include "gt_template.h"
-
 /*
  * Iterate over the alignment of a template (individual blocks)
  *   Template = Alignment_end1 + Alignment_end2 + {(end1.map1,end2.map1),(end1.map2,end2.map2),...}
@@ -28,12 +26,14 @@
  *   Template = Alignment_end1 + Alignment_end2 + {(end1.map1,end2.map1),(end1.map2,end2.map2),...}
  *   GT_TEMPLATE_ITERATE(template) := {(end1.map1,end2.map1),(end1.map2,end2.map2)}
  */
-#define GT_TEMPLATE_ITERATE(template,map_array) \
-  register const uint64_t __map_array##_num_blocks = gt_template_get_num_blocks(template); \
+#define _GT_TEMPLATE_ITERATE(template,map_array) \
   gt_map** map_array; \
   gt_template_maps_iterator __##template##_maps_iterator; \
   gt_template_new_maps_iterator(template,&(__##template##_maps_iterator)); \
   while (gt_template_next_maps(&(__##template##_maps_iterator),&map_array))
+#define GT_TEMPLATE_ITERATE(template,map_array) \
+  register const uint64_t __map_array##_num_blocks = gt_template_get_num_blocks(template); \
+  _GT_TEMPLATE_ITERATE(template,map_array)
 // Querying also attributes {distance, score, ...}
 #define GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) \
   register const uint64_t __map_array##_num_blocks = gt_template_get_num_blocks(template); \

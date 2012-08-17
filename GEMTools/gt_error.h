@@ -60,14 +60,6 @@ extern FILE* gt_error_stream;
 /*
  * Error msg
  */
-#define gt_error_msg(gt_error_msg,args...) \
-  do { \
-  register FILE* const error_stream=gt_error_get_stream(); \
-  fprintf(error_stream, \
-    "Fatal error (%s:%d,%s)\n "gt_error_msg"\n", \
-     GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
-  fflush(error_stream); \
-  } while (0)
 #define gt_fatal_error_msg(gt_error_msg,args...) \
   do { \
   register FILE* const error_stream=gt_error_get_stream(); \
@@ -76,6 +68,14 @@ extern FILE* gt_error_stream;
      GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
   fflush(error_stream); \
   exit(1); \
+  } while (0)
+#define gt_error_msg(gt_error_msg,args...) \
+  do { \
+  register FILE* const error_stream=gt_error_get_stream(); \
+  fprintf(error_stream, \
+    "Fatal error (%s:%d,%s)\n "gt_error_msg"\n", \
+     GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
+  fflush(error_stream); \
   } while (0)
 /*
  * Succinct error handlers
@@ -107,9 +107,11 @@ extern FILE* gt_error_stream;
 #ifndef GT_NO_CONSISTENCY_CHECKS
   #define gt_fatal_check(condition,gt_error_name,args...) gt_cond_fatal_error(condition,gt_error_name,##args)
   #define gt_check(condition,gt_error_name,args...) gt_cond_error(condition,gt_error_name,##args)
+  #define gt_check_block(condition) if (condition)
 #else
   #define gt_fatal_check(condition,gt_error_name,args...)
   #define gt_check(condition,gt_error_name,args...)
+  #define gt_check_block(condition) if (false)
 #endif
 
 /*
@@ -169,7 +171,10 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_TEMPLATE_ADD_BAD_NUM_BLOCKS "Trying to add wrong number of blocks to the template"
 #define GT_ERROR_PALIGN_BAD_NUM_BLOCKS "Invalid Paired-alignment. Wrong number of alignment blocks (%"PRIu64")"
 
-// Parsing MAP File format errors
+/*
+ * Parsing MAP File format errors
+ */
+// IMP (Input MAP Parser). General
 #define GT_ERROR_PARSE_MAP "Parsing MAP error(%s:%"PRIu64")"
 #define GT_ERROR_PARSE_MAP_BAD_FILE_FORMAT "Parsing MAP error(%s:%"PRIu64"). Not a MAP file"
 #define GT_ERROR_PARSE_MAP_BAD_NUMBER_FIELDS "Parsing MAP error(%s:%"PRIu64"). Wrong number of TAB separated fields (%"PRIu64")"
@@ -180,30 +185,36 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_PARSE_MAP_NOT_AN_ALIGNMENT "Parsing MAP error(%s:%"PRIu64"). File doesn't contains simple alignments (use template)"
 #define GT_ERROR_PARSE_MAP_MAP_ALREADY_PARSED "Parsing MAP error(%s:%"PRIu64"). Maps already parsed or null lazy-parsing handler"
 #define GT_ERROR_PARSE_MAP_MISMS_ALREADY_PARSED "Parsing MAP error(%s:%"PRIu64"). Mismatch string already parsed or null lazy-parsing handler"
-
-// BMI (Buffered Map Input). General
 #define GT_ERROR_PARSE_MAP_NOT_IMPLEMENTED "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Feature not implemented yet (sorry)"
 #define GT_ERROR_PARSE_MAP_PREMATURE_EOL "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Premature End-of-line found"
 #define GT_ERROR_PARSE_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Wrong number of blocks"
 #define GT_ERROR_PARSE_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Bad character found"
-// BMI (Buffered Map Input). Parsing Read Errors
+// IMP (Input MAP Parser). Parsing Read Errors
 #define GT_ERROR_PARSE_MAP_READ_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing read, bad character found"
-// BMI (Buffered Map Input). Parsing Qualities Errors
+// IMP (Input MAP Parser). Parsing Qualities Errors
 #define GT_ERROR_PARSE_MAP_QUAL_BAD_SEPARATOR "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing quality string, bad block-separator found"
 #define GT_ERROR_PARSE_MAP_QUAL_BAD_PREMATURE_EOB "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing quality string, premature end of qualities (w.r.t. read length)"
 #define GT_ERROR_PARSE_MAP_QUAL_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing quality string, wrong quality value (bad character)"
-// BMI (Buffered Map Input). Parsing Counters Errors
+// IMP (Input MAP Parser). Parsing Counters Errors
 #define GT_ERROR_PARSE_MAP_COUNTERS_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing counters, bad character found"
-// BMI (Buffered Map Input). Parsing Maps Errors
+// IMP (Input MAP Parser). Parsing Maps Errors
 #define GT_ERROR_PARSE_MAP_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, wrong number of blocks"
 #define GT_ERROR_PARSE_MAP_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, bad character found"
-// BMI (Buffered Map Input). Parsing Mismatch String Errors
+// IMP (Input MAP Parser). Parsing Mismatch String Errors
 #define GT_ERROR_PARSE_MAP_MISMS_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, bad character found"
 #define GT_ERROR_PARSE_MAP_MISMS_BAD_MISMS_POS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, unsorted mismatches"
 
+/*
+ * Parsing SAM File format errors
+ */
+// ISP (Input SAM Parser). General
+#define GT_ERROR_PARSE_SAM "Parsing SAM error(%s:%"PRIu64")"
+#define GT_ERROR_PARSE_SAM_BAD_FILE_FORMAT "Parsing SAM error(%s:%"PRIu64"). Not a SAM file"
+#define GT_ERROR_PARSE_SAM_BAD_CHARACTER "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Bad character found"
+#define GT_ERROR_PARSE_SAM_UNMAPPED_XA "Parsing SAM error(%s:%"PRIu64"). Unmapped read contains XA field (inconsistency)"
+
 // BOF (Buffered Output File)
 #define GT_ERROR_BOF_BUFFER_INCONSISTENCY "Buffered output file state inconsistent"
-
 #define GT_ERROR_BUFFER_SAFETY_DUMP "Output buffer. Could not perform safety dump"
 
 /*

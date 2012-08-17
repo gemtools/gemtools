@@ -164,7 +164,7 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
   // Calculate memory required to print the template{v_args}
   register uint64_t mem_required = 0;
   register const char* centinel;
-  for (centinel=template;centinel!=EOS;++centinel,++mem_required) {
+  for (centinel=template;*centinel!=EOS;++centinel,++mem_required) {
     if (*centinel==FORMAT) {
       ++centinel;
       gt_check(centinel==EOS,PRINT_FORMAT);
