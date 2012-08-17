@@ -14,7 +14,7 @@ gempy: $(OBJS)
 	python setup.py build
 
 test: gempy
-    cp build/lib.*/gem/gemtools.so gem/
+	cp build/lib.*/gem/gemtools.so gem/
 	nosetests --with-xunit
 
 install: gempy
