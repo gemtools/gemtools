@@ -628,7 +628,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
       mmap_attr.score = GT_MAP_NO_SCORE;
     }
     // Store MAP blocks parsed (only PE or more)
-    if (num_blocks_parsed > 1) {
+    if (num_blocks_parsed >= 1) {
       gt_template_add_mmap_gtvector(template,vector_maps,&mmap_attr);
     }
     ++num_maps_parsed;
