@@ -7,7 +7,7 @@
 typedef struct {
   PyObject_HEAD
   gt_template* template;
-  gt_buffered_map_input* map_input;
+  gt_buffered_input_file* map_input;
   gt_input_file* input_file;
   PyObject* tmpl;
 } gempy_template_iterator;

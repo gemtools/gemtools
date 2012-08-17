@@ -120,7 +120,7 @@ gempy_template_iterator* create_template_stream_iterator(FILE* file){
     p = PyObject_New(gempy_template_iterator, &gempy_template_iteratorType);
     if (!p) return NULL;
     p->input_file = gt_input_stream_open(file);
-    p->map_input = gt_buffered_map_input_new(p->input_file);
+    p->map_input = gt_buffered_input_file_new(p->input_file);
     p->template = gt_template_new();
     p->tmpl = NULL;
     return (gempy_template_iterator *)p;
@@ -137,7 +137,7 @@ gempy_template_iterator* create_template_file_iterator(char* filename, bool memo
         return NULL;
     }
     p->input_file = gt_input_file_open(filename, memorymap);
-    p->map_input = gt_buffered_map_input_new(p->input_file); // false disable memory map
+    p->map_input = gt_buffered_input_file_new(p->input_file); // false disable memory map
     p->template = gt_template_new();
     p->tmpl = NULL;
     return (gempy_template_iterator *)p;
