@@ -50,6 +50,7 @@ typedef int32_t gt_status;
 #define STAR '*'
 #define EQUAL '='
 #define COMA ','
+#define SEMICOLON ';'
 
 // Buffer sizes
 #define GT_BUFFER_SIZE_1K   ((1<<10)-64)
@@ -120,7 +121,7 @@ extern char gt_complement_table[256];
  * Helper functions (OPERATIVE)
  */
 #define gt_cfree(handler) if (handler!=NULL) free(handler);
-#define gt_string_eq(a,b) (strcmp(a,b)==0)
+#define gt_string_eq(a,b) (a!=NULL && b!=NULL && strcmp(a,b)==0)
 GT_INLINE void gt_reverse_complent(char* const sequence,const uint64_t length);
 GT_INLINE void gt_cpy_reverse_complent(char* const sequence_dst,char* const sequence_ori,const uint64_t length);
 GT_INLINE void gt_reverse(char* const sequence,const uint64_t length);

@@ -166,10 +166,22 @@ GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buf
 }
 GT_INLINE gt_status gt_imp_parse_tag(char** const text_line,char** tag,uint64_t* tag_length) {
   *tag = *text_line;
-  GT_READ_UNTIL(text_line,**text_line==TAB);
+  GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
   if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
   *tag_length = *text_line-*tag;
-  GT_SET_EOS__NEXT(text_line);
+  if (gt_expect_false(**text_line==SPACE)) {
+    **text_line=EOS;
+    GT_READ_UNTIL(text_line,**text_line==TAB);
+    if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
+    GT_NEXT_CHAR(text_line);
+  } else {
+    GT_SET_EOS__NEXT(text_line);
+  }
+  // Erase trailing postfixes
+  if (*tag_length>2 && (*tag)[*tag_length-2]==SLASH) {
+    (*tag)[*tag_length-2] = EOS;
+    *tag_length -= 2;
+  }
   return 0;
 }
 GT_INLINE gt_status gt_imp_parse_tag_block(char** tag,char** tag_block,const uint64_t num_expected_blocks) {
@@ -615,8 +627,10 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
     } else { // No Score
       mmap_attr.score = GT_MAP_NO_SCORE;
     }
-    // Store MAP blocks parsed
-    gt_template_add_mmap_gtvector(template,vector_maps,&mmap_attr);
+    // Store MAP blocks parsed (only PE or more)
+    if (num_blocks_parsed > 1) {
+      gt_template_add_mmap_gtvector(template,vector_maps,&mmap_attr);
+    }
     ++num_maps_parsed;
   }
   gt_vector_delete(vector_maps);
@@ -682,6 +696,8 @@ GT_INLINE gt_status gt_input_map_parser_parse_template(
 
   // Tag Splitting (try to deduce alignments' tag out of the one template's tag) // TODo
   //gt_imp_parse_tag_block(char** tag,char** tag_block,const uint64_t num_expected_blocks);
+
+  //FIXME: CHeck numblocks equals
 
   // QUALITIES
   if (has_map_quality) {

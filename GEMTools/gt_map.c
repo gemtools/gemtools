@@ -269,9 +269,9 @@ GT_INLINE uint64_t gt_map_get_global_levenshtein_distance(gt_map* const map) {
   return lev_distance;
 }
 // Map compare
-GT_INLINE bool gt_map_cmp(gt_map* const map_1,gt_map* const map_2) {
+GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
-  return (gt_map_range_cmp(map_1,map_2,0)==0);
+  return gt_map_range_cmp(map_1,map_2,0);
 }
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
@@ -287,13 +287,14 @@ GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const
     return INT64_MAX;
   }
 }
-GT_INLINE bool gt_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps) {
+GT_INLINE int64_t gt_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps) {
   GT_NULL_CHECK(map_1); GT_NULL_CHECK(map_2);
   register uint64_t i;
   for (i=0;i<num_maps;++i) {
-    if (gt_map_cmp(map_1[i],map_2[i])) return false;
+    register const int64_t map_cmp = gt_map_cmp(map_1[i],map_2[i]);
+    if (map_cmp!=0) return map_cmp;
   }
-  return true;
+  return 0;
 }
 GT_INLINE int64_t gt_mmap_range_cmp(
     gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps,const uint64_t range_tolerated) {

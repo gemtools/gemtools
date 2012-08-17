@@ -34,7 +34,7 @@
 #define GT_ISP_PE_SAM_UNMAPPED_XA 21
 /* PairedEnd Parsing */
 #define GT_ISP_PE_WRONG_NUM_XA 30
-#define GT_ISP_PE_WRONG_END_POS 31
+//#define GT_ISP_PE_WRONG_END_POS 31
 #define GT_ISP_PE_UNSOLVED_PENDING_MAPS 32
 
 /*
@@ -72,6 +72,7 @@ GT_INLINE void gt_input_sam_parser_prompt_error(
  * High Level Parsers
  */
 GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_map_input,gt_template* const template);
+GT_INLINE gt_status gt_input_sam_parser_get_soap_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template);
 GT_INLINE gt_status gt_input_sam_parser_get_alignment(gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment);
 
 #endif /* GT_INPUT_SAM_PARSER_H_ */

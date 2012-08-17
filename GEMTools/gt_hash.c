@@ -49,6 +49,9 @@ GT_INLINE gt_shash_element* gt_shash_get_shash_element(gt_shash* const shash,cha
   return shash_element;
 }
 GT_INLINE void* gt_shash_get_key(gt_shash* const shash,char* const key) {
+  if (!shash) {
+    printf("ss");
+  }
   GT_HASH_CHECK(shash);
   GT_NULL_CHECK(key);
   gt_shash_element *shash_element = gt_shash_get_shash_element(shash,key);

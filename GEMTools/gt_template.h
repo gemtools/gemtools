@@ -10,6 +10,7 @@
 
 #include "gt_commons.h"
 #include "gt_alignment.h"
+#include "gt_alignment_handling.h"
 #include "gt_iterators.h"
 
 // Codes gt_status
@@ -21,8 +22,8 @@ typedef struct {
   uint32_t in_block_id;
   char* tag;
   uint64_t tag_length;
-  uint64_t max_complete_strata;
-  bool not_unique_flag;
+  uint64_t max_complete_strata; // FIXME: Attribute driven Obj
+  bool not_unique_flag; // FIXME: Attribute driven Obj
   gt_vector* blocks; /* (gt_alignment*) */ /* paired::blocks->used=2 */
   gt_vector* counters;
   gt_vector* mmaps; /* ( (gt_map*) ) */
@@ -64,12 +65,20 @@ typedef struct {
   gt_fatal_check(template->maps_txt!=NULL,TEMPLATE_MAPS_NOT_PARSED)
 
 /*
+ * Useful Macros
+ */
+#define GT_TEMPLATE_IF_REDUCES_ALINGMENT(template) if (gt_expect_false(gt_template_get_num_blocks((template))==1))
+#define GT_TEMPLATE_REDUCED_ALINGMENT(template) (gt_template_get_block((template),0))
+// TODO: Apply to all module & handler_tamplet.c
+
+/*
  * Setup
  */
 GT_INLINE gt_template* gt_template_new(void);
 GT_INLINE void gt_template_delete(gt_template* const template);
+GT_INLINE void gt_template_delete_handler(gt_template* const template);
 GT_INLINE void gt_template_clear(gt_template* const template);
-GT_INLINE void gt_template_clear_mmap_attributes(gt_mmap_attributes* const mmap_attr);
+GT_INLINE void gt_template_clear_handler(gt_template* const template);
 
 /*
  * Accessors
@@ -104,6 +113,7 @@ GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template);
 GT_INLINE uint64_t gt_template_get_num_mmap(gt_template* const template);
 GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position);
 GT_INLINE void gt_template_clear_mmap(gt_template* const template);
+GT_INLINE void gt_template_clear_mmap_attributes(gt_mmap_attributes* const mmap_attr);
 /* */
 GT_INLINE void gt_template_add_mmap(
     gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
@@ -134,12 +144,19 @@ GT_INLINE void gt_template_set_mmap_va(
  */
 GT_INLINE gt_template* gt_template_copy(gt_template* const template);
 GT_INLINE gt_template* gt_template_deep_copy(gt_template* const template);
-// Template's Alignments iterator (end1,end2, ... )
+GT_INLINE void gt_template_handler_dup(gt_template* template_dst,gt_template* const template_src);
+GT_INLINE void gt_template_dup(gt_template* template_dst,gt_template* const template_src);
+
+/*
+ * Template's Alignments iterator (end1,end2, ... )
+ */
 GT_INLINE void gt_template_new_alignment_iterator(gt_template* const template,gt_template_alignment_iterator* const template_alignment_iterator);
 GT_INLINE gt_alignment* gt_template_next_alignment(gt_template_alignment_iterator* const template_alignment_iterator);
 GT_INLINE gt_alignment* gt_template_dinamic_next_alignment(gt_template_alignment_iterator* const template_alignment_iterator);
 GT_INLINE uint64_t gt_template_next_alignment_pos(gt_template_alignment_iterator* const template_alignment_iterator);
-// Template's Maps iterator ( (end1:map1,end2:map1) , (end1:map2,end2:map2) , ... )
+/*
+ * Template's Maps iterator ( (end1:map1,end2:map1) , (end1:map2,end2:map2) , ... )
+ */
 GT_INLINE void gt_template_new_maps_iterator(gt_template* const template,gt_template_maps_iterator* const template_maps_iterator);
 GT_INLINE gt_status gt_template_next_maps(gt_template_maps_iterator* const template_maps_iterator,gt_map*** const map_array);
 GT_INLINE gt_status gt_template_dinamic_next_maps(gt_template_maps_iterator* const template_maps_iterator,gt_map*** const map_array);

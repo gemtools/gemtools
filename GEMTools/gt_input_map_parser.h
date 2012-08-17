@@ -10,6 +10,7 @@
 
 #include "gt_commons.h"
 #include "gt_template.h"
+#include "gt_template_handling.h"
 
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
@@ -133,5 +134,6 @@ GT_INLINE gt_status gt_input_map_parser_get_template__sync_output(
     gt_buffered_input_file* const buffered_map_input,gt_template* template,gt_output_buffer** const output_buffer);
 GT_INLINE gt_status gt_input_map_parser_get_alignment__sync_output(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* alignment,gt_output_buffer** const output_buffer);
+
 
 #endif /* GT_INPUT_MAP_PARSER_H_ */

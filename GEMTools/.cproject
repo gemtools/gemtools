@@ -45,7 +45,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="gem-tools-examples.c|test.c|gem-map-filter.c|gem-map-2-fastq.c|gt_paired_alignment.c|gem-map-filter.full.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="gem-source.old.c|gem-tools-examples.c|test.c|gem-map-filter.c|gem-map-2-fastq.c|gt_paired_alignment.c|gem-map-filter.full.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -343,7 +343,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="gem-tools-examples.c|test.c|gem-map-filter.c|gem-map-2-fastq.c|gt_paired_alignment.c|gem-map-filter.full.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="gem-source.old.c|gem-tools-examples.c|test.c|gem-map-filter.c|gem-map-2-fastq.c|gt_paired_alignment.c|gem-map-filter.full.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
