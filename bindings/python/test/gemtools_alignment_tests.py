@@ -22,13 +22,13 @@ def test_alignment_attribute_reading_in_loop():
     assert alis[0]["tag"] == "HWI-ST661:131:C051TACXX:2:1101:1653:2244/1"  
     assert alis[0]["read"] == "GCGCGGCCGGGACCGCAGAGCCCCGGGAGCCCGCTCGAGGAGGAGCGGCAGACGCAGCGCTCTAAACCGCAGCCG"  
     assert alis[0]["qualities"] == "CCCFFFFFHHHHHJJIEHJIIIJJGIH>4=ADDDDDDBDD@DDBDBDDDBDBBDDDDDDDBBDDCC>CBD@BDDD"  
-    assert alis[0]["mcs"] == 0  
+    assert alis[0]["mcs"] == -1
 
 
     assert alis[1]["tag"] == "HWI-ST661:131:C051TACXX:2:1101:1653:2244/2"
     assert alis[1]["read"] == "TTCCGCTTGGTGCTCTCGCTGCAGCGGTTCAGGATGAGGTCGGCGCTCGGCCGCGGGGGCACCGCCGGCTGCGGT"
     assert alis[1]["qualities"] == "CCCFFFFFHHHHHJJGIIJJJIGIJJJFHIJIICHIIGIHIIJIJHFFDD?BDDDDDDDD@BDDDDDDBDDDDDD"
-    assert alis[1]["mcs"] == 0
+    assert alis[1]["mcs"] == -1
 
 
 def test_alignment_attribute_reading_in_list():
@@ -37,13 +37,13 @@ def test_alignment_attribute_reading_in_list():
     assert alis[0].tag == "HWI-ST661:131:C051TACXX:2:1101:1653:2244/1"  
     assert alis[0].read == "GCGCGGCCGGGACCGCAGAGCCCCGGGAGCCCGCTCGAGGAGGAGCGGCAGACGCAGCGCTCTAAACCGCAGCCG"  
     assert alis[0].qualities == "CCCFFFFFHHHHHJJIEHJIIIJJGIH>4=ADDDDDDBDD@DDBDBDDDBDBBDDDDDDDBBDDCC>CBD@BDDD"  
-    assert alis[0].max_complete_strata == 0  
+    assert alis[0].max_complete_strata == -1
 
 
     assert alis[1].tag == "HWI-ST661:131:C051TACXX:2:1101:1653:2244/2"
     assert alis[1].read == "TTCCGCTTGGTGCTCTCGCTGCAGCGGTTCAGGATGAGGTCGGCGCTCGGCCGCGGGGGCACCGCCGGCTGCGGT"
     assert alis[1].qualities == "CCCFFFFFHHHHHJJGIIJJJIGIJJJFHIJIICHIIGIHIIJIJHFFDD?BDDDDDDDD@BDDDDDDBDDDDDD"
-    assert alis[1].max_complete_strata == 0
+    assert alis[1].max_complete_strata == -1
 
 
 def test_alignment_to_sequencet():

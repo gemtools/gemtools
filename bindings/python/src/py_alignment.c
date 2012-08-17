@@ -88,7 +88,13 @@ int Alignment_setqualities(Alignment *self, PyObject *value, void *closure){
 }
 
 PyObject* Alignment_getmax_complete_strata(Alignment *self, void *closure){
-    PyObject* ret = PyLong_FromUnsignedLongLong(gt_alignment_get_mcs(self->alignment));
+    uint64_t mcs = gt_alignment_get_mcs(self->alignment);
+    PyObject* ret;
+    if( mcs != UINT64_MAX){
+        ret = PyLong_FromUnsignedLongLong(mcs);
+    }else{
+        ret = PyLong_FromLongLong(-1);
+    }
     //Py_DECREF(ret);
     return ret;
 }

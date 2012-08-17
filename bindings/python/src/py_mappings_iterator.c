@@ -58,8 +58,12 @@ PyObject* gempy_alignment_mappings_iterator_iternext(PyObject *self){
         gt_map* next_map = gt_alignment_get_map(p->alignment, p->current++);
         gempy_mappings_iterator* ret =  create_mappings_iterator(next_map);
         gt_mmap_attributes* attrs = gt_template_get_mmap_attr(p->template, p->current-1);
-        ret->distance = attrs->distance;
-        ret->score = attrs->score;
+        ret->distance = -1;
+        ret->score = -1;
+        if (attrs){
+            ret->distance = attrs->distance;
+            ret->score = attrs->score;
+        }
         //Py_DECREF(ret);
         return (PyObject*) ret;
     }

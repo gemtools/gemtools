@@ -27,8 +27,8 @@ typedef struct {
   PyObject_HEAD
   gt_map* map_block;
   gempy_alignment_iterator* alignment_iterator;
-  uint64_t distance;
-  uint64_t score;
+  int64_t distance;
+  int64_t score;
 } gempy_mappings_iterator;
 
 PyObject* gempy_alignment_iterator_iter(PyObject *self);
