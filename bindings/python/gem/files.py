@@ -44,7 +44,7 @@ class parse_fasta(Parser):
         self.read.summary = None
         self.read.mappings = None
 
-        if len(read.sequence) <= 0:
+        if len(self.read.sequence) <= 0:
             return self.next(stream)
         return self.read
 
@@ -297,6 +297,3 @@ def __zcat():
     if not __zcat_path:
         raise ValueError("Unable to find a zcat|gzcat executable in PATH!")
     return __zcat_path
-
-
-
