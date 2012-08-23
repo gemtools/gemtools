@@ -500,6 +500,7 @@ def pairalign(input, index, output=None,
     quality = _prepare_quality_parameter(quality)
 
     pa = [executables['gem-mapper'],
+         '-p',
          '-I', index,
          '-q', quality,
          '--gem-quality-threshold', str(quality_threshold),
