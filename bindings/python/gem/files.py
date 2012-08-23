@@ -115,6 +115,15 @@ class parse_sam(Parser):
             if self.read.qualities in ["", "*"]:
                 self.read.qualities = None
 
+
+            ## update id and add /1 /2 if its a paired read
+            flag = int(split[1])
+            if 0x1 & flag == 0x1 and not self.read.id.endswith("/1") and not self.read.id.endswith("/2"):
+                ## multiple segments
+                if 0x40 & flag == 0x40:
+                    self.read.id += "/1"
+                else:
+                    self.read.id += "/2"
             return self.read
 
 
