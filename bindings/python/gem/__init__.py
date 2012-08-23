@@ -226,17 +226,19 @@ def _write_sequence_file(input, tmpdir = None):
     fifo = open(inputfile, 'w')
     ## the splitmapper does not support fifo or piping from stdin
     ## so we have to write a tmp file
+    count = 0
     try:
         for l in input:
             fifo.write(l.to_fastq())
             fifo.write("\n")
+            count += 1
         fifo.close()
     except:
         fifo.close()
         ## kill the process
         os.unlink(inputfile)
         raise
-    return inputfile
+    return inputfile, count
 
 
 def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False):
@@ -329,6 +331,7 @@ def mapper(input, index, output=None,
 def splitmapper(input,
                 index,
                 output=None,
+                mismatches=0.04,
                 junctions=0.02,
                 junctions_file=None,
                 splice_consensus=None,
@@ -360,7 +363,8 @@ def splitmapper(input,
     quality = _prepare_quality_parameter(quality)
     splice_cons = _prepare_splice_consensus_parameter(splice_consensus)
 
-    input_file = _write_sequence_file(input, tmpdir=tmpdir)
+    input_file, read_count = _write_sequence_file(input, tmpdir=tmpdir)
+    read_count = max(1, read_count)
     (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
 
     pa = [executables['gem-rna-mapper'],
@@ -368,10 +372,11 @@ def splitmapper(input,
           '-i', input_file,
           '-o', output_file[:-4],
           '-q', quality,
+          '-m', str(mismatches),
           '--min-split-size',str(min_split_size),
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
-          '-T', str(threads)
+          '-T', str(min(threads, read_count))
     ]
 
     if junctions_file is not None:
@@ -395,7 +400,7 @@ def splitmapper(input,
     os.remove(input_file)
 
     if exit_value != 0:
-        raise ValueError("GEM-Mapper execution failed, output file is : %s!" % (output_file))
+        raise ValueError("GEM-Mapper execution failed, output file is : %s, tmp input was : %s" % (output_file, input_file))
 
     if output is not None:
         ## move temp file to specified output
@@ -411,6 +416,7 @@ def extract_junctions(input,
                        output=None,
                        junctions=0.02,
                        filter="ordered",
+                       mismatches=0.04,
                        refinement_step_size=2,
                        min_split_size=15,
                        matches_threshold=200,
@@ -426,6 +432,7 @@ def extract_junctions(input,
                            output=None,
                            junctions=junctions,
                            filter=filter,
+                           mismatches=mismatches,
                            refinement_step_size=refinement_step_size,
                            min_split_size=min_split_size,
                            matches_threshold=matches_threshold,
