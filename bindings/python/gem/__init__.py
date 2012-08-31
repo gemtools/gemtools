@@ -250,6 +250,7 @@ def mapper(input, index, output=None,
            min_decoded_strata=0,
            min_matched_bases=0.80,
            max_big_indel_length=15,
+           max_edit_distance=0.20,
            threads=1):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
@@ -269,6 +270,7 @@ def mapper(input, index, output=None,
     delta -- strata after best <number> (default=0)
     quality -- one of 'ignore'|'offset-33'|'offset-64' defaults to offset-33
     quality_threshold <number> -- (default=26, that is e<=2e-3)
+    max_edit_distance -- max edit distance, 0.20 per default
     max_decoded_matches -- maximum decoded matches, defaults to 20
     min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 0
     min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
@@ -291,6 +293,9 @@ def mapper(input, index, output=None,
           '--max-big-indel-length', str(max_big_indel_length),
           '-T', str(threads)
     ]
+    if max_edit_distance > 0:
+        pa.append("-e")
+        pa.append("%s"%str(max_edit_distance))
 
     ## run the mapper
     process = utils.run_tool(pa, input, output, name="GEM-Mapper")
