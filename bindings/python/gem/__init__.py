@@ -64,7 +64,7 @@ class Read(object):
     def fill(self, other):
         """Fill this read with the content of another read"""
         self.id = other.id
-        self.sequence = other.sequsequence
+        self.sequence = other.sequence
         self.qualities = other.qualities
         self.summary = other.summary
         self.mappings = other.mappings
