@@ -18,11 +18,11 @@ import splits
 import filter as gemfilter
 
 _trim_qualities = False
-default_splice_consensus = [("GT","AG"),("CT","AC")]
-extended_splice_consensus = [("GT","AG"),("CT","AC"),
-    ("GC","AG"),("CT","GC"),
-    ("ATATC","A."),(".T","GATAT"),
-    ("GTATC", "AT"),("AT","GATAC")
+default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
+extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
+    ("GC", "AG"), ("CT", "GC"),
+    ("ATATC", "A."), (".T", "GATAT"),
+    ("GTATC", "AT"), ("AT", "GATAC")
 ]
 
 default_filter = "same-chromosome,same-strand"
@@ -37,7 +37,7 @@ executables = {
     "gem-info": "gem-info",
     "splits-2-junctions": "splits-2-junctions",
     "gem-retriever": "gem-retriever",
-}
+    }
 
 class Read(object):
     """A single read. The read info covers
@@ -48,6 +48,7 @@ class Read(object):
     The read can be transformed to GEM input using the to_sequence
     method. The __str__ implementation returns the GEM representation.
     """
+
     def __init__(self):
         """Create a new empty read the is supposed to be used as a
         container
@@ -58,6 +59,7 @@ class Read(object):
         self.summary = None
         self.mappings = None
         self.line = None
+        self.type = None
 
     def min_mismatches(self):
         """Parse the mismatch string and return the minimum number
@@ -79,7 +81,7 @@ class Read(object):
 
 
     def get_maps(self):
-        if self.summary == None or self.summary in ['-','+','*']:
+        if self.summary == None or self.summary in ['-', '+', '*']:
             return ([0], ["-"])
         sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
         maps = self.mappings.split(',')
@@ -90,9 +92,9 @@ class Read(object):
         """Returns GEM string representaton of the reads"""
         if self.qualities is None:
             return "%s\t%s\t%s\t%s" % (self.id,
-                                           self.sequence,
-                                           self.summary,
-                                           self.mappings)
+                                       self.sequence,
+                                       self.summary,
+                                       self.mappings)
         else:
             return "%s\t%s\t%s\t%s\t%s" % (self.id,
                                            self.sequence,
@@ -109,6 +111,7 @@ class Read(object):
         else:
             return self.to_fastq()
 
+
     def to_fastq(self):
         """Convert to Fastq and fakes qualities if they are not present"""
         if len(self.sequence) <= 0:
@@ -118,53 +121,19 @@ class Read(object):
         qualities = self.qualities
         if qualities is None or len(qualities) == 0:
             ## fake the qualities
-            qualities = '['*len(self.sequence)
+            qualities = '[' * len(self.sequence)
 
         if len(self.sequence) != len(qualities) and self.qualities is not None:
             if _trim_qualities:
                 #logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
                 sizes = [len(qualities), len(self.sequence)]
                 sizes.sort()
-                qualities = self.qualities[:(sizes[0]-sizes[1])]
+                qualities = self.qualities[:(sizes[0] - sizes[1])]
             else:
-                raise ValueError("Different sequence and quality sizes for :\n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
+                raise ValueError(
+                    "Different sequence and quality sizes for :\n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
 
         return "@%s\n%s\n+\n%s" % (self.id, self.sequence, qualities)
-
-
-    def sam_2_gem(self):
-        """Extract minimal information from the sam line
-        and create a GEM mapping that can be passed to the
-        realigner. NOTE: Without realigning the
-        mapping will be invalid !!"""
-        s = self.line.split("\t")
-        flag = int(s[1])
-        chr = s[2]
-
-        ## update read id if paired end
-        if 0x1 & flag == 0x1 and not self.id.endswith("/1") and not self.id.endswith("/2"):
-            ## multiple segments
-            if 0x40 & flag == 0x40:
-                self.id += "/1"
-            else:
-                self.id += "/2"
-
-        if chr == "*":
-            ## unmapped read
-            self.summary = 0
-            self.mappings = '-'
-        else:
-            pos = int(s[3])
-            strand = "+"
-            if flag & 0x10 == 0x10:
-                ## seq is reverser complement
-                self.sequence = utils.reverseComplement(self.sequence)
-                if self.qualities:
-                    self.qualities = self.qualities[::-1]
-                strand = '-'
-
-            self.summary = "1"
-            self.mappings = "%s:%s:%d:%d" %(chr, strand, pos, len(self.sequence))
 
 
     def length(self):
@@ -178,9 +147,9 @@ def _prepare_index_parameter(index, gem_suffix=True):
         raise ValueError("GEM index must be a string")
     file_name = index
     if not file_name.endswith(".gem"):
-        file_name = file_name+".gem"
+        file_name = file_name + ".gem"
     if not os.path.exists(file_name):
-        raise ValueError("Index file not found : %s"%file_name)
+        raise ValueError("Index file not found : %s" % file_name)
 
     if gem_suffix:
         if not index.endswith(".gem"):
@@ -218,7 +187,7 @@ def _prepare_quality_parameter(quality):
     return quality
 
 
-def _write_sequence_file(input, tmpdir = None):
+def _write_sequence_file(input, tmpdir=None):
     """Takes a Read sequence and writes it to a tempfile
     in fastq or fasta format
     """
@@ -373,7 +342,7 @@ def splitmapper(input,
           '-o', output_file[:-4],
           '-q', quality,
           '-m', str(mismatches),
-          '--min-split-size',str(min_split_size),
+          '--min-split-size', str(min_split_size),
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
           '-T', str(min(threads, read_count))
@@ -400,7 +369,8 @@ def splitmapper(input,
     os.remove(input_file)
 
     if exit_value != 0:
-        raise ValueError("GEM-Mapper execution failed, output file is : %s, tmp input was : %s" % (output_file, input_file))
+        raise ValueError(
+            "GEM-Mapper execution failed, output file is : %s, tmp input was : %s" % (output_file, input_file))
 
     if output is not None:
         ## move temp file to specified output
@@ -411,35 +381,35 @@ def splitmapper(input,
 
 
 def extract_junctions(input,
-                       index,
-                       index_hash,
-                       output=None,
-                       junctions=0.02,
-                       filter="ordered",
-                       mismatches=0.04,
-                       refinement_step_size=2,
-                       min_split_size=15,
-                       matches_threshold=200,
-                       splice_consensus=extended_splice_consensus,
-                       quality=33,
-                       threads=1,
-                       tmpdir=None,
-                       merge_with=None,
-                       keep_short_indels=True):
+                      index,
+                      index_hash,
+                      output=None,
+                      junctions=0.02,
+                      filter="ordered",
+                      mismatches=0.04,
+                      refinement_step_size=2,
+                      min_split_size=15,
+                      matches_threshold=200,
+                      splice_consensus=extended_splice_consensus,
+                      quality=33,
+                      threads=1,
+                      tmpdir=None,
+                      merge_with=None,
+                      keep_short_indels=True):
     ## run the splitmapper
     splitmap = splitmapper(input,
-                           index,
-                           output=None,
-                           junctions=junctions,
-                           filter=filter,
-                           mismatches=mismatches,
-                           refinement_step_size=refinement_step_size,
-                           min_split_size=min_split_size,
-                           matches_threshold=matches_threshold,
-                           splice_consensus=splice_consensus,
-                           quality=quality,
-                           threads=threads,
-                           tmpdir=tmpdir)
+        index,
+        output=None,
+        junctions=junctions,
+        filter=filter,
+        mismatches=mismatches,
+        refinement_step_size=refinement_step_size,
+        min_split_size=min_split_size,
+        matches_threshold=matches_threshold,
+        splice_consensus=splice_consensus,
+        quality=quality,
+        threads=threads,
+        tmpdir=tmpdir)
     ## make sure we have an output file
     ## for the splitmap results
     output_file = output
@@ -455,7 +425,7 @@ def extract_junctions(input,
             yield read
             if keep_short_indels:
                 gemfilter.keep_short_indel(read)
-            ## and write the read
+                ## and write the read
             of.write(str(read))
             of.write("\n")
         of.close()
@@ -468,26 +438,26 @@ def extract_junctions(input,
 
     if output is None:
         ## return delete iterator
-        return ( files.open(output_file, type="map", process=splitmapper, remove_after_iteration=True), denovo_junctions)
+        return (
+        files.open(output_file, type="map", process=splitmapper, remove_after_iteration=True), denovo_junctions)
     else:
         return ( files.open(output_file, type="map", process=splitmapper), denovo_junctions)
 
 
 def pairalign(input, index, output=None,
-           quality=33,
-           quality_threshold=26,
-           max_decoded_matches=20,
-           min_decoded_strata=0,
-           min_insert_size=0,
-           max_insert_size=1000,
-           max_edit_distance=0.08,
-           min_matched_bases=0.80,
-           max_extendable_matches="all",
-           max_matches_per_extension=1,
-           unique_pairing=False,
-           map_both_ends=False,
-           threads=1):
-
+              quality=33,
+              quality_threshold=26,
+              max_decoded_matches=20,
+              min_decoded_strata=0,
+              min_insert_size=0,
+              max_insert_size=1000,
+              max_edit_distance=0.08,
+              min_matched_bases=0.80,
+              max_extendable_matches="all",
+              max_matches_per_extension=1,
+              unique_pairing=False,
+              map_both_ends=False,
+              threads=1):
     ## check the index
     if index is None:
         raise ValueError("No valid GEM index specified!")
@@ -500,19 +470,19 @@ def pairalign(input, index, output=None,
     quality = _prepare_quality_parameter(quality)
 
     pa = [executables['gem-mapper'],
-         '-p',
-         '-I', index,
-         '-q', quality,
-         '--gem-quality-threshold', str(quality_threshold),
-         '--max-decoded-matches', str(max_decoded_matches),
-         '--min-decoded-strata', str(min_decoded_strata),
-         '--min-insert-size', str(min_insert_size),
-         '--max-insert-size', str(max_insert_size),
-         '-E', str(max_edit_distance),
-         '--min-matched-bases', str(min_matched_bases),
-         '--max-extendable-matches', str(max_extendable_matches),
-         '--max-matches-per-extension', str(max_matches_per_extension),
-         '-T', str(threads)
+          '-p',
+          '-I', index,
+          '-q', quality,
+          '--gem-quality-threshold', str(quality_threshold),
+          '--max-decoded-matches', str(max_decoded_matches),
+          '--min-decoded-strata', str(min_decoded_strata),
+          '--min-insert-size', str(min_insert_size),
+          '--max-insert-size', str(max_insert_size),
+          '-E', str(max_edit_distance),
+          '--min-matched-bases', str(min_matched_bases),
+          '--max-extendable-matches', str(max_extendable_matches),
+          '--max-matches-per-extension', str(max_matches_per_extension),
+          '-T', str(threads)
     ]
     if unique_pairing:
         pa.append("--unique-pairing")
@@ -525,9 +495,9 @@ def pairalign(input, index, output=None,
 
 
 def realign(input,
-             index,
-             output=None,
-             threads=1,):
+            index,
+            output=None,
+            threads=1, ):
     index = _prepare_index_parameter(index, gem_suffix=False)
     validate_p = [executables['gem-map-2-map'],
                   '-I', index,
@@ -543,7 +513,7 @@ def validate(input,
              output=None,
              validate_score="-s,-b,-i",
              validate_filter="2,25",
-             threads=1,):
+             threads=1, ):
     index = _prepare_index_parameter(index, gem_suffix=False)
     validate_p = [executables['gem-map-2-map'],
                   '-I', index,
@@ -554,7 +524,6 @@ def validate(input,
     ]
     process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
     return _prepare_output(process, output, type="map", name="GEM-Validate")
-
 
 
 def score(input,
@@ -573,13 +542,13 @@ def score(input,
 
 
 def validate_and_score(input,
-          index,
-          output=None,
-          scoring="+U,+u,-t,-s,-i,-a",
-          validate_score="-s,-b,-i",
-          validate_filter="2,25",
-          threads=1):
-    validator = validate(input, index, None, validate_score, validate_filter, max(threads-2, 1))
+                       index,
+                       output=None,
+                       scoring="+U,+u,-t,-s,-i,-a",
+                       validate_score="-s,-b,-i",
+                       validate_filter="2,25",
+                       threads=1):
+    validator = validate(input, index, None, validate_score, validate_filter, max(threads - 2, 1))
     return score(validator, index, output, scoring, 1)
 
 
@@ -624,6 +593,7 @@ class merger(object):
     source -- an open file descriptor to a single source file, a file name or a
               list of file names
     """
+
     def __init__(self, target, source):
         if target is None:
             raise ValueError("No target file specified")
@@ -642,14 +612,14 @@ class merger(object):
     def __get_next_read(self, stream):
         try:
             return stream.next()
-        except :
+        except:
             return None
 
     def next(self):
         target_read = self.__get_next_read(self.target)
         if not target_read:
             raise StopIteration()
-        ## read one line from each handle
+            ## read one line from each handle
         source_read = None
         result_read = target_read
         for i, h in enumerate(self.source):

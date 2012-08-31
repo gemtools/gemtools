@@ -8,7 +8,9 @@ import os
 import subprocess
 import __builtin__
 import gem
+import utils
 from utils import which
+
 
 
 __author__ = 'Thasso Griebel'
@@ -37,7 +39,7 @@ class parse_fasta(Parser):
         fasta_lines = list(islice(stream, 2))  # read in chunks of 2
         if not fasta_lines:
             return None
-
+        self.read.type = "fasta"
         self.read.id = fasta_lines[0].rstrip()[1:]
         self.read.sequence = fasta_lines[1].rstrip()
         self.read.qualities = None
@@ -56,7 +58,7 @@ class parse_fastq(Parser):
         fastq_lines = list(islice(stream, 4))  # read in chunks of 2
         if not fastq_lines:
             return None
-
+        self.read.type = "fastq"
         self.read.id = fastq_lines[0].rstrip()[1:]
         self.read.sequence = fastq_lines[1].rstrip()
         self.read.qualities = fastq_lines[3].rstrip()
@@ -77,6 +79,7 @@ class parse_map(Parser):
             return None
         line = line.rstrip()
         split = line.split("\t")
+        self.read.type = "map"
         self.read.id = split[0]
         self.read.sequence = split[1]
         if len(split) == 5:
@@ -106,6 +109,7 @@ class parse_sam(Parser):
                 continue
             line = line.rstrip()
             split = line.split("\t")
+            self.read.type = "sam"
             self.read.line = line
             self.read.id = split[0]
             self.read.sequence = split[9]
@@ -124,6 +128,15 @@ class parse_sam(Parser):
                     self.read.id += "/1"
                 else:
                     self.read.id += "/2"
+
+            chr = split[2]
+            if chr != "*":
+                if flag & 0x10 == 0x10:
+                    ## seq is reverser complement
+                    self.read.sequence = utils.reverseComplement(self.read.sequence)
+                    if self.read.qualities:
+                        self.read.qualities = self.read.qualities[::-1]
+
             return self.read
 
 

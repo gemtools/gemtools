@@ -3,13 +3,6 @@
 import re
 
 
-def sam_2_map(reads):
-    """Convert sam reads to simple maps"""
-    for read in reads:
-        read.sam_2_gem()
-        yield read
-
-
 def unmapped(reads, exclude=-1):
     """Yield only unmapped reads and reads
     that have only mappings with mismatches >= exclude
