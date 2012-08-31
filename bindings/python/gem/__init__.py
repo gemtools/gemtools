@@ -61,6 +61,16 @@ class Read(object):
         self.line = None
         self.type = None
 
+    def fill(self, other):
+        """Fill this read with the content of another read"""
+        self.id = other.id
+        self.sequence = other.sequsequence
+        self.qualities = other.qualities
+        self.summary = other.summary
+        self.mappings = other.mappings
+        self.line = other.line
+        self.type = other.type
+
     def min_mismatches(self):
         """Parse the mismatch string and return the minimum number
         of mismatches of the first mapping found
@@ -608,6 +618,7 @@ class merger(object):
         self.target = target
         self.source = source
         self.reads = []
+        self.result_read = Read()
         for x in self.source:
             self.reads.append(None)
 
@@ -626,7 +637,7 @@ class merger(object):
             raise StopIteration()
             ## read one line from each handle
         source_read = None
-        result_read = target_read
+        self.result_read.fill(target_read)
         for i, h in enumerate(self.source):
             source_read = self.reads[i]
             if source_read is None:
@@ -638,10 +649,10 @@ class merger(object):
             if target_read.id == source_read.id:
                 mis = source_read.min_mismatches()
                 if mis >= 0:
-                    result_read = source_read  # matching mapping, replace
-                    ## read next into cache
+                    self.result_read.fill(source_read)
+                ## read next into cache
                 self.reads[i] = self.__get_next_read(h)
-        return result_read
+        return self.result_read
 
     def merge(self, output):
         of = open(output, 'w')
