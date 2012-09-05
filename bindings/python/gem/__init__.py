@@ -257,7 +257,7 @@ def mapper(input, index, output=None,
            quality=33,
            quality_threshold=26,
            max_decoded_matches=20,
-           min_decoded_strata=0,
+           min_decoded_strata=2,
            min_matched_bases=0.80,
            max_big_indel_length=15,
            max_edit_distance=0.20,
@@ -282,7 +282,7 @@ def mapper(input, index, output=None,
     quality_threshold <number> -- (default=26, that is e<=2e-3)
     max_edit_distance -- max edit distance, 0.20 per default
     max_decoded_matches -- maximum decoded matches, defaults to 20
-    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 0
+    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 2 2
     min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
     """
 
@@ -463,10 +463,10 @@ def pairalign(input, index, output=None,
               quality=33,
               quality_threshold=26,
               max_decoded_matches=20,
-              min_decoded_strata=0,
+              min_decoded_strata=1,
               min_insert_size=0,
               max_insert_size=1000,
-              max_edit_distance=0.08,
+              max_edit_distance=0.30,
               min_matched_bases=0.80,
               max_extendable_matches=0,
               max_matches_per_extension=1,
@@ -496,7 +496,7 @@ def pairalign(input, index, output=None,
           '-E', str(max_edit_distance),
           '--min-matched-bases', str(min_matched_bases),
           '--max-extendable-matches', str(max_extendable_matches),
-          '--max-matches-per-extension', str(max_matches_per_extension),
+          '--max-matches-per-extension', str(max_matches_per_extension), ## TODO: changed in NM revision
           '-T', str(threads)
     ]
     if unique_pairing:
