@@ -17,6 +17,11 @@ import junctions as gemjunctions
 import splits
 import filter as gemfilter
 
+LOG_NOTHING = 1
+LOG_STDERR = 2
+
+log_output = LOG_NOTHING
+
 _trim_qualities = False
 default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
 extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
@@ -37,6 +42,7 @@ executables = {
     "gem-info": "gem-info",
     "splits-2-junctions": "splits-2-junctions",
     "gem-retriever": "gem-retriever",
+    "gem-map-2-map": "gem-map-2-map",
     }
 
 class Read(object):
@@ -261,6 +267,7 @@ def mapper(input, index, output=None,
            min_matched_bases=0.80,
            max_big_indel_length=15,
            max_edit_distance=0.20,
+           trim=None,
            threads=1):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
@@ -284,6 +291,7 @@ def mapper(input, index, output=None,
     max_decoded_matches -- maximum decoded matches, defaults to 20
     min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 2 2
     min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
+    trim -- tuple or list that specifies left and right trimmings
     """
 
     ## check the index
@@ -303,12 +311,24 @@ def mapper(input, index, output=None,
           '--max-big-indel-length', str(max_big_indel_length),
           '-T', str(threads)
     ]
+
     if max_edit_distance > 0:
         pa.append("-e")
         pa.append("%s"%str(max_edit_distance))
 
+    trim_c = ['gem-map-2-map', '-c']
+    if trim is not None:
+        ## check type
+        if not isinstance(trim, (list, tuple)) or len(trim) != 2:
+            raise ValueError("Trim parameter has to be a list or a tuple of size 2")
+        input = filter.trim(input, trim[0], trim[1], append_label=True)
+
     ## run the mapper
-    process = utils.run_tool(pa, input, output, name="GEM-Mapper")
+    if trim is None:
+        process = utils.run_tool(pa, input, output, "GEM-Mapper", utils.read_to_sequence)
+    else:
+        process = utils.run_tools([pa, trim_c], input, output, "GEM-Mapper", utils.read_to_sequence)
+
     return _prepare_output(process, output, type="map", name="GEM-Mapper")
 
 
@@ -661,4 +681,3 @@ class merger(object):
             of.write("\n")
         of.close()
         return files.open(output, type="map")
-

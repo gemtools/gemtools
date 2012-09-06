@@ -9,6 +9,8 @@ import subprocess
 import logging
 from threading import Thread
 
+import gem
+
 def read_to_sequence(read):
     """
     Transform the Read to a fasta/fastq seqeucen
@@ -102,11 +104,11 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
         process_out = subprocess.PIPE
 
     ## handle error stream
-    if logfile is not None:
+    if logfile is not None and gem.log_output != gem.LOG_STDERR:
         process_err = logfile
         if isinstance(logfile, basestring):
             process_err = open(logfile, 'w')
-    else:
+    elif gem.log_output != gem.LOG_STDERR:
         process_err = subprocess.PIPE
 
     num_tools = len(tools)
@@ -134,7 +136,8 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             if i < num_tools - 1:
                 p_out = subprocess.PIPE
             current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err, close_fds=True)
-        append_logger(current_process, logfile)
+        if gem.log_output != gem.LOG_STDERR:
+            append_logger(current_process, logfile)
         last_process = current_process
 
 
