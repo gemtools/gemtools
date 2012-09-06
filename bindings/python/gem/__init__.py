@@ -505,7 +505,7 @@ def pairalign(input, index, output=None,
         pa.append("--map-both-ends")
 
         ## run the mapper
-    process = utils.run_tool(pa, input, output, name="GEM-Pair-align")
+    process = utils.run_tool(pa, input, output, "GEM-Pair-align", utils.read_to_map)
     return _prepare_output(process, output, type="map", name="GEM-Pair-aling")
 
 
