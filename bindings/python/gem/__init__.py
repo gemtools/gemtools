@@ -42,7 +42,6 @@ executables = {
     "gem-info": "gem-info",
     "splits-2-junctions": "splits-2-junctions",
     "gem-retriever": "gem-retriever",
-    "gem-map-2-map": "gem-map-2-map",
     }
 
 class Read(object):
@@ -316,7 +315,7 @@ def mapper(input, index, output=None,
         pa.append("-e")
         pa.append("%s"%str(max_edit_distance))
 
-    trim_c = ['gem-map-2-map', '-c']
+    trim_c = [executables['gem-map-2-map'], '-c']
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
