@@ -357,8 +357,7 @@ def splitmapper(input,
                 matches_threshold=100,
                 mismatch_strata_delta=1,
                 quality=33,
-                threads=1,
-                tmpdir=None):
+                threads=1):
     """Start the GEM split mapper on the given input.
     If input is a file handle, it is assumed to
     provide fastq entries. If input is a string,
@@ -405,90 +404,6 @@ def splitmapper(input,
 
     process = utils.run_tool(pa, input, output, "GEM-Mapper", utils.read_to_sequence)
     return _prepare_output(process, output, type="map", name="GEM-Split-Mapper")
-
-
-
-def splitmapper_prePatched(input,
-                index,
-                output=None,
-                mismatches=0.04,
-                junctions=0.02,
-                junctions_file=None,
-                splice_consensus=None,
-                filter=default_filter,
-                refinement_step_size=2,
-                min_split_size=15,
-                matches_threshold=100,
-                quality=33,
-                threads=1,
-                tmpdir=None):
-    """Start the GEM split mapper on the given input.
-    If input is a file handle, it is assumed to
-    provide fastq entries. If input is a string,
-    it is checked for its extension. In case of a
-    .map file, the input is converted from gem format
-    to fastq and passed to the mapper.
-
-    Output can be a string, which will be translated to
-    the output file. In case output is a file handle,
-    the GEM output is written there.
-
-    input -- string with the input file or a file handle or a generator
-    output -- output file name or file handle
-    index -- valid GEM2 index
-    """
-
-    ## check the index
-    index = _prepare_index_parameter(index, False)
-    quality = _prepare_quality_parameter(quality)
-    splice_cons = _prepare_splice_consensus_parameter(splice_consensus)
-
-    input_file, read_count = _write_sequence_file(input, tmpdir=tmpdir)
-    read_count = max(1, read_count)
-    (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
-
-    pa = [executables['gem-rna-mapper'],
-          '-I', index,
-          '-i', input_file,
-          '-o', output_file[:-4],
-          '-q', quality,
-          '-m', str(mismatches),
-          '--min-split-size', str(min_split_size),
-          '--refinement-step-size', str(refinement_step_size),
-          '--matches-threshold', str(matches_threshold),
-          '-T', str(min(threads, read_count))
-    ]
-
-    if junctions_file is not None:
-        pa.append("-J")
-        pa.append(os.path.abspath(junctions_file))
-        pa.append("-j")
-        pa.append(str(junctions))
-    if filter is not None:
-        pa.append("-f")
-        pa.append(filter)
-    if splice_cons is not None and junctions_file is None:
-        pa.append("-s")
-        pa.append(splice_cons)
-
-
-    ## run the split-mapper
-    process = utils.run_tool(pa, None, None, name="GEM-Split-Mapper")
-
-    exit_value = process.wait()
-    ## cleanup
-    os.remove(input_file)
-
-    if exit_value != 0:
-        raise ValueError(
-            "GEM-Mapper execution failed, output file is : %s, tmp input was : %s" % (output_file, input_file))
-
-    if output is not None:
-        ## move temp file to specified output
-        shutil.move(output_file, output)
-        return files.open(output, type="map", process=process)
-    else:
-        return files.open(output_file, type="map", process=process, remove_after_iteration=True)
 
 
 def extract_junctions(input,
