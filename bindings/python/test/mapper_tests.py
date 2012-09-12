@@ -148,11 +148,8 @@ def test_async_splitmapper_execution():
     mappings = gem.splitmapper(input, index)
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.filename is not None
-    assert os.path.exists(mappings.filename)
-    assert mappings.remove_after_iteration
+    assert mappings.filename is None
     assert sum(1 for x in mappings) == 10000
-    assert not os.path.exists(mappings.filename)
 
 
 @with_setup(setup_func, cleanup)
