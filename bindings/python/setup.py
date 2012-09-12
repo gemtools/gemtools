@@ -22,9 +22,11 @@ gemtools = Extension('gem.gemtools',
                                'src/py_mismatch.c', 'src/py_map.c', 'src/py_alignment.c',
                                'src/py_template.c', 'src/gemtoolsmodule.c', 'src/py_mappings_iterator.c'])
 
+gem_binaries = "../../binaries/gem-2.1"
+
 setup(
         name='Gem',
-        version='1.1',
+        version='1.2',
         description='Python support library for the GEM mapper and gemtools',
         author='Thasso Griebel',
         author_email='thasso.griebel@gmail.com',
@@ -33,6 +35,7 @@ setup(
         This is the python binding to the gemtools library.
         ''',
         packages=['gem'],
+        data_files=[("gem/gem-binaries/", ["%s/%s" % (gem_binaries,x) for x in os.listdir(gem_binaries)])],
         ext_modules=[gemtools],
         setup_requires=['nose>=1.0'],
         test_suite = 'nose.collector',

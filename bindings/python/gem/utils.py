@@ -220,9 +220,8 @@ def which(program):
             return None
         return path
     except Exception:
-        raise
         ## ignore exceptions and try path search
-        #return None
+        return None
 
 
 def find_in_path(program):

@@ -13,6 +13,7 @@ import logging
 import tempfile
 import files
 from . import utils
+import pkg_resources
 import junctions as gemjunctions
 import splits
 import filter as gemfilter
@@ -32,8 +33,18 @@ extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
 
 default_filter = "same-chromosome,same-strand"
 
+## use the bundled executables
+use_bundled_executables = True
+
+class execs_dict(dict):
+    """Helper dict that resolves bundled binaries"""
+    def __getitem__(self, item):
+        if use_bundled_executables and pkg_resources.resource_exists(__name__, "gem-binaries/%s"%item):
+            return pkg_resources.resource_filename(__name__, "gem-binaries/%s"%item)
+        return dict.__getitem__(self, item)
+
 ## paths to the executables
-executables = {
+executables = execs_dict({
     "gem-mapper": "gem-mapper",
     "gem-rna-mapper": "gem-rna-mapper",
     "gem-map-2-map": "gem-map-2-map",
@@ -42,7 +53,9 @@ executables = {
     "gem-info": "gem-info",
     "splits-2-junctions": "splits-2-junctions",
     "gem-retriever": "gem-retriever",
-    }
+    })
+
+
 
 class Read(object):
     """A single read. The read info covers
@@ -248,7 +261,7 @@ def validate_executables():
     """Validate the gem executables
     """
     for exe, path in executables.items():
-        exe_path = utils.which(path)
+        exe_path = utils.which(executables[exe])
         found = exe_path is not None
         if found:
             print >> sys.stderr, "Executable '%s' : %s" % (exe, exe_path)
