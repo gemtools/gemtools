@@ -528,7 +528,7 @@ def pairalign(input, index, output=None,
           '-E', str(max_edit_distance),
           '--min-matched-bases', str(min_matched_bases),
           '--max-extendable-matches', str(max_extendable_matches),
-          '--max-matches-per-extension', str(max_matches_per_extension), ## TODO: changed in NM revision
+          '--max-extensions-per-match', str(max_matches_per_extension),
           '-T', str(threads)
     ]
     if unique_pairing:
@@ -538,7 +538,7 @@ def pairalign(input, index, output=None,
 
         ## run the mapper
     process = utils.run_tool(pa, input, output, "GEM-Pair-align", utils.read_to_map)
-    return _prepare_output(process, output, type="map", name="GEM-Pair-aling")
+    return _prepare_output(process, output, type="map", name="GEM-Pair-align")
 
 
 def realign(input,
