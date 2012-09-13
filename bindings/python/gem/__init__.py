@@ -402,7 +402,7 @@ def splitmapper(input,
         pa.append("-s")
         pa.append(splice_cons)
 
-    process = utils.run_tool(pa, input, output, "GEM-Mapper", utils.read_to_sequence)
+    process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
     return _prepare_output(process, output, type="map", name="GEM-Split-Mapper")
 
 
