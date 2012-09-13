@@ -408,7 +408,6 @@ def splitmapper(input,
 
 def extract_junctions(input,
                       index,
-                      index_hash,
                       output=None,
                       junctions=0.02,
                       filter="ordered",
@@ -419,8 +418,9 @@ def extract_junctions(input,
                       splice_consensus=extended_splice_consensus,
                       quality=33,
                       threads=1,
-                      tmpdir=None,
                       merge_with=None,
+                      min_split=4,
+                      max_split=2500000,
                       keep_short_indels=True):
     ## run the splitmapper
     splitmap = splitmapper(input,
@@ -434,8 +434,7 @@ def extract_junctions(input,
         matches_threshold=matches_threshold,
         splice_consensus=splice_consensus,
         quality=quality,
-        threads=threads,
-        tmpdir=tmpdir)
+        threads=threads)
     ## make sure we have an output file
     ## for the splitmap results
     output_file = output
@@ -456,18 +455,18 @@ def extract_junctions(input,
             of.write("\n")
         of.close()
 
-    denovo_junctions = splits.extract_denovo_junctions(write_helper(splitmap), index_hash)
-    if merge_with is not None:
-        to_merge = [x for x in merge_with]
-        to_merge.append(denovo_junctions)
-        denovo_junctions = gemjunctions.merge_junctions(to_merge)
+    denovo_junctions = splits.extract_denovo_junctions(
+        write_helper(splitmap),
+        minsplit=min_split,
+        maxsplit=max_split,
+        sites=merge_with)
 
     if output is None:
         ## return delete iterator
         return (
         files.open(output_file, type="map", process=splitmapper, remove_after_iteration=True), denovo_junctions)
     else:
-        return ( files.open(output_file, type="map", process=splitmapper), denovo_junctions)
+        return files.open(output_file, type="map", process=splitmapper), denovo_junctions
 
 
 def pairalign(input, index, output=None,

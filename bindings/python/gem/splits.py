@@ -14,40 +14,26 @@ import gem
 from gem.junctions import Exon, JunctionSite
 
 
-def extract_denovo_junctions(gemoutput, index_hash, minsplit=4, maxsplit=2500000):
+def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None):
     splits2junctions_p = [
         gem.executables['splits-2-junctions'],
         str(minsplit),
         str(maxsplit)
     ]
     p = subprocess.Popen(splits2junctions_p, stdin=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True, bufsize=0)
-    ## start the retriever
-    retriever = subprocess.Popen([gem.executables['gem-retriever'], 'query', index_hash], stdin=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True, bufsize=0)
 
     ## start pipe thread
     input_thread = Thread(target=_pipe_geminput, args=(gemoutput, p))
     input_thread.start()
 
     ## read from process stdout and get junctions
-    delta = 5
-    sites = set([])
+    if sites is None:
+        sites = set([])
+
     for line in p.stdout:
-        site = JunctionSite(line = line)
-        que_don = __extract(delta, 1, site.descriptor[0], site.descriptor[1], site.descriptor[2])
-        que_acc = __extract(delta, 0, site.descriptor[3], site.descriptor[4], site.descriptor[5])
-        seq_don = __retrieve(retriever, que_don)
-        seq_acc = __retrieve(retriever, que_acc)
-        seq = seq_don+seq_acc
-        if (re.search("GT......AG|GC......AG|ATATC...A.|GTATC...AT", seq)) or\
-            (re.search("CT......AC|CT......GC|.T...GATAT|AT...GATAC", seq)):
-            sites.add(site)
+        sites.add(JunctionSite(line = line))
 
-
-    ## wait for thread and process to finish
-    input_thread.join()
     exit_value = p.wait()
-    retriever.stdin.close()
-    retriever.kill()
     if exit_value != 0:
         raise ValueError("Error while executing junction extraction")
     return sites

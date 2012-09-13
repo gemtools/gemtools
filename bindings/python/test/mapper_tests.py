@@ -173,10 +173,9 @@ def test_junction_extraction_from_gtf():
 @with_setup(setup_func, cleanup)
 def test_junction_extraction_from_splitmap():
     input = files.open(testfiles["reads_1.fastq"])
-    index_hash = testfiles["genome.hash"]
     index = testfiles["genome.gem"]
-    gtf_junctions = list(junctions.from_gtf(testfiles["refseq.gtf"]))
-    (splitmap, jj) = gem.extract_junctions(input, index, index_hash, merge_with=[gtf_junctions])
+    gtf_junctions = set(junctions.from_gtf(testfiles["refseq.gtf"]))
+    (splitmap, jj) = gem.extract_junctions(input, index, merge_with=gtf_junctions)
     assert splitmap is not None
     assert junctions is not None
     assert len(jj) == 260
