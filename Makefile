@@ -11,6 +11,6 @@ install-user: all
 
 clean:
 	$(MAKE) -C GEMTools clean
-	$(MAKE) -C bindings/python
+	$(MAKE) -C bindings/python clean
 
 
