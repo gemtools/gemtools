@@ -33,13 +33,14 @@ def read_to_map(read):
     return "%s\n" % str(read)
 
 
-def __parse_error_output(stream):
+def __parse_error_output(stream, name="Tool"):
     """Parse the GEM error output stream and
     raise an exception if 'error' occurs"""
     for line in stream:
         line = line.rstrip()
         if re.search("error", line):
-            raise ValueError("GEM run error : %s " % (line))
+            logging.error("%s raised an error !\n%s\n" % (name, line))
+
 
 
 complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
@@ -80,7 +81,10 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
     ## helper function to append a logger thread per process
     def append_logger(process, logfile):
         if logfile is None:
-            err_thread = Thread(target=__parse_error_output, args=(process.stderr,))
+            tools_name = None
+            if name:
+                tools_name = name
+            err_thread = Thread(target=__parse_error_output, args=(process.stderr,tools_name,))
             err_thread.start()
 
     process_in = None
@@ -191,7 +195,11 @@ def __write_input(sequence, stream, transformer=None):
     for e in sequence:
         if transformer is not None:
             e = transformer(e)
-        stream.write(str(e))
+        try:
+            stream.write(str(e))
+        except Exception, ex:
+            logging.error("Failed to write %s to stream: %s" % (str(e), ex.message))
+            exit(1)
     stream.close()
 
 

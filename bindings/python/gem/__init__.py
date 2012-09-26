@@ -22,6 +22,7 @@ LOG_NOTHING = 1
 LOG_STDERR = 2
 
 log_output = LOG_NOTHING
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.WARN)
 
 _trim_qualities = False
 default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
@@ -55,6 +56,16 @@ executables = execs_dict({
     "gem-retriever": "gem-retriever",
     })
 
+
+def loglevel(level):
+    """Simple way to set the current log level globally for the root logger.
+    Accepts either 'debug','info','warning', 'error'
+    """
+    numeric_level = getattr(logging, level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % loglevel)
+    logging.basicConfig(level=numeric_level)
+    logging.getLogger().setLevel(numeric_level)
 
 
 class Read(object):
