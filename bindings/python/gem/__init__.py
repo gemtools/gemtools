@@ -69,7 +69,7 @@ def loglevel(level):
         raise ValueError('Invalid log level: %s' % loglevel)
     logging.basicConfig(level=numeric_level)
     logging.getLogger().setLevel(numeric_level)
-    if level.upper() in ["info"]:
+    if level.upper() in ["debug"]:
         log_output = LOG_STDERR
 
 
