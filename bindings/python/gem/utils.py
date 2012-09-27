@@ -131,6 +131,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             ## and set stdout to PIPE if there are more
             if num_tools > 1:
                 p_out = subprocess.PIPE
+            logging.debug("Starting Initial process %s %s" % (name, str(params)))
             first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True)
             current_process = first_process
         else:
@@ -139,6 +140,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             p_out = process_out
             if i < num_tools - 1:
                 p_out = subprocess.PIPE
+            logging.debug("Starting Piped process %s %s" % (name, str(params)))
             current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err, close_fds=True)
         if gem.log_output != gem.LOG_STDERR:
             append_logger(current_process, logfile)
@@ -147,6 +149,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
 
     ## start the input thread
     if input is not None and not raw_stream:
+        logging.debug("Starting input stream thread for %s " % (name))
         input_thread = Thread(target=__write_input, args=(input, first_process.stdin, transform_fun))
         input_thread.start()
 
@@ -261,6 +264,7 @@ def gzip(file):
     """Helper to call gzip on the given file name
     and compress the file
     """
+    logging.debug("Starting GZIP compression for %s" % (file))
     if subprocess.Popen(['gzip', file]).wait() != 0:
         raise ValueError("Error wile executing gzip on %s" % file)
     return "%s.gz" % file

@@ -60,12 +60,16 @@ executables = execs_dict({
 def loglevel(level):
     """Simple way to set the current log level globally for the root logger.
     Accepts either 'debug','info','warning', 'error'
+
+    Log levels debug also ensures executable output is written to stderr
     """
     numeric_level = getattr(logging, level.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % loglevel)
     logging.basicConfig(level=numeric_level)
     logging.getLogger().setLevel(numeric_level)
+    if level.upper() in ["info"]:
+        log_output = LOG_STDERR
 
 
 class Read(object):
