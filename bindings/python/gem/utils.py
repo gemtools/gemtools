@@ -85,6 +85,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             tools_name = None
             if name:
                 tools_name = name
+            logging.debug("Appending stderr read thread to whatch for errors in %s" % process)
             err_thread = Thread(target=__parse_error_output, args=(process.stderr,tools_name,))
             err_thread.start()
 
@@ -109,14 +110,13 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
         process_out = subprocess.PIPE
 
     ## handle error stream
+    logging.debug("Global logging is set to %d" % gem.log_output)
     if logfile is not None and gem.log_output != gem.LOG_STDERR:
         process_err = logfile
         if isinstance(logfile, basestring):
             process_err = open(logfile, 'w')
     elif gem.log_output != gem.LOG_STDERR:
         process_err = subprocess.PIPE
-    else:
-        process_err = sys.stderr
 
     num_tools = len(tools)
     first_process = None
@@ -134,7 +134,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             ## and set stdout to PIPE if there are more
             if num_tools > 1:
                 p_out = subprocess.PIPE
-            logging.debug("Starting Initial process %s %s" % (name, str(params)))
+            logging.debug("Starting Initial process %s %s\nstdout: %s\nstderr %s" % (name, str(params), str(process_out), str(process_err)))
             first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True)
             current_process = first_process
         else:
