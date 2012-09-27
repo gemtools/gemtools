@@ -63,6 +63,7 @@ def loglevel(level):
 
     Log levels debug also ensures executable output is written to stderr
     """
+    global log_output
     numeric_level = getattr(logging, level.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % loglevel)
