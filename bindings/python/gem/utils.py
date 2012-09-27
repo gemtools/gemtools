@@ -10,6 +10,7 @@ import logging
 from threading import Thread
 
 import gem
+import sys
 
 def read_to_sequence(read):
     """
@@ -114,6 +115,8 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             process_err = open(logfile, 'w')
     elif gem.log_output != gem.LOG_STDERR:
         process_err = subprocess.PIPE
+    else:
+        process_err = sys.stderr
 
     num_tools = len(tools)
     first_process = None
