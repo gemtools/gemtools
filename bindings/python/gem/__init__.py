@@ -437,7 +437,8 @@ def extract_junctions(input,
                       merge_with=None,
                       min_split=4,
                       max_split=2500000,
-                      keep_short_indels=True):
+                      keep_short_indels=True,
+                      tmpdir=None):
     ## run the splitmapper
     splitmap = splitmapper(input,
         index,
