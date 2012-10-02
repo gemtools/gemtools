@@ -590,8 +590,8 @@ def validate_and_score(input,
                        validate_score="-s,-b,-i",
                        validate_filter="2,25",
                        threads=1):
-    validator = validate(input, index, None, validate_score, validate_filter, max(threads - 2, 1))
-    return score(validator, index, output, scoring, 1)
+    validator = validate(input, index, None, validate_score, validate_filter, max(threads / 2, 1))
+    return score(validator, index, output, scoring, max(threads / 2, 1))
 
 
 def gem2sam(input, index, output=None, single_end=False, compact=False, threads=1):
