@@ -562,7 +562,7 @@ def validate(input,
                   '-v', '-r',
                   '-s', validate_score,
                   '-f', validate_filter,
-                  '-T', str(max(threads - 2, 1))
+                  '-T', str(max(threads, 1))
     ]
     process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
     return _prepare_output(process, output, type="map", name="GEM-Validate")
