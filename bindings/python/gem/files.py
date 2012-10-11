@@ -141,7 +141,7 @@ class parse_sam(Parser):
 
 
 class ReadIterator(object):
-    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False):
+    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False, quality=None):
         """
         Create a ReadIterator from a stream with a given parser.
         If the filename is given, the iterator can be cloned to re-read
