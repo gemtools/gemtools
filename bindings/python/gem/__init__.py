@@ -223,6 +223,8 @@ def _prepare_splice_consensus_parameter(splice_consensus):
 
 def _prepare_quality_parameter(quality):
     ## check quality
+    if quality is not None and quality in ["offset-33", "offset-64", "ignore"]:
+        return quality
     if quality is not None and quality not in ["none", "ignore"]:
         quality = "offset-%d" % quality
     else:
@@ -254,7 +256,7 @@ def _write_sequence_file(input, tmpdir=None):
     return inputfile, count
 
 
-def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False):
+def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False, quality=None):
     """If output is not None, this waits for the process to
     finish and opens a ReadIterator
     on the output file using the given type.
@@ -266,11 +268,11 @@ def _prepare_output(process, output=None, type="map", name="GEM", remove_after_i
         # wait for the process to finish
         if process.wait() != 0:
             raise ValueError("%s execution failed!" % name)
-        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration)
+        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality)
     else:
         ## running in async mode, return iterator on
         ## the output stream
-        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration)
+        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality)
 
 
 def validate_executables():
@@ -325,6 +327,8 @@ def mapper(input, index, output=None,
     ## check the index
     index = _prepare_index_parameter(index)
 
+    if quality is None and isinstance(input, files.ReadIterator):
+        quality = input.quality
     quality = _prepare_quality_parameter(quality)
 
     ## prepare the input
@@ -357,7 +361,7 @@ def mapper(input, index, output=None,
     else:
         process = utils.run_tools([pa, trim_c], input, output, "GEM-Mapper", utils.read_to_sequence)
 
-    return _prepare_output(process, output, type="map", name="GEM-Mapper")
+    return _prepare_output(process, output, type="map", name="GEM-Mapper", quality=quality)
 
 
 def splitmapper(input,
@@ -392,6 +396,8 @@ def splitmapper(input,
 
     ## check the index
     index = _prepare_index_parameter(index, False)
+    if quality is None and isinstance(input, files.ReadIterator):
+        quality = input.quality
     quality = _prepare_quality_parameter(quality)
     splice_cons = _prepare_splice_consensus_parameter(splice_consensus)
 
@@ -419,7 +425,7 @@ def splitmapper(input,
         pa.append(splice_cons)
 
     process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
-    return _prepare_output(process, output, type="map", name="GEM-Split-Mapper")
+    return _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
 
 
 def extract_junctions(input,
@@ -509,6 +515,9 @@ def pairalign(input, index, output=None,
         index = index + ".gem"
 
     ## set default values
+    if quality is None and isinstance(input, files.ReadIterator):
+        quality = input.quality
+
     quality = _prepare_quality_parameter(quality)
 
     pa = [executables['gem-mapper'],
@@ -533,7 +542,7 @@ def pairalign(input, index, output=None,
 
         ## run the mapper
     process = utils.run_tool(pa, input, output, "GEM-Pair-align", utils.read_to_map)
-    return _prepare_output(process, output, type="map", name="GEM-Pair-align")
+    return _prepare_output(process, output, type="map", name="GEM-Pair-align", quality=quality)
 
 
 def realign(input,
@@ -546,8 +555,11 @@ def realign(input,
                   '-r',
                   '-T', str(threads)
     ]
+    quality = None
+    if isinstance(input, files.ReadIterator):
+        quality = input.quality
     process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
-    return _prepare_output(process, output, type="map", name="GEM-Validate")
+    return _prepare_output(process, output, type="map", name="GEM-Validate", quality=quality)
 
 
 def validate(input,
@@ -564,8 +576,13 @@ def validate(input,
                   '-f', validate_filter,
                   '-T', str(max(threads, 1))
     ]
+
+    quality = None
+    if isinstance(input, files.ReadIterator):
+        quality = input.quality
+
     process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
-    return _prepare_output(process, output, type="map", name="GEM-Validate")
+    return _prepare_output(process, output, type="map", name="GEM-Validate", quality=quality)
 
 
 def score(input,
@@ -579,8 +596,11 @@ def score(input,
                '-s', scoring,
                '-T', str(threads)
     ]
+    quality = None
+    if isinstance(input, files.ReadIterator):
+        quality = input.quality
     process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map)
-    return _prepare_output(process, output, type="map", name="GEM-Score")
+    return _prepare_output(process, output, type="map", name="GEM-Score", quality=quality)
 
 
 def validate_and_score(input,
@@ -601,6 +621,9 @@ def gem2sam(input, index, output=None, single_end=False, compact=False, threads=
                    '-T', str(threads)
     ]
 
+    if quality is None and isinstance(input, files.ReadIterator):
+        quality = input.quality
+
     quality = _prepare_quality_parameter(quality)
     if quality is not None:
         gem_2_sam_p.extend(["-q", quality])
@@ -610,7 +633,7 @@ def gem2sam(input, index, output=None, single_end=False, compact=False, threads=
     if compact:
         gem_2_sam_p.append("-c")
     process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", utils.read_to_map)
-    return _prepare_output(process, output, "sam", name="GEM-2-SAM")
+    return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
 
 
 def sam2bam(input, output=None, sorted=False, tmpdir=None):
@@ -628,7 +651,11 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None):
         out_name = out_name + ".bam"
         tools.append(bam_sort)
     process = utils.run_tools(tools, input, output, "SAM-2-BAM", raw_stream=True)
-    return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None))
+    quality = None
+    if isinstance(input, files.ReadIterator):
+        quality = input.quality
+
+    return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None), quality=quality)
 
 
 class merger(object):

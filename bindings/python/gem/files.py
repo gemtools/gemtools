@@ -165,6 +165,7 @@ class ReadIterator(object):
         self.filename = filename
         self.process = process
         self.remove_after_iteration = remove_after_iteration
+        self.quality = None
 
     def __iter__(self):
         return self
@@ -202,7 +203,7 @@ supported_types = {
 }
 
 
-def open(input, type=None, process=None, remove_after_iteration=False):
+def open(input, type=None, process=None, remove_after_iteration=False, quality=None):
     """
     Open the given file and return on iterator
     over Reads.
@@ -217,6 +218,8 @@ def open(input, type=None, process=None, remove_after_iteration=False):
     @type process: Process
     @param remove_after_iteration: if set to True, the input file is removed after a completed iteration of the content
     @type remove_after_iteration: boolean
+    @param quality: the gem quality parameter
+    @type quality: string
     """
     is_string = isinstance(input, basestring)
     if type is None and is_string:
@@ -240,7 +243,7 @@ def open(input, type=None, process=None, remove_after_iteration=False):
         input = None  ## reset filename
 
     return ReadIterator(stream, supported_types[type](), input, process=process,
-                        remove_after_iteration=remove_after_iteration)
+                        remove_after_iteration=remove_after_iteration, quality=quality)
 
 
 def open_file(file):
