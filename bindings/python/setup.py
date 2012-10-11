@@ -19,7 +19,7 @@ gemtools = Extension('gem.gemtools',
                                'src/py_mismatch.c', 'src/py_map.c', 'src/py_alignment.c',
                                'src/py_template.c', 'src/gemtoolsmodule.c', 'src/py_mappings_iterator.c'])
 
-gem_binaries = "../../binaries/gem-2.2"
+#gem_binaries = "../../binaries/gem-2.2"
 
 setup(
         name='Gem',
@@ -32,7 +32,7 @@ setup(
         This is the python binding to the gemtools library.
         ''',
         packages=['gem'],
-        package_data={'gem': ['gembinaries/*']},
+        data_files=[("gem/gembinaries/", ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("gem/gembinaries")])],
         ext_modules=[gemtools],
         setup_requires=['nose'],
         test_suite = 'nose.collector',

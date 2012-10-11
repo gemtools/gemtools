@@ -41,7 +41,8 @@ class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
     def __getitem__(self, item):
         if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s"%item):
-            return pkg_resources.resource_filename("gem", "gembinaries/%s"%item)
+            f = pkg_resources.resource_filename("gem", "gembinaries/%s"%item)
+            return f
         return dict.__getitem__(self, item)
 
 ## paths to the executables
@@ -279,10 +280,11 @@ def validate_executables():
     """Validate the gem executables
     """
     for exe, path in executables.items():
+        path = executables[exe]
         exe_path = utils.which(executables[exe])
         found = exe_path is not None
         if found:
-            print >> sys.stderr, "Executable '%s' (%s) : %s" % (exe, exe_path, path)
+            print >> sys.stderr, "Executable '%s' (%s) : %s" % (exe, path, exe_path)
         else:
             print >> sys.stderr, "Executable '%s' (%s) : Unknown" % (exe, path)
 
