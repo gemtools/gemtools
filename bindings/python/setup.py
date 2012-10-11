@@ -22,7 +22,7 @@ gemtools = Extension('gem.gemtools',
                                'src/py_mismatch.c', 'src/py_map.c', 'src/py_alignment.c',
                                'src/py_template.c', 'src/gemtoolsmodule.c', 'src/py_mappings_iterator.c'])
 
-gem_binaries = "../../binaries/gem-2.1"
+gem_binaries = "../../binaries/gem-2.2"
 
 setup(
         name='Gem',
