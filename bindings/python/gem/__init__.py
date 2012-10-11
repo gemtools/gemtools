@@ -223,7 +223,7 @@ def _prepare_splice_consensus_parameter(splice_consensus):
 
 def _prepare_quality_parameter(quality):
     ## check quality
-    if quality is not None:
+    if quality is not None and quality not in ["none", "ignore"]:
         quality = "offset-%d" % quality
     else:
         quality = 'ignore'
@@ -594,12 +594,17 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, max(threads / 2, 1))
 
 
-def gem2sam(input, index, output=None, single_end=False, compact=False, threads=1):
+def gem2sam(input, index, output=None, single_end=False, compact=False, threads=1, quality=None):
     index = _prepare_index_parameter(index, False)
     gem_2_sam_p = [executables['gem-2-sam'],
                    '-I', index,
                    '-T', str(threads)
     ]
+
+    quality = _prepare_quality_parameter(quality)
+    if quality is not None:
+        gem_2_sam_p.extend(["-q", quality])
+
     if single_end:
         gem_2_sam_p.append("--expect-single-end-reads")
     if compact:
