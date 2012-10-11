@@ -165,7 +165,7 @@ class ReadIterator(object):
         self.filename = filename
         self.process = process
         self.remove_after_iteration = remove_after_iteration
-        self.quality = None
+        self.quality = quality
 
     def __iter__(self):
         return self
@@ -190,7 +190,7 @@ class ReadIterator(object):
     def clone(self):
         if not self.filename or self.remove_after_iteration:
             raise ValueError("No filename given or file is marked for deletion, this reader can not be cloned!")
-        return ReadIterator(open_file(self.filename), self.parser.__class__(), self.filename)
+        return ReadIterator(open_file(self.filename), self.parser.__class__(), self.filename, quality=self.quality)
 
 
 ## type to parser map

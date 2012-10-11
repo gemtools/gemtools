@@ -1,7 +1,4 @@
 import os
-from ez_setup import use_setuptools
-
-use_setuptools()
 from setuptools import setup
 from distutils.core import Extension
 
@@ -35,8 +32,8 @@ setup(
         This is the python binding to the gemtools library.
         ''',
         packages=['gem'],
-        data_files=[("gem/gem-binaries/", ["%s/%s" % (gem_binaries,x) for x in os.listdir(gem_binaries)])],
+        package_data={'gem': ['gembinaries/*']},
         ext_modules=[gemtools],
-        setup_requires=['nose>=1.0'],
+        setup_requires=['nose'],
         test_suite = 'nose.collector',
 )

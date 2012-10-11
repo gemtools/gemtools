@@ -15,7 +15,7 @@ gempy: $(OBJS)
 
 test: gempy
 	cp build/lib.*/gem/gemtools.so gem/
-	nosetests --with-xunit
+	nosetests 
 
 install: gempy
 	python setup.py install
@@ -29,3 +29,5 @@ clean:
 	@rm -f gem/*.pyc gem/*.so
 	@rm -f test/*.pyc 
 	@rm -Rf dist 
+	@rm -Rf gemtools-env 
+	@rm -f nosetests.xml 

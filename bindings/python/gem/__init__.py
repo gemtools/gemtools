@@ -40,8 +40,8 @@ use_bundled_executables = True
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
     def __getitem__(self, item):
-        if use_bundled_executables and pkg_resources.resource_exists(__name__, "gem-binaries/%s"%item):
-            return pkg_resources.resource_filename(__name__, "gem-binaries/%s"%item)
+        if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s"%item):
+            return pkg_resources.resource_filename("gem", "gembinaries/%s"%item)
         return dict.__getitem__(self, item)
 
 ## paths to the executables
@@ -282,9 +282,9 @@ def validate_executables():
         exe_path = utils.which(executables[exe])
         found = exe_path is not None
         if found:
-            print >> sys.stderr, "Executable '%s' : %s" % (exe, exe_path)
+            print >> sys.stderr, "Executable '%s' (%s) : %s" % (exe, exe_path, path)
         else:
-            print >> sys.stderr, "Executable '%s' : Unknown" % (exe)
+            print >> sys.stderr, "Executable '%s' (%s) : Unknown" % (exe, path)
 
 
 def mapper(input, index, output=None,
@@ -408,7 +408,7 @@ def splitmapper(input,
           '--min-split-size', str(min_split_size),
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
-          '--mismatch-strata-delta', str(mismatch_strata_delta),
+          '--strata-after-first', str(mismatch_strata_delta),
           '-T', str(threads)
     ]
 
@@ -421,7 +421,7 @@ def splitmapper(input,
         pa.append("-f")
         pa.append(filter)
     if splice_cons is not None and junctions_file is None:
-        pa.append("-s")
+        pa.append("-c")
         pa.append(splice_cons)
 
     process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)

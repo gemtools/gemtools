@@ -37,11 +37,12 @@ def read_to_map(read):
 def __parse_error_output(stream, name="Tool"):
     """Parse the GEM error output stream and
     raise an exception if 'error' occurs"""
+    logging.info("Error thread started for %s %s" % (name, stream))
     for line in stream:
         line = line.rstrip()
         if re.search("error", line):
             logging.error("%s raised an error !\n%s\n" % (name, line))
-
+    logging.info("Error thread method finished for %s %s" % (name, stream))
 
 
 complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
@@ -198,15 +199,17 @@ def __write_input(sequence, stream, transformer=None):
     @param transformer: optional transformer function
     @type transformer: function
     """
+    logging.info("Input thread method startedfor %s" % (stream))
     for e in sequence:
         if transformer is not None:
             e = transformer(e)
         try:
             stream.write(str(e))
         except Exception, ex:
-            logging.error("Failed to write %s to stream: %s" % (str(e), ex.message))
+            logging.error("Failed to write %s to stream: %s" % (str(e), str(ex)))
             exit(1)
     stream.close()
+    logging.info("Input thread method finished for %s" % (stream))
 
 
 def multisplit(s, seps):
@@ -228,7 +231,13 @@ def which(program):
     ## use which command
     try:
         params = ["which", program]
-        output = subprocess.check_output(params)
+        process = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if process.wait() != 0:
+            return None
+        output = process.communicate()[0]
+        if output is None or len(output) == 0:
+            return None
+
         path = output.split("\n")[0]
         if path is None or len(path) == 0:
             return None

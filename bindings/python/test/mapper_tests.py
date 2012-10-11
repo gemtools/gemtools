@@ -198,6 +198,12 @@ def test_sync_score_and_validate_execution():
 
 
 @with_setup(setup_func, cleanup)
+def test_quality_pass_on_execution():
+    input = files.open(testfiles["reads_1.fastq"])
+    mappings = gem.mapper(input, index, output=results_dir+"/quality_passon_mapping.map")
+    assert mappings.quality == "offset-33", "Quality should be 'offset-33' but is %s" % (str(mappings.quality))
+
+@with_setup(setup_func, cleanup)
 def test_gem2sam_execution():
     input = files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
