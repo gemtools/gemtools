@@ -115,7 +115,7 @@ class Read(object):
         mismatches = -1
         if self.summary is None:
             return -1
-        if self.summary in ["-", "*", "+"]:
+        if self.summary in ["-", "*", "+", "!"]:
             return -1
 
         for idx, s in enumerate(utils.multisplit(self.summary, [':', '+'])):
