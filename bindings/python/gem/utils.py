@@ -3,10 +3,14 @@
 """
 import os
 import re
+import string
 
 import subprocess
 import logging
 from threading import Thread
+
+import gem
+import sys
 
 def read_to_sequence(read):
     """
@@ -30,12 +34,22 @@ def read_to_map(read):
     return "%s\n" % str(read)
 
 
-def __parse_error_output(stream):
+def __parse_error_output(stream, name="Tool"):
     """Parse the GEM error output stream and
     raise an exception if 'error' occurs"""
+    logging.info("Error thread started for %s %s" % (name, stream))
     for line in stream:
+        line = line.rstrip()
         if re.search("error", line):
-            raise ValueError("GEM run error : %s " % (line))
+            logging.error("%s raised an error !\n%s\n" % (name, line))
+    logging.info("Error thread method finished for %s %s" % (name, stream))
+
+
+complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
+
+def reverseComplement(sequence):
+    """Returns the reverse complement of the given sequence"""
+    return sequence.translate(complement)[::-1]
 
 
 def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None, raw_stream=False):
@@ -69,7 +83,11 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
     ## helper function to append a logger thread per process
     def append_logger(process, logfile):
         if logfile is None:
-            err_thread = Thread(target=__parse_error_output, args=(process.stderr,))
+            tools_name = None
+            if name:
+                tools_name = name
+            logging.debug("Appending stderr read thread to whatch for errors in %s" % process)
+            err_thread = Thread(target=__parse_error_output, args=(process.stderr,tools_name,))
             err_thread.start()
 
     process_in = None
@@ -93,11 +111,12 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
         process_out = subprocess.PIPE
 
     ## handle error stream
-    if logfile is not None:
+    logging.debug("Global logging is set to %d" % gem.log_output)
+    if logfile is not None and gem.log_output != gem.LOG_STDERR:
         process_err = logfile
         if isinstance(logfile, basestring):
             process_err = open(logfile, 'w')
-    else:
+    elif gem.log_output != gem.LOG_STDERR:
         process_err = subprocess.PIPE
 
     num_tools = len(tools)
@@ -116,6 +135,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             ## and set stdout to PIPE if there are more
             if num_tools > 1:
                 p_out = subprocess.PIPE
+            logging.debug("Starting Initial process %s %s\nstdout: %s\nstderr %s" % (name, str(params), str(process_out), str(process_err)))
             first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True)
             current_process = first_process
         else:
@@ -124,13 +144,16 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             p_out = process_out
             if i < num_tools - 1:
                 p_out = subprocess.PIPE
+            logging.debug("Starting Piped process %s %s" % (name, str(params)))
             current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err, close_fds=True)
-        #append_logger(current_process, logfile)
+        if gem.log_output != gem.LOG_STDERR:
+            append_logger(current_process, logfile)
         last_process = current_process
 
 
     ## start the input thread
     if input is not None and not raw_stream:
+        logging.debug("Starting input stream thread for %s " % (name))
         input_thread = Thread(target=__write_input, args=(input, first_process.stdin, transform_fun))
         input_thread.start()
 
@@ -176,11 +199,17 @@ def __write_input(sequence, stream, transformer=None):
     @param transformer: optional transformer function
     @type transformer: function
     """
+    logging.info("Input thread method startedfor %s" % (stream))
     for e in sequence:
         if transformer is not None:
             e = transformer(e)
-        stream.write(str(e))
+        try:
+            stream.write(str(e))
+        except Exception, ex:
+            logging.error("Failed to write %s to stream: %s" % (str(e), str(ex)))
+            exit(1)
     stream.close()
+    logging.info("Input thread method finished for %s" % (stream))
 
 
 def multisplit(s, seps):
@@ -202,15 +231,20 @@ def which(program):
     ## use which command
     try:
         params = ["which", program]
-        output = subprocess.check_output(params)
+        process = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if process.wait() != 0:
+            return None
+        output = process.communicate()[0]
+        if output is None or len(output) == 0:
+            return None
+
         path = output.split("\n")[0]
         if path is None or len(path) == 0:
             return None
         return path
     except Exception:
-        raise
         ## ignore exceptions and try path search
-        #return None
+        return None
 
 
 def find_in_path(program):
@@ -236,3 +270,13 @@ def find_in_path(program):
                 return exe_file
 
     return None
+
+
+def gzip(file):
+    """Helper to call gzip on the given file name
+    and compress the file
+    """
+    logging.debug("Starting GZIP compression for %s" % (file))
+    if subprocess.Popen(['gzip', file]).wait() != 0:
+        raise ValueError("Error wile executing gzip on %s" % file)
+    return "%s.gz" % file

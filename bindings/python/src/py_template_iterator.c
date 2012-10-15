@@ -11,7 +11,7 @@ PyObject* gempy_template_iterator_iternext(PyObject *self){
     gt_status error_code;
     Template* tmpl = (Template*) p->tmpl;
     gt_template* template = p->template;
-    while ((error_code=gt_buffered_map_input_get_template(p->map_input,p->template))) {
+    while ((error_code=gt_input_map_parser_get_template(p->map_input,p->template))) {
         if (error_code==GT_BMI_FAIL) continue;
         if (tmpl == NULL){
             tmpl = create_template(template);
@@ -29,7 +29,7 @@ PyObject* gempy_template_iterator_iternext(PyObject *self){
 void gempy_template_iterator_dealloc(PyObject* self){
     gempy_template_iterator* iter = (gempy_template_iterator*) self;
     // close the stream and map
-    gt_buffered_map_input_close(iter->map_input);
+    gt_buffered_input_file_close(iter->map_input);
     // Close files
     gt_input_file_close(iter->input_file);
     Py_XDECREF(iter->tmpl);

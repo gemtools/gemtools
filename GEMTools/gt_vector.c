@@ -25,11 +25,6 @@
 
 #define GT_VECTOR_EXPAND_FACTOR (3.0/2.0)
 
-#define GT_VECTOR_CHECK(vector) \
-  GT_NULL_CHECK(vector); \
-  GT_NULL_CHECK(vector->memory); \
-  GT_ZERO_CHECK(vector->element_size)
-
 GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size) {
   GT_ZERO_CHECK(element_size);
   gt_vector* vector=malloc(sizeof(gt_vector));
@@ -83,11 +78,15 @@ GT_INLINE void gt_vector_copy(gt_vector* vector_to,gt_vector* vector_from) {
   GT_VECTOR_CHECK(vector_to); GT_VECTOR_CHECK(vector_from);
   gt_vector_cast__clean(vector_to,vector_from->element_size);
   gt_vector_reserve(vector_to,vector_from->used,false);
+  gt_vector_set_used(vector_to,gt_vector_get_used(vector_from));
   memcpy(vector_to->memory,vector_from->memory,vector_from->used*vector_from->element_size);
 }
 
 GT_INLINE void* gt_vector_get_mem_element(gt_vector* vector,size_t position,size_t element_size) {
   GT_VECTOR_CHECK(vector); GT_ZERO_CHECK(element_size);
+  if (position>=(vector)->used||position<0) {
+    printf("s"); // FIXME
+  }
   GT_VECTOR_RANGE_CHECK(vector,position);
   return vector->memory+(position*element_size);
 }

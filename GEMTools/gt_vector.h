@@ -30,6 +30,18 @@
 #define GT_VECTOR_OK 1
 #define GT_VECTOR_FAIL 0
 
+/*
+ * Checkers
+ */
+#define GT_VECTOR_CHECK(vector) \
+  GT_NULL_CHECK(vector); \
+  GT_NULL_CHECK(vector->memory); \
+  GT_ZERO_CHECK(vector->element_size)
+#define GT_VECTOR_RANGE_CHECK(vector,position) \
+  GT_VECTOR_CHECK(vector); \
+  gt_fatal_check(position>=(vector)->used||position<0,POSITION_OUT_OF_RANGE_INFO, \
+      (int64_t)position,0ul,((int64_t)(vector)->used)-1);
+
 // Simple linear vector for generic type elements
 typedef struct {
   void* memory;
@@ -37,10 +49,6 @@ typedef struct {
   size_t element_size;
   size_t elements_allocated;
 } gt_vector;
-
-// Checkers
-#define GT_VECTOR_RANGE_CHECK(vector,position) \
-  gt_fatal_check(position>=(vector)->used||position<0,POSITION_OUT_OF_RANGE_INFO,(int64_t)position,0ul,((int64_t)(vector)->used)-1);
 
 // Get the content of the vector
 #define gt_vector_get_mem(vector,type) ((type*)((vector)->memory))
@@ -78,6 +86,8 @@ typedef struct {
 #else
 #define gt_vector_get_elm(vector,position,type) ((type*)gt_vector_get_mem_element(vector,position,sizeof(type)))
 #endif
+
+#define gt_vector_set_elm(vector,position,type,elm) (*gt_vector_get_elm(vector,position,type) = elm)
 
 GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size);
 GT_INLINE gt_status gt_vector_reserve(gt_vector* vector,size_t num_elements,bool zero_mem);

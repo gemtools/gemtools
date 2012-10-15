@@ -24,10 +24,11 @@ typedef struct {
 } gt_shash;
 
 GT_INLINE gt_shash* gt_shash_new(void);
-GT_INLINE void gt_shash_clean(gt_shash* const shash,const bool free_element_mem);
-GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element_mem);
+GT_INLINE void gt_shash_clean(gt_shash* const shash,const bool free_element,const bool free_key);
+GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element,const bool free_key);
 
 GT_INLINE void gt_shash_insert_element(gt_shash* const shash,char* const key,void* element);
+GT_INLINE void* gt_shash_get_key(gt_shash* const shash,char* const key);
 GT_INLINE void* gt_shash_get_element(gt_shash* const shash,char* const key);
 GT_INLINE void gt_shash_remove_element(gt_shash* const shash,char* const key);
 /* Type-safe functions */

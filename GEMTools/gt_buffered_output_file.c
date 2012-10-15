@@ -99,6 +99,7 @@ GT_INLINE gt_output_buffer* __gt_buffered_output_file_request_buffer(gt_buffered
     if (buffered_output_file->buffer[i]->buffer_state==GT_OUTPUT_BUFFER_FREE) {
       ++buffered_output_file->buffer_busy;
       gt_output_buffer_initiallize(buffered_output_file->buffer[i],GT_OUTPUT_BUFFER_BUSY);
+      buffered_output_file->buffer[i]->buffered_output_file = buffered_output_file; // Attach output file
       return buffered_output_file->buffer[i];
     }
   }
@@ -106,6 +107,7 @@ GT_INLINE gt_output_buffer* __gt_buffered_output_file_request_buffer(gt_buffered
     ++buffered_output_file->buffer_busy;
     buffered_output_file->buffer[i] = gt_output_buffer_new();
     gt_output_buffer_initiallize(buffered_output_file->buffer[i],GT_OUTPUT_BUFFER_BUSY);
+    buffered_output_file->buffer[i]->buffered_output_file = buffered_output_file; // Attach output file
     return buffered_output_file->buffer[i];
   }
   gt_fatal_error(ALG_INCONSISNTENCY);
