@@ -1,6 +1,17 @@
 import os
 from setuptools import setup
 from distutils.core import Extension
+from setuptools.command.install import install as _install
+import sys
+
+class install(_install):
+    def run(self):
+        _install.run(self)
+        bins=[x for x in os.listdir("gem/gembinaries")]
+        for file in self.get_outputs():
+            if os.path.basename(file) in bins:
+                print "Making %s executable" % file
+                os.chmod(file, 0755)
 
 gemtools_dir = "../../GEMTools/"
 objs = []
@@ -20,6 +31,7 @@ gemtools = Extension('gem.gemtools',
                                'src/py_template.c', 'src/gemtoolsmodule.c', 'src/py_mappings_iterator.c'])
 
 setup(
+        cmdclass={'install': install},
         name='Gem',
         version='1.3',
         description='Python support library for the GEM mapper and gemtools',
@@ -30,8 +42,9 @@ setup(
         This is the python binding to the gemtools library.
         ''',
         packages=['gem'],
-        data_files=[("gem/gembinaries/", ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("gem/gembinaries")])],
+        package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("gem/gembinaries")]},
         ext_modules=[gemtools],
-        setup_requires=['nose'],
-        test_suite = 'nose.collector',
+        test_suite='nose.collector',
+        zip_safe=False,
+        include_package_data=True,
 )
