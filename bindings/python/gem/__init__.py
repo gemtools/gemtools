@@ -616,12 +616,14 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, max(threads / 2, 1))
 
 
-def gem2sam(input, index, output=None, single_end=False, compact=False, threads=1, quality=None):
-    index = _prepare_index_parameter(index, False)
+def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True):
+    if index is not None:
+        index = _prepare_index_parameter(index, False)
     gem_2_sam_p = [executables['gem-2-sam'],
-                   '-I', index,
                    '-T', str(threads)
     ]
+    if index is not None:
+        gem_2_sam_p.extend(['-I', index])
 
     if quality is None and isinstance(input, files.ReadIterator):
         quality = input.quality
@@ -634,7 +636,21 @@ def gem2sam(input, index, output=None, single_end=False, compact=False, threads=
         gem_2_sam_p.append("--expect-single-end-reads")
     if compact:
         gem_2_sam_p.append("-c")
-    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", utils.read_to_map)
+
+    # GT-25 transform id's
+    transform = utils.read_to_map
+    if check_ids and not single_end:
+        def t(read):
+            split = read.id.split()
+            if len(split) > 1:
+                if split[1][0] in ("1", "2"):
+                    read.id = "%s/%s" % (split[0], split[1][0])
+                else:
+                    raise ValueError("Unable to identify read id pair counter from %s" % read.id)
+            return utils.read_to_map(read)
+        transform = t
+
+    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform)
     return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
 
 
