@@ -3,13 +3,6 @@
 import re
 
 
-def sam_2_map(reads):
-    """Convert sam reads to simple maps"""
-    for read in reads:
-        read.sam_2_gem()
-        yield read
-
-
 def unmapped(reads, exclude=-1):
     """Yield only unmapped reads and reads
     that have only mappings with mismatches >= exclude
@@ -68,7 +61,7 @@ class interleave(object):
         raise StopIteration()
 
 
-def trim(reads, left_trim=0, right_trim=0, min_length=10):
+def trim(reads, left_trim=0, right_trim=0, min_length=10, append_label=False):
     """Trim reads from left and/pr right side.
     min_length is set to 10 by default and is the minimum
     length of the resulting read. If read length < min_length,
@@ -86,6 +79,16 @@ def trim(reads, left_trim=0, right_trim=0, min_length=10):
             if  read.qualities is not None:
                 quals = read.qualities[left_trim:]
         if len(seq) > min_length:
+            if append_label:
+                left_qual = ""
+                right_qual = ""
+                left_seq = read.sequence[:left_trim]
+                right_seq = read.sequence[-right_trim:]
+                if read.qualities:
+                    left_qual = read.qualities[:left_trim]
+                    right_qual = read.qualities[:right_trim]
+                read.id = "%s B T %s %s %s %s" % (read.id, left_seq, right_seq, left_qual, right_qual)
+
             read.sequence = seq
             read.qualities = quals
         yield read

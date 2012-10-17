@@ -16,3 +16,7 @@ bindings/python/nosetests.xml
 /GEMTools/gem-tools-examples
 /bindings/python/nose-1.1.2-py2.7.egg/
 /bindings/python/nose-1.1.2-py2.7.egg/*
+.idea/
+GEMTools/gem-source
+bindings/python/.idea/
+bindings/python/nose-1.2.0-py2.7.egg/

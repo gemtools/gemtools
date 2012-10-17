@@ -8,7 +8,9 @@ import os
 import subprocess
 import __builtin__
 import gem
+import utils
 from utils import which
+
 
 
 __author__ = 'Thasso Griebel'
@@ -37,14 +39,14 @@ class parse_fasta(Parser):
         fasta_lines = list(islice(stream, 2))  # read in chunks of 2
         if not fasta_lines:
             return None
-
+        self.read.type = "fasta"
         self.read.id = fasta_lines[0].rstrip()[1:]
         self.read.sequence = fasta_lines[1].rstrip()
         self.read.qualities = None
         self.read.summary = None
         self.read.mappings = None
 
-        if len(read.sequence) <= 0:
+        if len(self.read.sequence) <= 0:
             return self.next(stream)
         return self.read
 
@@ -56,7 +58,7 @@ class parse_fastq(Parser):
         fastq_lines = list(islice(stream, 4))  # read in chunks of 2
         if not fastq_lines:
             return None
-
+        self.read.type = "fastq"
         self.read.id = fastq_lines[0].rstrip()[1:]
         self.read.sequence = fastq_lines[1].rstrip()
         self.read.qualities = fastq_lines[3].rstrip()
@@ -77,6 +79,7 @@ class parse_map(Parser):
             return None
         line = line.rstrip()
         split = line.split("\t")
+        self.read.type = "map"
         self.read.id = split[0]
         self.read.sequence = split[1]
         if len(split) == 5:
@@ -106,6 +109,7 @@ class parse_sam(Parser):
                 continue
             line = line.rstrip()
             split = line.split("\t")
+            self.read.type = "sam"
             self.read.line = line
             self.read.id = split[0]
             self.read.sequence = split[9]
@@ -115,11 +119,29 @@ class parse_sam(Parser):
             if self.read.qualities in ["", "*"]:
                 self.read.qualities = None
 
+
+            ## update id and add /1 /2 if its a paired read
+            flag = int(split[1])
+            if 0x1 & flag == 0x1 and not self.read.id.endswith("/1") and not self.read.id.endswith("/2"):
+                ## multiple segments
+                if 0x40 & flag == 0x40:
+                    self.read.id += "/1"
+                else:
+                    self.read.id += "/2"
+
+            chr = split[2]
+            if chr != "*":
+                if flag & 0x10 == 0x10:
+                    ## seq is reverser complement
+                    self.read.sequence = utils.reverseComplement(self.read.sequence)
+                    if self.read.qualities:
+                        self.read.qualities = self.read.qualities[::-1]
+
             return self.read
 
 
 class ReadIterator(object):
-    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False):
+    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False, quality=None):
         """
         Create a ReadIterator from a stream with a given parser.
         If the filename is given, the iterator can be cloned to re-read
@@ -143,6 +165,7 @@ class ReadIterator(object):
         self.filename = filename
         self.process = process
         self.remove_after_iteration = remove_after_iteration
+        self.quality = quality
 
     def __iter__(self):
         return self
@@ -167,7 +190,7 @@ class ReadIterator(object):
     def clone(self):
         if not self.filename or self.remove_after_iteration:
             raise ValueError("No filename given or file is marked for deletion, this reader can not be cloned!")
-        return ReadIterator(open_file(self.filename), self.parser.__class__(), self.filename)
+        return ReadIterator(open_file(self.filename), self.parser.__class__(), self.filename, quality=self.quality)
 
 
 ## type to parser map
@@ -180,7 +203,7 @@ supported_types = {
 }
 
 
-def open(input, type=None, process=None, remove_after_iteration=False):
+def open(input, type=None, process=None, remove_after_iteration=False, quality=None):
     """
     Open the given file and return on iterator
     over Reads.
@@ -195,6 +218,8 @@ def open(input, type=None, process=None, remove_after_iteration=False):
     @type process: Process
     @param remove_after_iteration: if set to True, the input file is removed after a completed iteration of the content
     @type remove_after_iteration: boolean
+    @param quality: the gem quality parameter
+    @type quality: string
     """
     is_string = isinstance(input, basestring)
     if type is None and is_string:
@@ -218,7 +243,7 @@ def open(input, type=None, process=None, remove_after_iteration=False):
         input = None  ## reset filename
 
     return ReadIterator(stream, supported_types[type](), input, process=process,
-                        remove_after_iteration=remove_after_iteration)
+                        remove_after_iteration=remove_after_iteration, quality=quality)
 
 
 def open_file(file):
@@ -297,6 +322,3 @@ def __zcat():
     if not __zcat_path:
         raise ValueError("Unable to find a zcat|gzcat executable in PATH!")
     return __zcat_path
-
-
-

@@ -236,6 +236,12 @@ def _get_chromosomes(index):
         raise ValueError("gem-info failed")
     return sorted(set(chrs))
 
+def filter_by_distance(junctions, max_distance):
+    """Yields the junction sites that have a distance less than equal max_distance"""
+    for j in junctions:
+        if abs(j.descriptor[2]-j.descriptor[5]) <= max_distance:
+            yield j
+
 
 def from_junctions(junctions_file):
     """

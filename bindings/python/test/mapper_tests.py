@@ -148,11 +148,8 @@ def test_async_splitmapper_execution():
     mappings = gem.splitmapper(input, index)
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.filename is not None
-    assert os.path.exists(mappings.filename)
-    assert mappings.remove_after_iteration
+    assert mappings.filename is None
     assert sum(1 for x in mappings) == 10000
-    assert not os.path.exists(mappings.filename)
 
 
 @with_setup(setup_func, cleanup)
@@ -176,10 +173,9 @@ def test_junction_extraction_from_gtf():
 @with_setup(setup_func, cleanup)
 def test_junction_extraction_from_splitmap():
     input = files.open(testfiles["reads_1.fastq"])
-    index_hash = testfiles["genome.hash"]
     index = testfiles["genome.gem"]
-    gtf_junctions = list(junctions.from_gtf(testfiles["refseq.gtf"]))
-    (splitmap, jj) = gem.extract_junctions(input, index, index_hash, merge_with=[gtf_junctions])
+    gtf_junctions = set(junctions.from_gtf(testfiles["refseq.gtf"]))
+    (splitmap, jj) = gem.extract_junctions(input, index, merge_with=gtf_junctions)
     assert splitmap is not None
     assert junctions is not None
     assert len(jj) == 260
@@ -200,6 +196,12 @@ def test_sync_score_and_validate_execution():
         count += 1
     assert count == 10000
 
+
+@with_setup(setup_func, cleanup)
+def test_quality_pass_on_execution():
+    input = files.open(testfiles["reads_1.fastq"])
+    mappings = gem.mapper(input, index, output=results_dir+"/quality_passon_mapping.map")
+    assert mappings.quality == "offset-33", "Quality should be 'offset-33' but is %s" % (str(mappings.quality))
 
 @with_setup(setup_func, cleanup)
 def test_gem2sam_execution():
