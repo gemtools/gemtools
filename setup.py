@@ -57,7 +57,7 @@ http://algorithms.cnag.cat/
 
 The code for this project can be found on github:
 
-
+https://github.com/gemtools/gemtools
 ''',
         package_dir={'':'python'},
         packages=['gem'],
