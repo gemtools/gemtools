@@ -1,0 +1,13 @@
+===================================================================================================
++ Scheduled v2.0 (Mayor concerns)
+===================================================================================================
+        + Lazy parsing by default (gt_alingment, gt_template)
+        + Slab_allocator for mempry efficient parsing MAP
+        + Intensive testing of basic structures deep copy
+          - Improve copy of lazy structure
+        + Xhash using string as value wrt deep copy
+        + gt_MM.c {slab_allocator, volatile_mem}
+        + Read maps chunk-wise {map1,..mapN | mapN+1,..mapM}
+        + Avoid 1 buffer level for mmap files
+        + Avoid writing to input_file_buffer 
+===================================================================================================
