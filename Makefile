@@ -1,16 +1,16 @@
 
 all:
 	$(MAKE) -C GEMTools
-	$(MAKE) -C bindings/python
+	$(MAKE) -C python
 
 install: all
-	$(MAKE) -C bindings/python install
+	$(MAKE) -C python install
 
 install-user: all
-	$(MAKE) -C bindings/python install-user
+	$(MAKE) -C python install-user
 
 clean:
 	$(MAKE) -C GEMTools clean
-	$(MAKE) -C bindings/python clean
+	$(MAKE) -C python clean
 
 

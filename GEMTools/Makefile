@@ -12,6 +12,7 @@ include Makefile.mk
 all: release
 	
 release:
+	@mkdir -p build bin lib
 	$(MAKE) --directory=src
 	$(MAKE) --directory=tools
 
@@ -24,3 +25,4 @@ check:
 
 clean:
 	@rm -f $(FOLDER_BIN)/* $(FOLDER_BUILD)/*.o $(FOLDER_LIB)/*.a $(FOLDER_TEST_BUILD)/*
+	@rm -Rf build bin lib
