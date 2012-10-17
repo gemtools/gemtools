@@ -16,7 +16,7 @@
 // Orientation (strand)
 typedef enum { FORWARD, REVERSE } gt_strand;
 // Types of junctions between map blocks
-typedef enum { NO_JUNCTION, SPLICE, POSITIVE_SKIP, NEGATIVE_SKIP, INSERT } gt_junction_t;
+typedef enum { NO_JUNCTION, SPLICE, POSITIVE_SKIP, NEGATIVE_SKIP, INSERT, JUNCTION_UNKNOWN } gt_junction_t;
 // Mismatch string format (lazy parsing)
 typedef enum { MISMATCH_STRING_GEMv0, MISMATCH_STRING_GEMv1 } gt_misms_string_t;
 

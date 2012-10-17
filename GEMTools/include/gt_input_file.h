@@ -25,7 +25,7 @@
 /*
  * File specifics (formats, attributes, ...)
  */
-typedef enum { MULTI_FASTA, FASTQ, MAP, SAM, UNKNOWN } gt_file_format;
+typedef enum { MULTI_FASTA, FASTQ, MAP, SAM, FILE_FORMAT_UNKNOWN } gt_file_format;
 /*
  * MAP specific info
  */

@@ -25,7 +25,7 @@ gt_input_file* gt_input_stream_open(FILE* stream) {
   input_file->fildes = -1;
   input_file->eof = feof(stream);
   input_file->file_size = UINT64_MAX;
-  input_file->file_format = UNKNOWN;
+  input_file->file_format = FILE_FORMAT_UNKNOWN;
   gt_cond_fatal_error(pthread_mutex_init(&input_file->input_mutex, NULL),SYS_MUTEX_INIT);
   // Auxiliary Buffer (for synch purposes)
   input_file->file_buffer = malloc(GT_INPUT_BUFFER_SIZE);
@@ -52,7 +52,7 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
   input_file->file_name = file_name;
   input_file->file_size = stat_info.st_size;
   input_file->eof = (input_file->file_size==0);
-  input_file->file_format = UNKNOWN;
+  input_file->file_format = FILE_FORMAT_UNKNOWN;
   gt_cond_fatal_error(pthread_mutex_init(&input_file->input_mutex,NULL),SYS_MUTEX_INIT);
   if (mmap_file) {
     input_file->file = NULL;
@@ -174,7 +174,7 @@ GT_INLINE bool gt_input_file_test_map(
 // Format detector (cascade of checkers)
 gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file) {
   GT_INPUT_FILE_CHECK(input_file);
-  if (input_file->file_format != UNKNOWN) return input_file->file_format;
+  if (input_file->file_format != FILE_FORMAT_UNKNOWN) return input_file->file_format;
   // Try to determine the file format
   gt_input_file_fill_buffer(input_file);
   // MAP test
@@ -186,7 +186,7 @@ gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file)
   // TODO: Install FASTQ
   // Unknown format
   // gt_error(FILE_FORMAT);
-  return UNKNOWN;
+  return FILE_FORMAT_UNKNOWN;
 }
 
 /*

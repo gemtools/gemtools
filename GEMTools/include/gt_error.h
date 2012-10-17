@@ -207,6 +207,8 @@ extern FILE* gt_error_stream;
 // IMP (Input MAP Parser). Parsing Maps Errors
 #define GT_ERROR_PARSE_MAP_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, wrong number of blocks"
 #define GT_ERROR_PARSE_MAP_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, bad character found"
+#define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad character found"
+#define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_NUM_ACCEPTORS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad number of acceptors"
 // IMP (Input MAP Parser). Parsing Mismatch String Errors
 #define GT_ERROR_PARSE_MAP_MISMS_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, bad character found"
 #define GT_ERROR_PARSE_MAP_MISMS_BAD_MISMS_POS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, unsorted mismatches"

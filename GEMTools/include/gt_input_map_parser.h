@@ -52,7 +52,7 @@
 #define GT_IMP_PE_MAP_BAD_CHARACTER 63
 
 #define GT_IMP_PE_SPLIT_MAP_BAD_CHARACTER 65
-#define GT_IMP_PE_SPLIT_BAD_NUM_ACCEPTORS 66
+#define GT_IMP_PE_SPLIT_MAP_BAD_NUM_ACCEPTORS 66
 
 #define GT_IMP_PE_MISMS_ALREADY_PARSED 70
 #define GT_IMP_PE_MISMS_BAD_CHARACTER 71
@@ -75,7 +75,7 @@
 #define GT_MAP_SPLITMAP_CLOSE_GEMv0 ']'
 #define GT_MAP_SPLITMAP_DEF_GEMv0 '='
 #define GT_MAP_SPLITMAP_SEP_GEMv0 '~'
-#define GT_MAP_SPLITMAP_NEXT_ACCEPTOR_GEMv0 '-'
+#define GT_MAP_SPLITMAP_NEXT_GEMv0 '-'
 #define GT_MAP_SCORE_GEMv0 '@'
 #define GT_MAP_SCORE_SEP '/'
 
@@ -99,8 +99,6 @@
 #define GT_MAP_SKIP_POSITIVE '+'
 #define GT_MAP_SKIP_NEGATIVE '-'
 #define GT_MAP_SKIP_SPLICE '*'
-
-#define GT_SPLIT_POS_NEXT ','
 
 /*
  * Lazy parsing:
@@ -128,7 +126,7 @@ GT_INLINE gt_status gt_input_map_parse_template(char* const string,gt_template* 
 GT_INLINE gt_status gt_input_map_parse_alignment(char* const string,gt_alignment* const alignment);
 GT_INLINE gt_status gt_input_map_parse_counters(char* const string,gt_vector* const counters,gt_shash* const attributes);
 GT_INLINE gt_status gt_input_map_parse_map(char* const string,gt_map* const map);
-GT_INLINE gt_status gt_input_map_parse_map_list(char* const string,gt_vector* const maps);
+GT_INLINE gt_status gt_input_map_parse_map_list(char* const string,gt_vector* const maps,const uint64_t num_maps);
 
 /*
  * MAP High-level Parsers
