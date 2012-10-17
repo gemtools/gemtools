@@ -6,3 +6,5 @@
 GEMTools/bin
 GEMTools/build
 GEMTools/lib
+build/
+python/Gem.egg-info/
