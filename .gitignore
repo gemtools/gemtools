@@ -3,6 +3,7 @@
 *.so
 *.a
 .idea/
+*.iml
 GEMTools/bin
 GEMTools/build
 GEMTools/lib
