@@ -19,14 +19,17 @@ all: $(GT_TESTS) end_banner
 
 coverage: $(GT_COVERAGE) end_banner
 
-$(GT_TESTS): clean
+setup:
+	@mkdir -p build
+
+$(GT_TESTS): clean setup
 	$(CC) $(GT_TESTS_FLAGS) $(INCLUDE_FLAGS) $(LIB_PATH_FLAGS) -o ./build/$@ $@.c $(LIBS)
 	@echo "=======================================================================>>"
 	@echo "==>> Testing " $@
 	@echo "=======================================================================>>"
 	./build/$@
 	
-$(GT_COVERAGE): clean
+$(GT_COVERAGE): clean setup
 	$(CC) $(GT_COVERAGE_FLAGS) $(INCLUDE_FLAGS) $(LIB_PATH_FLAGS) -o ./build/$@ $@.c $(LIBS)
 	./build/$@
 	
@@ -35,3 +38,4 @@ end_banner:
 	
 clean:
 	@rm -rf $(FOLDER_TEST_BUILD)/*
+	@rm -rf build

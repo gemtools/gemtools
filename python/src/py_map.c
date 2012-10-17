@@ -32,7 +32,7 @@ PyObject* Map_getseq_name(Map *self, void *closure){
 }
 
 int Map_setseq_name(Map *self, PyObject *value, void *closure){
-    gt_map_set_seq_name(self->map, PyString_AsString(value));
+    //gt_map_set_seq_name(self->map, PyString_AsString(value));
     return 0;
 }
 
@@ -78,7 +78,7 @@ PyObject* Map_getdirection(Map *self, void *closure){
 }
 
 int Map_setdirection(Map *self, PyObject *value, void *closure){
-    gt_map_set_direction(self->map, PyInt_AsLong(value));
+    //gt_map_set_direction(self->map, PyInt_AsLong(value));
     return 0;
 }
 

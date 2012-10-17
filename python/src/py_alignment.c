@@ -51,7 +51,7 @@ char* gempy_alignment_get_tag(Alignment* self){
 }
 
 int Alignment_settag(Alignment *self, PyObject *value, void *closure){
-    gt_alignment_set_tag(self->alignment, PyString_AsString(value));
+    //gt_alignment_set_tag(self->alignment, PyString_AsString(value));
     return 0;
 }
 
@@ -67,7 +67,7 @@ PyObject* Alignment_getread(Alignment *self, void *closure){
 }
 
 int Alignment_setread(Alignment *self, PyObject *value, void *closure){
-    gt_alignment_set_read(self->alignment, PyString_AsString(value));
+    //gt_alignment_set_read(self->alignment, PyString_AsString(value));
     return 0;
 }
 
@@ -83,7 +83,7 @@ PyObject* Alignment_getqualities(Alignment *self, void *closure){
 }
 
 int Alignment_setqualities(Alignment *self, PyObject *value, void *closure){
-    gt_alignment_set_qualities(self->alignment, PyString_AsString(value));
+    //gt_alignment_set_qualities(self->alignment, PyString_AsString(value));
     return 0;
 }
 
@@ -109,7 +109,7 @@ int Alignment_setmax_complete_strata(Alignment *self, PyObject *value, void *clo
                         "The first attribute value must be a long");
                         return -1;
     }
-    gt_alignment_set_mcs(self->alignment, PyLong_AsUnsignedLongLong(value));
+    //gt_alignment_set_mcs(self->alignment, PyLong_AsUnsignedLongLong(value));
     return 0;
 }
 
