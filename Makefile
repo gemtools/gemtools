@@ -15,7 +15,7 @@ test: all
 
 clean:
 	$(MAKE) -C GEMTools clean
-	@rm -Rf build
+	@rm -Rf build dist
 	@rm -Rf python/Gem.egg-info
 
 

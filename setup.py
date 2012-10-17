@@ -39,12 +39,13 @@ gemtools = Extension('gem.gemtools',
 
 setup(
         cmdclass={'install': install, 'build_ext': build_ext},
-        name='Gem',
+        name='Gemtools',
         version='1.3',
         description='Python support library for the GEM mapper and the gemtools library',
         author='Thasso Griebel',
         author_email='thasso.griebel@gmail.com',
         url='http://algorithms.cnag.cat/',
+        license="GNU Library or Lesser General Public License (LGPL)",
         long_description='''This is the python binding and wrapper library around the GEM mapper.
 The module allows you to run teh GEM mapper and simplifies building mapping
 pipeline in python. In addition, we provide a fast C based parsing library that
@@ -65,4 +66,16 @@ The code for this project can be found on github:
         test_suite='nose.collector',
         zip_safe=False,
         include_package_data=True,
+        platforms=['lx64'],
+        classifiers=[
+          'Development Status :: 4 - Beta',
+          'Environment :: Console',
+          'Intended Audience :: End Users/Desktop',
+          'Intended Audience :: Developers',
+          'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',
+          'Operating System :: POSIX :: Linux',
+          'Programming Language :: Python',
+          'Programming Language :: C',
+          'Topic :: Scientific/Engineering :: Bio-Informatics',
+        ],
 )
