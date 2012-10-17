@@ -26,7 +26,7 @@ PyObject* Template_gettag(Template *self, void *closure){
 }
 
 int Template_settag(Template *self, PyObject *value, void *closure){
-    gt_template_set_tag(self->template, PyString_AsString(value));
+    //gt_template_set_tag(self->template, PyString_AsString(value));
     return 0;
 }
 

@@ -4,7 +4,7 @@ import os
 
 ## setup testfiles for easier access
 __base_dir = os.path.dirname(os.path.abspath(__file__))
-__testfiles_dir = os.path.realpath(__base_dir + "/../../../testdata")
+__testfiles_dir = os.path.realpath(__base_dir + "/../testdata")
 
 testfiles = {}
 

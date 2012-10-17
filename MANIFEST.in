@@ -1,0 +1,6 @@
+graft GEMTools
+include python/gem/gembinaries/*
+include python/src/*
+include python/test/*
+include python/testdata/*
+include README.md

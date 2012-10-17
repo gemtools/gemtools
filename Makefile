@@ -1,16 +1,21 @@
 
 all:
 	$(MAKE) -C GEMTools
-	$(MAKE) -C bindings/python
+	python setup.py build
 
 install: all
-	$(MAKE) -C bindings/python install
+	python setup.py install
 
 install-user: all
-	$(MAKE) -C bindings/python install-user
+	python setup.py install-user
+
+test: all
+	-$(MAKE) -C GEMTools check 
+	python setup.py nosetests
 
 clean:
 	$(MAKE) -C GEMTools clean
-	$(MAKE) -C bindings/python clean
+	@rm -Rf build dist
+	@rm -Rf python/Gem.egg-info
 
 
