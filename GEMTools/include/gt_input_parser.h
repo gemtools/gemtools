@@ -15,11 +15,11 @@
  * Internal Building Blocks for parsing
  */
 #define GT_NEXT_CHAR(text_line) ++(*text_line)
+#define GT_IS_EOL(text_line) gt_expect_false((**text_line)==EOL || (**text_line)==EOS)
 #define GT_READ_UNTIL(text_line,test) \
-  while (gt_expect_true(!(test) && (**text_line)!=EOL)) { \
+  while (gt_expect_true(!(test) && !GT_IS_EOL(text_line))) { \
     GT_NEXT_CHAR(text_line); \
   }
-#define GT_IS_EOL(text_line) gt_expect_false((**text_line)==EOL)
 #define GT_PARSE_NUMBER(text_line,number) \
   number = 0; \
   while (gt_expect_true(gt_is_number(**text_line))) { \
@@ -37,7 +37,7 @@
   if (is_negative) number = -number; \
 }
 #define GT_SKIP_LINE(text_line) \
-  while (__builtin_expect((**text_line)!=EOL,1)) { \
+  while (!GT_IS_EOL(text_line)) { \
     ++(*text_line); \
   }
 

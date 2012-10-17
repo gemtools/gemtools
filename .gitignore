@@ -1,7 +1,6 @@
 *.pyc
 *.o
 *.so
-*.a
 .idea/
 GEMTools/bin
 GEMTools/build
