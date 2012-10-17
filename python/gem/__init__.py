@@ -2,7 +2,6 @@
 """Python wrapper around the GEM2 mapper that provides
 ability to feed data into GEM and retreive the mappings"""
 import os
-import shutil
 import sys
 import logging
 
@@ -14,7 +13,6 @@ import tempfile
 import files
 from . import utils
 import pkg_resources
-import junctions as gemjunctions
 import splits
 import filter as gemfilter
 

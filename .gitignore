@@ -1,7 +1,6 @@
 *.pyc
 *.o
 *.so
-*.a
 .idea/
 *.iml
 GEMTools/bin
@@ -9,3 +8,4 @@ GEMTools/build
 GEMTools/lib
 build/
 python/Gemtools.egg-info
+.vagrant
