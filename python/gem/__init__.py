@@ -187,13 +187,13 @@ class Read(object):
             else:
                 quality_split = [None, None]
         if isPaired:
-            r1 = self._to_fastq(self.id+append1, sequence_split[0], quality_split[0])
-            r2 = self._to_fastq(self.id+append2, sequence_split[1], quality_split[1])
+            r1 = self._to_fastq(self.id+append1, sequence_split[0], quality_split[0], _trim_qualities)
+            r2 = self._to_fastq(self.id+append2, sequence_split[1], quality_split[1], _trim_qualities)
             return "%s\n%s" % (r1, r2)
-        return "%s" % self._to_fastq(self.id, self.sequence, self.qualities)
+        return "%s" % self._to_fastq(self.id, self.sequence, self.qualities, _trim_qualities)
 
 
-    def _to_fastq(self, id, sequence, qualities):
+    def _to_fastq(self, id, sequence, qualities, trim_qualities=False):
         """Convert to Fastq and fakes qualities if they are not present"""
         if len(sequence) <= 0:
             raise ValueError("Sequence length is < 0 for : \n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
@@ -204,11 +204,15 @@ class Read(object):
             qualities = '[' * len(sequence)
 
         if len(sequence) != len(qualities) and qualities is not None:
-            if _trim_qualities:
-                #logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
-                sizes = [len(qualities), len(sequence)]
-                sizes.sort()
-                qualities = qualities[:(sizes[0] - sizes[1])]
+            if trim_qualities:
+                ql = len(qualities)
+                sl = len(sequence)
+                if ql < sl:
+                    # extend qualities
+                    qualities = "%s%s" % (qualities, ('[' * (sl - ql)))
+                else:
+                    # cut qualities
+                    qualities = qualities[:(sl - ql)]
             else:
                 raise ValueError(
                     "Different sequence and quality sizes for :\n%s\n%s\n%s" % (id, sequence, qualities))
