@@ -46,6 +46,25 @@ def test_merging_maps():
             assert read.mappings == "chr15:+:72492866:75"
     assert count == 10
 
+
+@with_setup(setup_func, cleanup)
+def test_indexer():
+    result = results_dir + "/genome_index"
+    input = testfiles["genome.fa"]
+    index = gem.index(input, result)
+    assert index == result+".gem"
+    assert os.path.exists(result+".gem")
+
+
+@with_setup(setup_func, cleanup)
+def test_indexer_output_suffix():
+    result = results_dir + "/genome_index.gem"
+    input = testfiles["genome.fa"]
+    index = gem.index(input, result)
+    assert index == result+".gem"
+    assert os.path.exists(result+".gem")
+
+
 @with_setup(setup_func, cleanup)
 def test_merging_maps_to_file():
     input = files.open(testfiles["test_merge_target.map"])
