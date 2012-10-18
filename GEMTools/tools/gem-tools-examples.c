@@ -146,6 +146,9 @@ void gt_example_map_string_parsing() {
    */
   register gt_vector* map_list = gt_vector_new(10,sizeof(gt_map*));
   // Parse multiple old split-map
+  error_code+=gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list,1);
+  error_code+=gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list,1);
+  error_code+=gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list,1);
   error_code+=gt_input_map_parse_map_list("[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,1);
   error_code+=gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list,1);
   error_code+=gt_input_map_parse_map_list(
