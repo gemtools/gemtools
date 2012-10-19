@@ -12,10 +12,6 @@
  */
 GT_INLINE void gt_strncpy(char* const buffer_dst,char* const buffer_src,const uint64_t length) {
   GT_NULL_CHECK(buffer_dst); GT_NULL_CHECK(buffer_src);
-  //  register uint64_t i;
-  //  for (i=0;i<length;++i) {
-  //    buffer_dst[i] = buffer_src[i];
-  //  }
   memcpy(buffer_dst,buffer_src,length);
   buffer_dst[length] = EOS;
 }

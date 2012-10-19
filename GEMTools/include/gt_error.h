@@ -130,6 +130,7 @@ extern FILE* gt_error_stream;
 // Memory errors
 #define GT_ERROR_MEM_HANDLER "Could not allocate handler"
 #define GT_ERROR_MEM_ALLOC "Could not allocate memory"
+#define GT_ERROR_MEM_ALLOC_INFO "Could not allocate memory (%"PRIu64" requested)"
 #define GT_ERROR_MEM_REALLOC "Could not reallocate memory"
 #define GT_ERROR_NULL_HANDLER "Null handler or fields not properly allocated"
 #define GT_ERROR_NULL_HANDLER_INFO "Null handler %s "

@@ -52,11 +52,11 @@ GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
 }
 GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
+  gt_alignment_clear_maps(alignment);
   gt_string_delete(alignment->tag);
   gt_string_delete(alignment->read);
   gt_string_delete(alignment->qualities);
   gt_vector_delete(alignment->counters);
-  gt_alignment_clear_maps(alignment);
   gt_vector_delete(alignment->maps);
   gt_shash_delete(alignment->maps_dictionary,true,true);
   gt_shash_delete(alignment->attributes,true,true);
@@ -247,6 +247,9 @@ GT_INLINE void gt_alignment_set_map(gt_alignment* const alignment,gt_map* const 
   *gt_vector_get_elm(alignment->maps,position,gt_map*) = map;
 }
 GT_INLINE void gt_alignment_clear_maps(gt_alignment* const alignment) {
+  if (alignment->counters->memory == NULL) {
+    printf("sss");
+  }
   GT_ALIGNMENT_CHECK(alignment);
   GT_VECTOR_ITERATE(alignment->maps,alg_map,alg_map_pos,gt_map*) {
     gt_map_delete(*alg_map);

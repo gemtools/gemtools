@@ -9,33 +9,42 @@
 ROOT_PATH=..
 include ../Makefile.mk
 
-GT_TESTS=gt_test_commons gt_test_core_structures gt_test_parsers
-GT_TESTS_FLAGS=$(ARCH_FLAGS) $(DEBUG_FLAGS)
+FOLDER_TEST_BUILD=./build
+FOLDER_TEST_SCRIPT=./script
+
+GT_UTESTS=gt_utest_commons gt_utest_core_structures gt_utest_parsers
+GT_ITESTS=gt_itest_map_parser
+
+GT_UTESTS_FLAGS=$(ARCH_FLAGS) $(DEBUG_FLAGS)
 GT_COVERAGE_FLAGS=-g -Wall -fprofile-arcs -ftest-coverage $(GT_TESTS_FLAGS)
 
 LIBS=-lpthread -lgemtools -lcheck
 
-all: $(GT_TESTS) end_banner
+all: check coverage
 
-coverage: $(GT_COVERAGE) end_banner
+check: clean setup $(GT_UTESTS) $(GT_ITESTS) end_banner
 
-setup:
-	@mkdir -p build
+coverage: clean setup $(GT_COVERAGE) end_banner
 
-$(GT_TESTS): clean setup
-	$(CC) $(GT_TESTS_FLAGS) $(INCLUDE_FLAGS) $(LIB_PATH_FLAGS) -o ./build/$@ $@.c $(LIBS)
+$(GT_UTESTS):
+	$(CC) $(GT_UTESTS_FLAGS) $(INCLUDE_FLAGS) $(LIB_PATH_FLAGS) -o $(FOLDER_TEST_BUILD)/$@ $@.c $(LIBS)
 	@echo "=======================================================================>>"
 	@echo "==>> Testing " $@
 	@echo "=======================================================================>>"
-	./build/$@
+	-$(FOLDER_TEST_BUILD)/$@
+	
+$(GT_ITESTS): 
+	/bin/bash $(FOLDER_TEST_SCRIPT)/$@.sh
 	
 $(GT_COVERAGE): clean setup
-	$(CC) $(GT_COVERAGE_FLAGS) $(INCLUDE_FLAGS) $(LIB_PATH_FLAGS) -o ./build/$@ $@.c $(LIBS)
-	./build/$@
+	$(CC) $(GT_COVERAGE_FLAGS) $(INCLUDE_FLAGS) $(LIB_PATH_FLAGS) -o $(FOLDER_TEST_BUILD)/$@ $@.c $(LIBS)
+	$(FOLDER_TEST_BUILD)/$@
+	
+setup:
+	@mkdir -p $(FOLDER_TEST_BUILD) $(FOLDER_TEST_SCRIPT)
 	
 end_banner: 	
 	@echo "=======================================================================>>"
 	
 clean:
-	@rm -rf $(FOLDER_TEST_BUILD)/*
-	@rm -rf build
+	@rm -rf $(FOLDER_TEST_BUILD)

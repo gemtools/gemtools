@@ -109,7 +109,8 @@ void gt_example_map_parsing() {
   gt_template* template = gt_template_new();
   gt_string* text = gt_string_new(0);
   gt_status error_code;
-  while ((error_code=gt_input_map_parser_get_template__src_text(buffered_input,template,text))) {
+//  while ((error_code=gt_input_map_parser_get_template__src_text(buffered_input,template,text))) {
+  while ((error_code=gt_input_map_parser_get_template(buffered_input,template))) {
     if (error_code==GT_BMI_FAIL) {
       printf(">>> "PRIgts"\n",PRIgts_content(text));
       continue;

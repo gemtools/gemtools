@@ -39,7 +39,7 @@ GT_INLINE void gt_template_clear_handler(gt_template* const template) {
 }
 GT_INLINE void gt_template_clear(gt_template* const template,const bool clear_alignments) {
   GT_TEMPLATE_CHECK(template);
-  if (clear_alignments) gt_template_clear_blocks(template);
+  if (clear_alignments) gt_template_delete_blocks(template);
   gt_vector_clean(template->counters);
   gt_vector_clean(template->mmaps);
   gt_vector_clean(template->mmaps_attributes);

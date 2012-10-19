@@ -18,7 +18,7 @@ GT_INLINE gt_string* gt_string_new(const uint64_t initial_buffer_size) {
   // Initialize string
   if (gt_expect_true(initial_buffer_size>0)) {
     string->buffer = malloc(initial_buffer_size);
-    gt_cond_fatal_error(!string->buffer,MEM_ALLOC);
+    gt_cond_fatal_error(!string->buffer,MEM_ALLOC_INFO,initial_buffer_size);
     string->buffer[0] = EOS;
   } else {
     string->buffer = NULL;
