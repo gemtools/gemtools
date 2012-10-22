@@ -3,7 +3,6 @@ from setuptools import setup
 from distutils.core import Extension
 from setuptools.command.install import install as _install
 from setuptools.command.build_ext import build_ext as _build_ext
-import sys
 import subprocess
 
 # hack the setup tools installation
@@ -42,9 +41,9 @@ setup(
         name='Gemtools',
         version='1.3',
         description='Python support library for the GEM mapper and the gemtools library',
-        author='Thasso Griebel',
+        author='Thasso Griebel, Santiago Marco Sola',
         author_email='thasso.griebel@gmail.com',
-        url='http://algorithms.cnag.cat/',
+        url='https://github.com/gemtools/gemtools',
         license="GNU Library or Lesser General Public License (LGPL)",
         long_description='''This is the python binding and wrapper library around the GEM mapper.
 The module allows you to run teh GEM mapper and simplifies building mapping
@@ -53,7 +52,7 @@ is used to parse GEM results and extract mapping information.
 
 For more information about the GEM see
 
-http://algorithms.cnag.cat/
+http://algorithms.cnag.cat/wiki
 
 The code for this project can be found on github:
 
