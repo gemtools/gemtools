@@ -2,12 +2,11 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_template.c
  * DATE: 01/06/2012
- * DESCRIPTION: // TODO
+ * DESCRIPTION: Data structure modeling sequences' templates.
+ *   That is, set of alignments and relationships between their maps.
  */
 
 #include "gt_template.h"
-#include "gt_shash.h"
-#include "gt_iterators.h"
 
 #define GT_TEMPLATE_TAG_INITIAL_LENGTH 100
 #define GT_TEMPLATE_NUM_INITIAL_COUNTERS 10

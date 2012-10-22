@@ -2,7 +2,9 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_string.c
  * DATE: 20/08/2012
- * DESCRIPTION: // TODO
+ * DESCRIPTION: Simple string implementation.
+ *   Static stings gt_string_new(0), which share memory across instances (stores mem ptr)
+ *   Dynamic strings gt_string_new(n>0), which handle their own memory and hold copy of the string
  */
 
 #include "gt_string.h"
@@ -28,8 +30,8 @@ GT_INLINE gt_string* gt_string_new(const uint64_t initial_buffer_size) {
   return string;
 }
 GT_INLINE void gt_string_resize(gt_string* const string,const uint64_t new_buffer_size) {
-  GT_STRING_CHECK_NO_STATIC(string);
-  if (string->allocated < new_buffer_size) {
+  GT_STRING_CHECK_BUFFER(string);
+  if (string->allocated > 0 && string->allocated < new_buffer_size) {
     string->buffer = realloc(string->buffer,new_buffer_size);
     gt_cond_fatal_error(!string->buffer,MEM_REALLOC);
     string->allocated = new_buffer_size;
@@ -100,6 +102,10 @@ GT_INLINE char* gt_string_get_string(gt_string* const string) {
 GT_INLINE uint64_t gt_string_get_length(gt_string* const string) {
   GT_STRING_CHECK(string);
   return string->length;
+}
+GT_INLINE void gt_string_set_length(gt_string* const string,const uint64_t length) {
+  GT_STRING_CHECK(string);
+  string->length = length;
 }
 
 GT_INLINE char* gt_string_char_at(gt_string* const string,const uint64_t pos) {

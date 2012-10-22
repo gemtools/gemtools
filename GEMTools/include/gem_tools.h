@@ -31,8 +31,6 @@
 #include "gt_alignment_utils.h"
 #include "gt_template.h"
 #include "gt_template_utils.h"
-// Iterators
-#include "gt_iterators.h"
 
 /*
  * Counters Helpers

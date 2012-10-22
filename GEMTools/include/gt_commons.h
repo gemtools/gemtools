@@ -2,7 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_commons.c
  * DATE: 01/06/2012
- * DESCRIPTION: // TODO
+ * DESCRIPTION: Base module containing general purpose functions
  */
 
 #ifndef GT_COMMONS_H_

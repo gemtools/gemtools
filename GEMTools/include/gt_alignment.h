@@ -118,4 +118,16 @@ GT_INLINE void gt_alignment_new_map_iterator(gt_alignment* const alignment,gt_al
 GT_INLINE gt_map* gt_alignment_next_map(gt_alignment_map_iterator* const alignment_map_iterator);
 GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const alignment_map_iterator);
 
+/*
+ * Iterate over the map of an alignment
+ *   Alignment = {(map1),(map2.block1,map2.block2),(map3),(map4)}
+ *   GT_ALIGNMENT_ITERATE := {(map1),(map2.block1,map2.block2),(map3),(map4)}
+ */
+#define GT_ALIGNMENT_ITERATE(alignment,map) \
+  /* Alignment. Iterate over all maps */ \
+  gt_alignment_map_iterator __##map##_iterator; \
+  register gt_map* map; \
+  gt_alignment_new_map_iterator(alignment,&(__##map##_iterator)); \
+  while ((map=gt_alignment_next_map(&(__##map##_iterator))))
+
 #endif /* GT_ALIGNMENT_H_ */

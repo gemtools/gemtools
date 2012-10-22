@@ -6,7 +6,6 @@
  */
 
 #include "gt_alignment.h"
-#include "gt_shash.h"
 
 #define GT_ALIGNMENT_TAG_INITIAL_LENGTH 100
 #define GT_ALIGNMENT_READ_INITIAL_LENGTH 150

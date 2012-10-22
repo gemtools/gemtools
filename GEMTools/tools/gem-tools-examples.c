@@ -62,11 +62,11 @@ void gt_example_display_template(gt_template* template) {
       (template_num_blocks==1)?"Single-end":(template_num_blocks==2?"Paired-end":"Weird"),
       template_num_blocks);
   GT_TEMPLATE_ITERATE(template,map_array) {
-    GT_MAP_ARRAY_ITERATE(map_array,map,end_position) {
+    GT_MULTIMAP_ITERATE(map_array,map,end_position) {
       gt_alignment* alignment = gt_template_get_block(template,end_position);
       // As maps can contain more than one block (due to split maps) we iterate over all of them
       printf("\t BEGIN_MAPS_BLOCK [TotalDistance=%"PRIu64"] { ", gt_map_get_global_distance(map));
-      GT_MAP_BLOCKS_ITERATE(map,map_block) {
+      GT_MAP_ITERATE(map,map_block) {
         printf("\n\t\t%s\t",gt_map_get_seq_name(map_block));
         /// IMPORTANT NOTE: Positions are base-1 (Genomic coordinates)
         printf("InitPos=%"PRIu64"\t",gt_map_get_position(map_block));
@@ -116,10 +116,10 @@ void gt_example_map_parsing() {
       continue;
     }
 
-//    // Print source text
-//    printf("<< "PRIgts"\n",PRIgts_content(text));
-//    // Print template's content
-//    gt_example_display_template(template);
+    // Print source text
+    printf("<< "PRIgts"\n",PRIgts_content(text));
+    // Print template's content
+    gt_example_display_template(template);
 
   }
   gt_buffered_input_file_close(buffered_input);
