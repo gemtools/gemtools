@@ -1,38 +1,44 @@
-Gemtools
+GEM-Tools
+===================
 
-JIRA : http://barnaserver.com/jira/browse/GT
-Wiki : http://barnaserver.com/confluence/x/TAEc
-git  : http://barnaserver.com/fisheye/git/gemtools.git
+GEM-Tools is a C API and a Python module to support and simplify usage of the
+[GEM Mapper](http://algorithms.cnag.cat/wiki/The_GEM_library).
 
--- Changes --
+The C API curtly supports fast and exhaustive support for parsing GEM .map
+files and other mapping formats.
 
-Release Notes - GEM-Tools - Version 1.2
+The Python *gem* module allows to integrate the GEM Mapper in python scripts
+and simplifies development of mapping pipelines.
 
-** Bug
-    * [GT-12] - Wrong sam2fastq conversion
-    * [GT-14] - The indel parameter (-e) is missing for mapper runs
-    * [GT-15] - Merging gem files is messed up due to some wronge reference in the function
-    * [GT-8] - Update the merge method to support the new streaming structure
-    * [GT-11] - Add the ability to realign SAM files with gem-map-2-map
-    * [GT-16] - For pair alignment, the extension should be disabled
-    * [GT-18] - Include GEM binaries in the python bundle
-    * [GT-7] - Add support to compress files
+The Python modules also distributes current GEM binaries that are compatible
+with the library code. Note that the GEM binaries are distributed under the
+[*GEM Non commercial binary license*](http://algorithms.cnag.cat/wiki/GEM:Non_commercial_binary_license)
+while the GEM-Tools is licensed under GPL.
 
+Note that the python module is also distributed through pypi and can easily be
+installed with either pip or easy_install:
 
---- make the c library
-cd GEMTools
-make
+    pip install gemtools
+    easy_install gemtools
 
--- install the pythin library
-cd bindings/python
-make
-python setup.py install --user
+Examples
+======================
 
--- gem 2 bed conversion
-install the python library
-go to bindings/python/examples
+We host [https://github.com/gemtools/gemtools-examples](another GIT reposirory) with 
+pipeline examples that are self contained and can be run immediately to explore
+the basic functionallity of the library. 
 
-cat <your .map file> | ./gem2bed.py > mybed.bed
+Bugs and feature requests
+=====================
 
+Please feel free to use the Github bug tracker to report issues and feature
+requests that you find in the GEM-Tools library. If you run into problems with
+GEM and the included GEM binaries, please use the [GEM
+bugtracker](algorithms.cnag.cat/mantis).
 
+Deveopment
+=====================
 
+In order to develop on the GEM-Tools library, node that the repository contains
+a [Vagrant](http://vagrantup.com/) files to be able to quickly setup a virtual 
+machine to test and run GEM on you local non-linux-64bit machine.

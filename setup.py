@@ -6,7 +6,7 @@ from setuptools.command.build_ext import build_ext as _build_ext
 import subprocess
 
 # hack the setup tools installation
-# to make sure bundled binaries are 
+# to make sure bundled binaries are
 # executable after install
 class install(_install):
     def run(self):
@@ -71,7 +71,7 @@ https://github.com/gemtools/gemtools
           'Environment :: Console',
           'Intended Audience :: End Users/Desktop',
           'Intended Audience :: Developers',
-          'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',
+          'License :: OSI Approved :: GNU General Public License (GPL)',
           'Operating System :: POSIX :: Linux',
           'Programming Language :: Python',
           'Programming Language :: C',
