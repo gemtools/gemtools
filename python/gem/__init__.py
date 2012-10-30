@@ -754,7 +754,7 @@ def index(input, output, content="dna", threads=1):
     indexer_p.extend(['-o', output])
 
     # the indexer need the other indexer tools in PATH
-    path="%s:%s" % (os.getenv("PATH"), os.path.dirname(executables['gem-indexer']))
+    path="%s:%s" % (os.path.dirname(executables['gem-indexer']), os.getenv("PATH"))
 
     process = utils.run_tools([indexer_p], input=None, output=None, name="gem-indexer", raw_stream=True, path=path)
     if process.wait() != 0:
