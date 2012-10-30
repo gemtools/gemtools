@@ -150,38 +150,78 @@ class Read(object):
     def to_sequence(self):
         """Convert to sequence format. FastQ or FastA depending
         on qualities"""
+        ## add support for paired reads
+        isPaired = self.sequence.find(" ") >=0
+        sequence_split = None
+        append1 = ""
+        append2 = ""
+        if isPaired:
+            append1 = "/1"
+            append2 = "/2"
+            sequence_split = self.sequence.split(" ")
+
         if self.qualities is None:
             ## print fasta
+            if isPaired:
+                return ">%s%s\n%s\n>%s%s\n%s" % (self.id, append1, sequence_split[0], self.id, append2, sequence_split[1])
             return ">%s\n%s" % (self.id, self.sequence)
         else:
             return self.to_fastq()
 
 
     def to_fastq(self):
+        """Convert to sequence format. FastQ or FastA depending
+        on qualities"""
+        ## add support for paired reads
+        isPaired = self.sequence.find(" ") >=0
+        sequence_split = None
+        quality_split = None
+        append1 = ""
+        append2 = ""
+        if isPaired:
+            append1 = "/1"
+            append2 = "/2"
+            sequence_split = self.sequence.split(" ")
+            if self.qualities is not None:
+                quality_split = self.qualities.split(" ")
+            else:
+                quality_split = [None, None]
+        if isPaired:
+            r1 = self._to_fastq(self.id+append1, sequence_split[0], quality_split[0], _trim_qualities)
+            r2 = self._to_fastq(self.id+append2, sequence_split[1], quality_split[1], _trim_qualities)
+            return "%s\n%s" % (r1, r2)
+        return "%s" % self._to_fastq(self.id, self.sequence, self.qualities, _trim_qualities)
+
+
+    def _to_fastq(self, id, sequence, qualities, trim_qualities=False):
         """Convert to Fastq and fakes qualities if they are not present"""
-        if len(self.sequence) <= 0:
+        if len(sequence) <= 0:
             raise ValueError("Sequence length is < 0 for : \n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
 
         ## do a sanity check for sequence and quality lengths
-        qualities = self.qualities
         if qualities is None or len(qualities) == 0:
             ## fake the qualities
-            qualities = '[' * len(self.sequence)
+            qualities = '[' * len(sequence)
 
-        if len(self.sequence) != len(qualities) and self.qualities is not None:
-            if _trim_qualities:
-                #logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
-                sizes = [len(qualities), len(self.sequence)]
-                sizes.sort()
-                qualities = self.qualities[:(sizes[0] - sizes[1])]
+        if len(sequence) != len(qualities) and qualities is not None:
+            if trim_qualities:
+                ql = len(qualities)
+                sl = len(sequence)
+                if ql < sl:
+                    # extend qualities
+                    qualities = "%s%s" % (qualities, ('[' * (sl - ql)))
+                else:
+                    # cut qualities
+                    qualities = qualities[:(sl - ql)]
             else:
                 raise ValueError(
-                    "Different sequence and quality sizes for :\n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
-
-        return "@%s\n%s\n+\n%s" % (self.id, self.sequence, qualities)
+                    "Different sequence and quality sizes for :\n%s\n%s\n%s" % (id, sequence, qualities))
+        return "@%s\n%s\n+\n%s" % (id, sequence, qualities)
 
 
     def length(self):
+        if self.sequence.find(" ") >=0:
+            return len(self.sequence.split(" ")[0])
         return len(self.sequence)
 
 
