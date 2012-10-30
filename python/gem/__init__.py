@@ -742,14 +742,14 @@ def index(input, output, content="dna", threads=1):
         raise ValueError("The indexer wrapper can not handle the input %s, pass a file or a list of files" % input )
 
     existing = output
-    if existing[:-4] != ".gem": existing = "%s.gem" % existing
+    if existing[-4:] != ".gem": existing = "%s.gem" % existing
     if os.path.exists(existing):
         logging.warning("Index %s already exists, skipping indexing" % existing)
         return os.path.exists(existing)
 
 
     # indexer takes the prefix
-    if output[:-4] == ".gem":
+    if output[-4:] == ".gem":
         output = output[:-4]
     indexer_p.extend(['-o', output])
 
