@@ -9,8 +9,8 @@
 ROOT_PATH=..
 include ../Makefile.mk
 
-GEM_TOOLS=gem-tools-examples # gem-source 
-LIBS=-lpthread -lgemtools
+GEM_TOOLS=gem-tools-examples gt.stats 
+LIBS=-lgemtools -lpthread -fopenmp
 
 all: GEM_TOOLS_FLAGS=-O4 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
 all: $(GEM_TOOLS)

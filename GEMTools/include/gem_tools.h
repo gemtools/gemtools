@@ -33,9 +33,20 @@
 #include "gt_template_utils.h"
 
 /*
+ * Parsers Helpers
+ */
+#define GT_IGP_FAIL -1
+#define GT_IGP_EOF 0
+#define GT_IGP_OK 1
+GT_INLINE gt_status gt_input_generic_parser_get_alignment(
+    gt_buffered_input_file* const buffered_input,gt_alignment* const alignment);
+GT_INLINE gt_status gt_input_generic_parser_get_template(
+    gt_buffered_input_file* const buffered_input,gt_template* const template,const preserve_pairness);
+
+/*
  * Counters Helpers
  */
-GT_INLINE uint64_t gt_calculate_num_maps(  // fixme
+GT_INLINE uint64_t gt_calculate_num_maps(  // FIXME
     const uint64_t num_decoded_strata,const uint64_t num_decoded_matches,
     const uint64_t first_stratum_threshold);
 

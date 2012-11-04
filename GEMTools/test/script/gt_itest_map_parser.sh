@@ -15,10 +15,10 @@ do
     TIME_COUNT=$( { time wc $file > /dev/null; } 2>&1 );
     echo -n "    wc=$TIME_COUNT";
     \time $BASH -c "../bin/gem-tools-examples parse-map -i $file 2>> $FILE_ERROR >> $FILE_OUTPUT" 2>&1 | \
-      | perl -e '($min,$sec,$micro)=<>=~/(\d+)\:(\d+)\.(\d+)elapsed/; ($mem)=<>=~/(\d+)minor/; $time=$min*60+$sec; print "    gt=$time.$micro ($mem pages)\n"';
+      perl -e '($min,$sec,$micro)=<>=~/(\d+)\:(\d+)\.(\d+)elapsed/; ($mem)=<>=~/(\d+)minor/; $time=$min*60+$sec; print "    gt=$time.$micro ($mem pages)\n"';
 done
 echo ">>> Total Error: ";
-cat $FILE_ERROR;
+# cat $FILE_ERROR;
 echo ">>> Total Output: ";
-cat $FILE_OUTPUT;
+# cat $FILE_OUTPUT;
 rm $FILE_ERROR $FILE_OUTPUT;
