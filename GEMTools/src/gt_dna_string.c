@@ -36,6 +36,7 @@ GT_INLINE bool gt_dna_string_is_dna_string(gt_dna_string* const dna_string) {
 
 GT_INLINE char gt_dna_string_get_char_at(gt_dna_string* const dna_string,const uint64_t pos) {
   // TODO
+  return 'a';
 }
 GT_INLINE void gt_dna_string_set_char_at(gt_dna_string* const dna_string,const uint64_t pos,const char character) {
   // TODO
@@ -84,10 +85,13 @@ GT_INLINE void gt_dna_string_iterator_seek(gt_dna_string_iterator* const dna_str
 }
 GT_INLINE bool gt_dna_string_iterator_eos(gt_dna_string_iterator* const dna_string_iterator) {
   // TODO
+  return true;
 }
 GT_INLINE char gt_dna_string_iterator_next(gt_dna_string_iterator* const dna_string_iterator) {
   // TODO
+  return 'a';
 }
 GT_INLINE char gt_dna_string_iterator_previous(gt_dna_string_iterator* const dna_string_iterator) {
   // TODO
+  return 'a';
 }

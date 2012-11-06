@@ -61,10 +61,12 @@ typedef struct {
 
 // Checkers
 #define GT_MAP_CHECK(map) gt_fatal_check((map)==NULL||(map)->mismatches==NULL,NULL_HANDLER)
-// TODO: Scheduled for v2.0 (all lazy parsing)
-//#define GT_MAP_EDITABLE_CHECK(map) \
-//  GT_MAP_CHECK(map); \
-//  gt_fatal_check(map->mismatches_txt!=NULL,MAP_MISMS_NOT_PARSED)
+/*
+ *  TODO: Scheduled for v2.0 (all lazy parsing)
+  #define GT_MAP_EDITABLE_CHECK(map) \
+    GT_MAP_CHECK(map); \
+    gt_fatal_check(map->mismatches_txt!=NULL,MAP_MISMS_NOT_PARSED)
+ */
 #define GT_MAP_NEXT_BLOCK_CHECK(map) \
   GT_NULL_CHECK(map->next_block); \
   GT_MAP_CHECK(map->next_block->map)

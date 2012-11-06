@@ -41,7 +41,7 @@
 GT_INLINE gt_status gt_input_generic_parser_get_alignment(
     gt_buffered_input_file* const buffered_input,gt_alignment* const alignment);
 GT_INLINE gt_status gt_input_generic_parser_get_template(
-    gt_buffered_input_file* const buffered_input,gt_template* const template,const preserve_pairness);
+    gt_buffered_input_file* const buffered_input,gt_template* const template,const bool preserve_pairness);
 
 /*
  * Counters Helpers

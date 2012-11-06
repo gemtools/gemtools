@@ -48,6 +48,7 @@ typedef int32_t gt_status;
 #define SPACE ' '
 #define SLASH '/'
 #define STAR '*'
+#define DOT '.'
 #define EQUAL '='
 #define COMA ','
 #define SEMICOLON ';'

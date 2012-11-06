@@ -2,7 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt.stats.c
  * DATE: 02/08/2012
- * DESCRIPTION:
+ * DESCRIPTION: Application to retrieve very naive stats from {MAP,SAM,FASTQ} files
  */
 
 #include <getopt.h>
@@ -67,6 +67,7 @@ typedef struct {
 gt_stats_args parameters = {
     .name_input_file=NULL,
     .mmap_input=false,
+    .paired_end=false,
     .num_reads=0,
     .num_threads=1,
     .verbose=false,
@@ -226,12 +227,11 @@ GT_INLINE void gt_source_analize_template(gt_stats* const stats,gt_template* con
   gt_stats_get_mmap_distribution(stats,num_maps);
   if (num_maps > 0) {
     gt_stats_get_misms_distribution(stats,gt_alignment_get_map(gt_template_get_block(template,0),0));
-  }
-  // Insert Size distribution
-  if (paired_map) {
-    GT_TEMPLATE_ITERATE_(template,mmap) {
-      gt_stats_get_inss_distribution(stats,
-          abs((int64_t)mmap[0]->position-(int64_t)mmap[1]->position));
+    if (paired_map) { // Insert Size distribution
+      GT_TEMPLATE_ITERATE_(template,mmap) {
+        gt_stats_get_inss_distribution(stats,
+            abs((int64_t)mmap[0]->position-(int64_t)mmap[1]->position));
+      }
     }
   }
 }
@@ -241,13 +241,13 @@ void gt_stats_merge_stats(gt_stats* const stats,const uint64_t num_stats) {
     stats->num_alignments += stats[i].num_alignments;
     stats->num_maps += stats[i].num_maps;
     stats->num_mapped += stats[i].num_mapped;
-    for (j=0;j<MMAP_RANGE;++i) {
+    for (j=0;j<MMAP_RANGE;++j) {
       stats->mmap[j] += stats[i].mmap[j];
     }
-    for (j=0;j<INSS_RANGE;++i) {
+    for (j=0;j<INSS_RANGE;++j) {
       stats->inss[j] += stats[i].inss[j];
     }
-    for (j=0;j<MISMS_RANGE;++i) {
+    for (j=0;j<MISMS_RANGE;++j) {
       stats->misms[j] += stats[i].misms[j];
       stats->indel[j] += stats[i].indel[j];
       stats->errors[j] += stats[i].errors[j];
@@ -259,6 +259,7 @@ void gt_stats_merge_stats(gt_stats* const stats,const uint64_t num_stats) {
 }
 void gt_stats_print_mmap_distribution(gt_stats* const stats,const uint64_t num_reads) {
   fprintf(stderr,"MMap.ranges\n");
+  fprintf(stderr,"  -->        [0] \t=> %lu \t %f%%\n",(num_reads-stats->num_mapped),100.0*(float)(num_reads-stats->num_mapped)/(float)num_reads);
   fprintf(stderr,"  -->        [1] \t=> %lu \t %f%%\n",stats->mmap[MMAP_RANGE_1],100.0*(float)stats->mmap[MMAP_RANGE_1]/(float)num_reads);
   fprintf(stderr,"  -->      (1,5] \t=> %lu \t %f%%\n",stats->mmap[MMAP_RANGE_5],100.0*(float)stats->mmap[MMAP_RANGE_5]/(float)num_reads);
   fprintf(stderr,"  -->     (5,10] \t=> %lu \t %f%%\n",stats->mmap[MMAP_RANGE_10],100.0*(float)stats->mmap[MMAP_RANGE_10]/(float)num_reads);
@@ -307,12 +308,12 @@ void gt_stats_print_stats(gt_stats* const stats,const uint64_t num_reads,const b
   fprintf(stderr,"Num.reads %lu\n",num_reads);
   fprintf(stderr,"Num.alignments %lu\n",stats->num_alignments);
   fprintf(stderr,"  --> Num.mapped %lu (%2.3f%%)\n",stats->num_mapped,100.0*(float)stats->num_mapped/(float)num_reads);
-  fprintf(stderr,"  --> Num.maps %lu (%2.3f%%)\n",stats->num_maps,100.0*(float)stats->num_maps/(float)stats->num_alignments);
+  fprintf(stderr,"  --> Num.maps %lu (%2.3f map/alg)\n",stats->num_maps,(float)stats->num_maps/(float)stats->num_alignments);
   gt_stats_print_mmap_distribution(stats,num_reads);
-  if (paired_end) gt_stats_print_inss_distribution(stats,num_reads);
-  gt_stats_print_misms_distribution(stats->misms,num_reads,"Mismatches");
-  gt_stats_print_misms_distribution(stats->indel,num_reads,"Indels");
-  gt_stats_print_misms_distribution(stats->errors,num_reads,"Errors");
+  if (paired_end) gt_stats_print_inss_distribution(stats,stats->num_mapped);
+  gt_stats_print_misms_distribution(stats->misms,stats->num_mapped,"Mismatches");
+  gt_stats_print_misms_distribution(stats->indel,stats->num_mapped,"Indels");
+  gt_stats_print_misms_distribution(stats->errors,stats->num_mapped,"Errors");
 }
 
 /*
@@ -359,7 +360,7 @@ void gt_stats_parallel_generate_stats() {
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
   {
-    uint64_t tid = omp_get_thread_num(); printf("I'm thread %lu \n",tid);
+    uint64_t tid = omp_get_thread_num();
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
 
     gt_status error_code;
@@ -450,10 +451,10 @@ int main(int argc,char** argv) {
   parse_arguments(argc,argv);
 
   // Extract stats
-  gt_stats_generate_stats();
-  //gt_stats_parallel_generate_stats();
+  //gt_stats_generate_stats();
+  gt_stats_parallel_generate_stats();
 
-  return -1;
+  return 0;
 }
 
 

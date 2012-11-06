@@ -80,7 +80,7 @@ GT_INLINE void gt_string_cast_dynamic(gt_string* const string,const uint64_t ini
 
 GT_INLINE void gt_string_set_string(gt_string* const string,char* const string_src) {
   GT_NULL_CHECK(string_src);
-  register const length = strlen(string_src);
+  register const uint64_t length = strlen(string_src);
   gt_string_set_nstring(string,string_src,length);
 }
 GT_INLINE void gt_string_set_nstring(gt_string* const string,char* const string_src,const uint64_t length) {
@@ -143,7 +143,7 @@ GT_INLINE int64_t gt_string_cmp(gt_string* const string_a,gt_string* const strin
   GT_STRING_CHECK(string_b);
   register char* const buffer_a = string_a->buffer;
   register char* const buffer_b = string_b->buffer;
-  register const min_length = GT_MIN(string_a->length,string_b->length);
+  register const uint64_t min_length = GT_MIN(string_a->length,string_b->length);
   register uint64_t i;
   register int8_t diff;
   for (i=0;i<min_length;++i) {
@@ -162,7 +162,7 @@ GT_INLINE int64_t gt_string_ncmp(gt_string* const string_a,gt_string* const stri
   GT_STRING_CHECK(string_b);
   register char* const buffer_a = string_a->buffer;
   register char* const buffer_b = string_b->buffer;
-  register const min_length = GT_MIN(GT_MIN(string_a->length,string_b->length),length);
+  register const uint64_t min_length = GT_MIN(GT_MIN(string_a->length,string_b->length),length);
   register uint64_t i;
   register int8_t diff;
   for (i=0;i<min_length;++i) {

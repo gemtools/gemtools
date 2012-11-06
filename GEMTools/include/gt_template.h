@@ -62,20 +62,13 @@ typedef struct {
            TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION); \
   gt_fatal_check((gt_vector_get_used(template->mmaps)/gt_vector_get_used(template->blocks)) != \
             gt_vector_get_used(template->mmaps_attributes),TEMPLATE_INCONSISTENT_MMAPS_ATTRB_RELATION)
-
-// TODO: Scheduled for v2.0 (all lazy parsing)
-//#define GT_TEMPLATE_EDITABLE_CHECK(template) \
-//  GT_TEMPLATE_CONSISTENCY_CHECK(template); \
-//  gt_fatal_check(template->maps_txt!=NULL,TEMPLATE_MAPS_NOT_PARSED)
-
-// TODO: Scheduled for v2.0 (high level handling modules)
-///*
-// * Useful Macros
-// */
-//#define GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,reduced_alignment) \
-//  if (gt_expect_false(gt_template_get_num_blocks((template))==1)) { \
-//    register gt_alignment* reduced_alignment = gt_template_get_block((template),0);
-//#define GT_TEMPLATE_END_REDUCTION }
+/*
+ *  TODO: Scheduled for v2.0 (all lazy parsing)
+ *  #define GT_TEMPLATE_EDITABLE_CHECK(template) \
+ *  GT_TEMPLATE_CONSISTENCY_CHECK(template); \
+ *  gt_fatal_check(template->maps_txt!=NULL,TEMPLATE_MAPS_NOT_PARSED)
+ *  TODO: Scheduled for v2.0 (high level handling modules)
+ */
 
 /*
  * Setup
@@ -120,7 +113,7 @@ GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template);
 GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_complete_strata);
 GT_INLINE bool gt_template_has_qualities(gt_template* const template);
 GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template);
-GT_INLINE bool gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique);
+GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique);
 
 /*
  * Multi-maps handlers (Map's relation)
@@ -188,13 +181,15 @@ GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const te
   register const uint64_t __##map_array##_num_blocks = gt_template_get_num_blocks(template); \
   GT_TEMPLATE_ITERATE_(template,map_array)
 // Querying also attributes {distance, score, ...}
-#define GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) \
-  register const uint64_t __map_array##_num_blocks = gt_template_get_num_blocks(template); \
+#define GT_TEMPLATE__ATTR_ITERATE_(template,map_array,map_array_attr) \
   gt_map** map_array; \
   gt_mmap_attributes *map_array_attr; \
   gt_template_maps_iterator __##template##_maps_iterator; \
   gt_template_new_mmap_iterator(template,&(__##template##_maps_iterator)); \
   while (gt_template_next_mmap(&(__##template##_maps_iterator),&map_array,&map_array_attr))
+#define GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) \
+  register const uint64_t __map_array##_num_blocks = gt_template_get_num_blocks(template); \
+  GT_TEMPLATE__ATTR_ITERATE_(template,map_array,map_array_attr)
 
 /*
  * Iterate over array of maps provided by GT_TEMPLATE_ITERATE

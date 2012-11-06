@@ -26,9 +26,10 @@ GT_INLINE gt_status gt_input_generic_parser_get_alignment(
       return GT_IGP_FAIL;
       break;
   }
+  return error_code;
 }
 GT_INLINE gt_status gt_input_generic_parser_get_template(
-    gt_buffered_input_file* const buffered_input,gt_template* const template,const preserve_pairness) {
+    gt_buffered_input_file* const buffered_input,gt_template* const template,const bool preserve_pairness) {
   gt_status error_code;
   switch (buffered_input->input_file->file_format) {
     case MAP:

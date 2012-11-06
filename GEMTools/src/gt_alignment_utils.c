@@ -57,7 +57,7 @@ GT_INLINE void gt_alignment_insert_map_gt_vector(gt_alignment* const alignment,g
 }
 GT_INLINE void gt_alignment_insert_map_fx_gt_vector(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_vector* const map_vector) {
-  GT_NULL_CHECK(gt_map_cmp);
+  GT_NULL_CHECK(gt_map_cmp_fx);
   GT_ALIGNMENT_CHECK(alignment);
   GT_VECTOR_CHECK(map_vector);
   GT_VECTOR_ITERATE(map_vector,map_it,map_pos,gt_map*) {

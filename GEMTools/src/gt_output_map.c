@@ -349,6 +349,7 @@ GT_INLINE gt_status gt_output_map_gprint_gem_template(gt_generic_printer* const 
 
 
   // TODO
+  return 0;
 }
 GT_INLINE gt_status gt_output_map_bprint_gem_template(gt_output_buffer* const output_buffer,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
   GT_OUTPUT_BUFFER_CHECK(output_buffer);

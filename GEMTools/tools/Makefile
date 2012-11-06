@@ -9,14 +9,17 @@
 ROOT_PATH=..
 include ../Makefile.mk
 
-GEM_TOOLS=gem-tools-examples gt.stats 
+GEM_TOOLS=gem-tools-examples gt.stats gt.filter
+
+GEM_TOOLS_SRC=$(addsuffix .c, $(GEM_TOOLS))
+GEM_TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(GEM_TOOLS))
 LIBS=-lgemtools -lpthread -fopenmp
 
 all: GEM_TOOLS_FLAGS=-O4 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
-all: $(GEM_TOOLS)
+all: $(GEM_TOOLS_BIN)
 
 debug: GEM_TOOLS_FLAGS=-O0 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(DEBUG_FLAGS)
-debug: $(GEM_TOOLS)
+debug: $(GEM_TOOLS_BIN)
 
-$(GEM_TOOLS):
-	$(CC) $(GEM_TOOLS_FLAGS) -o $(FOLDER_BIN)/$@ $@.c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) 
+$(GEM_TOOLS_BIN): $(GEM_TOOLS_SRC)
+	$(CC) $(GEM_TOOLS_FLAGS) -o $@ $(notdir $@).c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) 

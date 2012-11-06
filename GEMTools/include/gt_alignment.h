@@ -41,11 +41,13 @@ typedef struct {
   GT_VECTOR_CHECK(alignment->maps); \
   GT_HASH_CHECK(alignment->maps_dictionary); \
   GT_HASH_CHECK(alignment->attributes)
-// TODO: Scheduled for v2.0 (all lazy parsing)
-// TODO: Check
-//#define GT_ALIGNMENT_EDITABLE_CHECK(alignment) \
-//  GT_ALIGNMENT_CHECK(alignment); \
-//  gt_fatal_check(alignment->maps_txt!=NULL,ALIGN_MAPS_NOT_PARSED)
+/*
+ *  TODO: Scheduled for v2.0 (all lazy parsing)
+ *  TODO: Check
+ *  #define GT_ALIGNMENT_EDITABLE_CHECK(alignment) \
+ *    GT_ALIGNMENT_CHECK(alignment); \
+ *    gt_fatal_check(alignment->maps_txt!=NULL,ALIGN_MAPS_NOT_PARSED)
+ */
 
 /*
  * Setup
@@ -91,7 +93,7 @@ GT_INLINE void gt_alignment_set_attr(
 
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,uint64_t max_complete_strata);
-GT_INLINE bool gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique);
+GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique);
 GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment);
 
 /*

@@ -14,6 +14,19 @@
 #define GT_TEMPLATE_NUM_INITIAL_MMAPS 20
 
 /*
+ * Reduction to single alignment
+ */
+#define GT_TEMPLATE_REDUCTION(template,reduced_alignment) \
+  register gt_alignment* const reduced_alignment = gt_template_get_block((template),0)
+#define GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,reduced_alignment) \
+  if (gt_expect_false(gt_template_get_num_blocks((template))==1)) { \
+    GT_TEMPLATE_REDUCTION(template,reduced_alignment);
+#define GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT_(template) { \
+  if (gt_expect_false(gt_template_get_num_blocks((template))==1))
+#define GT_TEMPLATE_END_REDUCTION }
+#define GT_TEMPLATE_END_REDUCTION__RETURN return;}
+
+/*
  * Setup
  */
 GT_INLINE gt_template* gt_template_new() {
@@ -108,37 +121,58 @@ GT_INLINE void gt_template_delete_blocks(gt_template* const template) {
 /* Counters */
 GT_INLINE gt_vector* gt_template_get_counters_vector(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_counters_vector(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
   return template->counters;
 }
 GT_INLINE void gt_template_set_counters_vector(gt_template* const template,gt_vector* const counters) {
   GT_TEMPLATE_CHECK(template);
   GT_VECTOR_CHECK(counters);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_set_counters_vector(alignment,counters);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   template->counters = counters;
 }
 GT_INLINE uint64_t gt_template_get_num_counters(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_num_counters(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
   return gt_vector_get_used(template->counters);
 }
 GT_INLINE uint64_t gt_template_get_counter(gt_template* const template,const uint64_t stratum) {
   GT_TEMPLATE_CHECK(template);
   gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_counter(alignment,stratum);
+  } GT_TEMPLATE_END_REDUCTION;
   return *gt_vector_get_elm(template->counters,stratum-1,uint64_t);
 }
 GT_INLINE void gt_template_inc_counter(gt_template* const template,const uint64_t stratum) {
   GT_TEMPLATE_CHECK(template);
   gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_inc_counter(alignment,stratum);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_vector_reserve(template->counters,stratum,true);
   ++(*gt_vector_get_elm(template->counters,stratum-1,uint64_t));
 }
 GT_INLINE void gt_template_dec_counter(gt_template* const template,const uint64_t stratum) {
   GT_TEMPLATE_CHECK(template);
   gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_dec_counter(alignment,stratum);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_vector_reserve(template->counters,stratum,true);
   --(*gt_vector_get_elm(template->counters,stratum-1,uint64_t));
 }
 GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_t stratum,const uint64_t value) {
   GT_TEMPLATE_CHECK(template);
   gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_set_counter(alignment,stratum,value);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_vector_reserve(template->counters,stratum,true);
   *gt_vector_get_elm(template->counters,stratum-1,uint64_t) = value;
 }
@@ -150,6 +184,9 @@ GT_INLINE void* gt_template_get_attr(
     gt_template* const template,char* const attribute_id) {
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(attribute_id);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_attr(alignment,attribute_id);
+  } GT_TEMPLATE_END_REDUCTION;
   return gt_attribute_get(template->attributes,attribute_id);
 }
 GT_INLINE void gt_template_set_attr(
@@ -159,6 +196,9 @@ GT_INLINE void gt_template_set_attr(
   GT_NULL_CHECK(attribute_id);
   GT_NULL_CHECK(attribute);
   GT_ZERO_CHECK(element_size);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_set_attr(alignment,attribute_id,attribute,element_size);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Insert attribute
   gt_attribute_set(template->attributes,attribute_id,attribute,element_size);
 }
@@ -174,7 +214,6 @@ GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
 GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_complete_strata) {
   GT_TEMPLATE_CHECK(template);
   gt_template_set_attribute(template,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
-
 }
 GT_INLINE bool gt_template_has_qualities(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
@@ -192,7 +231,7 @@ GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template) {
   if (not_unique_flag==NULL) return false;
   return *not_unique_flag;
 }
-GT_INLINE bool gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique) {
+GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique) {
   GT_TEMPLATE_CHECK(template);
   gt_template_set_attribute(template,GT_ATTR_NOT_UNIQUE,&is_not_unique,bool);
 }
@@ -217,10 +256,16 @@ GT_INLINE void gt_template_set_mmap_attr(gt_template* const template,const uint6
 /* */
 GT_INLINE uint64_t gt_template_get_num_mmaps(gt_template* const template) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_num_maps(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
   return gt_vector_get_used(template->mmaps)/gt_template_get_num_blocks(template);
 }
 GT_INLINE void gt_template_clear_mmaps(gt_template* const template) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_clear_maps(alignment);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_vector_clean(template->mmaps);
   gt_vector_clean(template->mmaps_attributes);
 }
@@ -230,6 +275,9 @@ GT_INLINE void gt_template_add_mmap(
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap);
   GT_NULL_CHECK(mmap_attr);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_add_map(alignment,*mmap);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register uint64_t i;
   for (i=0;i<num_blocks;++i) {
@@ -241,6 +289,9 @@ GT_INLINE void gt_template_add_mmap(
 GT_INLINE gt_map** gt_template_get_mmap(
     gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_vector_get_elm(alignment->maps,position,gt_map*);
+  } GT_TEMPLATE_END_REDUCTION;
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   gt_fatal_check(position>=(gt_vector_get_used(template->mmaps)/num_blocks),POSITION_OUT_OF_RANGE);
   // Retrieve the maps from the mmap vector
@@ -254,6 +305,9 @@ GT_INLINE void gt_template_set_mmap(
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap);
   GT_NULL_CHECK(mmap_attr);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_set_map(alignment,*mmap,position);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register gt_map** const template_mmap = gt_vector_get_elm(template->mmaps,num_blocks*position,gt_map*);
   register uint64_t i;
@@ -269,8 +323,13 @@ GT_INLINE void gt_template_add_mmap_gtvector(
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_VECTOR_CHECK(mmap); GT_NULL_CHECK(mmap_attr);
   gt_check(gt_template_get_num_blocks(template)!=gt_vector_get_used(mmap),TEMPLATE_ADD_BAD_NUM_BLOCKS);
+  // Handle reduction to alignment
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_add_map_gt_vector(alignment,mmap);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  // Add mmaps
   GT_VECTOR_ITERATE(mmap,map_ptr,map_pos,gt_map*) {
-    register gt_map* map = *map_ptr;
+    register gt_map* const map = *map_ptr;
     GT_MAP_CHECK(map);
     gt_vector_insert(template->mmaps,map,gt_map*);
   }
@@ -284,6 +343,10 @@ GT_INLINE void gt_template_get_mmap_gtvector(
   gt_fatal_check(position>=(gt_vector_get_used(template->mmaps)/num_blocks),POSITION_OUT_OF_RANGE);
   // Reset output vector
   gt_vector_prepare(mmap,gt_map*,num_blocks);
+  // Handle reduction to alignment
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_vector_insert(mmap,gt_alignment_get_map(alignment,position),gt_map*);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Retrieve the maps from the mmap vector
   register const uint64_t init_map_pos = num_blocks*position;
   register gt_map** template_mmap = gt_vector_get_elm(template->mmaps,init_map_pos,gt_map*);
@@ -298,6 +361,12 @@ GT_INLINE void gt_template_add_mmap_v(
     gt_template* const template,gt_mmap_attributes* const mmap_attr,va_list v_args) {
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(mmap_attr);
+  // Handle reduction to alignment
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    register gt_map* const map = va_arg(v_args,gt_map*);
+    GT_MAP_CHECK(map);
+    gt_alignment_add_map(alignment,map);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register uint64_t i;
   for (i=0;i<num_blocks;++i) {
@@ -424,12 +493,22 @@ GT_INLINE gt_status gt_template_next_mmap(
     gt_map*** const mmap_ref,gt_mmap_attributes** const mmap_attr) {
   GT_NULL_CHECK(template_maps_iterator); GT_NULL_CHECK(mmap_ref);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_maps_iterator->template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_maps_iterator->template,alignment) {
+    if (gt_expect_true(template_maps_iterator->next_pos<gt_alignment_get_num_maps(alignment))) {
+      **mmap_ref = gt_alignment_get_map(alignment,template_maps_iterator->next_pos);
+      template_maps_iterator->next_pos++;
+      return GT_TEMPLATE_OK;
+    } else {
+      *mmap_ref = NULL;
+      return GT_TEMPLATE_FAIL;
+    }
+  } GT_TEMPLATE_END_REDUCTION;
   register gt_template* const template = template_maps_iterator->template;
   register const uint64_t num_blocks = gt_vector_get_used(template->blocks);
   if (gt_expect_true(template_maps_iterator->next_pos+num_blocks<=gt_vector_get_used(template->mmaps))) {
     *mmap_ref = gt_vector_get_elm(template->mmaps,template_maps_iterator->next_pos,gt_map*);
     if (mmap_attr) {
-      register const attr_position = template_maps_iterator->next_pos/num_blocks;
+      register const uint64_t attr_position = template_maps_iterator->next_pos/num_blocks;
       *mmap_attr = gt_template_get_mmap_attr(template,attr_position);
     }
     template_maps_iterator->next_pos+=num_blocks;
@@ -442,5 +521,8 @@ GT_INLINE gt_status gt_template_next_mmap(
 GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const template_maps_iterator) {
   GT_NULL_CHECK(template_maps_iterator);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_maps_iterator->template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT_(template_maps_iterator->template) {
+    return template_maps_iterator->next_pos;
+  } GT_TEMPLATE_END_REDUCTION;
   return template_maps_iterator->next_pos/gt_vector_get_used(template_maps_iterator->template->blocks);
 }
