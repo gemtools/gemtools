@@ -495,7 +495,7 @@ GT_INLINE gt_status gt_template_next_mmap(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_maps_iterator->template);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_maps_iterator->template,alignment) {
     if (gt_expect_true(template_maps_iterator->next_pos<gt_alignment_get_num_maps(alignment))) {
-      **mmap_ref = gt_alignment_get_map(alignment,template_maps_iterator->next_pos);
+      *mmap_ref = gt_vector_get_elm(alignment->maps,template_maps_iterator->next_pos,gt_map*);
       template_maps_iterator->next_pos++;
       return GT_TEMPLATE_OK;
     } else {

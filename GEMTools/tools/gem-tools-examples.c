@@ -115,6 +115,14 @@ void gt_example_map_parsing() {
       continue;
     }
 
+    GT_TEMPLATE_ITERATE(template,map_array) {
+      GT_MULTIMAP_ITERATE(map_array,map,end_position) {
+        GT_MAP_ITERATE(map,map_block) {
+          printf(">>'%s'\n",gt_map_get_seq_name(map_block));
+        }
+      }
+    }
+
     // Print source text
     printf("<< "PRIgts"\n",PRIgts_content(text));
     // Print template's content
@@ -359,8 +367,8 @@ int main(int argc,char** argv) {
   // Examples
   //
 
-  gt_example_map_string_parsing();
-  gt_dummy_example();
+  //gt_example_map_string_parsing();
+  //gt_dummy_example();
 
   // MAP to FASTQ conversion
   if (strcmp(example_name,"map-2-fastq")==0) {
