@@ -41,11 +41,13 @@ typedef struct {
   GT_VECTOR_CHECK(alignment->maps); \
   GT_HASH_CHECK(alignment->maps_dictionary); \
   GT_HASH_CHECK(alignment->attributes)
-// TODO: Scheduled for v2.0 (all lazy parsing)
-// TODO: Check
-//#define GT_ALIGNMENT_EDITABLE_CHECK(alignment) \
-//  GT_ALIGNMENT_CHECK(alignment); \
-//  gt_fatal_check(alignment->maps_txt!=NULL,ALIGN_MAPS_NOT_PARSED)
+/*
+ *  TODO: Scheduled for v2.0 (all lazy parsing)
+ *  TODO: Check
+ *  #define GT_ALIGNMENT_EDITABLE_CHECK(alignment) \
+ *    GT_ALIGNMENT_CHECK(alignment); \
+ *    gt_fatal_check(alignment->maps_txt!=NULL,ALIGN_MAPS_NOT_PARSED)
+ */
 
 /*
  * Setup
@@ -91,7 +93,7 @@ GT_INLINE void gt_alignment_set_attr(
 
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,uint64_t max_complete_strata);
-GT_INLINE bool gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique);
+GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique);
 GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment);
 
 /*
@@ -117,5 +119,17 @@ GT_INLINE gt_alignment* gt_alignment_deep_copy(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_new_map_iterator(gt_alignment* const alignment,gt_alignment_map_iterator* const alignment_map_iterator);
 GT_INLINE gt_map* gt_alignment_next_map(gt_alignment_map_iterator* const alignment_map_iterator);
 GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const alignment_map_iterator);
+
+/*
+ * Iterate over the map of an alignment
+ *   Alignment = {(map1),(map2.block1,map2.block2),(map3),(map4)}
+ *   GT_ALIGNMENT_ITERATE := {(map1),(map2.block1,map2.block2),(map3),(map4)}
+ */
+#define GT_ALIGNMENT_ITERATE(alignment,map) \
+  /* Alignment. Iterate over all maps */ \
+  gt_alignment_map_iterator __##map##_iterator; \
+  register gt_map* map; \
+  gt_alignment_new_map_iterator(alignment,&(__##map##_iterator)); \
+  while ((map=gt_alignment_next_map(&(__##map##_iterator))))
 
 #endif /* GT_ALIGNMENT_H_ */

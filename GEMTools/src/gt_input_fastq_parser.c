@@ -5,8 +5,7 @@
  * DESCRIPTION: // TODO
  */
 
-#include "gt_input_sam_parser.h"
-#include "gt_input_parser.h"
+#include "gt_input_fastq_parser.h"
 
 // Constants
 #define GT_INPUT_SOAP_PARSER_NUM_LINES GT_NUM_LINES_10K

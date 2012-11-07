@@ -2,7 +2,8 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_template.h
  * DATE: 01/06/2012
- * DESCRIPTION: // TODO
+ * DESCRIPTION: Data structure modeling sequences' templates.
+ *   That is, set of alignments and relationships between their maps.
  */
 
 #ifndef GT_TEMPLATE_H_
@@ -10,7 +11,6 @@
 
 #include "gt_commons.h"
 #include "gt_alignment.h"
-#include "gt_iterators.h"
 
 // Codes gt_status
 #define GT_TEMPLATE_OK 1
@@ -62,20 +62,13 @@ typedef struct {
            TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION); \
   gt_fatal_check((gt_vector_get_used(template->mmaps)/gt_vector_get_used(template->blocks)) != \
             gt_vector_get_used(template->mmaps_attributes),TEMPLATE_INCONSISTENT_MMAPS_ATTRB_RELATION)
-
-// TODO: Scheduled for v2.0 (all lazy parsing)
-//#define GT_TEMPLATE_EDITABLE_CHECK(template) \
-//  GT_TEMPLATE_CONSISTENCY_CHECK(template); \
-//  gt_fatal_check(template->maps_txt!=NULL,TEMPLATE_MAPS_NOT_PARSED)
-
-// TODO: Scheduled for v2.0 (high level handling modules)
-///*
-// * Useful Macros
-// */
-//#define GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,reduced_alignment) \
-//  if (gt_expect_false(gt_template_get_num_blocks((template))==1)) { \
-//    register gt_alignment* reduced_alignment = gt_template_get_block((template),0);
-//#define GT_TEMPLATE_END_REDUCTION }
+/*
+ *  TODO: Scheduled for v2.0 (all lazy parsing)
+ *  #define GT_TEMPLATE_EDITABLE_CHECK(template) \
+ *  GT_TEMPLATE_CONSISTENCY_CHECK(template); \
+ *  gt_fatal_check(template->maps_txt!=NULL,TEMPLATE_MAPS_NOT_PARSED)
+ *  TODO: Scheduled for v2.0 (high level handling modules)
+ */
 
 /*
  * Setup
@@ -120,7 +113,7 @@ GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template);
 GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_complete_strata);
 GT_INLINE bool gt_template_has_qualities(gt_template* const template);
 GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template);
-GT_INLINE bool gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique);
+GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique);
 
 /*
  * Multi-maps handlers (Map's relation)
@@ -171,5 +164,55 @@ GT_INLINE gt_status gt_template_next_mmap(
     gt_template_maps_iterator* const template_maps_iterator,
     gt_map*** const mmap_ref,gt_mmap_attributes** const mmap_attr);
 GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const template_maps_iterator);
+
+/*
+ * Iterate over the map(s) of the template
+ *   (Eg. Single End => maps)
+ *   (Eg. Paired Alignment => pairs of maps (map_end1,map_end2) )
+ *   Template = Alignment_end1 + Alignment_end2 + {(end1.map1,end2.map1),(end1.map2,end2.map2),...}
+ *   GT_TEMPLATE_ITERATE(template) := {(end1.map1,end2.map1),(end1.map2,end2.map2)}
+ */
+#define GT_TEMPLATE_ITERATE_(template,map_array) \
+  gt_map** map_array; \
+  gt_template_maps_iterator __##template##_maps_iterator; \
+  gt_template_new_mmap_iterator(template,&(__##template##_maps_iterator)); \
+  while (gt_template_next_mmap(&(__##template##_maps_iterator),&map_array,NULL))
+#define GT_TEMPLATE_ITERATE(template,map_array) \
+  register const uint64_t __##map_array##_num_blocks = gt_template_get_num_blocks(template); \
+  GT_TEMPLATE_ITERATE_(template,map_array)
+// Querying also attributes {distance, score, ...}
+#define GT_TEMPLATE__ATTR_ITERATE_(template,map_array,map_array_attr) \
+  gt_map** map_array; \
+  gt_mmap_attributes *map_array_attr; \
+  gt_template_maps_iterator __##template##_maps_iterator; \
+  gt_template_new_mmap_iterator(template,&(__##template##_maps_iterator)); \
+  while (gt_template_next_mmap(&(__##template##_maps_iterator),&map_array,&map_array_attr))
+#define GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) \
+  register const uint64_t __map_array##_num_blocks = gt_template_get_num_blocks(template); \
+  GT_TEMPLATE__ATTR_ITERATE_(template,map_array,map_array_attr)
+
+/*
+ * Iterate over array of maps provided by GT_TEMPLATE_ITERATE
+ *   map_array = (end1.map1,end2.map1)
+ *   GT_MULTIMAP_ITERATE(map_array) := {end1.map1,end2.map1}
+ */
+#define GT_MULTIMAP_ITERATE(mmap_array,map,end_position) \
+  register uint64_t end_position; \
+  register gt_map* map; \
+  for (end_position=0,map=*mmap_array; \
+       end_position<(__map_array##_num_blocks); \
+       ++end_position,map=*(mmap_array+end_position))
+
+/*
+ * Iterate over the alignment of a template (individual blocks)
+ *   Template = Alignment_end1 + Alignment_end2 + {(end1.map1,end2.map1),(end1.map2,end2.map2),...}
+ *   GT_TEMPLATE_ALIGNMENT_ITERATE(template) := {Alignment_end1,Alignment_end2}
+ */
+#define GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) \
+  /* Template. Iterate over all alignments */ \
+  gt_template_alignment_iterator alignment##_iterator; \
+  register gt_alignment* alignment; \
+  gt_template_new_alignment_iterator(template,&(alignment##_iterator)); \
+  while ((alignment=gt_template_next_alignment(&(alignment##_iterator))))
 
 #endif /* GT_TEMPLATE_H_ */

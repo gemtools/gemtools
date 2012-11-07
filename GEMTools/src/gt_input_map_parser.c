@@ -237,12 +237,13 @@ GT_INLINE gt_status gt_input_map_parse_read_block(char** const text_line,gt_stri
   register gt_status return_status;
   if (**text_line==TAB) {
     return_status = GT_IMP_PE_EOB;
+    GT_NEXT_CHAR(text_line);
   } else if (gt_is_valid_template_separator(**text_line)) {
     return_status = GT_IMP_PE_PENDING_BLOCKS;
+    GT_NEXT_CHAR(text_line);
   } else {
     return_status = GT_IMP_PE_READ_BAD_CHARACTER;
   }
-  GT_NEXT_CHAR(text_line);
   return return_status;
 }
 GT_INLINE gt_status gt_input_map_parse_qualities_block(char** const text_line,gt_string* const qualities_block) {
@@ -259,12 +260,13 @@ GT_INLINE gt_status gt_input_map_parse_qualities_block(char** const text_line,gt
   register gt_status return_status;
   if (**text_line==TAB) {
     return_status = GT_IMP_PE_EOB;
+    GT_NEXT_CHAR(text_line);
   } else if (gt_is_valid_template_separator(**text_line)) {
     return_status = GT_IMP_PE_PENDING_BLOCKS;
+    GT_NEXT_CHAR(text_line);
   } else {
     return GT_IMP_PE_QUAL_BAD_SEPARATOR;
   }
-  GT_NEXT_CHAR(text_line);
   return return_status;
 }
 GT_INLINE gt_status gt_imp_counters(char** const text_line,gt_vector* const counters,gt_shash* const attributes) {
@@ -926,8 +928,12 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(
     } else {
       error_code = gt_imp_parse_map(text_line,map,parse_mode);
       switch (error_code) {
-        case GT_IMP_PE_PENDING_BLOCKS: return GT_IMP_PE_MAP_BAD_NUMBER_OF_BLOCKS; /* FIXME: Weird case of split blocks */
-        case GT_IMP_PE_MAP_GLOBAL_ATTR: // return GT_IMP_PE_MAP_BAD_CHARACTER;
+        case GT_IMP_PE_PENDING_BLOCKS:
+          if (gt_expect_false(split_maps!=NULL)) gt_vector_delete(split_maps);
+          return GT_IMP_PE_MAP_BAD_NUMBER_OF_BLOCKS; /* FIXME: Weird case of split blocks */
+        case GT_IMP_PE_MAP_GLOBAL_ATTR:
+          if (gt_expect_false(split_maps!=NULL)) gt_vector_delete(split_maps);
+          return GT_IMP_PE_MAP_BAD_CHARACTER;
         case GT_IMP_PE_MAP_PENDING_MAPS:
         case GT_IMP_PE_EOB: break;
         default:
@@ -1060,6 +1066,8 @@ GT_INLINE gt_status gt_imp_parse_alignment(
   if ((error_code=gt_imp_counters(
       text_line,alignment->counters,alignment->attributes))) return error_code;
   if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
+  if (**text_line!=TAB) return GT_IMP_PE_BAD_SEPARATOR;
+  GT_NEXT_CHAR(text_line);
   // MAPS
   if (parse_mode!=PARSE_READ) {
     alignment->maps_txt = NULL;

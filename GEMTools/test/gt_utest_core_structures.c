@@ -1,6 +1,6 @@
 /*
  * PROJECT: GEM-Tools library
- * FILE: gt_test_core.c
+ * FILE: gt_utest_core.c
  * DATE: 03/10/2012
  * DESCRIPTION: // TODO
  */

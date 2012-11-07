@@ -62,11 +62,11 @@ void gt_example_display_template(gt_template* template) {
       (template_num_blocks==1)?"Single-end":(template_num_blocks==2?"Paired-end":"Weird"),
       template_num_blocks);
   GT_TEMPLATE_ITERATE(template,map_array) {
-    GT_MAP_ARRAY_ITERATE(map_array,map,end_position) {
+    GT_MULTIMAP_ITERATE(map_array,map,end_position) {
       gt_alignment* alignment = gt_template_get_block(template,end_position);
       // As maps can contain more than one block (due to split maps) we iterate over all of them
       printf("\t BEGIN_MAPS_BLOCK [TotalDistance=%"PRIu64"] { ", gt_map_get_global_distance(map));
-      GT_MAP_BLOCKS_ITERATE(map,map_block) {
+      GT_MAP_ITERATE(map,map_block) {
         printf("\n\t\t%s\t",gt_map_get_seq_name(map_block));
         /// IMPORTANT NOTE: Positions are base-1 (Genomic coordinates)
         printf("InitPos=%"PRIu64"\t",gt_map_get_position(map_block));
@@ -110,15 +110,26 @@ void gt_example_map_parsing() {
   gt_string* text = gt_string_new(0);
   gt_status error_code;
   while ((error_code=gt_input_map_parser_get_template__src_text(buffered_input,template,text))) {
-    if (error_code==GT_BMI_FAIL) {
+    if (error_code!=GT_IMP_OK) {
       printf(">>> "PRIgts"\n",PRIgts_content(text));
       continue;
     }
 
-//    // Print source text
-//    printf("<< "PRIgts"\n",PRIgts_content(text));
-//    // Print template's content
-//    gt_example_display_template(template);
+    GT_TEMPLATE_ITERATE(template,map_array) {
+      GT_MULTIMAP_ITERATE(map_array,map,end_position) {
+        GT_MAP_ITERATE(map,map_block) {
+          printf(">>'%s'\n",gt_map_get_seq_name(map_block));
+        }
+      }
+    }
+
+    // Print source text
+    printf("<< "PRIgts"\n",PRIgts_content(text));
+    // Print template's content
+    // gt_example_display_template(template);
+    // Output the same line (parsed + printed)
+    printf(">> ");
+    gt_output_map_fprint_template(stdout,template,GT_ALL,false);
 
   }
   gt_buffered_input_file_close(buffered_input);
@@ -126,6 +137,24 @@ void gt_example_map_parsing() {
   // Close files
   gt_input_file_close(input_file);
 }
+
+void gt_dummy_example() {
+  register gt_status error_code = 0;
+  register gt_alignment* alignment = gt_alignment_new();
+  error_code+=gt_input_map_parse_alignment(
+      "C0LMTACXX120523:8:2209:19417:37092/1\t"
+      "ACTCCAGTCACTCCAGCAAATCTCGGATGCCGTCTTCTGCTTGAACGAAACCAGAACTGTGTGGAGAACAGCTTAA\t"
+      "7=7AAAA7<722<C+AA;=C?<3A3+2<):@)?###########################################\t"
+      "0+0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:1:0:1:0:1:1\t"
+      "chr10:+:28549954:(5)17A1AA1GC1A1ATGGG1C1CCA1TTC2T1A1TT1(20):::65472,"
+      "chr13:+:43816250:(5)10A7ACTC2AGA1A2TCCAG3C1CTCTT1TTGC(20):::12224,"
+      "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20):::1984,"
+      "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20):::1984,"
+      "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20):::1984",alignment);
+
+  fprintf(stdout, "[%d] the alignment has %lu maps\n", error_code, gt_alignment_get_num_maps(alignment));
+}
+
 
 void gt_example_map_string_parsing() {
   register gt_status error_code = 0;
@@ -181,11 +210,18 @@ void gt_example_map_string_parsing() {
       "ACTCCAGTCACTCCAGCAAATCTCGGATGCCGTCTTCTGCTTGAACGAAACCAGAACTGTGTGGAGAACAGCTTAA\t"
       "7=7AAAA7<722<C+AA;=C?<3A3+2<):@)?###########################################\t"
       "0+0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:1:0:1:0:1:1\t"
-      "chr10:+:28549954:(5)17A1AA1GC1A1ATGGG1C1CCA1TTC2T1A1TT1(20):::65472,"
-      "chr13:+:43816250:(5)10A7ACTC2AGA1A2TCCAG3C1CTCTT1TTGC(20):::12224,"
-      "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20):::1984,"
-      "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20):::1984,"
-      "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20):::1984",alignment);
+      "chr10:+:28549954:(5)17A1AA1GC1A1ATGGG1C1CCA1TTC2T1A1TT1(20):65472,"
+      "chr13:+:43816250:(5)10A7ACTC2AGA1A2TCCAG3C1CTCTT1TTGC(20):12224,"
+      "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20):1984,"
+      "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20):1984,"
+      "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20):1984",alignment);
+
+  error_code+=gt_input_map_parse_alignment(
+      "C0LMTACXX120523:8:2209:19417:37092/1\t"
+      "ACTCCAGTCACTCCAGCAAATCTCGGATGCCGTCTTCTGCTTGAACGAAACCAGAACTGTGTGGAGAACAGCTTAA\t"
+      "7=7AAAA7<722<C+AA;=C?<3A3+2<):@)?###########################################\t"
+      "0+0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:1:0:1:0:1:1\t"
+      "-",alignment);
 
   /*
    * Parsing Templates
@@ -196,11 +232,11 @@ void gt_example_map_string_parsing() {
       "ACTCCAGTCACTCCAGCAAATCTCGGATGCCGTCTTCTGCTTGAACGAAACCAGAACTGTGTGGAGAACAGCTTAA\t"
       "7=7AAAA7<722<C+AA;=C?<3A3+2<):@)?###########################################\t"
       "0+0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:1:0:1:0:1:1\t"
-      "chr10:+:28549954:(5)17A1AA1GC1A1ATGGG1C1CCA1TTC2T1A1TT1(20):::65472,"
-      "chr13:+:43816250:(5)10A7ACTC2AGA1A2TCCAG3C1CTCTT1TTGC(20):::12224,"
-      "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20):::1984,"
-      "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20):::1984,"
-      "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20):::1984",template);
+      "chr10:+:28549954:(5)17A1AA1GC1A1ATGGG1C1CCA1TTC2T1A1TT1(20),"
+      "chr13:+:43816250:(5)10A7ACTC2AGA1A2TCCAG3C1CTCTT1TTGC(20),"
+      "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20),"
+      "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20),"
+      "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20)",template);
 
   printf("Test %s\n",error_code==0?"Passed":"Failed");
 }
@@ -330,6 +366,9 @@ int main(int argc,char** argv) {
   //
   // Examples
   //
+
+  //gt_example_map_string_parsing();
+  //gt_dummy_example();
 
   // MAP to FASTQ conversion
   if (strcmp(example_name,"map-2-fastq")==0) {

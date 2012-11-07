@@ -82,7 +82,7 @@ GT_INLINE void gt_output_buffer_set_partial_block(gt_output_buffer* const output
 /*
  * Adaptors
  */
-GT_INLINE char* gt_output_buffer_to_string(gt_output_buffer* const output_buffer) {
+GT_INLINE char* gt_output_buffer_to_char(gt_output_buffer* const output_buffer) {
   GT_OUTPUT_BUFFER_CHECK(output_buffer);
   gt_vector_insert(output_buffer->buffer,EOS,char);
   return gt_vector_get_mem(output_buffer->buffer,char);
@@ -110,18 +110,9 @@ GT_INLINE void gt_output_buffer_check_safety_dump(gt_output_buffer** output_buff
 GT_INLINE gt_status gt_vbprintf(gt_output_buffer** const output_buffer,const char *template,va_list v_args) {
   GT_OUTPUT_BUFFER_CHECK(*output_buffer);
   GT_NULL_CHECK(template); GT_NULL_CHECK(v_args);
-  // Check buffer size. In case, we do an emergency dump
-  gt_output_buffer_check_safety_dump(output_buffer);
   // Calculate buffer size required to dump template{v_args}
   register int64_t mem_required = gt_calculate_memory_required_v(template,v_args);
-  gt_vector_reserve_additional((*output_buffer)->buffer,mem_required);
-  mem_required=vsprintf(gt_vector_get_free_elm((*output_buffer)->buffer,char),template,v_args);
-  if (gt_expect_true(mem_required>0)) {
-    gt_vector_add_used((*output_buffer)->buffer,mem_required);
-    return mem_required;
-  } else {
-    return GT_OUT_BUFFER_FAIL;
-  }
+  return gt_vbprintf_mem(output_buffer,mem_required,template,v_args);
 }
 GT_INLINE gt_status gt_bprintf(gt_output_buffer** const output_buffer,const char *template,...) {
   GT_OUTPUT_BUFFER_CHECK(*output_buffer);
@@ -167,7 +158,18 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
   for (centinel=template;*centinel!=EOS;++centinel,++mem_required) {
     if (*centinel==FORMAT) {
       ++centinel;
+      // Read modifiers
+      while (gt_is_number(*centinel)) ++centinel;
+      if (*centinel==DOT){
+        ++centinel;
+        if (*centinel==STAR) {
+          ++centinel;
+        } else {
+          while (gt_is_number(*centinel)) ++centinel;
+        }
+      }
       gt_check(centinel==EOS,PRINT_FORMAT);
+      // Check format
       switch (*centinel) {
         case 's': { // String requires fetching the argument length
           register char* const string = va_arg(v_args,char*);

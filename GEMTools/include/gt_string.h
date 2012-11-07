@@ -2,7 +2,9 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_string.h
  * DATE: 20/08/2012
- * DESCRIPTION: // TODO
+ * DESCRIPTION: Simple string implementation.
+ *   Static stings gt_string_new(0), which share memory across instances (stores mem ptr)
+ *   Dynamic strings gt_string_new(n>0), which handle their own memory and hold copy of the string
  */
 
 #ifndef GT_STRING_H_
@@ -47,9 +49,10 @@ GT_INLINE void gt_string_cast_dynamic(gt_string* const string,const uint64_t ini
 
 GT_INLINE void gt_string_set_string(gt_string* const string,char* const string_src);
 GT_INLINE void gt_string_set_nstring(gt_string* const string,char* const string_src,const uint64_t length);
-
 GT_INLINE char* gt_string_get_string(gt_string* const string);
+
 GT_INLINE uint64_t gt_string_get_length(gt_string* const string);
+GT_INLINE void gt_string_set_length(gt_string* const string,const uint64_t length);
 
 GT_INLINE char* gt_string_char_at(gt_string* const string,const uint64_t pos);
 
