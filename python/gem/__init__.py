@@ -395,9 +395,10 @@ def mapper(input, index, output=None,
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
             raise ValueError("Trim parameter has to be a list or a tuple of size 2")
-        input = filter.trim(input, trim[0], trim[1], append_label=True)
+        input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
     ## run the mapper
+    process = None
     if trim is None:
         process = utils.run_tool(pa, input, output, "GEM-Mapper", utils.read_to_sequence)
     else:
@@ -419,6 +420,7 @@ def splitmapper(input,
                 matches_threshold=100,
                 mismatch_strata_delta=1,
                 quality=33,
+                trim=None,
                 threads=1):
     """Start the GEM split mapper on the given input.
     If input is a file handle, it is assumed to
@@ -466,7 +468,19 @@ def splitmapper(input,
         pa.append("-c")
         pa.append(splice_cons)
 
-    process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
+    trim_c = [executables['gem-map-2-map'], '-c']
+    if trim is not None:
+        ## check type
+        if not isinstance(trim, (list, tuple)) or len(trim) != 2:
+            raise ValueError("Trim parameter has to be a list or a tuple of size 2")
+        input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
+
+    ## run the mapper
+    process = None
+    if trim is None:
+        process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
+    else:
+        process = utils.run_tools([pa, trim_c], input, output, "GEM-Split-Mapper", utils.read_to_sequence)
     return _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
 
 
@@ -745,7 +759,7 @@ def index(input, output, content="dna", threads=1):
     if existing[-4:] != ".gem": existing = "%s.gem" % existing
     if os.path.exists(existing):
         logging.warning("Index %s already exists, skipping indexing" % existing)
-        return os.path.exists(existing)
+        return os.path.abspath(existing)
 
 
     # indexer takes the prefix
