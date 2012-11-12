@@ -224,8 +224,9 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_PARSE_SAM_BAD_CHARACTER "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Bad character found"
 #define GT_ERROR_PARSE_SAM_UNMAPPED_XA "Parsing SAM error(%s:%"PRIu64"). Unmapped read contains XA field (inconsistency)"
 
-// BOF (Buffered Output File)
-#define GT_ERROR_BOF_BUFFER_INCONSISTENCY "Buffered output file state inconsistent"
+// Output File
+#define GT_ERROR_OUTPUT_FILE_INCONSISTENCY "Output file state inconsistent"
+#define GT_ERROR_OUTPUT_FILE_FAIL_WRITE "Output file. Error writing to to file"
 #define GT_ERROR_BUFFER_SAFETY_DUMP "Output buffer. Could not perform safety dump"
 
 /*

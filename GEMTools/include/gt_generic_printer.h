@@ -33,7 +33,6 @@ typedef struct {
     default: gt_fatal_check(true,SELECTION_NOT_VALID); break; \
   }
 
-
 /*
  * Generic printer
  */

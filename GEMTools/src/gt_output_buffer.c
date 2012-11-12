@@ -17,16 +17,15 @@
 GT_INLINE gt_output_buffer* gt_output_buffer_new(void) {
   gt_output_buffer* output_buffer = malloc(sizeof(gt_output_buffer));
   gt_cond_fatal_error(!output_buffer,MEM_HANDLER);
-  output_buffer->mayor_block_id=UINT32_MAX;
-  output_buffer->minor_block_id=UINT32_MAX;
-  output_buffer->is_final_block=true;
+  gt_output_buffer_initiallize(output_buffer,GT_OUTPUT_BUFFER_FREE);
   output_buffer->buffer=gt_vector_new(GT_OUTPUT_BUFFER_INITIAL_SIZE,sizeof(char));
-  output_buffer->buffer_state=GT_OUTPUT_BUFFER_FREE;
   output_buffer->buffered_output_file=NULL;
   return output_buffer;
 }
 GT_INLINE void gt_output_buffer_clear(gt_output_buffer* const output_buffer) {
   GT_OUTPUT_BUFFER_CHECK(output_buffer);
+  output_buffer->mayor_block_id=UINT32_MAX;
+  output_buffer->minor_block_id=0;
   output_buffer->is_final_block=true;
   gt_vector_clean(output_buffer->buffer);
 }
@@ -34,8 +33,6 @@ GT_INLINE void gt_output_buffer_initiallize(gt_output_buffer* const output_buffe
   GT_OUTPUT_BUFFER_CHECK(output_buffer);
   gt_output_buffer_clear(output_buffer);
   gt_output_buffer_set_state(output_buffer,buffer_state);
-  gt_output_buffer_set_mayor_block_id(output_buffer,UINT32_MAX);
-  gt_output_buffer_set_minor_block_id(output_buffer,0);
 }
 GT_INLINE void gt_output_buffer_delete(gt_output_buffer* const output_buffer) {
   GT_OUTPUT_BUFFER_CHECK(output_buffer);
