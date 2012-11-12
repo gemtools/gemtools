@@ -12,17 +12,14 @@
 
 typedef enum { GT_OUTPUT_BUFFER_FREE, GT_OUTPUT_BUFFER_BUSY, GT_OUTPUT_BUFFER_WRITE_PENDING } gt_output_buffer_state;
 
-struct _gt_buffered_output_file;
 typedef struct {
   /* Block ID (for synchronization purposes) */
   uint32_t mayor_block_id;
   uint32_t minor_block_id;
   bool is_final_block;
+  gt_output_buffer_state buffer_state;
   /* Buffer */
   gt_vector* buffer;
-  gt_output_buffer_state buffer_state;
-  /* Buffered output file*/
-  struct _gt_buffered_output_file* buffered_output_file;
 } gt_output_buffer;
 
 // Codes gt_status
