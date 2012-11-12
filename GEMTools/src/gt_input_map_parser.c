@@ -1082,7 +1082,7 @@ GT_INLINE gt_status gt_input_map_parse_template(char* const string,gt_template* 
   GT_NULL_CHECK(string);
   GT_TEMPLATE_CHECK(template);
   char* _string = string; // Placeholder
-  gt_template_clear(template,false); // Clear template
+  gt_template_clear(template,true); // Clear template
   // Count fields
   register uint64_t num_fields=0, i=0;
   while (gt_expect_true(_string[i]!=EOS)) {

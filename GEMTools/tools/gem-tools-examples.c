@@ -115,21 +115,13 @@ void gt_example_map_parsing() {
       continue;
     }
 
-    GT_TEMPLATE_ITERATE(template,map_array) {
-      GT_MULTIMAP_ITERATE(map_array,map,end_position) {
-        GT_MAP_ITERATE(map,map_block) {
-          printf(">>'%s'\n",gt_map_get_seq_name(map_block));
-        }
-      }
-    }
-
     // Print source text
-    printf("<< "PRIgts"\n",PRIgts_content(text));
+    //printf("<< "PRIgts"\n",PRIgts_content(text));
     // Print template's content
-    // gt_example_display_template(template);
+    //gt_example_display_template(template);
     // Output the same line (parsed + printed)
-    printf(">> ");
-    gt_output_map_fprint_template(stdout,template,GT_ALL,false);
+    //printf(">> ");
+    //gt_output_map_fprint_template(stdout,template,GT_ALL,false);
 
   }
   gt_buffered_input_file_close(buffered_input);
