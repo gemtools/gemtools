@@ -556,7 +556,7 @@ gempy_alignment_iterator* create_template_mappings_iterator(gt_template* templat
     p->jump=-1;
     p->num_blocks = gt_template_get_num_blocks(template);
     p->position = 0;
-    gt_template_new_maps_iterator(template,&(p->maps_iterator));
+    //gt_template_new_maps_iterator(template,&(p->maps_iterator));
     return p;
 }
 
