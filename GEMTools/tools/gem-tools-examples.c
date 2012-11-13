@@ -242,16 +242,16 @@ void gt_example_map_dump_map() {
   gt_input_file* input_file = (parameters.name_input_file==NULL) ?
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,GT_EXAMPLE_MMAP_FILE);
 
-  // Open output file
-  gt_buffered_output_file* output_file = (parameters.name_output_file==NULL) ?
-      gt_buffered_output_stream_new(stdout,SORTED_FILE) :
-      gt_buffered_output_file_new(parameters.name_output_file,SORTED_FILE);
+//  // Open output file
+//  gt_buffered_output_file* output_file = (parameters.name_output_file==NULL) ?
+//      gt_buffered_output_stream_new(stdout,SORTED_FILE) :
+//      gt_buffered_output_file_new(parameters.name_output_file,SORTED_FILE);
 
   /*** BEGIN PPAR REGION */
 
   // Create I/O buffers
   gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
-  gt_output_buffer* output_buffer = gt_buffered_output_file_request_buffer(output_file);
+//  gt_output_buffer* output_buffer = gt_buffered_output_file_request_buffer(output_file);
   // Read all templates
   gt_template* template = gt_template_new();
   gt_status error_code; // FIXME
@@ -268,12 +268,12 @@ void gt_example_map_dump_map() {
 //  }
   // Close I/O buffers
   gt_buffered_input_file_close(buffered_input);
-  gt_buffered_output_file_release_buffer(output_file,output_buffer);
+//  gt_buffered_output_file_release_buffer(output_file,output_buffer);
 
   /*** END PPAR REGION */
 
   // Close files
-  gt_buffered_output_file_close(output_file);
+//  gt_buffered_output_file_close(output_file);
   gt_input_file_close(input_file);
 }
 

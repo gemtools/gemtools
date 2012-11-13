@@ -1220,10 +1220,10 @@ GT_INLINE gt_status gt_imp_get_template(
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_input_file)) {
     // Dump buffer is Output it attached to Map-input
-    if (output_buffer!=NULL && *output_buffer!=NULL && (*output_buffer)->buffered_output_file!=NULL) {
-      *output_buffer = gt_buffered_output_file_dump_buffer(
-          (*output_buffer)->buffered_output_file,*output_buffer);
-    }
+//    if (output_buffer!=NULL && *output_buffer!=NULL && (*output_buffer)->buffered_output_file!=NULL) {
+//      *output_buffer = gt_buffered_output_file_dump_buffer(
+//          (*output_buffer)->buffered_output_file,*output_buffer);
+//    } // FIXME
     register const uint64_t read_lines =
         gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
     if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
@@ -1264,10 +1264,10 @@ GT_INLINE gt_status gt_imp_get_alignment(
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_input_file)) {
     // Dump buffer is Output it attached to Map-input
-    if (output_buffer!=NULL && *output_buffer!=NULL && (*output_buffer)->buffered_output_file!=NULL) {
-      *output_buffer = gt_buffered_output_file_dump_buffer(
-          (*output_buffer)->buffered_output_file,*output_buffer);
-    }
+//    if (output_buffer!=NULL && *output_buffer!=NULL && (*output_buffer)->buffered_output_file!=NULL) {
+//      *output_buffer = gt_buffered_output_file_dump_buffer(
+//          (*output_buffer)->buffered_output_file,*output_buffer);
+//    } // FIXME
     register const uint64_t read_lines =
         gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
     if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
