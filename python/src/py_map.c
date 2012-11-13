@@ -73,7 +73,8 @@ int Map_setbase_length(Map *self, PyObject *value, void *closure){
 }
 
 PyObject* Map_getdirection(Map *self, void *closure){
-    PyObject* ret = PyInt_FromLong(gt_map_get_direction(self->map));
+    //PyObject* ret = PyInt_FromLong(gt_map_get_direction(self->map));
+    PyObject* ret = PyInt_FromLong(0);
     return ret;
 }
 

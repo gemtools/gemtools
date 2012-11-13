@@ -32,6 +32,7 @@ class interleave(object):
     ids are checked for /1 /2 endings and the endings
     are appended if not found.
     """
+
     def __init__(self, streams, add_id=True):
         self.streams = streams
         self.idx = 0
@@ -58,6 +59,32 @@ class interleave(object):
                 return ret
             else:
                 self.counter += 1
+        raise StopIteration()
+
+
+class cat(object):
+    """Concatenate the content of a list of
+    read iterators
+    """
+
+    def __init__(self, streams):
+        self.streams = streams
+        self.idx = 0
+        self.len = len(streams)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        while self.idx < self.len:
+            try:
+                ret = self.streams[self.idx].next()
+                if ret is not None:
+                    return ret
+                else:
+                    self.idx += 1
+            except StopIteration:
+                self.idx += 1
         raise StopIteration()
 
 
