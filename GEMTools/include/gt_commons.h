@@ -116,6 +116,7 @@ typedef int32_t gt_status;
 #define GT_MIN(a,b) ((a)<=(b)?(a):(b))
 #define GT_MAX(a,b) ((a)>=(b)?(a):(b))
 #define GT_ABS(a) ((a)>=0?(a):-(a))
+#define GT_SWAP(a,b) do {typeof(a) aux = a; a = b; b = aux; } while (0)
 
 /*
  * String/Buffer functions
@@ -126,6 +127,12 @@ GT_INLINE int gt_strcmp(char* const buffer_a,char* const buffer_b);
 GT_INLINE bool gt_streq(char* const buffer_a,char* const buffer_b);
 GT_INLINE int gt_strncmp(char* const buffer_a,char* const buffer_b,const uint64_t length);
 GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_t length);
+
+/*
+ * Memory usage functions
+ */
+GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v_args);
+GT_INLINE uint64_t gt_calculate_memory_required_va(const char *template,...);
 
 /*
  * Error value return wrapper

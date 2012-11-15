@@ -160,7 +160,10 @@ extern FILE* gt_error_stream;
 // Output errors
 #define GT_ERROR_FPRINTF "Printing output. 'fprintf' call failed"
 #define GT_ERROR_SPRINTF "Printing output. 'sprintf' call failed"
-#define GT_ERROR_BPRINTF "Printing output. Buffered print formated call failed"
+#define GT_ERROR_BPRINTF "Printing output. Buffer print formated 'gt_bprintf' call failed"
+#define GT_ERROR_OFPRINTF "Printing output. Output File print formated 'gt_ofprintf' call failed"
+#define GT_ERROR_BOFPRINTF "Printing output. Buffered Output file print formated 'gt_bofprintf' call failed"
+
 #define GT_ERROR_PRINT_FORMAT "Incorrect print format. Expected format character"
 
 // Template/Alignment/Map/Misms errors

@@ -12,7 +12,7 @@
 #define GT_INPUT_SOAP_PARSER_NUM_INITIAL_MAPS 5
 
 /*
- * FASTQ File Format test
+ * FASTQ File basics
  */
 GT_INLINE bool gt_input_file_detect_fastq_format(char* const buffer,const uint64_t buffer_size,const bool show_errors) {
   // TODO

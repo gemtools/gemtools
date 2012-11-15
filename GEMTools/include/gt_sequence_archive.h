@@ -59,6 +59,15 @@ GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,i
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive);
 GT_INLINE void gt_sequence_archive_karyotypic_sort(gt_sequence_archive* const seq_archive);
 /*
+ * Sequence Archive Iterator
+ */
+GT_INLINE void gt_sequence_archive_new_iterator(
+    gt_sequence_archive* const seq_archive,gt_sequence_archive_iterator* const seq_archive_iterator);
+GT_INLINE bool gt_sequence_archive_iterator_eos(gt_sequence_archive_iterator* const seq_archive_iterator);
+GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_next(gt_sequence_archive_iterator* const seq_archive_iterator);
+GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_previous(gt_sequence_archive_iterator* const seq_archive_iterator);
+
+/*
  * Constructor
  */
 GT_INLINE gt_segmented_sequence* gt_segmented_sequence_new(void);
@@ -80,14 +89,6 @@ GT_INLINE void gt_segmented_sequence_iterator_seek(gt_segmented_sequence_iterato
 GT_INLINE bool gt_segmented_sequence_iterator_eos(gt_segmented_sequence_iterator* const sequence_iterator);
 GT_INLINE char gt_segmented_sequence_iterator_next(gt_segmented_sequence_iterator* const sequence_iterator);
 GT_INLINE char gt_segmented_sequence_iterator_previous(gt_segmented_sequence_iterator* const sequence_iterator);
-/*
- * Sequence Archive Iterator
- */
-GT_INLINE void gt_sequence_archive_new_iterator(
-    gt_sequence_archive* const seq_archive,gt_sequence_archive_iterator* const seq_archive_iterator);
-GT_INLINE bool gt_sequence_archive_iterator_eos(gt_sequence_archive_iterator* const seq_archive_iterator);
-GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_next(gt_sequence_archive_iterator* const seq_archive_iterator);
-GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_previous(gt_sequence_archive_iterator* const seq_archive_iterator);
 
 
 #endif /* GT_SEQUENCE_ARCHIVE_H_ */

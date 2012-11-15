@@ -205,24 +205,6 @@ GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* con
   }
   return 0;
 }
-GT_INLINE gt_status gt_input_map_parse_tag_block(char** tag,char** tag_block,const uint64_t num_expected_blocks) {
-  /*
-   * Tag Block Conventions::
-   *  (1) line1: NAME => line1&2: NAME
-   *      line2: NAME
-   *  (2) line1: NAME<SEP>SOMETHING_ELSE_1 => line1&2: NAME<SEP>SOMETHING_ELSE_1|NAME<SEP>SOMETHING_ELSE_2
-   *      line2: NAME<SEP>SOMETHING_ELSE_2
-   *  (3) line1: NAME<SEP>1 => line1&2: NAME
-   *      line2: NAME<SEP>2
-   * Tag Decomposition::
-   *  (<TAG_BLOCK><SEP>){num_blocks}
-   *    -> tag.num_blocks == read.num_blocks
-   *    -> <SEP> := ' ' | '/' | '#' | "|"  // TODO
-   */
-
-  // TODO
-  return 0;
-}
 GT_INLINE gt_status gt_input_map_parse_read_block(char** const text_line,gt_string* const read_block) {
   // Read READ_BLOCK
   register char* const read_block_begin = *text_line;
@@ -824,6 +806,7 @@ GT_INLINE gt_status gt_imp_parse_map(char** text_line,gt_map* const map,const gt
   (error_code!=GT_IMP_PE_MAP_PENDING_MAPS && \
    error_code!=GT_IMP_PE_EOB && \
    error_code!=GT_IMP_PE_MAP_GLOBAL_ATTR)
+
 GT_INLINE gt_status gt_imp_parse_template_maps(
     char** text_line,gt_template* const template,
     const gt_lazy_parse_mode parse_mode,uint64_t num_maps) {
@@ -885,7 +868,8 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
     if (gt_expect_false(num_blocks_parsed<num_blocks_template || num_blocks_parsed==1)) {
       return GT_IMP_PE_MAP_BAD_NUMBER_OF_BLOCKS;
     }
-    gt_template_insert_mmap_gtvector(template,vector_maps,&mmap_attr,true);
+    gt_template_raw_put_mmap(gt_map_cmp,template,
+        gt_vector_get_mem(vector_maps,gt_map*),&mmap_attr,true,true);
     ++num_maps_parsed;
   }
   gt_vector_delete(vector_maps);
@@ -1005,8 +989,8 @@ GT_INLINE gt_status gt_imp_parse_template(
     ++num_blocks;
   }
 
-  // Tag Splitting (try to deduce alignments' tag out of the one template's tag) // TODo
-  //gt_input_map_parse_tag_block(char** tag,char** tag_block,const uint64_t num_expected_blocks);
+  // Tag Splitting (try to deduce alignments' tag out of the one template's tag)
+  gt_template_deduce_alignments_tags(template);
 
   // QUALITIES
   if (has_map_quality) {
@@ -1211,22 +1195,22 @@ GT_INLINE gt_status gt_input_map_parse_alignment_mismatch_string(gt_alignment* a
  */
 GT_INLINE gt_status gt_imp_get_template(
     gt_buffered_input_file* const buffered_input_file,gt_string* const src_text,
-    gt_template* const template,const gt_lazy_parse_mode parse_mode,
-    gt_output_buffer** const output_buffer) {
+    gt_template* const template,const gt_lazy_parse_mode parse_mode) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
   GT_TEMPLATE_CHECK(template);
   register gt_input_file* const input_file = buffered_input_file->input_file;
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_input_file)) {
-    // Dump buffer is Output it attached to Map-input
-//    if (output_buffer!=NULL && *output_buffer!=NULL && (*output_buffer)->buffered_output_file!=NULL) {
-//      *output_buffer = gt_buffered_output_file_dump_buffer(
-//          (*output_buffer)->buffered_output_file,*output_buffer);
-//    } // FIXME
     register const uint64_t read_lines =
         gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
     if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
+    // Dump buffer if BOF it attached to Map-input
+    if (buffered_input_file->buffered_output_file!=NULL) {
+      gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
+      gt_buffered_output_file_set_block_ids(
+          buffered_input_file->buffered_output_file,buffered_input_file->block_id,0);
+    }
   }
   // Check file format
   if (gt_input_map_parser_check_map_file_format(buffered_input_file)) {
@@ -1255,19 +1239,17 @@ GT_INLINE gt_status gt_imp_get_template(
 }
 GT_INLINE gt_status gt_imp_get_alignment(
     gt_buffered_input_file* const buffered_input_file,gt_string* const src_text,
-    gt_alignment* const alignment,const gt_lazy_parse_mode parse_mode,
-    gt_output_buffer** const output_buffer) {
+    gt_alignment* const alignment,const gt_lazy_parse_mode parse_mode) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
   GT_ALIGNMENT_CHECK(alignment);
   register gt_input_file* const input_file = buffered_input_file->input_file;
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_input_file)) {
-    // Dump buffer is Output it attached to Map-input
-//    if (output_buffer!=NULL && *output_buffer!=NULL && (*output_buffer)->buffered_output_file!=NULL) {
-//      *output_buffer = gt_buffered_output_file_dump_buffer(
-//          (*output_buffer)->buffered_output_file,*output_buffer);
-//    } // FIXME
+    // Dump buffer if BOF it attached to Map-input
+    if (buffered_input_file->buffered_output_file!=NULL) {
+      gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
+    }
     register const uint64_t read_lines =
         gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
     if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
@@ -1301,13 +1283,13 @@ GT_INLINE gt_status gt_input_map_parser_get_template(
     gt_buffered_input_file* const buffered_input_file,gt_template* const template) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
   GT_TEMPLATE_CHECK(template);
-  return gt_imp_get_template(buffered_input_file,NULL,template,PARSE_ALL,NULL);
+  return gt_imp_get_template(buffered_input_file,NULL,template,PARSE_ALL);
 }
 GT_INLINE gt_status gt_input_map_parser_get_alignment(
     gt_buffered_input_file* const buffered_input_file,gt_alignment* const alignment) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
   GT_ALIGNMENT_CHECK(alignment);
-  return gt_imp_get_alignment(buffered_input_file,NULL,alignment,PARSE_ALL,NULL);
+  return gt_imp_get_alignment(buffered_input_file,NULL,alignment,PARSE_ALL);
 }
 
 GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
@@ -1316,7 +1298,7 @@ GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
   GT_TEMPLATE_CHECK(template);
   GT_STRING_CHECK(src_text);
   gt_string_cast_static(src_text);
-  return gt_imp_get_template(buffered_input_file,src_text,template,PARSE_ALL,NULL);
+  return gt_imp_get_template(buffered_input_file,src_text,template,PARSE_ALL);
 }
 GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
     gt_buffered_input_file* const buffered_input_file,gt_alignment* const alignment,gt_string* const src_text) {
@@ -1324,7 +1306,7 @@ GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
   GT_ALIGNMENT_CHECK(alignment);
   GT_STRING_CHECK(src_text);
   gt_string_cast_static(src_text);
-  return gt_imp_get_alignment(buffered_input_file,src_text,alignment,PARSE_ALL,NULL);
+  return gt_imp_get_alignment(buffered_input_file,src_text,alignment,PARSE_ALL);
 }
 
 

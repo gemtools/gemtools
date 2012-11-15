@@ -14,7 +14,24 @@
 #include "gt_template.h"
 
 /*
- * Template's MMaps operators (Update global state: counters, ...)
+ * Template basic tools
+ */
+GT_INLINE gt_status gt_template_deduce_alignments_tags(gt_template* const template);
+
+/*
+ * Template's MMaps high-level insertion (basic building block)
+ */
+GT_INLINE gt_map** gt_template_raw_put_mmap(
+    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
+    const bool alignment_insertion,const bool delete_unused_mmap_members);
+GT_INLINE gt_map** gt_template_put_mmap(
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
+    const bool replace_dup,const bool alignment_insertion,const bool delete_unused_mmap_members);
+
+/*
+ * Template's MMaps high-level insertion operators (Update global state: counters, ...)
  */
 GT_INLINE void gt_template_insert_mmap(
     gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion);

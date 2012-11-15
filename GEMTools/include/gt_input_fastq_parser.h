@@ -26,18 +26,14 @@
 // #define GT_IFP_PE_WRONG_FILE_FORMAT 10
 
 /*
- * FASTQ File Format test
+ * FASTQ File basics
  */
 GT_INLINE bool gt_input_file_test_fastq(
     gt_input_file* const input_file,gt_fasta_file_format* const fasta_file_format,const bool show_errors);
-
-/*
- * Parsing Building Blocks
- */
-GT_INLINE void gt_input_fastq_parser_next_record(gt_buffered_input_file* const buffered_map_input);
 GT_INLINE void gt_input_fastq_parser_prompt_error(
     gt_buffered_input_file* const buffered_map_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code);
+GT_INLINE void gt_input_fastq_parser_next_record(gt_buffered_input_file* const buffered_map_input);
 
 /*
  * High Level Parsers

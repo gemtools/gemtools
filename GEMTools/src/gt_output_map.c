@@ -12,10 +12,10 @@
 /*
  * MAP building block printers
  */
-// Generic [G]
-GT_INLINE gt_status gt_output_map_gprint_counters(
-    gt_generic_printer* const gprinter,gt_vector* const counters,
-    const uint64_t max_complete_strata,const bool compact) {
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS counters,max_complete_strata,compact
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_counters,
+    gt_vector* const counters,const uint64_t max_complete_strata,const bool compact) {
   GT_NULL_CHECK(gprinter); GT_NULL_CHECK(counters);
   register const uint64_t num_counters = gt_vector_get_used(counters);
   register uint64_t i;
@@ -40,39 +40,50 @@ GT_INLINE gt_status gt_output_map_gprint_counters(
   }
   return 0;
 }
-GT_INLINE gt_status gt_output_map_gprint_mismatch_string(gt_generic_printer* const gprinter,gt_map* const map) {
+
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_mismatch_string,gt_map* const map) {
   GT_NULL_CHECK(gprinter); GT_MAP_CHECK(map);
+  register const uint64_t map_length = gt_map_get_base_length(map);
   register uint64_t centinel = 0;
   GT_MISMS_ITERATE(map,misms) {
     register const uint64_t misms_pos = gt_misms_get_position(misms);
     if (misms_pos!=centinel) {
       gt_gprintf(gprinter,"%"PRIu64,misms_pos-centinel);
-      centinel = misms_pos-1;
+      centinel = misms_pos;
     }
     switch (gt_misms_get_type(misms)) {
       case MISMS:
         gt_gprintf(gprinter,"%c",gt_misms_get_base(misms));
-        centinel=misms_pos;
+        centinel=misms_pos+1;
         break;
       case INS:
         gt_gprintf(gprinter,">%"PRIu64"+",gt_misms_get_size(misms));
         break;
-      case DEL:
-        gt_gprintf(gprinter,">%"PRIu64"-",gt_misms_get_size(misms));
+      case DEL: {
+        register const uint64_t init_centinel = centinel;
         centinel+=gt_misms_get_size(misms);
+        if (gt_expect_false(init_centinel==0 || centinel==map_length)) { // Trim
+          gt_gprintf(gprinter,"(%"PRIu64")",gt_misms_get_size(misms));
+        } else {
+          gt_gprintf(gprinter,">%"PRIu64"-",gt_misms_get_size(misms));
+        }
         break;
+      }
       default:
         gt_error(SELECTION_NOT_VALID);
         break;
     }
   }
-  register const uint64_t map_length = gt_map_get_base_length(map);
   if (centinel < map_length) {
     gt_gprintf(gprinter,"%"PRIu64,map_length-centinel);
   }
   return 0;
 }
-GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,gt_map* const map,const bool print_scores) {
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_map,gt_map* const map,const bool print_scores) {
   GT_NULL_CHECK(gprinter); GT_MAP_CHECK(map);
   // FORMAT => chr11:-:51590050:(5)43T46A9>24*
   // Print sequence name
@@ -125,9 +136,10 @@ GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,
   }
   return 0;
 }
-GT_INLINE gt_status gt_output_map_gprint_template_maps(
-    gt_generic_printer* const gprinter,gt_template* const template,
-    const uint64_t num_maps,const bool print_scores) {
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,num_maps,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template_maps,
+    gt_template* const template,const uint64_t num_maps,const bool print_scores) {
   GT_NULL_CHECK(gprinter); GT_TEMPLATE_CHECK(template);
   // NOTE: No sorting performed. Written as laid in the vector.
   //       Thus, if you want a particular sorting (by score, by distance, ...) sorting must be done beforehand
@@ -141,7 +153,7 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps(
       GT_MULTIMAP_ITERATE(map_array,map,end_position) {
         if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
         gt_output_map_gprint_map(gprinter,map,print_scores);
-        if (print_scores && map_array_attr->score!=GT_MAP_NO_SCORE) {
+        if (print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
           gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
         }
       }
@@ -149,9 +161,10 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps(
   }
   return 0;
 }
-GT_INLINE gt_status gt_output_map_gprint_alignment_maps(
-    gt_generic_printer* const gprinter,gt_alignment* const alignment,
-    const uint64_t num_maps,const bool print_scores) {
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,num_maps,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment_maps,
+    gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
   GT_NULL_CHECK(gprinter); GT_ALIGNMENT_CHECK(alignment);
   // NOTE: No sorting performed. Written as laid in the vector.
   //       Thus, if you want a particular sorting (by score, by distance, ...) sort beforehand
@@ -167,76 +180,15 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps(
   }
   return 0;
 }
-// Output Buffer [B]
-GT_INLINE gt_status gt_output_map_bprint_counters(gt_output_buffer* const output_buffer,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact) {
-  gt_generic_printer gprinter;
-  gt_generic_new_buffer_printer(&gprinter,output_buffer);
-  return gt_output_map_gprint_counters(&gprinter,counters,max_complete_strata,compact);
-}
-GT_INLINE gt_status gt_output_map_bprint_map(gt_output_buffer* const output_buffer,gt_map* const map,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_buffer_printer(&gprinter,output_buffer);
-  return gt_output_map_gprint_map(&gprinter,map,print_scores);
-}
-GT_INLINE gt_status gt_output_map_bprint_template_maps(gt_output_buffer* const output_buffer,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_buffer_printer(&gprinter,output_buffer);
-  return gt_output_map_gprint_template_maps(&gprinter,template,num_maps,print_scores);
-}
-GT_INLINE gt_status gt_output_map_bprint_alignment_maps(gt_output_buffer* const output_buffer,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_buffer_printer(&gprinter,output_buffer);
-  return gt_output_map_gprint_alignment_maps(&gprinter,alignment,num_maps,print_scores);
-}
-// String [S]
-GT_INLINE gt_status gt_output_map_sprint_counters(gt_string* const string,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact) {
-  gt_generic_printer gprinter;
-  gt_generic_new_string_printer(&gprinter,string);
-  return gt_output_map_gprint_counters(&gprinter,counters,max_complete_strata,compact);
-}
-GT_INLINE gt_status gt_output_map_sprint_map(gt_string* const string,gt_map* const map,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_string_printer(&gprinter,string);
-  return gt_output_map_gprint_map(&gprinter,map,print_scores);
-}
-GT_INLINE gt_status gt_output_map_sprint_template_maps(gt_string* const string,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_string_printer(&gprinter,string);
-  return gt_output_map_gprint_template_maps(&gprinter,template,num_maps,print_scores);
-}
-GT_INLINE gt_status gt_output_map_sprint_alignment_maps(gt_string* const string,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_string_printer(&gprinter,string);
-  return gt_output_map_gprint_alignment_maps(&gprinter,alignment,num_maps,print_scores);
-}
-// File [F]
-GT_INLINE gt_status gt_output_map_fprint_counters(FILE* file,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact) {
-  gt_generic_printer gprinter;
-  gt_generic_new_file_printer(&gprinter,file);
-  return gt_output_map_gprint_counters(&gprinter,counters,max_complete_strata,compact);
-}
-GT_INLINE gt_status gt_output_map_fprint_map(FILE* file,gt_map* const map,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_file_printer(&gprinter,file);
-  return gt_output_map_gprint_map(&gprinter,map,print_scores);
-}
-GT_INLINE gt_status gt_output_map_fprint_template_maps(FILE* file,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_file_printer(&gprinter,file);
-  return gt_output_map_gprint_template_maps(&gprinter,template,num_maps,print_scores);
-}
-GT_INLINE gt_status gt_output_map_fprint_alignment_maps(FILE* file,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
-  gt_generic_printer gprinter;
-  gt_generic_new_file_printer(&gprinter,file);
-  return gt_output_map_gprint_alignment_maps(&gprinter,alignment,num_maps,print_scores);
-}
+
 
 /*
  * Specific High-level MAP Printers
  */
-// Generic Printer [G]
-GT_INLINE gt_status gt_output_map_gprint_template(
-    gt_generic_printer* const gprinter,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,num_maps,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template,
+    gt_template* const template,const uint64_t num_maps,const bool print_scores) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   // Print TAG
@@ -269,8 +221,10 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   gt_gprintf(gprinter,"\n");
   return 0;
 }
-GT_INLINE gt_status gt_output_map_gprint_alignment(
-    gt_generic_printer* const gprinter,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,num_maps,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment,
+    gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_ALIGNMENT_CHECK(alignment);
   // Print TAG
@@ -294,84 +248,25 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   gt_gprintf(gprinter,"\n");
   return 0;
 }
-// Output Buffer [B]
-GT_INLINE gt_status gt_output_map_bprint_template(gt_output_buffer* const output_buffer,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  GT_OUTPUT_BUFFER_CHECK(output_buffer);
-  GT_TEMPLATE_CHECK(template);
-  gt_generic_printer gprinter;
-  gt_generic_new_buffer_printer(&gprinter,output_buffer);
-  return gt_output_map_gprint_template(&gprinter,template,num_maps,print_scores);
-}
-GT_INLINE gt_status gt_output_map_bprint_alignment(gt_output_buffer* const output_buffer,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
-  GT_OUTPUT_BUFFER_CHECK(output_buffer);
-  GT_ALIGNMENT_CHECK(alignment);
-  gt_generic_printer gprinter;
-  gt_generic_new_buffer_printer(&gprinter,output_buffer);
-  return gt_output_map_gprint_alignment(&gprinter,alignment,num_maps,print_scores);
-}
-// String [S]
-GT_INLINE gt_status gt_output_map_sprint_template(gt_string* const string,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  GT_STRING_CHECK(string);
-  GT_TEMPLATE_CHECK(template);
-  gt_generic_printer gprinter;
-  gt_generic_new_string_printer(&gprinter,string);
-  return gt_output_map_gprint_template(&gprinter,template,num_maps,print_scores);
-}
-GT_INLINE gt_status gt_output_map_sprint_alignment(gt_string* const string,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
-  GT_STRING_CHECK(string);
-  GT_ALIGNMENT_CHECK(alignment);
-  gt_generic_printer gprinter;
-  gt_generic_new_string_printer(&gprinter,string);
-  return gt_output_map_gprint_alignment(&gprinter,alignment,num_maps,print_scores);
-}
-// File [F]
-GT_INLINE gt_status gt_output_map_fprint_template(FILE* file,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  GT_NULL_CHECK(file);
-  GT_TEMPLATE_CHECK(template);
-  gt_generic_printer gprinter;
-  gt_generic_new_file_printer(&gprinter,file);
-  return gt_output_map_gprint_template(&gprinter,template,num_maps,print_scores);
-}
-GT_INLINE gt_status gt_output_map_fprint_alignment(FILE* file,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
-  GT_NULL_CHECK(file);
-  GT_ALIGNMENT_CHECK(alignment);
-  gt_generic_printer gprinter;
-  gt_generic_new_file_printer(&gprinter,file);
-  return gt_output_map_gprint_alignment(&gprinter,alignment,num_maps,print_scores);
-}
+
 
 /*
  * GEM printer
  */
-GT_INLINE gt_status gt_output_map_gprint_gem_template(gt_generic_printer* const gprinter,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,num_maps,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_gem_template,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
-
-
-  // TODO
-  return 0;
+  if (gt_template_get_num_mmaps(template)>0) {
+    return gt_output_map_gprint_template(gprinter,template,num_maps,print_scores);
+  } else {
+    register gt_status error_code = 0;
+    GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+       if ((error_code=gt_output_map_gprint_alignment(gprinter,alignment,num_maps,print_scores))) return error_code;
+    }
+    return error_code;
+  }
 }
-GT_INLINE gt_status gt_output_map_bprint_gem_template(gt_output_buffer* const output_buffer,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  GT_OUTPUT_BUFFER_CHECK(output_buffer);
-  GT_TEMPLATE_CHECK(template);
-  gt_generic_printer gprinter;
-  gt_generic_new_buffer_printer(&gprinter,output_buffer);
-  return gt_output_map_gprint_template(&gprinter,template,num_maps,print_scores);
-}
-GT_INLINE gt_status gt_output_map_sprint_gem_template(gt_string* const string,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  GT_STRING_CHECK(string);
-  GT_TEMPLATE_CHECK(template);
-  gt_generic_printer gprinter;
-  gt_generic_new_string_printer(&gprinter,string);
-  return gt_output_map_gprint_template(&gprinter,template,num_maps,print_scores);
-}
-GT_INLINE gt_status gt_output_map_fprint_gem_template(FILE* file,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
-  GT_NULL_CHECK(file);
-  GT_TEMPLATE_CHECK(template);
-  gt_generic_printer gprinter;
-  gt_generic_new_file_printer(&gprinter,file);
-  return gt_output_map_gprint_template(&gprinter,template,num_maps,print_scores);
-}
-
 
 

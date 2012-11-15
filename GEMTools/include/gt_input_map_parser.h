@@ -123,7 +123,6 @@ GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buf
 /*
  * MAP string parsers
  */
-// TODO RObust checkers
 GT_INLINE gt_status gt_input_map_parse_template(char* const string,gt_template* const template);
 GT_INLINE gt_status gt_input_map_parse_alignment(char* const string,gt_alignment* const alignment);
 GT_INLINE gt_status gt_input_map_parse_counters(char* const string,gt_vector* const counters,gt_shash* const attributes);

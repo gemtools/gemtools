@@ -183,7 +183,7 @@ GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const te
 // Querying also attributes {distance, score, ...}
 #define GT_TEMPLATE__ATTR_ITERATE_(template,map_array,map_array_attr) \
   gt_map** map_array; \
-  gt_mmap_attributes *map_array_attr; \
+  gt_mmap_attributes *map_array_attr = NULL; \
   gt_template_maps_iterator __##template##_maps_iterator; \
   gt_template_new_mmap_iterator(template,&(__##template##_maps_iterator)); \
   while (gt_template_next_mmap(&(__##template##_maps_iterator),&map_array,&map_array_attr))

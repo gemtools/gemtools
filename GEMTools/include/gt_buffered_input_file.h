@@ -30,6 +30,8 @@ typedef struct {
   char* cursor;
   uint64_t lines_in_buffer;
   uint64_t current_line_num;
+  /* Attached output buffer */
+  gt_buffered_output_file* buffered_output_file;
 } gt_buffered_input_file;
 
 /*
@@ -50,6 +52,12 @@ GT_INLINE gt_status gt_buffered_input_file_get_block(
     gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines,const bool use_mutex);
 GT_INLINE gt_status gt_buffered_input_file_add_lines_to_block(
     gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines);
+
+/*
+ * Block Synchronization with Output
+ */
+GT_INLINE void gt_buffered_input_file_attach_buffered_output(
+    gt_buffered_input_file* const buffered_input_file,gt_buffered_output_file* const buffered_output_file);
 
 /*
  * Processing Macros (for parsing)

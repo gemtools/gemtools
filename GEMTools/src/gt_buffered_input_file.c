@@ -24,6 +24,8 @@ gt_buffered_input_file* gt_buffered_input_file_new(gt_input_file* const input_fi
   buffered_map_file->block_buffer = gt_vector_new(GT_BMI_BUFFER_SIZE,sizeof(uint8_t));
   buffered_map_file->cursor = (char*) gt_vector_get_mem(buffered_map_file->block_buffer,uint8_t);
   buffered_map_file->current_line_num = UINT64_MAX;
+  /* Attached output buffer */
+  buffered_map_file->buffered_output_file = NULL;
   return buffered_map_file;
 }
 gt_status gt_buffered_input_file_close(gt_buffered_input_file* const buffered_input_file) {
@@ -75,4 +77,13 @@ GT_INLINE gt_status gt_buffered_input_file_add_lines_to_block(
   buffered_input_file->lines_in_buffer += lines_added;
   buffered_input_file->cursor = gt_vector_get_elm(buffered_input_file->block_buffer,current_position,char);
   return lines_added;
+}
+
+/*
+ * Block Synchronization with Output
+ */
+GT_INLINE void gt_buffered_input_file_attach_buffered_output(
+    gt_buffered_input_file* const buffered_input_file,gt_buffered_output_file* const buffered_output_file) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+  buffered_input_file->buffered_output_file = buffered_output_file;
 }

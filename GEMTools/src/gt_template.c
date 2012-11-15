@@ -430,7 +430,7 @@ GT_INLINE gt_template* gt_template_deep_copy(gt_template* const template) {
   gt_vector_copy(template_cpy->counters,template->counters);
   // Copy mmaps & mmaps_attributes
   gt_map** mmap;
-  gt_mmap_attributes* mmap_attr;
+  gt_mmap_attributes* mmap_attr = NULL;
   gt_template_maps_iterator template_maps_iterator;
   gt_template_new_mmap_iterator(template,&template_maps_iterator);
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);

@@ -332,7 +332,7 @@ GT_INLINE int64_t gt_mmap_range_cmp(
 GT_INLINE gt_map* gt_map_copy(gt_map* const map) {
   GT_MAP_CHECK(map);
   gt_map* map_cpy = gt_map_new();
-  map_cpy->seq_name = gt_string_copy(map->seq_name);
+  map_cpy->seq_name = gt_string_dup(map->seq_name);
   map_cpy->position = map->position;
   map_cpy->base_length = map->base_length;
   map_cpy->strand = map->strand;

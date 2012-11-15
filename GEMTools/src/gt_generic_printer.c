@@ -30,37 +30,62 @@ GT_INLINE void gt_generic_new_buffer_printer(gt_generic_printer* const generic_p
   generic_printer->printer_type = GT_BUFFER_PRINTER;
   generic_printer->output_buffer = output_buffer;
 }
-GT_INLINE void gt_vgprintf(gt_generic_printer* const generic_printer,const char *template,va_list v_args) {
+GT_INLINE void gt_generic_new_output_file_printer(gt_generic_printer* const generic_printer,gt_output_file* const output_file) {
+  GT_NULL_CHECK(generic_printer);
+  GT_OUTPUT_FILE_CHECK(output_file);
+  generic_printer->printer_type = GT_OUTPUT_FILE_PRINTER;
+  generic_printer->output_file = output_file;
+}
+GT_INLINE void gt_generic_new_buffered_output_file_printer(gt_generic_printer* const generic_printer,gt_buffered_output_file* const buffered_output_file) {
+  GT_NULL_CHECK(generic_printer);
+  GT_BUFFERED_OUTPUT_FILE_CHECK(buffered_output_file);
+  generic_printer->printer_type = GT_BOF_PRINTER;
+  generic_printer->buffered_output_file = buffered_output_file;
+}
+
+GT_INLINE gt_status gt_vgprintf(gt_generic_printer* const generic_printer,const char *template,va_list v_args) {
   GT_GENERIC_PRINTER_CHECK(generic_printer);
   GT_NULL_CHECK(template);
+  register gt_status chars_printed = 0;
   switch (generic_printer->printer_type) {
     case GT_FILE_PRINTER:
       GT_NULL_CHECK(generic_printer->file);
-      gt_cond_fatal_error(vfprintf(generic_printer->file,template,v_args)<0,FPRINTF);
+      gt_cond_fatal_error( (chars_printed=
+          vfprintf(generic_printer->file,template,v_args))<0,FPRINTF);
       break;
     case GT_STRING_PRINTER:
       GT_STRING_CHECK(generic_printer->string);
-      if (!gt_string_is_static(generic_printer->string)) { // Allocate memory
-        register const uint64_t mem_required = gt_calculate_memory_required_v(template,v_args);
-        gt_string_resize(generic_printer->string,mem_required);
-      }
-      register const int64_t mem_used = vsprintf(gt_string_get_string(generic_printer->string),template,v_args);
-      gt_cond_fatal_error(mem_used<0,SPRINTF);
-      gt_string_set_length(generic_printer->string,mem_used);
+      gt_cond_fatal_error( (chars_printed=
+          gt_vsprintf(generic_printer->string,template,v_args))<0,SPRINTF);
       break;
     case GT_BUFFER_PRINTER:
       GT_OUTPUT_BUFFER_CHECK(generic_printer->output_buffer);
-      gt_cond_fatal_error(gt_vbprintf(&generic_printer->output_buffer,template,v_args)<0,BPRINTF);
+      gt_cond_fatal_error( (chars_printed=
+          gt_vbprintf(generic_printer->output_buffer,template,v_args))<0,BPRINTF);
+      break;
+    case GT_OUTPUT_FILE_PRINTER:
+      GT_OUTPUT_FILE_CHECK(generic_printer->output_file);
+      gt_cond_fatal_error( (chars_printed=
+          gt_vofprintf(generic_printer->output_file,template,v_args))<0,OFPRINTF);
+      break;
+    case GT_BOF_PRINTER:
+      GT_BUFFERED_OUTPUT_FILE_CHECK(generic_printer->buffered_output_file);
+      gt_cond_fatal_error( (chars_printed=
+          gt_vbofprintf(generic_printer->buffered_output_file,template,v_args))<0,BOFPRINTF);
       break;
     default:
       gt_fatal_error(SELECTION_NOT_IMPLEMENTED);
       break;
   }
+  return chars_printed;
 }
-GT_INLINE void gt_gprintf(gt_generic_printer* const generic_printer,const char *template,...) {
+GT_INLINE gt_status gt_gprintf(gt_generic_printer* const generic_printer,const char *template,...) {
   GT_GENERIC_PRINTER_CHECK(generic_printer);
   GT_NULL_CHECK(template);
   va_list v_args;
   va_start(v_args,template);
-  gt_vgprintf(generic_printer,template,v_args);
+  register const gt_status chars_printed = gt_vgprintf(generic_printer,template,v_args);
+  va_end(v_args);
+  return chars_printed;
 }
+

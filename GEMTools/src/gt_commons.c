@@ -38,3 +38,53 @@ GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_
   GT_NULL_CHECK(buffer_a); GT_NULL_CHECK(buffer_b);
   return strncmp(buffer_a,buffer_b,length)==0;
 }
+
+/*
+ * Memory usage helper functions
+ */
+GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v_args) {
+  GT_NULL_CHECK(template); GT_NULL_CHECK(v_args);
+  // Copy to avoid spoiling v_args
+  va_list v_args_cpy;
+  va_copy(v_args_cpy,v_args);
+  // Calculate memory required to print the template{v_args}
+  register uint64_t mem_required = 0;
+  register const char* centinel;
+  for (centinel=template;*centinel!=EOS;++centinel,++mem_required) {
+    if (*centinel==FORMAT) {
+      ++centinel;
+      // Read modifiers
+      while (gt_is_number(*centinel)) ++centinel;
+      if (*centinel==DOT){
+        ++centinel;
+        if (*centinel==STAR) {
+          ++centinel;
+        } else {
+          while (gt_is_number(*centinel)) ++centinel;
+        }
+      }
+      gt_check(centinel==EOS,PRINT_FORMAT);
+      // Check format
+      switch (*centinel) {
+        case 's': { // String requires fetching the argument length
+          register char* const string = va_arg(v_args_cpy,char*);
+          mem_required+=strlen(string);
+          break;
+        }
+        default:
+          // As for the rest, we estimate the memory usage
+          // Also we assume an upper bound over the possible formats (int, chars, floats, ...)
+          va_arg(v_args_cpy,int);
+          mem_required+=20;
+          break;
+      }
+    }
+  }
+  return mem_required;
+}
+GT_INLINE uint64_t gt_calculate_memory_required_va(const char *template,...) {
+  GT_NULL_CHECK(template);
+  va_list v_args;
+  va_start(v_args,template);
+  return gt_calculate_memory_required_v(template,v_args);
+}

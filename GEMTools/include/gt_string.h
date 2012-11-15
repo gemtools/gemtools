@@ -71,9 +71,17 @@ GT_INLINE bool gt_string_nequals(gt_string* const string_a,gt_string* const stri
 /*
  * Handlers
  */
-GT_INLINE gt_string* gt_string_copy(gt_string* const sequence);
+GT_INLINE gt_string* gt_string_dup(gt_string* const sequence);
+GT_INLINE void gt_string_copy(gt_string* const sequence_dst,gt_string* const sequence_src);
 GT_INLINE void gt_string_reverse_copy(gt_string* const sequence_dst,gt_string* const sequence_src);
 GT_INLINE void gt_string_reverse(gt_string* const sequence);
 
+/*
+ * String Printers
+ */
+GT_INLINE gt_status gt_vsprintf(gt_string* const sequence,const char *template,va_list v_args);
+GT_INLINE gt_status gt_sprintf(gt_string* const sequence,const char *template,...);
+GT_INLINE gt_status gt_vsprintf_append(gt_string* const sequence,const char *template,va_list v_args);
+GT_INLINE gt_status gt_sprintf_append(gt_string* const sequence,const char *template,...);
 
 #endif /* GT_STRING_H_ */

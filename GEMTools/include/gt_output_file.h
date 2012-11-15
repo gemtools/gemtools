@@ -27,8 +27,7 @@ typedef struct {
   uint32_t mayor_block_id;
   uint32_t minor_block_id;
   /* Mutexes */
-  pthread_mutex_t out_buffer_mutex;
-  pthread_cond_t  out_buffer_cond;
+  pthread_cond_t  out_file_cond;
   pthread_mutex_t out_file_mutex;
 } gt_output_file;
 
@@ -37,11 +36,31 @@ typedef struct {
 #define GT_OUTPUT_FILE_FAIL -1
 
 /*
+ * Checkers
+ */
+#define GT_OUTPUT_FILE_CHECK(output_file) \
+  gt_fatal_check(output_file==NULL|| \
+    output_file->file==NULL||output_file->file_name==NULL|| \
+    output_file->buffer==NULL,NULL_HANDLER)
+
+#define GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file) \
+  GT_OUTPUT_FILE_CHECK(output_file); \
+  gt_fatal_check( \
+    output_file->buffer_busy>GT_MAX_OUTPUT_BUFFERS|| \
+    output_file->buffer_write_pending>GT_MAX_OUTPUT_BUFFERS,OUTPUT_FILE_INCONSISTENCY)
+
+/*
  * Output File Setup
  */
 gt_output_file* gt_output_stream_new(FILE* const file,const gt_output_file_type output_file_type);
 gt_output_file* gt_output_file_new(char* const file_name,const gt_output_file_type output_file_type);
 gt_status gt_output_file_close(gt_output_file* const output_file);
+
+/*
+ * Output File Printers
+ */
+GT_INLINE gt_status gt_vofprintf(gt_output_file* const output_file,const char *template,va_list v_args);
+GT_INLINE gt_status gt_ofprintf(gt_output_file* const output_file,const char *template,...);
 
 /*
  * Internal Buffers Accessors

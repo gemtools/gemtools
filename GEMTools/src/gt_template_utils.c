@@ -8,35 +8,98 @@
 #include "gt_template_utils.h"
 
 /*
+ * Template useful functions
+ */
+GT_INLINE gt_status gt_template_deduce_alignments_tags(gt_template* const template) {
+  /*
+   * Tag Block Conventions::
+   *  (1) line1: NAME => line1&2: NAME
+   *      line2: NAME
+   *  (2) line1: NAME<SEP>SOMETHING_ELSE_1 => line1&2: NAME<SEP>SOMETHING_ELSE_1|NAME<SEP>SOMETHING_ELSE_2
+   *      line2: NAME<SEP>SOMETHING_ELSE_2
+   *  (3) line1: NAME<SEP>1 => line1&2: NAME
+   *      line2: NAME<SEP>2
+   * Tag Decomposition::
+   *  (<TAG_BLOCK><SEP>){num_blocks}
+   *    -> tag.num_blocks == read.num_blocks
+   *    -> <SEP> := ' ' | '/' | '#' | "|"  // TODO
+   */
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  register uint64_t i;
+  for (i=0;i<num_blocks;++i) {
+    register gt_alignment* const alignment = gt_template_get_block(template,i);
+    gt_sprintf(alignment->tag,"%s/%"PRIu64,gt_string_get_string(template->tag),i+1);
+  }
+  return 0;
+}
+
+/*
  * Template's MMaps operators (Update global state: counters, ...)
  */
-GT_INLINE gt_map** gt_template_put_mmap(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
-    const bool replace_dup,const bool alignment_insertion) {
-  GT_NULL_CHECK(gt_mmap_cmp_fx);
+GT_INLINE void gt_template_alias_dup_mmap_members(
+    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
+    gt_template* const template,gt_map** const mmap,gt_map** const uniq_mmaps,
+    const bool alignment_insertion,const bool delete_unused_mmap_members) {
+  GT_NULL_CHECK(gt_map_cmp_fx);
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  GT_NULL_CHECK(mmap);
-  GT_NULL_CHECK(mmap_attr);
+  GT_NULL_CHECK(mmap); GT_NULL_CHECK(uniq_mmaps);
   // Resolve mmap
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-  register gt_map** uniq_mmaps = malloc(num_blocks*sizeof(gt_map*));
   register uint64_t i;
   for (i=0;i<num_blocks;++i) {
     GT_NULL_CHECK(mmap[i]);
     if (gt_expect_false(alignment_insertion)) {
+      register gt_map* current_map = mmap[i];
       uniq_mmaps[i] = gt_alignment_put_map(gt_map_cmp_fx,gt_template_get_block(template,i),mmap[i],false);
+      if (delete_unused_mmap_members && uniq_mmaps[i]!=mmap[i]) gt_map_delete(current_map);
     } else {
       uint64_t found_map_pos;
       gt_map* found_map;
       if (gt_alignment_find_map_fx(gt_map_cmp_fx,gt_template_get_block(template,i),mmap[i],&found_map_pos,&found_map)) {
         uniq_mmaps[i] = found_map;
+        if (delete_unused_mmap_members) gt_map_delete(mmap[i]);
       } else {
         uniq_mmaps[i] = mmap[i];
       }
     }
   }
-  // Handle duplicates
+}
+GT_INLINE gt_map** gt_template_raw_put_mmap(
+    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
+    const bool alignment_insertion,const bool delete_unused_mmap_members) {
+  GT_NULL_CHECK(gt_map_cmp_fx);
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_NULL_CHECK(mmap);
+  GT_NULL_CHECK(mmap_attr);
+  // Resolve mmap aliasing/insertion
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  register gt_map** uniq_mmaps = malloc(num_blocks*sizeof(gt_map*));
+  gt_template_alias_dup_mmap_members(
+      gt_map_cmp_fx,template,mmap,uniq_mmaps,
+      alignment_insertion,delete_unused_mmap_members);
+  // Raw mmap insertion
+  gt_template_add_mmap(template,uniq_mmaps,mmap_attr);
+  register gt_map** template_mmap=gt_template_get_mmap(template,gt_template_get_num_mmaps(template)-1,NULL);
+  // Free auxiliary vector
+  free(uniq_mmaps);
+  return template_mmap;
+}
+GT_INLINE gt_map** gt_template_put_mmap(
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
+    const bool replace_dup,const bool alignment_insertion,const bool delete_unused_mmap_members) {
+  GT_NULL_CHECK(gt_mmap_cmp_fx); GT_NULL_CHECK(gt_map_cmp_fx);
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_NULL_CHECK(mmap);
+  GT_NULL_CHECK(mmap_attr);
+  // Resolve mmap aliasing/insertion
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  register gt_map** uniq_mmaps = malloc(num_blocks*sizeof(gt_map*));
+  gt_template_alias_dup_mmap_members(
+      gt_map_cmp_fx,template,mmap,uniq_mmaps,
+      alignment_insertion,delete_unused_mmap_members);
+  // Handle mmap duplicates
   gt_map** found_mmap;
   gt_mmap_attributes found_mmap_attr;
   uint64_t found_mmap_pos;
@@ -71,7 +134,7 @@ GT_INLINE void gt_template_insert_mmap_fx(
     gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap); GT_NULL_CHECK(mmap_attr);
-  gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp,template,mmap,mmap_attr,true,alignment_insertion);
+  gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp,template,mmap,mmap_attr,true,alignment_insertion,true);
 }
 GT_INLINE void gt_template_insert_mmap_gtvector(
     gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion) {
