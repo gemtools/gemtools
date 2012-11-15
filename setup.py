@@ -39,7 +39,7 @@ gemtools = Extension('gem.gemtools',
 setup(
         cmdclass={'install': install, 'build_ext': build_ext},
         name='Gemtools',
-        version='1.4',
+        version='1.5',
         description='Python support library for the GEM mapper and the gemtools library',
         author='Thasso Griebel, Santiago Marco Sola',
         author_email='thasso.griebel@gmail.com',
