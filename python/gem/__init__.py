@@ -36,6 +36,9 @@ default_filter = "same-chromosome,same-strand"
 ## use the bundled executables
 use_bundled_executables = True
 
+## filter to work around GT-32 and #006 in gem-map-2-map 
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "!"){print $1"\t"$2"\t"$3"\t0\t"$5}else{print}}']
+
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
     def __getitem__(self, item):
@@ -397,12 +400,18 @@ def mapper(input, index, output=None,
             raise ValueError("Trim parameter has to be a list or a tuple of size 2")
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
+    # workaround for GT-32 - filter away the !
+    # buld list of tools
+    tools = [pa, __awk_filter]
+    if trim is not None:
+        tools.append(trim_c)
+
     ## run the mapper
     process = None
-    if trim is None:
-        process = utils.run_tool(pa, input, output, "GEM-Mapper", utils.read_to_sequence)
+    if len(tools) == 1:
+        process = utils.run_tool(tools[0], input, output, "GEM-Mapper", utils.read_to_sequence)
     else:
-        process = utils.run_tools([pa, trim_c], input, output, "GEM-Mapper", utils.read_to_sequence)
+        process = utils.run_tools(tools, input, output, "GEM-Mapper", utils.read_to_sequence)
 
     return _prepare_output(process, output, type="map", name="GEM-Mapper", quality=quality)
 
@@ -475,12 +484,16 @@ def splitmapper(input,
             raise ValueError("Trim parameter has to be a list or a tuple of size 2")
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
+    tools = [pa, __awk_filter]
+    if trim is not None:
+        tools.append(trim_c)
+
     ## run the mapper
     process = None
-    if trim is None:
-        process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
+    if len(tools) == 1:
+        process = utils.run_tool(tools[0], input, output, "GEM-Split-Mapper", utils.read_to_sequence)
     else:
-        process = utils.run_tools([pa, trim_c], input, output, "GEM-Split-Mapper", utils.read_to_sequence)
+        process = utils.run_tools(tools, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
     return _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
 
 
