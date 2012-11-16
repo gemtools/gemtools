@@ -297,6 +297,7 @@ def mapper(input, index, output=None,
            min_matched_bases=0.80,
            max_big_indel_length=15,
            max_edit_distance=0.20,
+           mismatch_alphabet="ACGT",
            trim=None,
            threads=1):
     """Start the GEM mapper on the given input.
@@ -341,6 +342,7 @@ def mapper(input, index, output=None,
           '--min-matched-bases', str(min_matched_bases),
           '--gem-quality-threshold', str(quality_threshold),
           '--max-big-indel-length', str(max_big_indel_length),
+          '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
 
@@ -376,6 +378,7 @@ def splitmapper(input,
                 min_split_size=15,
                 matches_threshold=100,
                 mismatch_strata_delta=1,
+                mismatch_alphabet="ACGT",
                 quality=33,
                 threads=1):
     """Start the GEM split mapper on the given input.
@@ -409,6 +412,7 @@ def splitmapper(input,
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
           '--strata-after-first', str(mismatch_strata_delta),
+          '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
 
