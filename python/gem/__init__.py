@@ -436,6 +436,7 @@ def splitmapper(input,
                 mismatch_strata_delta=1,
                 quality=33,
                 trim=None,
+                post_validate=True,
                 threads=1):
     """Start the GEM split mapper on the given input.
     If input is a file handle, it is assumed to
@@ -496,11 +497,20 @@ def splitmapper(input,
 
     ## run the mapper
     process = None
+    original_output = output
+    if post_validate:
+        output = None
     if len(tools) == 1:
         process = utils.run_tool(tools[0], input, output, "GEM-Split-Mapper", utils.read_to_sequence)
     else:
         process = utils.run_tools(tools, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
-    return _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
+
+    splitmap_out = _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
+
+    if post_validate:
+        return validate(splitmap_out, index, original_output, threads=threads)
+
+    return splitmap_out
 
 
 def extract_junctions(input,
@@ -532,6 +542,7 @@ def extract_junctions(input,
         matches_threshold=matches_threshold,
         splice_consensus=splice_consensus,
         quality=quality,
+        post_validate=False,
         threads=threads)
     ## make sure we have an output file
     ## for the splitmap results
@@ -640,17 +651,21 @@ def realign(input,
 def validate(input,
              index,
              output=None,
-             validate_score="-s,-b,-i",
-             validate_filter="2,25",
+             validate_score=None, # "-s,-b,-i"
+             validate_filter=None, # "2,25"
              threads=1, ):
     index = _prepare_index_parameter(index, gem_suffix=False)
     validate_p = [executables['gem-map-2-map'],
                   '-I', index,
                   '-v', '-r',
-                  '-s', validate_score,
-                  '-f', validate_filter,
                   '-T', str(max(threads, 1))
     ]
+
+    if validate_score is not None:
+        validate_p.extend(["-s", validate_score])
+
+    if validate_filter is not None:
+        validate_p.extend(['-f', validate_filter])
 
     quality = None
     if isinstance(input, files.ReadIterator):
