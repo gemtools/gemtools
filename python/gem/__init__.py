@@ -16,6 +16,7 @@ from . import utils
 import pkg_resources
 import splits
 import filter as gemfilter
+import gem.gemtools as gt
 
 LOG_NOTHING = 1
 LOG_STDERR = 2
@@ -98,6 +99,7 @@ class Read(object):
         self.mappings = None
         self.line = None
         self.type = None
+        self.template = gt.Template()
 
     def fill(self, other):
         """Fill this read with the content of another read"""
@@ -134,6 +136,10 @@ class Read(object):
         sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
         maps = self.mappings.split(',')
         return (sums, maps)
+
+
+    def _fill_template(self):
+        return self.template.fill(self.line)
 
 
     def __str__(self):

@@ -12,7 +12,6 @@ import utils
 from utils import which
 
 
-
 __author__ = 'Thasso Griebel'
 __zcat_path = None
 
@@ -45,6 +44,7 @@ class parse_fasta(Parser):
         self.read.qualities = None
         self.read.summary = None
         self.read.mappings = None
+        self.read.line = "".join(fasta_lines).strip()
 
         if len(self.read.sequence) <= 0:
             return self.next(stream)
@@ -64,6 +64,7 @@ class parse_fastq(Parser):
         self.read.qualities = fastq_lines[3].rstrip()
         self.read.summary = None
         self.read.mappings = None
+        self.read.line = "".join(fastq_lines).strip()
 
         if len(self.read.sequence) <= 0:
             return self.next(stream)
@@ -82,6 +83,7 @@ class parse_map(Parser):
         self.read.type = "map"
         self.read.id = split[0]
         self.read.sequence = split[1]
+        self.read.line = line
         if len(split) == 5:
             # read with qualities
             self.read.qualities = split[2]
@@ -116,6 +118,7 @@ class parse_sam(Parser):
             self.read.qualities = split[10]
             self.read.mappings = None
             self.read.summary = None
+            self.read.line = line
             if self.read.qualities in ["", "*"]:
                 self.read.qualities = None
 
