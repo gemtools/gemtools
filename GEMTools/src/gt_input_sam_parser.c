@@ -6,7 +6,6 @@
  */
 
 #include "gt_input_sam_parser.h"
-#include "gt_input_parser.h"
 
 // Constants
 #define GT_ISP_NUM_LINES GT_NUM_LINES_10K

@@ -6,7 +6,6 @@
  */
 
 #include "gt_alignment.h"
-#include "gt_shash.h"
 
 #define GT_ALIGNMENT_TAG_INITIAL_LENGTH 100
 #define GT_ALIGNMENT_READ_INITIAL_LENGTH 150
@@ -52,11 +51,11 @@ GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
 }
 GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
+  gt_alignment_clear_maps(alignment);
   gt_string_delete(alignment->tag);
   gt_string_delete(alignment->read);
   gt_string_delete(alignment->qualities);
   gt_vector_delete(alignment->counters);
-  gt_alignment_clear_maps(alignment);
   gt_vector_delete(alignment->maps);
   gt_shash_delete(alignment->maps_dictionary,true,true);
   gt_shash_delete(alignment->attributes,true,true);
@@ -184,7 +183,7 @@ GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment) {
   if (not_unique_flag==NULL) return false;
   return *not_unique_flag;
 }
-GT_INLINE bool gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique) {
+GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_alignment_set_attribute(alignment,GT_ATTR_NOT_UNIQUE,&is_not_unique,bool);
 }
@@ -196,7 +195,7 @@ GT_INLINE uint64_t gt_alignment_get_num_maps(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   return gt_vector_get_used(alignment->maps);
 }
-GT_INLINE char* gt_alignment_record_seq_name(gt_alignment* const alignment,gt_string* const seq_name) {
+GT_INLINE void gt_alignment_record_seq_name(gt_alignment* const alignment,gt_string* const seq_name) {
   register bool free_sequence_name = false;
   register const uint64_t length = gt_string_get_length(seq_name);
   register char* sequence_name;
@@ -231,6 +230,7 @@ GT_INLINE void gt_alignment_add_map_gt_vector(gt_alignment* const alignment,gt_v
   GT_ALIGNMENT_CHECK(alignment);
   GT_VECTOR_CHECK(map_vector);
   GT_VECTOR_ITERATE(map_vector,map_it,map_count,gt_map*) {
+    GT_MAP_CHECK(*map_it);
     gt_alignment_add_map(alignment,*map_it);
   }
 }

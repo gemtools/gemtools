@@ -3,11 +3,10 @@ from setuptools import setup
 from distutils.core import Extension
 from setuptools.command.install import install as _install
 from setuptools.command.build_ext import build_ext as _build_ext
-import sys
 import subprocess
 
 # hack the setup tools installation
-# to make sure bundled binaries are 
+# to make sure bundled binaries are
 # executable after install
 class install(_install):
     def run(self):
@@ -29,7 +28,7 @@ class build_ext(_build_ext):
 
 gemtools = Extension('gem.gemtools',
                     define_macros=[('MAJOR_VERSION', '1'),
-                                   ('MINOR_VERSION', '3')],
+                                   ('MINOR_VERSION', '4')],
                     include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
                     library_dirs=['GEMTools/lib'],
                     libraries=['gemtools'],
@@ -40,12 +39,12 @@ gemtools = Extension('gem.gemtools',
 setup(
         cmdclass={'install': install, 'build_ext': build_ext},
         name='Gemtools',
-        version='1.3',
+        version='1.4',
         description='Python support library for the GEM mapper and the gemtools library',
-        author='Thasso Griebel',
+        author='Thasso Griebel, Santiago Marco Sola',
         author_email='thasso.griebel@gmail.com',
-        url='http://algorithms.cnag.cat/',
-        license="GNU Library or Lesser General Public License (LGPL)",
+        url='https://github.com/gemtools/gemtools',
+        license="GNU General Public License (GPL)",
         long_description='''This is the python binding and wrapper library around the GEM mapper.
 The module allows you to run teh GEM mapper and simplifies building mapping
 pipeline in python. In addition, we provide a fast C based parsing library that
@@ -53,7 +52,7 @@ is used to parse GEM results and extract mapping information.
 
 For more information about the GEM see
 
-http://algorithms.cnag.cat/
+http://algorithms.cnag.cat/wiki
 
 The code for this project can be found on github:
 
@@ -72,7 +71,7 @@ https://github.com/gemtools/gemtools
           'Environment :: Console',
           'Intended Audience :: End Users/Desktop',
           'Intended Audience :: Developers',
-          'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',
+          'License :: OSI Approved :: GNU General Public License (GPL)',
           'Operating System :: POSIX :: Linux',
           'Programming Language :: Python',
           'Programming Language :: C',

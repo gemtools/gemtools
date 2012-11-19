@@ -19,7 +19,6 @@ typedef struct {
   uint32_t minor_block_id;
   bool is_final_block;
   /* Buffer */
-//  uint8_t buffer_id; // FIXME
   gt_vector* buffer;
   gt_output_buffer_state buffer_state;
   /* Buffered output file*/
@@ -33,8 +32,8 @@ typedef struct {
 /*
  * Checkers
  */
-#define GT_OUTPUT_BUFFER_CHECK(output_buffer) gt_fatal_check( \
-    (output_buffer)==NULL||(output_buffer)->buffer==NULL,NULL_HANDLER)
+#define GT_OUTPUT_BUFFER_CHECK(output_buffer) \
+    gt_fatal_check((output_buffer)==NULL||(output_buffer)->buffer==NULL,NULL_HANDLER)
 
 /*
  * Setup
@@ -59,7 +58,7 @@ GT_INLINE void gt_output_buffer_set_partial_block(gt_output_buffer* const output
 /*
  * Adaptors
  */
-GT_INLINE char* gt_output_buffer_to_string(gt_output_buffer* const output_buffer);
+GT_INLINE char* gt_output_buffer_to_char(gt_output_buffer* const output_buffer);
 GT_INLINE gt_vector* gt_output_buffer_to_vchar(gt_output_buffer* const output_buffer);
 
 /*
@@ -67,7 +66,7 @@ GT_INLINE gt_vector* gt_output_buffer_to_vchar(gt_output_buffer* const output_bu
  */
 GT_INLINE gt_status gt_vbprintf(gt_output_buffer** const output_buffer,const char *template,va_list v_args);
 GT_INLINE gt_status gt_bprintf(gt_output_buffer** const output_buffer,const char *template,...);
-// If you happen to know how much memory are you going to use
+// If you know how much memory is going to be used
 GT_INLINE gt_status gt_vbprintf_mem(
     gt_output_buffer** const output_buffer,const uint64_t expected_mem_usage,
     const char *template,va_list v_args);

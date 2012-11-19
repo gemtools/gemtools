@@ -2,6 +2,7 @@
 """Python wrapper around the GEM2 mapper that provides
 ability to feed data into GEM and retreive the mappings"""
 import os
+import shutil
 import sys
 import logging
 
@@ -45,6 +46,7 @@ class execs_dict(dict):
 
 ## paths to the executables
 executables = execs_dict({
+    "gem-indexer": "gem-indexer",
     "gem-mapper": "gem-mapper",
     "gem-rna-mapper": "gem-rna-mapper",
     "gem-map-2-map": "gem-map-2-map",
@@ -148,38 +150,78 @@ class Read(object):
     def to_sequence(self):
         """Convert to sequence format. FastQ or FastA depending
         on qualities"""
+        ## add support for paired reads
+        isPaired = self.sequence.find(" ") >=0
+        sequence_split = None
+        append1 = ""
+        append2 = ""
+        if isPaired:
+            append1 = "/1"
+            append2 = "/2"
+            sequence_split = self.sequence.split(" ")
+
         if self.qualities is None:
             ## print fasta
+            if isPaired:
+                return ">%s%s\n%s\n>%s%s\n%s" % (self.id, append1, sequence_split[0], self.id, append2, sequence_split[1])
             return ">%s\n%s" % (self.id, self.sequence)
         else:
             return self.to_fastq()
 
 
     def to_fastq(self):
+        """Convert to sequence format. FastQ or FastA depending
+        on qualities"""
+        ## add support for paired reads
+        isPaired = self.sequence.find(" ") >=0
+        sequence_split = None
+        quality_split = None
+        append1 = ""
+        append2 = ""
+        if isPaired:
+            append1 = "/1"
+            append2 = "/2"
+            sequence_split = self.sequence.split(" ")
+            if self.qualities is not None:
+                quality_split = self.qualities.split(" ")
+            else:
+                quality_split = [None, None]
+        if isPaired:
+            r1 = self._to_fastq(self.id+append1, sequence_split[0], quality_split[0], _trim_qualities)
+            r2 = self._to_fastq(self.id+append2, sequence_split[1], quality_split[1], _trim_qualities)
+            return "%s\n%s" % (r1, r2)
+        return "%s" % self._to_fastq(self.id, self.sequence, self.qualities, _trim_qualities)
+
+
+    def _to_fastq(self, id, sequence, qualities, trim_qualities=False):
         """Convert to Fastq and fakes qualities if they are not present"""
-        if len(self.sequence) <= 0:
+        if len(sequence) <= 0:
             raise ValueError("Sequence length is < 0 for : \n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
 
         ## do a sanity check for sequence and quality lengths
-        qualities = self.qualities
         if qualities is None or len(qualities) == 0:
             ## fake the qualities
-            qualities = '[' * len(self.sequence)
+            qualities = '[' * len(sequence)
 
-        if len(self.sequence) != len(qualities) and self.qualities is not None:
-            if _trim_qualities:
-                #logging.warn("Different sequence and quality sizes for : %s !! Trimming qualities to read length !" % (self.id))
-                sizes = [len(qualities), len(self.sequence)]
-                sizes.sort()
-                qualities = self.qualities[:(sizes[0] - sizes[1])]
+        if len(sequence) != len(qualities) and qualities is not None:
+            if trim_qualities:
+                ql = len(qualities)
+                sl = len(sequence)
+                if ql < sl:
+                    # extend qualities
+                    qualities = "%s%s" % (qualities, ('[' * (sl - ql)))
+                else:
+                    # cut qualities
+                    qualities = qualities[:(sl - ql)]
             else:
                 raise ValueError(
-                    "Different sequence and quality sizes for :\n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
-
-        return "@%s\n%s\n+\n%s" % (self.id, self.sequence, qualities)
+                    "Different sequence and quality sizes for :\n%s\n%s\n%s" % (id, sequence, qualities))
+        return "@%s\n%s\n+\n%s" % (id, sequence, qualities)
 
 
     def length(self):
+        if self.sequence.find(" ") >=0:
+            return len(self.sequence.split(" ")[0])
         return len(self.sequence)
 
 
@@ -355,9 +397,10 @@ def mapper(input, index, output=None,
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
             raise ValueError("Trim parameter has to be a list or a tuple of size 2")
-        input = filter.trim(input, trim[0], trim[1], append_label=True)
+        input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
     ## run the mapper
+    process = None
     if trim is None:
         process = utils.run_tool(pa, input, output, "GEM-Mapper", utils.read_to_sequence)
     else:
@@ -380,6 +423,7 @@ def splitmapper(input,
                 mismatch_strata_delta=1,
                 mismatch_alphabet="ACGT",
                 quality=33,
+                trim=None,
                 threads=1):
     """Start the GEM split mapper on the given input.
     If input is a file handle, it is assumed to
@@ -428,7 +472,19 @@ def splitmapper(input,
         pa.append("-c")
         pa.append(splice_cons)
 
-    process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
+    trim_c = [executables['gem-map-2-map'], '-c']
+    if trim is not None:
+        ## check type
+        if not isinstance(trim, (list, tuple)) or len(trim) != 2:
+            raise ValueError("Trim parameter has to be a list or a tuple of size 2")
+        input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
+
+    ## run the mapper
+    process = None
+    if trim is None:
+        process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
+    else:
+        process = utils.run_tools([pa, trim_c], input, output, "GEM-Split-Mapper", utils.read_to_sequence)
     return _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
 
 
@@ -676,6 +732,52 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None):
         quality = input.quality
 
     return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None), quality=quality)
+
+
+def index(input, output, content="dna", threads=1):
+    """Run teh gem-indexer on the given input. Input has to be the path
+    to a single fasta file that contains the genome to be indexed.
+    Output should be the path to the target index file. Note that
+    the gem index has to end in .gem and the prefix is added if necessary and
+    the returned path will always be the correct path to the index.
+
+    The method checks for the existence of the target index file
+    and will NOT override but exit silently without recreating the index!
+
+    Returns the absolute path to the resulting index file
+    """
+    indexer_p = [
+        executables['gem-indexer'],
+        '-t', str(threads),
+        '--content-type', content.lower()
+    ]
+
+    if isinstance(input, basestring):
+        if not os.path.exists(input):
+            raise ValueError("Indexer input file %s not found" % input)
+        indexer_p.extend(["-i", input])
+    else:
+        raise ValueError("The indexer wrapper can not handle the input %s, pass a file or a list of files" % input )
+
+    existing = output
+    if existing[-4:] != ".gem": existing = "%s.gem" % existing
+    if os.path.exists(existing):
+        logging.warning("Index %s already exists, skipping indexing" % existing)
+        return os.path.abspath(existing)
+
+
+    # indexer takes the prefix
+    if output[-4:] == ".gem":
+        output = output[:-4]
+    indexer_p.extend(['-o', output])
+
+    # the indexer need the other indexer tools in PATH
+    path="%s:%s" % (os.path.dirname(executables['gem-indexer']), os.getenv("PATH"))
+
+    process = utils.run_tools([indexer_p], input=None, output=None, name="gem-indexer", raw_stream=True, path=path)
+    if process.wait() != 0:
+        raise ValueError("Error while executing the gem-indexer")
+    return os.path.abspath("%s.gem" % output)
 
 
 class merger(object):

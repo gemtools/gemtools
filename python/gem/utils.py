@@ -52,7 +52,7 @@ def reverseComplement(sequence):
     return sequence.translate(complement)[::-1]
 
 
-def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None, raw_stream=False):
+def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None, raw_stream=False, path=None):
     """
     Run the tools defined in the tools list using a new process per tools.
     The input is a ReadIterator and the method checks
@@ -69,7 +69,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
     @param input: optional input sequence that is passed through stdin
     @type input: sequence
     @param output: a string that is used as a log file for stdout of the process or None
-    @type output: string
+    @type output: sequence
     @param name: optional name of the executied tool
     @type name: string
     @param name: optional transformation function that is used if
@@ -86,7 +86,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             tools_name = None
             if name:
                 tools_name = name
-            logging.debug("Appending stderr read thread to whatch for errors in %s" % process)
+            logging.debug("Appending stderr read thread to watch for errors in %s" % process)
             err_thread = Thread(target=__parse_error_output, args=(process.stderr,tools_name,))
             err_thread.start()
 
@@ -124,6 +124,9 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
     current_process = None
     last_process = None
 
+    env = None
+    if path is not None:
+        env = {'PATH':path}
     for i, params in enumerate(tools):
         logging.info("Starting %s :\n\t%s" % (name, " ".join(params)))
         #print "Starting %s :\n\t%s" % (name, " ".join(params))
@@ -136,7 +139,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             if num_tools > 1:
                 p_out = subprocess.PIPE
             logging.debug("Starting Initial process %s %s\nstdout: %s\nstderr %s" % (name, str(params), str(process_out), str(process_err)))
-            first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True)
+            first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True, env=env)
             current_process = first_process
         else:
             ## add the next process
@@ -145,7 +148,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             if i < num_tools - 1:
                 p_out = subprocess.PIPE
             logging.debug("Starting Piped process %s %s" % (name, str(params)))
-            current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err, close_fds=True)
+            current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err, close_fds=True, env=env)
         if gem.log_output != gem.LOG_STDERR:
             append_logger(current_process, logfile)
         last_process = current_process

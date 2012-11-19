@@ -130,6 +130,7 @@ extern FILE* gt_error_stream;
 // Memory errors
 #define GT_ERROR_MEM_HANDLER "Could not allocate handler"
 #define GT_ERROR_MEM_ALLOC "Could not allocate memory"
+#define GT_ERROR_MEM_ALLOC_INFO "Could not allocate memory (%"PRIu64" requested)"
 #define GT_ERROR_MEM_REALLOC "Could not reallocate memory"
 #define GT_ERROR_NULL_HANDLER "Null handler or fields not properly allocated"
 #define GT_ERROR_NULL_HANDLER_INFO "Null handler %s "
@@ -209,6 +210,7 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_PARSE_MAP_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, bad character found"
 #define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad character found"
 #define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_NUM_ACCEPTORS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad number of acceptors"
+#define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_NUM_DONORS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad number of donors"
 // IMP (Input MAP Parser). Parsing Mismatch String Errors
 #define GT_ERROR_PARSE_MAP_MISMS_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, bad character found"
 #define GT_ERROR_PARSE_MAP_MISMS_BAD_MISMS_POS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing mismatch string, unsorted mismatches"

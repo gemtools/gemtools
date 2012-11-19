@@ -2,7 +2,9 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_string.c
  * DATE: 20/08/2012
- * DESCRIPTION: // TODO
+ * DESCRIPTION: Simple string implementation.
+ *   Static stings gt_string_new(0), which share memory across instances (stores mem ptr)
+ *   Dynamic strings gt_string_new(n>0), which handle their own memory and hold copy of the string
  */
 
 #include "gt_string.h"
@@ -18,7 +20,7 @@ GT_INLINE gt_string* gt_string_new(const uint64_t initial_buffer_size) {
   // Initialize string
   if (gt_expect_true(initial_buffer_size>0)) {
     string->buffer = malloc(initial_buffer_size);
-    gt_cond_fatal_error(!string->buffer,MEM_ALLOC);
+    gt_cond_fatal_error(!string->buffer,MEM_ALLOC_INFO,initial_buffer_size);
     string->buffer[0] = EOS;
   } else {
     string->buffer = NULL;
@@ -28,8 +30,8 @@ GT_INLINE gt_string* gt_string_new(const uint64_t initial_buffer_size) {
   return string;
 }
 GT_INLINE void gt_string_resize(gt_string* const string,const uint64_t new_buffer_size) {
-  GT_STRING_CHECK_NO_STATIC(string);
-  if (string->allocated < new_buffer_size) {
+  GT_STRING_CHECK_BUFFER(string);
+  if (string->allocated > 0 && string->allocated < new_buffer_size) {
     string->buffer = realloc(string->buffer,new_buffer_size);
     gt_cond_fatal_error(!string->buffer,MEM_REALLOC);
     string->allocated = new_buffer_size;
@@ -78,7 +80,7 @@ GT_INLINE void gt_string_cast_dynamic(gt_string* const string,const uint64_t ini
 
 GT_INLINE void gt_string_set_string(gt_string* const string,char* const string_src) {
   GT_NULL_CHECK(string_src);
-  register const length = strlen(string_src);
+  register const uint64_t length = strlen(string_src);
   gt_string_set_nstring(string,string_src,length);
 }
 GT_INLINE void gt_string_set_nstring(gt_string* const string,char* const string_src,const uint64_t length) {
@@ -100,6 +102,10 @@ GT_INLINE char* gt_string_get_string(gt_string* const string) {
 GT_INLINE uint64_t gt_string_get_length(gt_string* const string) {
   GT_STRING_CHECK(string);
   return string->length;
+}
+GT_INLINE void gt_string_set_length(gt_string* const string,const uint64_t length) {
+  GT_STRING_CHECK(string);
+  string->length = length;
 }
 
 GT_INLINE char* gt_string_char_at(gt_string* const string,const uint64_t pos) {
@@ -137,7 +143,7 @@ GT_INLINE int64_t gt_string_cmp(gt_string* const string_a,gt_string* const strin
   GT_STRING_CHECK(string_b);
   register char* const buffer_a = string_a->buffer;
   register char* const buffer_b = string_b->buffer;
-  register const min_length = GT_MIN(string_a->length,string_b->length);
+  register const uint64_t min_length = GT_MIN(string_a->length,string_b->length);
   register uint64_t i;
   register int8_t diff;
   for (i=0;i<min_length;++i) {
@@ -156,7 +162,7 @@ GT_INLINE int64_t gt_string_ncmp(gt_string* const string_a,gt_string* const stri
   GT_STRING_CHECK(string_b);
   register char* const buffer_a = string_a->buffer;
   register char* const buffer_b = string_b->buffer;
-  register const min_length = GT_MIN(GT_MIN(string_a->length,string_b->length),length);
+  register const uint64_t min_length = GT_MIN(GT_MIN(string_a->length,string_b->length),length);
   register uint64_t i;
   register int8_t diff;
   for (i=0;i<min_length;++i) {

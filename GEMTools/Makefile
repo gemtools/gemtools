@@ -11,18 +11,21 @@ include Makefile.mk
 
 all: release
 	
-release:
-	@mkdir -p build bin lib
+release: setup
+	
 	$(MAKE) --directory=src
 	$(MAKE) --directory=tools
 
-debug:
+debug: setup
 	$(MAKE) --directory=src   debug
 	$(MAKE) --directory=tools debug
 
-check:
-	$(MAKE) --directory=test
+check: setup debug
+	$(MAKE) --directory=test  check
+	
+setup: 
+	@mkdir -p $(FOLDER_BIN) $(FOLDER_BUILD) $(FOLDER_LIB)
 
 clean:
-	@rm -f $(FOLDER_BIN)/* $(FOLDER_BUILD)/*.o $(FOLDER_LIB)/*.a $(FOLDER_TEST_BUILD)/*
-	@rm -Rf build bin lib
+	$(MAKE) --directory=test  clean
+	@rm -rf $(FOLDER_BIN) $(FOLDER_BUILD) $(FOLDER_LIB)

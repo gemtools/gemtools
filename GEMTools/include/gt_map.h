@@ -61,10 +61,12 @@ typedef struct {
 
 // Checkers
 #define GT_MAP_CHECK(map) gt_fatal_check((map)==NULL||(map)->mismatches==NULL,NULL_HANDLER)
-// TODO: Scheduled for v2.0 (all lazy parsing)
-//#define GT_MAP_EDITABLE_CHECK(map) \
-//  GT_MAP_CHECK(map); \
-//  gt_fatal_check(map->mismatches_txt!=NULL,MAP_MISMS_NOT_PARSED)
+/*
+ *  TODO: Scheduled for v2.0 (all lazy parsing)
+  #define GT_MAP_EDITABLE_CHECK(map) \
+    GT_MAP_CHECK(map); \
+    gt_fatal_check(map->mismatches_txt!=NULL,MAP_MISMS_NOT_PARSED)
+ */
 #define GT_MAP_NEXT_BLOCK_CHECK(map) \
   GT_NULL_CHECK(map->next_block); \
   GT_MAP_CHECK(map->next_block->map)
@@ -177,6 +179,28 @@ GT_INLINE gt_map* gt_map_next_block(gt_map_block_iterator* const map_block_itera
 GT_INLINE void gt_map_new_misms_iterator(gt_map* const map,gt_map_mism_iterator* const map_mism_iterator);
 GT_INLINE gt_misms* gt_map_next_misms(gt_map_mism_iterator* const map_mism_iterator);
 GT_INLINE uint64_t gt_map_next_misms_pos(gt_map_mism_iterator* const map_mism_iterator);
+
+/*
+ * Iterate over the map blocks of a map
+ *   Map = (map.block1,map.block2)
+ *   GT_MAP_BLOCKS_ITERATE := {map.block1,map.block2}
+ */
+#define GT_MAP_ITERATE(map,map_block) \
+  /* Map. Iterate over map blocks */ \
+  gt_map_block_iterator __##map_block##_iterator; \
+  register gt_map* map_block; \
+  gt_map_new_block_iterator(map,&(__##map_block##_iterator)); \
+  while ((map_block=gt_map_next_block(&(__##map_block##_iterator))))
+
+/*
+ * Iterate over the mismatches(M/I/D) of a map
+ */
+#define GT_MISMS_ITERATE(map_block,misms) \
+  /* Map Block. Iterate over all mismatches */ \
+  gt_map_mism_iterator __##misms##_iterator; \
+  register gt_misms* misms; \
+  gt_map_new_misms_iterator(map_block,&(__##misms##_iterator)); \
+  while ((misms=gt_map_next_misms(&(__##misms##_iterator))))
 
 
 #endif /* GT_MAP_H_ */

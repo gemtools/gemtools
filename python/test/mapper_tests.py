@@ -50,9 +50,18 @@ def test_merging_maps():
 @with_setup(setup_func, cleanup)
 def test_indexer():
     result = results_dir + "/genome_index"
-    input = files.open(testfiles["genome.fa"])
+    input = testfiles["genome.fa"]
     index = gem.index(input, result)
     assert index == result+".gem"
+    assert os.path.exists(result+".gem")
+
+
+@with_setup(setup_func, cleanup)
+def test_indexer_output_suffix():
+    result = results_dir + "/genome_index.gem"
+    input = testfiles["genome.fa"]
+    index = gem.index(input, result)
+    assert index == result+".gem", "Result should be %s.gem but is %s" % (result, index)
     assert os.path.exists(result+".gem")
 
 
