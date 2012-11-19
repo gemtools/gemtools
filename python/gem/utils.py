@@ -31,6 +31,8 @@ def read_to_map(read):
     @return: fasta/q sequence representation
     @rtype: string
     """
+    if read.type == "map" and read.line is not None:
+        return "%s\n" % read.line
     return "%s\n" % str(read)
 
 

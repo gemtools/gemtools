@@ -16,6 +16,7 @@ from . import utils
 import pkg_resources
 import splits
 import filter as gemfilter
+import gem.gemtools as gt
 
 LOG_NOTHING = 1
 LOG_STDERR = 2
@@ -35,6 +36,9 @@ default_filter = "same-chromosome,same-strand"
 
 ## use the bundled executables
 use_bundled_executables = True
+
+## filter to work around GT-32 and #006 in gem-map-2-map 
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "!"){print $1"\t"$2"\t"$3"\t0\t"$5}else{print}}']
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
@@ -95,6 +99,7 @@ class Read(object):
         self.mappings = None
         self.line = None
         self.type = None
+        self.template = gt.Template()
 
     def fill(self, other):
         """Fill this read with the content of another read"""
@@ -131,6 +136,10 @@ class Read(object):
         sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
         maps = self.mappings.split(',')
         return (sums, maps)
+
+
+    def _fill_template(self):
+        return self.template.fill(self.line)
 
 
     def __str__(self):
@@ -397,12 +406,18 @@ def mapper(input, index, output=None,
             raise ValueError("Trim parameter has to be a list or a tuple of size 2")
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
+    # workaround for GT-32 - filter away the !
+    # buld list of tools
+    tools = [pa, __awk_filter]
+    if trim is not None:
+        tools.append(trim_c)
+
     ## run the mapper
     process = None
-    if trim is None:
-        process = utils.run_tool(pa, input, output, "GEM-Mapper", utils.read_to_sequence)
+    if len(tools) == 1:
+        process = utils.run_tool(tools[0], input, output, "GEM-Mapper", utils.read_to_sequence)
     else:
-        process = utils.run_tools([pa, trim_c], input, output, "GEM-Mapper", utils.read_to_sequence)
+        process = utils.run_tools(tools, input, output, "GEM-Mapper", utils.read_to_sequence)
 
     return _prepare_output(process, output, type="map", name="GEM-Mapper", quality=quality)
 
@@ -421,6 +436,7 @@ def splitmapper(input,
                 mismatch_strata_delta=1,
                 quality=33,
                 trim=None,
+                post_validate=True,
                 threads=1):
     """Start the GEM split mapper on the given input.
     If input is a file handle, it is assumed to
@@ -475,13 +491,26 @@ def splitmapper(input,
             raise ValueError("Trim parameter has to be a list or a tuple of size 2")
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
+    tools = [pa, __awk_filter]
+    if trim is not None:
+        tools.append(trim_c)
+
     ## run the mapper
     process = None
-    if trim is None:
-        process = utils.run_tool(pa, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
+    original_output = output
+    if post_validate:
+        output = None
+    if len(tools) == 1:
+        process = utils.run_tool(tools[0], input, output, "GEM-Split-Mapper", utils.read_to_sequence)
     else:
-        process = utils.run_tools([pa, trim_c], input, output, "GEM-Split-Mapper", utils.read_to_sequence)
-    return _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
+        process = utils.run_tools(tools, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
+
+    splitmap_out = _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
+
+    if post_validate:
+        return validate(splitmap_out, index, original_output, threads=threads)
+
+    return splitmap_out
 
 
 def extract_junctions(input,
@@ -513,6 +542,7 @@ def extract_junctions(input,
         matches_threshold=matches_threshold,
         splice_consensus=splice_consensus,
         quality=quality,
+        post_validate=False,
         threads=threads)
     ## make sure we have an output file
     ## for the splitmap results
@@ -621,17 +651,21 @@ def realign(input,
 def validate(input,
              index,
              output=None,
-             validate_score="-s,-b,-i",
-             validate_filter="2,25",
+             validate_score=None, # "-s,-b,-i"
+             validate_filter=None, # "2,25"
              threads=1, ):
     index = _prepare_index_parameter(index, gem_suffix=False)
     validate_p = [executables['gem-map-2-map'],
                   '-I', index,
                   '-v', '-r',
-                  '-s', validate_score,
-                  '-f', validate_filter,
                   '-T', str(max(threads, 1))
     ]
+
+    if validate_score is not None:
+        validate_p.extend(["-s", validate_score])
+
+    if validate_filter is not None:
+        validate_p.extend(['-f', validate_filter])
 
     quality = None
     if isinstance(input, files.ReadIterator):
