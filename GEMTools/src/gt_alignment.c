@@ -74,6 +74,10 @@ GT_INLINE void gt_alignment_set_tag(gt_alignment* const alignment,char* const ta
   GT_NULL_CHECK(tag);
   gt_string_set_nstring(alignment->tag,tag,length);
 }
+GT_INLINE uint64_t gt_alignment_get_tag_length(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return gt_string_get_length(alignment->tag);
+}
 GT_INLINE char* gt_alignment_get_read(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   return gt_string_get_string(alignment->read);
@@ -84,6 +88,10 @@ GT_INLINE void gt_alignment_set_read(gt_alignment* const alignment,char* const r
   gt_string_set_nstring(alignment->read,read,length);
   gt_fatal_check(!gt_string_is_null(alignment->qualities) &&
       gt_string_get_length(alignment->qualities)!=gt_string_get_length(alignment->read),ALIGN_READ_QUAL_LENGTH);
+}
+GT_INLINE uint64_t gt_alignment_get_read_length(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return gt_string_get_length(alignment->read);
 }
 GT_INLINE char* gt_alignment_get_qualities(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);

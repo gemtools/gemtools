@@ -82,6 +82,7 @@ GT_INLINE void gt_template_delete(gt_template* const template,const bool delete_
  */
 GT_INLINE char* gt_template_get_tag(gt_template* const template);
 GT_INLINE void gt_template_set_tag(gt_template* const template,char* const tag,const uint64_t length);
+GT_INLINE uint64_t gt_template_get_total_length(gt_template* const template);
 /* Blocks (single alignments) */
 GT_INLINE uint64_t gt_template_get_num_blocks(gt_template* const template);
 GT_INLINE void gt_template_add_block(gt_template* const template,gt_alignment* const alignment);

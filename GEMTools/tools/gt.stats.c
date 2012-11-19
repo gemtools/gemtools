@@ -10,8 +10,6 @@
 
 #include "gem_tools.h"
 
-#define GT_EXAMPLE_MMAP_FILE false
-
 #define MMAP_RANGE_1 0
 #define MMAP_RANGE_5 1
 #define MMAP_RANGE_10 2
@@ -51,9 +49,8 @@
 #define MISMS_RANGE_10 10
 #define MISMS_RANGE_20 11
 #define MISMS_RANGE_50 12
-#define MISMS_RANGE_100 13
-#define MISMS_RANGE_BEHOND 14
-#define MISMS_RANGE 15
+#define MISMS_RANGE_BEHOND 13
+#define MISMS_RANGE 14
 
 typedef struct {
   char *name_input_file;
@@ -116,57 +113,60 @@ void gt_source_stats_init(gt_stats *stats) {
   stats->total_misms=0;
   stats->total_indels=0;
 }
-void gt_source_score_misms(uint64_t* misms_array,uint64_t misms_num) {
+#define GT_STATS_GET_PERCENTAGE_ERROR(percentage) (uint64_t)((double)percentage*one_per_cent)
+void gt_source_score_misms(uint64_t* const misms_array,const uint64_t misms_num,const double one_per_cent) {
   if (misms_num==0) {
     misms_array[MISMS_RANGE_0]++;
-  } else if (misms_num<=1) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(1)) {
     misms_array[MISMS_RANGE_1]++;
-  } else if (misms_num<=2) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(2)) {
     misms_array[MISMS_RANGE_2]++;
-  } else if (misms_num<=3) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(3)) {
     misms_array[MISMS_RANGE_3]++;
-  } else if (misms_num<=4) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(4)) {
     misms_array[MISMS_RANGE_4]++;
-  } else if (misms_num<=5) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(5)) {
     misms_array[MISMS_RANGE_5]++;
-  } else if (misms_num<=6) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(6)) {
     misms_array[MISMS_RANGE_6]++;
-  } else if (misms_num<=7) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(7)) {
     misms_array[MISMS_RANGE_7]++;
-  } else if (misms_num<=8) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(8)) {
     misms_array[MISMS_RANGE_8]++;
-  } else if (misms_num<=9) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(9)) {
     misms_array[MISMS_RANGE_9]++;
-  } else if (misms_num<=10) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(10)) {
     misms_array[MISMS_RANGE_10]++;
-  } else if (misms_num<=20) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(20)) {
     misms_array[MISMS_RANGE_20]++;
-  } else if (misms_num<=50) {
+  } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(50)) {
     misms_array[MISMS_RANGE_50]++;
-  } else if (misms_num<=100) {
-    misms_array[MISMS_RANGE_100]++;
   } else {
     misms_array[MISMS_RANGE_BEHOND]++;
   }
 }
-void gt_stats_get_misms_distribution(gt_stats* const stats,gt_map* const map) {
-  uint64_t num_misms=0, num_indels=0, total=0;
-  GT_MISMS_ITERATE(map,misms) {
-    total++;
-    switch (misms->misms_type) {
-      case MISMS:
-        num_misms++;
-        break;
-      case INS:
-      case DEL:
-        num_indels+=misms->size;
-        break;
+void gt_stats_get_misms_distribution(
+    gt_stats* const stats,uint64_t const read_length,gt_map** const map,const uint64_t num_blocks) {
+  uint64_t num_misms=0, num_indels=0, total=0, i;
+  for (i=0;i<num_blocks;++i) {
+    GT_MISMS_ITERATE(map[i],misms) {
+      total++;
+      switch (misms->misms_type) {
+        case MISMS:
+          num_misms++;
+          break;
+        case INS:
+        case DEL:
+          num_indels+=misms->size;
+          break;
+      }
     }
   }
   // Record stats
-  gt_source_score_misms(stats->misms,num_misms);
-  gt_source_score_misms(stats->indel,num_indels);
-  gt_source_score_misms(stats->errors,num_misms+num_indels);
+  const double one_per_cent = (double)read_length/100.0;
+  gt_source_score_misms(stats->misms,num_misms,one_per_cent);
+  gt_source_score_misms(stats->indel,num_indels,one_per_cent);
+  gt_source_score_misms(stats->errors,num_misms+num_indels,one_per_cent);
 }
 void gt_stats_get_mmap_distribution(gt_stats *stats,const uint64_t num_maps) {
   if (num_maps>0) {
@@ -222,11 +222,15 @@ GT_INLINE void gt_source_analize_template(gt_stats* const stats,gt_template* con
   register const uint64_t num_maps = gt_template_get_num_mmaps(template);
   stats->num_maps += num_maps;
   ++stats->num_alignments;
-  if (num_maps>0 /* FIXME this crap*/ || gt_template_is_mapped(template)) ++stats->num_mapped;
+  if ( (paired_map && (gt_template_is_mapped(template) || num_maps > 0)) ||
+       ((num_maps > 0) || gt_alignment_is_mapped(gt_template_get_block(template,0))) ){
+    ++stats->num_mapped;
+  }
   // MMaps classification
   gt_stats_get_mmap_distribution(stats,num_maps);
   if (num_maps > 0) {
-    gt_stats_get_misms_distribution(stats,gt_alignment_get_map(gt_template_get_block(template,0),0));
+    gt_stats_get_misms_distribution(stats,gt_template_get_total_length(template),
+        gt_template_get_mmap(template,0,NULL),gt_template_get_num_blocks(template));
     if (paired_map) { // Insert Size distribution
       GT_TEMPLATE_ITERATE_(template,mmap) {
         gt_stats_get_inss_distribution(stats,
@@ -287,23 +291,23 @@ void gt_stats_print_inss_distribution(gt_stats* const stats,const uint64_t num_r
 }
 void gt_stats_print_misms_distribution(uint64_t* const stats,const uint64_t num_reads,const char* const header) {
   fprintf(stderr,"%s\n",header);
-  fprintf(stderr,"  -->         [0] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_0],100.0*(float)stats[MISMS_RANGE_0]/(float)num_reads);
-  fprintf(stderr,"  -->         [1] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_1],100.0*(float)stats[MISMS_RANGE_1]/(float)num_reads);
-  fprintf(stderr,"  -->         [2] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_2],100.0*(float)stats[MISMS_RANGE_2]/(float)num_reads);
-  fprintf(stderr,"  -->         [3] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_3],100.0*(float)stats[MISMS_RANGE_3]/(float)num_reads);
-  fprintf(stderr,"  -->         [4] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_4],100.0*(float)stats[MISMS_RANGE_4]/(float)num_reads);
-  fprintf(stderr,"  -->         [5] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_5],100.0*(float)stats[MISMS_RANGE_5]/(float)num_reads);
-  fprintf(stderr,"  -->         [6] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_6],100.0*(float)stats[MISMS_RANGE_6]/(float)num_reads);
-  fprintf(stderr,"  -->         [7] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_7],100.0*(float)stats[MISMS_RANGE_7]/(float)num_reads);
-  fprintf(stderr,"  -->         [8] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_8],100.0*(float)stats[MISMS_RANGE_8]/(float)num_reads);
-  fprintf(stderr,"  -->         [9] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_9],100.0*(float)stats[MISMS_RANGE_9]/(float)num_reads);
-  fprintf(stderr,"  -->        [10] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_10],100.0*(float)stats[MISMS_RANGE_10]/(float)num_reads);
-  fprintf(stderr,"  -->     (10,20] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_20],100.0*(float)stats[MISMS_RANGE_20]/(float)num_reads);
-  fprintf(stderr,"  -->     (20,50] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_50],100.0*(float)stats[MISMS_RANGE_50]/(float)num_reads);
-  fprintf(stderr,"  -->    (50,100] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_100],100.0*(float)stats[MISMS_RANGE_100]/(float)num_reads);
-  fprintf(stderr,"  -->   (100,inf] \t=> %lu \t %f%%\n",stats[MISMS_RANGE_BEHOND],100.0*(float)stats[MISMS_RANGE_BEHOND]/(float)num_reads);
+  fprintf(stderr,"  -->         [0]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_0],100.0*(float)stats[MISMS_RANGE_0]/(float)num_reads);
+  fprintf(stderr,"  -->         [1]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_1],100.0*(float)stats[MISMS_RANGE_1]/(float)num_reads);
+  fprintf(stderr,"  -->         [2]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_2],100.0*(float)stats[MISMS_RANGE_2]/(float)num_reads);
+  fprintf(stderr,"  -->         [3]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_3],100.0*(float)stats[MISMS_RANGE_3]/(float)num_reads);
+  fprintf(stderr,"  -->         [4]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_4],100.0*(float)stats[MISMS_RANGE_4]/(float)num_reads);
+  fprintf(stderr,"  -->         [5]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_5],100.0*(float)stats[MISMS_RANGE_5]/(float)num_reads);
+  fprintf(stderr,"  -->         [6]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_6],100.0*(float)stats[MISMS_RANGE_6]/(float)num_reads);
+  fprintf(stderr,"  -->         [7]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_7],100.0*(float)stats[MISMS_RANGE_7]/(float)num_reads);
+  fprintf(stderr,"  -->         [8]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_8],100.0*(float)stats[MISMS_RANGE_8]/(float)num_reads);
+  fprintf(stderr,"  -->         [9]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_9],100.0*(float)stats[MISMS_RANGE_9]/(float)num_reads);
+  fprintf(stderr,"  -->        [10]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_10],100.0*(float)stats[MISMS_RANGE_10]/(float)num_reads);
+  fprintf(stderr,"  -->     (10,20]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_20],100.0*(float)stats[MISMS_RANGE_20]/(float)num_reads);
+  fprintf(stderr,"  -->     (20,50]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_50],100.0*(float)stats[MISMS_RANGE_50]/(float)num_reads);
+  fprintf(stderr,"  -->    (50,100]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_BEHOND],100.0*(float)stats[MISMS_RANGE_BEHOND]/(float)num_reads);
 }
-void gt_stats_print_stats(gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
+void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
+  if (paired_end) num_reads>>=1; // WoW!!!
   fprintf(stderr,"[GENERAL.STATS]\n");
   fprintf(stderr,"Num.reads %lu\n",num_reads);
   fprintf(stderr,"Num.alignments %lu\n",stats->num_alignments);

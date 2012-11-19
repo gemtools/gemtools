@@ -81,6 +81,17 @@ GT_INLINE void gt_template_set_tag(gt_template* const template,char* const tag,c
   GT_NULL_CHECK(tag);
   gt_string_set_nstring(template->tag,tag,length);
 }
+GT_INLINE uint64_t gt_template_get_total_length(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_read_length(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  register uint64_t total_length = 0;
+  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+    total_length += gt_alignment_get_read_length(alignment);
+  }
+  return total_length;
+}
 /* Blocks (single alignments) */
 GT_INLINE uint64_t gt_template_get_num_blocks(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);

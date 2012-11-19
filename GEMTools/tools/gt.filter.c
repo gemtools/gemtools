@@ -10,51 +10,6 @@
 
 #include "gem_tools.h"
 
-#define GT_EXAMPLE_MMAP_FILE false
-
-#define MMAP_RANGE_1 0
-#define MMAP_RANGE_5 1
-#define MMAP_RANGE_10 2
-#define MMAP_RANGE_50 3
-#define MMAP_RANGE_100 4
-#define MMAP_RANGE_500 5
-#define MMAP_RANGE_1000 6
-#define MMAP_RANGE_BEHOND 7
-#define MMAP_RANGE 8
-
-#define INSS_RANGE_100 0
-#define INSS_RANGE_200 1
-#define INSS_RANGE_300 2
-#define INSS_RANGE_400 3
-#define INSS_RANGE_500 4
-#define INSS_RANGE_600 5
-#define INSS_RANGE_700 6
-#define INSS_RANGE_800 7
-#define INSS_RANGE_900 8
-#define INSS_RANGE_1000 9
-#define INSS_RANGE_2000 10
-#define INSS_RANGE_5000 11
-#define INSS_RANGE_10000 12
-#define INSS_RANGE_BEHOND 13
-#define INSS_RANGE 14
-
-#define MISMS_RANGE_0 0
-#define MISMS_RANGE_1 1
-#define MISMS_RANGE_2 2
-#define MISMS_RANGE_3 3
-#define MISMS_RANGE_4 4
-#define MISMS_RANGE_5 5
-#define MISMS_RANGE_6 6
-#define MISMS_RANGE_7 7
-#define MISMS_RANGE_8 8
-#define MISMS_RANGE_9 9
-#define MISMS_RANGE_10 10
-#define MISMS_RANGE_20 11
-#define MISMS_RANGE_50 12
-#define MISMS_RANGE_100 13
-#define MISMS_RANGE_BEHOND 14
-#define MISMS_RANGE 15
-
 typedef struct {
   char* name_input_file;
   char* name_output_file;

@@ -61,9 +61,11 @@ GT_INLINE void gt_alignment_delete(gt_alignment* const alignment);
  */
 GT_INLINE char* gt_alignment_get_tag(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_tag(gt_alignment* const alignment,char* const tag,const uint64_t length);
+GT_INLINE uint64_t gt_alignment_get_tag_length(gt_alignment* const alignment);
 
 GT_INLINE char* gt_alignment_get_read(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_read(gt_alignment* const alignment,char* const read,const uint64_t length);
+GT_INLINE uint64_t gt_alignment_get_read_length(gt_alignment* const alignment);
 
 GT_INLINE char* gt_alignment_get_qualities(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_qualities(gt_alignment* const alignment,char* const qualities,const uint64_t length);
