@@ -181,6 +181,26 @@ GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buf
   }
 }
 /*
+ * MAP file. Reload internal buffer
+ */
+GT_INLINE gt_status gt_input_map_parser_reload_buffer(gt_buffered_input_file* const buffered_input_file) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+  // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
+  if (buffered_input_file->buffered_output_file!=NULL) {
+    gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
+  }
+  // Read new input block
+  register const uint64_t read_lines =
+      gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
+  if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
+  // Assign block ID
+  if (buffered_input_file->buffered_output_file!=NULL) {
+    gt_buffered_output_file_set_block_ids(
+        buffered_input_file->buffered_output_file,buffered_input_file->block_id,0);
+  }
+  return GT_IMP_OK;
+}
+/*
  * MAP format. Basic building block for parsing
  */
 GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* const tag) { // FIXME: read all
@@ -1066,7 +1086,7 @@ GT_INLINE gt_status gt_input_map_parse_template(char* const string,gt_template* 
   GT_NULL_CHECK(string);
   GT_TEMPLATE_CHECK(template);
   char* _string = string; // Placeholder
-  gt_template_clear(template,true); // Clear template
+  gt_template_clear(template,true,true); // Clear template
   // Count fields
   register uint64_t num_fields=0, i=0;
   while (gt_expect_true(_string[i]!=EOS)) {
@@ -1082,7 +1102,7 @@ GT_INLINE gt_status gt_input_map_parse_alignment(char* const string,gt_alignment
   GT_NULL_CHECK(string);
   GT_ALIGNMENT_CHECK(alignment);
   char* _string = string; // Placeholder
-  gt_alignment_clear(alignment); // Clear alignment
+  gt_alignment_clear(alignment,true); // Clear alignment
   // Count fields
   register uint64_t num_fields=0, i=0;
   while (gt_expect_true(_string[i]!=EOS)) {
@@ -1202,19 +1222,7 @@ GT_INLINE gt_status gt_imp_get_template(
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_input_file)) {
-    // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
-    if (buffered_input_file->buffered_output_file!=NULL) {
-      gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
-    }
-    // Read new input block
-    register const uint64_t read_lines =
-        gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
-    if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
-    // Assign block ID
-    if (buffered_input_file->buffered_output_file!=NULL) {
-      gt_buffered_output_file_set_block_ids(
-          buffered_input_file->buffered_output_file,buffered_input_file->block_id,0);
-    }
+    if ((error_code=gt_input_map_parser_reload_buffer(buffered_input_file))!=GT_IMP_OK) return error_code;
   }
   // Check file format
   if (gt_input_map_parser_check_map_file_format(buffered_input_file)) {
@@ -1224,7 +1232,7 @@ GT_INLINE gt_status gt_imp_get_template(
   // Prepare the template
   register char* const line_start = buffered_input_file->cursor;
   register const uint64_t line_num = buffered_input_file->current_line_num;
-  gt_template_clear(template,true);
+  gt_template_clear(template,true,true);
   template->template_id = line_num;
   // Parse template
   if ((error_code=gt_imp_parse_template(&(buffered_input_file->cursor),
@@ -1250,19 +1258,7 @@ GT_INLINE gt_status gt_imp_get_alignment(
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_input_file)) {
-    // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
-    if (buffered_input_file->buffered_output_file!=NULL) {
-      gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
-    }
-    // Read new input block
-    register const uint64_t read_lines =
-        gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
-    if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
-    // Assign block ID
-    if (buffered_input_file->buffered_output_file!=NULL) {
-      gt_buffered_output_file_set_block_ids(
-          buffered_input_file->buffered_output_file,buffered_input_file->block_id,0);
-    }
+    if ((error_code=gt_input_map_parser_reload_buffer(buffered_input_file))!=GT_IMP_OK) return error_code;
   }
   // Check file format
   if (gt_input_map_parser_check_map_file_format(buffered_input_file)) {
@@ -1272,7 +1268,7 @@ GT_INLINE gt_status gt_imp_get_alignment(
   // Allocate memory for the alignment
   register char* const line_start = buffered_input_file->cursor;
   register const uint64_t line_num = buffered_input_file->current_line_num;
-  gt_alignment_clear(alignment);
+  gt_alignment_clear(alignment,true);
   alignment->alignment_id = line_num;
   // Parse alignment
   if ((error_code=gt_imp_parse_alignment(&(buffered_input_file->cursor),

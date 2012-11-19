@@ -54,7 +54,7 @@ void gt_filter_read__write() {
     }
 
     // Clean
-    gt_template_delete(template,true);
+    gt_template_delete(template,true,true);
     gt_buffered_input_file_close(buffered_input);
     gt_buffered_output_file_close(buffered_output);
   }

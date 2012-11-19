@@ -49,18 +49,18 @@ GT_INLINE void gt_template_clear_handler(gt_template* const template) {
   template->maps_txt = NULL;
   gt_shash_clean(template->attributes,true,true);
 }
-GT_INLINE void gt_template_clear(gt_template* const template,const bool clear_alignments) {
+GT_INLINE void gt_template_clear(gt_template* const template,const bool delete_alignments,const bool delete_maps) {
   GT_TEMPLATE_CHECK(template);
-  if (clear_alignments) gt_template_delete_blocks(template);
+  if (delete_alignments) gt_template_delete_blocks(template,delete_maps);
   gt_vector_clean(template->counters);
   gt_vector_clean(template->mmaps);
   gt_vector_clean(template->mmaps_attributes);
   gt_template_clear_handler(template);
 }
-GT_INLINE void gt_template_delete(gt_template* const template,const bool delete_alignments) {
+GT_INLINE void gt_template_delete(gt_template* const template,const bool delete_alignments,const bool delete_maps) {
   GT_TEMPLATE_CHECK(template);
   gt_string_delete(template->tag);
-  if (delete_alignments) gt_template_delete_blocks(template);
+  if (delete_alignments) gt_template_delete_blocks(template,delete_maps);
   gt_vector_delete(template->blocks);
   gt_vector_delete(template->counters);
   gt_vector_delete(template->mmaps);
@@ -122,10 +122,10 @@ GT_INLINE void gt_template_clear_blocks(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   gt_vector_clean(template->blocks);
 }
-GT_INLINE void gt_template_delete_blocks(gt_template* const template) {
+GT_INLINE void gt_template_delete_blocks(gt_template* const template,const bool delete_maps) {
   GT_TEMPLATE_CHECK(template);
   GT_VECTOR_ITERATE(template->blocks,alignment_it,alignment_pos,gt_alignment*) {
-    gt_alignment_delete(*alignment_it);
+    gt_alignment_delete(*alignment_it,delete_maps);
   }
   gt_vector_clean(template->blocks);
 }

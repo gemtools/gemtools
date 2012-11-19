@@ -119,6 +119,7 @@ GT_INLINE void gt_input_map_parser_prompt_error(
     gt_buffered_input_file* const buffered_map_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code);
 GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buffered_map_input);
+GT_INLINE gt_status gt_input_map_parser_reload_buffer(gt_buffered_input_file* const buffered_map_input);
 
 /*
  * MAP string parsers

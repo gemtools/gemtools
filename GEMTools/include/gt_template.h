@@ -74,8 +74,8 @@ typedef struct {
  * Setup
  */
 GT_INLINE gt_template* gt_template_new(void);
-GT_INLINE void gt_template_clear(gt_template* const template,const bool clear_alignments);
-GT_INLINE void gt_template_delete(gt_template* const template,const bool delete_alignments);
+GT_INLINE void gt_template_clear(gt_template* const template,const bool delete_alignments,const bool delete_maps);
+GT_INLINE void gt_template_delete(gt_template* const template,const bool delete_alignments,const bool delete_maps);
 
 /*
  * Accessors
@@ -89,7 +89,7 @@ GT_INLINE void gt_template_add_block(gt_template* const template,gt_alignment* c
 GT_INLINE gt_alignment* gt_template_get_block(gt_template* const template,const uint64_t position);
 GT_INLINE gt_alignment* gt_template_get_block_dyn(gt_template* const template,const uint64_t position);
 GT_INLINE void gt_template_clear_blocks(gt_template* const template);
-GT_INLINE void gt_template_delete_blocks(gt_template* const template);
+GT_INLINE void gt_template_delete_blocks(gt_template* const template,const bool delete_maps);
 /* Counters */
 GT_INLINE gt_vector* gt_template_get_counters_vector(gt_template* const template);
 GT_INLINE void gt_template_set_counters_vector(gt_template* const template,gt_vector* const counters);

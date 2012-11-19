@@ -42,16 +42,16 @@ GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment) {
   alignment->maps_txt = NULL;
   gt_shash_clean(alignment->attributes,true,true);
 }
-GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
+GT_INLINE void gt_alignment_clear(gt_alignment* const alignment,const bool delete_maps) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_alignment_clear_maps(alignment);
+  if (delete_maps) gt_alignment_clear_maps(alignment);
   gt_vector_clean(alignment->counters);
   gt_shash_clean(alignment->maps_dictionary,true,true);
   gt_alignment_clear_handler(alignment);
 }
-GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
+GT_INLINE void gt_alignment_delete(gt_alignment* const alignment,const bool delete_maps) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_alignment_clear_maps(alignment);
+  if (delete_maps) gt_alignment_clear_maps(alignment);
   gt_string_delete(alignment->tag);
   gt_string_delete(alignment->read);
   gt_string_delete(alignment->qualities);
