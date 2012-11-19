@@ -140,12 +140,18 @@ GT_INLINE uint64_t gt_calculate_memory_required_va(const char *template,...);
 #define GT_DELEGATE_ERROR(funtion_call,error_code) if ((error_code=funtion_call)) { return error_code; }
 
 /*
- * Mutex Helpers
+ * Mutex/Cond Helpers
  */
 #define GT_BEGIN_MUTEX_SECTION(mutex) \
   gt_cond_fatal_error(pthread_mutex_lock(&(mutex)),SYS_MUTEX);
 #define GT_END_MUTEX_SECTION(mutex) \
   gt_cond_fatal_error(pthread_mutex_unlock(&(mutex)),SYS_MUTEX);
+#define GT_CV_SIGNAL(cv) \
+  gt_cond_fatal_error(pthread_cond_signal(&(cv)),SYS_COND_VAR);
+#define GT_CV_BROADCAST(cv) \
+  gt_cond_fatal_error(pthread_cond_broadcast(&(cv)),SYS_COND_VAR);
+#define GT_CV_WAIT(cv,mutex) \
+  gt_cond_fatal_error(pthread_cond_wait(&(cv),&(mutex)),SYS_COND_VAR);
 
 /*
  * GEM-Tools basic includes

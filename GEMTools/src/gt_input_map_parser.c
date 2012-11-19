@@ -183,7 +183,7 @@ GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buf
 /*
  * MAP format. Basic building block for parsing
  */
-GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* const tag) {
+GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* const tag) { // FIXME: read all
   // Delimit the tag
   register char* const tag_begin = *text_line;
   GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
@@ -1202,12 +1202,16 @@ GT_INLINE gt_status gt_imp_get_template(
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_input_file)) {
+    // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
+    if (buffered_input_file->buffered_output_file!=NULL) {
+      gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
+    }
+    // Read new input block
     register const uint64_t read_lines =
         gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
     if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
-    // Dump buffer if BOF it attached to Map-input
+    // Assign block ID
     if (buffered_input_file->buffered_output_file!=NULL) {
-      gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
       gt_buffered_output_file_set_block_ids(
           buffered_input_file->buffered_output_file,buffered_input_file->block_id,0);
     }
@@ -1246,13 +1250,19 @@ GT_INLINE gt_status gt_imp_get_alignment(
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_input_file)) {
-    // Dump buffer if BOF it attached to Map-input
+    // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
     if (buffered_input_file->buffered_output_file!=NULL) {
       gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
     }
+    // Read new input block
     register const uint64_t read_lines =
         gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
     if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
+    // Assign block ID
+    if (buffered_input_file->buffered_output_file!=NULL) {
+      gt_buffered_output_file_set_block_ids(
+          buffered_input_file->buffered_output_file,buffered_input_file->block_id,0);
+    }
   }
   // Check file format
   if (gt_input_map_parser_check_map_file_format(buffered_input_file)) {

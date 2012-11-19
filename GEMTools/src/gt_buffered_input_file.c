@@ -20,7 +20,7 @@ gt_buffered_input_file* gt_buffered_input_file_new(gt_input_file* const input_fi
   /* Input file */
   buffered_map_file->input_file = input_file;
   /* Block buffer and cursors */
-  buffered_map_file->block_id = UINT64_MAX;
+  buffered_map_file->block_id = UINT32_MAX;
   buffered_map_file->block_buffer = gt_vector_new(GT_BMI_BUFFER_SIZE,sizeof(uint8_t));
   buffered_map_file->cursor = (char*) gt_vector_get_mem(buffered_map_file->block_buffer,uint8_t);
   buffered_map_file->current_line_num = UINT64_MAX;
@@ -53,7 +53,7 @@ GT_INLINE gt_status gt_buffered_input_file_get_block(
     if (gt_expect_true(use_mutex)) gt_input_file_unlock(input_file);
     return GT_BMI_EOF;
   }
-  buffered_input_file->block_id = gt_input_file_next_id(input_file);
+  buffered_input_file->block_id = gt_input_file_next_id(input_file) % UINT32_MAX;
   buffered_input_file->current_line_num = input_file->processed_lines+1;
   buffered_input_file->lines_in_buffer = // FIXME:
       gt_input_file_get_lines(input_file,buffered_input_file->block_buffer,

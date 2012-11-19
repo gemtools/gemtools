@@ -25,7 +25,7 @@ typedef struct {
   /* Input file */
   gt_input_file* input_file;
   /* Block buffer and cursors */
-  uint64_t block_id;
+  uint32_t block_id;
   gt_vector* block_buffer;
   char* cursor;
   uint64_t lines_in_buffer;

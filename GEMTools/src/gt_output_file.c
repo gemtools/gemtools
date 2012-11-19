@@ -22,7 +22,8 @@ GT_INLINE void gt_output_file_init_buffers(gt_output_file* const output_file) {
   output_file->mayor_block_id=0;
   output_file->minor_block_id=0;
   /* Mutexes */
-  gt_cond_fatal_error(pthread_cond_init(&output_file->out_file_cond,NULL),SYS_COND_VAR_INIT);
+  gt_cond_fatal_error(pthread_cond_init(&output_file->out_buffer_cond,NULL),SYS_COND_VAR_INIT);
+  gt_cond_fatal_error(pthread_cond_init(&output_file->out_write_cond,NULL),SYS_COND_VAR_INIT);
   gt_cond_fatal_error(pthread_mutex_init(&output_file->out_file_mutex, NULL),SYS_MUTEX_INIT);
 }
 
@@ -61,7 +62,8 @@ gt_status gt_output_file_close(gt_output_file* const output_file) {
     gt_output_buffer_delete(output_file->buffer[i]);
   }
   // Free mutex/CV
-  gt_cond_error(error_code|=pthread_cond_destroy(&output_file->out_file_cond),SYS_COND_VAR_INIT);
+  gt_cond_error(error_code|=pthread_cond_destroy(&output_file->out_buffer_cond),SYS_COND_VAR_INIT);
+  gt_cond_error(error_code|=pthread_cond_destroy(&output_file->out_write_cond),SYS_COND_VAR_INIT);
   gt_cond_error(error_code|=pthread_mutex_destroy(&output_file->out_file_mutex),SYS_MUTEX_DESTROY);
   // Free handler
   free(output_file);
@@ -99,7 +101,7 @@ GT_INLINE gt_output_buffer* __gt_buffered_output_file_request_buffer(gt_output_f
   GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
   // Conditional guard. Wait till there is any free buffer left
   while (output_file->buffer_busy==GT_MAX_OUTPUT_BUFFERS) {
-    pthread_cond_wait(&output_file->out_file_cond,&output_file->out_file_mutex);
+    GT_CV_WAIT(output_file->out_buffer_cond,output_file->out_file_mutex);
   }
   // There is at least one free buffer. Get it!
   register uint64_t i;
@@ -131,7 +133,7 @@ GT_INLINE void __gt_buffered_output_file_release_buffer(
   GT_OUTPUT_BUFFER_CHECK(output_buffer);
   // Broadcast. Wake up sleepy.
   if (output_file->buffer_busy==GT_MAX_OUTPUT_BUFFERS) {
-    gt_cond_fatal_error(pthread_cond_broadcast(&output_file->out_file_cond),SYS_COND_VAR);
+    GT_CV_BROADCAST(output_file->out_buffer_cond);
   }
   // Free buffer
   gt_output_buffer_set_state(output_buffer,GT_OUTPUT_BUFFER_FREE);
@@ -164,21 +166,25 @@ GT_INLINE gt_output_buffer* gt_output_file_write_buffer(
   gt_output_buffer_initiallize(output_buffer,GT_OUTPUT_BUFFER_BUSY);
   return output_buffer;
 }
-GT_INLINE gt_output_buffer* gt_output_file_sorted_write_buffer(
-    gt_output_file* const output_file,gt_output_buffer* output_buffer) {
+GT_INLINE gt_output_buffer* gt_output_file_sorted_write_buffer_asynchronous(
+    gt_output_file* const output_file,gt_output_buffer* output_buffer,const bool asynchronous) {
   GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
   // Set the block buffer as write pending and set the victim
   register bool victim;
   register uint32_t mayor_block_id, minor_block_id;
   GT_BEGIN_MUTEX_SECTION(output_file->out_file_mutex)
   {
+    victim = (output_file->mayor_block_id==gt_output_buffer_get_mayor_block_id(output_buffer) &&
+              output_file->minor_block_id==gt_output_buffer_get_minor_block_id(output_buffer));
+    while (!asynchronous && !victim) {
+      GT_CV_WAIT(output_file->out_write_cond,output_file->out_file_mutex);
+      victim = (output_file->mayor_block_id==gt_output_buffer_get_mayor_block_id(output_buffer) &&
+                output_file->minor_block_id==gt_output_buffer_get_minor_block_id(output_buffer));
+    }
     // Set the buffer as write pending
     ++output_file->buffer_write_pending;
     gt_output_buffer_set_state(output_buffer,GT_OUTPUT_BUFFER_WRITE_PENDING);
-    victim = (output_file->mayor_block_id==gt_output_buffer_get_mayor_block_id(output_buffer) &&
-              output_file->minor_block_id==gt_output_buffer_get_minor_block_id(output_buffer));
-    if (!victim) {
-      // Enqueue the buffer and continue (someone else will do the writing)
+    if (!victim) { // Enqueue the buffer and continue (someone else will do the writing)
       output_buffer = __gt_buffered_output_file_request_buffer(output_file);
       GT_END_MUTEX_SECTION(output_file->out_file_mutex);
       return output_buffer;
@@ -229,6 +235,7 @@ GT_INLINE gt_output_buffer* gt_output_file_sorted_write_buffer(
         output_file->mayor_block_id = mayor_block_id;
         output_file->minor_block_id = minor_block_id;
         gt_output_buffer_initiallize(output_buffer,GT_OUTPUT_BUFFER_BUSY);
+        GT_CV_BROADCAST(output_file->out_write_cond);
         GT_END_MUTEX_SECTION(output_file->out_file_mutex);
         return output_buffer;
       }
@@ -236,11 +243,11 @@ GT_INLINE gt_output_buffer* gt_output_file_sorted_write_buffer(
   } while (true);
 }
 GT_INLINE gt_output_buffer* gt_output_file_dump_buffer(
-    gt_output_file* const output_file,gt_output_buffer* const output_buffer) {
+    gt_output_file* const output_file,gt_output_buffer* const output_buffer,const bool asynchronous) {
   GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
   switch (output_file->file_type) {
     case SORTED_FILE:
-      return gt_output_file_sorted_write_buffer(output_file,output_buffer);
+      return gt_output_file_sorted_write_buffer_asynchronous(output_file,output_buffer,asynchronous);
       break;
     case UNSORTED_FILE:
       return gt_output_file_write_buffer(output_file,output_buffer);

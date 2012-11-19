@@ -7,7 +7,7 @@
 
 #include "gt_output_buffer.h"
 
-#define GT_OUTPUT_BUFFER_INITIAL_SIZE GT_BUFFER_SIZE_2M
+#define GT_OUTPUT_BUFFER_INITIAL_SIZE GT_BUFFER_SIZE_16M
 
 /*
  * Setup

@@ -27,7 +27,8 @@ typedef struct {
   uint32_t mayor_block_id;
   uint32_t minor_block_id;
   /* Mutexes */
-  pthread_cond_t  out_file_cond;
+  pthread_cond_t  out_buffer_cond;
+  pthread_cond_t  out_write_cond;
   pthread_mutex_t out_file_mutex;
 } gt_output_file;
 
@@ -69,6 +70,6 @@ GT_INLINE gt_output_buffer* gt_output_file_request_buffer(gt_output_file* const 
 GT_INLINE void gt_output_file_release_buffer(
     gt_output_file* const output_file,gt_output_buffer* const output_buffer);
 GT_INLINE gt_output_buffer* gt_output_file_dump_buffer(
-    gt_output_file* const output_file,gt_output_buffer* const output_buffer);
+    gt_output_file* const output_file,gt_output_buffer* const output_buffer,const bool asynchronous);
 
 #endif /* GT_OUTPUT_FILE_H_ */
