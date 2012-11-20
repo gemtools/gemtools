@@ -61,8 +61,8 @@ def test_indexer_output_suffix():
     result = results_dir + "/genome_index.gem"
     input = testfiles["genome.fa"]
     index = gem.index(input, result)
-    assert index == result+".gem", "Result should be %s.gem but is %s" % (result, index)
-    assert os.path.exists(result+".gem")
+    assert index == result, "Result should be %s.gem but is %s" % (result, index)
+    assert os.path.exists(result)
 
 
 @with_setup(setup_func, cleanup)

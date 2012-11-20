@@ -38,7 +38,7 @@ default_filter = "same-chromosome,same-strand"
 use_bundled_executables = True
 
 ## filter to work around GT-32 and #006 in gem-map-2-map 
-__awk_filter = ["awk", "-F", "\t", '{if($4 == "!"){print $1"\t"$2"\t"$3"\t0\t"$5}else{print}}']
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "!" || $4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{print}}']
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
@@ -706,7 +706,7 @@ def validate_and_score(input,
 
 def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True):
     if index is not None:
-        index = _prepare_index_parameter(index, False)
+        index = _prepare_index_parameter(index, True)
     gem_2_sam_p = [executables['gem-2-sam'],
                    '-T', str(threads)
     ]
