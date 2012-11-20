@@ -206,6 +206,54 @@ GT_INLINE bool gt_template_is_mmap_contained_fx(
 /*
  * Template's Counters operators
  */
+GT_INLINE bool gt_template_is_mapped(gt_template* const template) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  return gt_template_is_thresholded_mapped(template,UINT64_MAX);
+}
+GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_is_thresholded_mapped(alignment,max_allowed_strata);
+  } GT_TEMPLATE_END_REDUCTION;
+  register gt_vector* vector = gt_template_get_counters_vector(template);
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if ((counter_pos+1)>=max_allowed_strata) return false;
+    else if (*counter!=0) return true;
+  }
+  return false;
+}
+GT_INLINE int64_t gt_template_get_min_matching_strata(gt_template* const template) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_min_matching_strata(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  register gt_vector* vector = gt_template_get_counters_vector(template);
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if (*counter!=0) return counter_pos+1;
+  }
+  return GT_NO_STRATA;
+}
+GT_INLINE int64_t gt_template_get_uniq_degree(gt_template* const template) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_uniq_degree(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  register gt_vector* vector = gt_template_get_counters_vector(template);
+  register bool found_uniq_strata = false;
+  register int64_t uniq_degree = 0;
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if (*counter==0) {
+      if (found_uniq_strata) ++uniq_degree;
+    } else if (*counter==1) {
+      if (found_uniq_strata) return uniq_degree;
+      found_uniq_strata=true;
+    } else if (*counter>1) {
+      if (found_uniq_strata) return uniq_degree;
+      return GT_NO_STRATA;
+    }
+  }
+  return GT_NO_STRATA;
+}
 GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   // Clear previous counters
@@ -221,27 +269,7 @@ GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
     gt_template_inc_counter(template,total_distance+1);
   }
 }
-GT_INLINE uint64_t gt_template_get_min_matching_strata(gt_template* const template) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  register gt_vector* vector = gt_template_get_counters_vector(template);
-  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
-    if (*counter!=0) return counter_pos+1;
-  }
-  return UINT64_MAX;
-}
-GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  register gt_vector* vector = gt_template_get_counters_vector(template);
-  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
-    if ((counter_pos+1)>=max_allowed_strata) return false;
-    else if (*counter!=0) return true;
-  }
-  return false;
-}
-GT_INLINE bool gt_template_is_mapped(gt_template* const template) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  return gt_template_is_thresholded_mapped(template,UINT64_MAX);
-}
+
 
 /*
  * Template Set operators

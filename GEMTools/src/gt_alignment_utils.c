@@ -109,24 +109,10 @@ GT_INLINE bool gt_alignment_is_map_contained_fx(
 /*
  * Alignment' Counters operators
  */
-GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) {
+GT_INLINE bool gt_alignment_is_mapped(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_vector_clean(gt_alignment_get_counters_vector(alignment));
-  // Recalculate counters
-  gt_alignment_map_iterator map_iterator;
-  gt_alignment_new_map_iterator(alignment,&map_iterator);
-  register gt_map* map;
-  while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
-    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map)+1);
-  }
-}
-GT_INLINE int64_t gt_alignment_get_min_matching_strata(gt_alignment* const alignment) {
-  GT_ALIGNMENT_CHECK(alignment);
-  register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
-  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
-    if (*counter!=0) return counter_pos+1;
-  }
-  return GT_NO_STRATA;
+  register const bool unique_flag = gt_alignment_get_not_unique_flag(alignment);
+  return unique_flag || gt_alignment_is_thresholded_mapped(alignment,UINT64_MAX);
 }
 GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,const int64_t max_allowed_strata) {
   GT_ALIGNMENT_CHECK(alignment);
@@ -137,10 +123,42 @@ GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,
   }
   return false;
 }
-GT_INLINE bool gt_alignment_is_mapped(gt_alignment* const alignment) {
+GT_INLINE int64_t gt_alignment_get_min_matching_strata(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  register const bool unique_flag = gt_alignment_get_not_unique_flag(alignment);
-  return unique_flag || gt_alignment_is_thresholded_mapped(alignment,UINT64_MAX);
+  register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if (*counter!=0) return counter_pos+1;
+  }
+  return GT_NO_STRATA;
+}
+GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
+  register bool found_uniq_strata = false;
+  register int64_t uniq_degree = 0;
+  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+    if (*counter==0) {
+      if (found_uniq_strata) ++uniq_degree;
+    } else if (*counter==1) {
+      if (found_uniq_strata) return uniq_degree;
+      found_uniq_strata=true;
+    } else if (*counter>1) {
+      if (found_uniq_strata) return uniq_degree;
+      return GT_NO_STRATA;
+    }
+  }
+  return GT_NO_STRATA;
+}
+GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  gt_vector_clean(gt_alignment_get_counters_vector(alignment));
+  // Recalculate counters
+  gt_alignment_map_iterator map_iterator;
+  gt_alignment_new_map_iterator(alignment,&map_iterator);
+  register gt_map* map;
+  while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
+    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map)+1);
+  }
 }
 
 /*

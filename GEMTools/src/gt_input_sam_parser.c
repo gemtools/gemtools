@@ -109,33 +109,57 @@ GT_INLINE void gt_input_sam_parser_prompt_error(
       break;
   }
 }
-GT_INLINE gt_status gt_isp_read_tag(
-    char** const text_line,char** tag,uint64_t* tag_length,uint64_t* end_position) {
-  GT_NULL_CHECK(text_line); GT_NULL_CHECK(*text_line);
-  GT_NULL_CHECK(tag);
-  GT_NULL_CHECK(tag_length);
+/*
+ * SAM file. Reload internal buffer
+ */
+GT_INLINE gt_status gt_input_sam_parser_reload_buffer(gt_buffered_input_file* const buffered_input_file) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+  // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
+  if (buffered_input_file->buffered_output_file!=NULL) {
+    gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
+  }
+  // Read new input block
+  register const uint64_t read_lines =
+      gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
+  if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
+  // Assign block ID
+  if (buffered_input_file->buffered_output_file!=NULL) {
+    gt_buffered_output_file_set_block_ids(
+        buffered_input_file->buffered_output_file,buffered_input_file->block_id,0);
+  }
+  return GT_IMP_OK;
+}
+/*
+ * SAM format. Basic building block for parsing
+ */
+GT_INLINE gt_status gt_isp_read_tag(char** const text_line,gt_string* const tag,uint64_t* end_position) {
   // Read tag
-  *tag = *text_line;
+  register char* const tag_begin = *text_line;
   GT_READ_UNTIL(text_line,**text_line==TAB || **text_line==SPACE);
   if (GT_IS_EOL(text_line)) return GT_ISP_PE_PREMATURE_EOL;
-  register char* last_parsed_tag_char = *text_line-1;
-  *tag_length = *text_line-*tag;
+  register char* const tag_end = *text_line-1;
+  // Set tag
+  register uint64_t const tag_length = *text_line-*tag;
+  gt_string_set_nstring(tag,tag_begin,tag_length);
+  // Read the rest till next field
   if (**text_line==SPACE) {
     GT_READ_UNTIL(text_line,**text_line==TAB);
     if (GT_IS_EOL(text_line)) return GT_ISP_PE_PREMATURE_EOL;
   }
   GT_NEXT_CHAR(text_line);
   // Parse the end information {/1,/2,...}
-  if (*tag_length>2 && *(last_parsed_tag_char-1)==SLASH) {
-    // *(last_parsed_tag_char-1)=EOS;
-    if (*last_parsed_tag_char=='1') {
-      *end_position = 0;
-    } else if (*last_parsed_tag_char=='2') {
-      *end_position = 1;
+  if (tag_length>2 && *(tag_end-1)==SLASH) {
+    if (*tag_end=='1') {
+      if (end_position) *end_position = 0;
+      gt_string_set_length(tag,gt_string_get_length(tag)-2);
+    } else if (*tag_end=='2') {
+      if (end_position) *end_position = 1;
+      gt_string_set_length(tag,gt_string_get_length(tag)-2);
+    } else {
+      if (end_position) *end_position = UINT64_MAX;
     }
-    *tag_length -= 2;
   } else {
-    *end_position = UINT64_MAX;
+    if (end_position) *end_position = UINT64_MAX;
   }
   return 0;
 }
@@ -534,7 +558,6 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   if ((error_code=gt_isp_read_tag(text_line,&template->tag,&template->tag_length,&end_position))) {
     return error_code;
   }
-  template->tag = gt_strndup(template->tag,template->tag_length);
   // Read all maps related to this TAG
   gt_vector* pending_v = gt_vector_new(10,sizeof(gt_sam_pending_end));
   do {
@@ -603,9 +626,9 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
   GT_ALIGNMENT_CHECK(alignment);
   register char** text_line = &(buffered_sam_input->cursor);
   register gt_status error_code;
-  uint64_t alignment_flag, end_position;
+  uint64_t alignment_flag;
   // Read initial TAG (QNAME := Query template)
-  if ((error_code=gt_isp_read_tag(text_line,&alignment->tag,&alignment->tag_length,&end_position))) {
+  if ((error_code=gt_isp_read_tag(text_line,alignment->tag,NULL))) {
     return error_code;
   }
   alignment->tag = gt_strndup(alignment->tag,alignment->tag_length);
@@ -625,107 +648,68 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
 /*
  * High Level Parsers
  */
-GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
+GT_INLINE gt_status gt_input_sam_parser_get_template_(
+    gt_buffered_input_file* const buffered_sam_input,gt_template* const template,const bool soap_sam) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
-  register const char* line_start = buffered_sam_input->cursor;
   register gt_status error_code;
+  // Check the end_of_block. Reload buffer if needed
+  if (gt_buffered_input_file_eob(buffered_sam_input)) {
+    if ((error_code=gt_input_sam_parser_reload_buffer(buffered_sam_input))!=GT_IMP_OK) return error_code;
+  }
   // Check file format
   register gt_input_file* input_file = buffered_sam_input->input_file;
   if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
     gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,1ul);
     return GT_ISP_FAIL;
   }
-  // Check the end_of_block. Reload buffer if needed
-  if (gt_buffered_input_file_eob(buffered_sam_input)) {
-    register const uint64_t read_lines =
-        gt_buffered_input_file_get_block(buffered_sam_input,GT_NUM_LINES_10K,true);
-    if (gt_expect_false(read_lines==0)) return GT_ISP_EOF;
-  }
   // Prepare the template
+  register char* const line_start = buffered_sam_input->cursor;
   register const uint64_t line_num = buffered_sam_input->current_line_num;
-  if (gt_template_get_num_blocks(template)>0) {
-    GT_ALIGNMENT_ITERATE(template,alignment) {
-      gt_cfree(alignment->tag);
-      gt_cfree(alignment->read);
-      gt_cfree(alignment->qualities);
-    }
-    gt_template_clear(template);
-  }
-  gt_template_add_block(template,gt_alignment_new());
-  gt_template_add_block(template,gt_alignment_new());
+  gt_template_clear(template,true,true);
   template->template_id = line_num;
   // Parse template
-  if ((error_code=gt_input_sam_parser_parse_template(buffered_sam_input,template))) {
+  if (gt_expect_false(soap_sam)) {
+    error_code=gt_input_sam_parser_parse_soap_template(buffered_sam_input,template);
+  } else {
+    error_code=gt_input_sam_parser_parse_template(buffered_sam_input,template);
+  }
+  if (error_code) {
     gt_input_sam_parser_prompt_error(buffered_sam_input,line_num,
         buffered_sam_input->cursor-line_start,error_code);
     gt_input_sam_parser_next_record(buffered_sam_input);
     return GT_ISP_FAIL;
   }
   return GT_ISP_OK;
+}
+GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
+  GT_TEMPLATE_CHECK(template);
+  return gt_input_sam_parser_get_template_(buffered_sam_input,template,false);
 }
 GT_INLINE gt_status gt_input_sam_parser_get_soap_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
-  register const char* line_start = buffered_sam_input->cursor;
-  register gt_status error_code;
-  // Check file format
-  register gt_input_file* input_file = buffered_sam_input->input_file;
-  if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
-    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,1ul);
-    return GT_ISP_FAIL;
-  }
-  // Check the end_of_block. Reload buffer if needed
-  if (gt_buffered_input_file_eob(buffered_sam_input)) {
-    register const uint64_t read_lines =
-        gt_buffered_input_file_get_block(buffered_sam_input,GT_NUM_LINES_10K,true);
-    if (gt_expect_false(read_lines==0)) return GT_ISP_EOF;
-  }
-  // Prepare the template
-  register const uint64_t line_num = buffered_sam_input->current_line_num;
-  if (gt_template_get_num_blocks(template)>0) {
-    GT_ALIGNMENT_ITERATE(template,alignment) {
-      gt_cfree(alignment->tag);
-      gt_cfree(alignment->read);
-      gt_cfree(alignment->qualities);
-    }
-    gt_template_clear(template);
-  }
-  gt_template_add_block(template,gt_alignment_new());
-  gt_template_add_block(template,gt_alignment_new());
-  template->template_id = line_num;
-  // Parse template
-  if ((error_code=gt_input_sam_parser_parse_soap_template(buffered_sam_input,template))) {
-    gt_input_sam_parser_prompt_error(buffered_sam_input,line_num,
-        buffered_sam_input->cursor-line_start,error_code);
-    gt_input_sam_parser_next_record(buffered_sam_input);
-    return GT_ISP_FAIL;
-  }
-  return GT_ISP_OK;
+  return gt_input_sam_parser_get_template_(buffered_sam_input,template,true);
 }
 GT_INLINE gt_status gt_input_sam_parser_get_alignment(gt_buffered_input_file* const buffered_sam_input,gt_alignment* const alignment) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_ALIGNMENT_CHECK(alignment);
-  register const char* line_start = buffered_sam_input->cursor;
   register gt_status error_code;
+  // Check the end_of_block. Reload buffer if needed
+  if (gt_buffered_input_file_eob(buffered_sam_input)) {
+    if ((error_code=gt_input_sam_parser_reload_buffer(buffered_sam_input))!=GT_IMP_OK) return error_code;
+  }
   // Check file format
   register gt_input_file* input_file = buffered_sam_input->input_file;
   if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
-    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,1ul);
+    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num);
     return GT_ISP_FAIL;
   }
-  // Check the end_of_block. Reload buffer if needed
-  if (gt_buffered_input_file_eob(buffered_sam_input)) {
-    register const uint64_t read_lines =
-        gt_buffered_input_file_get_block(buffered_sam_input,GT_NUM_LINES_10K,true);
-    if (gt_expect_false(read_lines==0)) return GT_ISP_EOF;
-  }
   // Allocate memory for the alignment
+  register char* const line_start = buffered_sam_input->cursor;
   register const uint64_t line_num = buffered_sam_input->current_line_num;
-  gt_alignment_clear(alignment); // FIXME: Persistent & Coherent model of Alg/Tem
-  gt_cfree(alignment->tag);
-  gt_cfree(alignment->read);
-  gt_cfree(alignment->qualities);
+  gt_alignment_clear(alignment,true);
   alignment->alignment_id = line_num;
   // Parse alignment
   if ((error_code=gt_input_sam_parser_parse_alignment(buffered_sam_input,alignment))) {

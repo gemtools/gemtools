@@ -55,18 +55,14 @@
 #define GT_SAM_FLAG_PCR_OR_OPTICAL_DUPLICATE 0x400
 
 /*
- * SAM File Format test
+ * SAM File basics
  */
 GT_INLINE bool gt_input_file_test_sam(
     gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors); // TODO: Install it in gt_input_file.h
-
-/*
- * Parsing Building Blocks
- */
-GT_INLINE void gt_input_sam_parser_next_record(gt_buffered_input_file* const buffered_map_input);
 GT_INLINE void gt_input_sam_parser_prompt_error(
     gt_buffered_input_file* const buffered_map_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code);
+GT_INLINE void gt_input_sam_parser_next_record(gt_buffered_input_file* const buffered_map_input);
 
 /*
  * High Level Parsers

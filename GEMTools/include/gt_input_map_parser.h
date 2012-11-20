@@ -143,8 +143,8 @@ GT_INLINE gt_status gt_input_map_parser_get_alignment(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment);
 
 GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
-    gt_buffered_input_file* const buffered_input_file,gt_template* const template,gt_string* const src_text);
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_string* const src_text);
 GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
-    gt_buffered_input_file* const buffered_input_file,gt_alignment* const alignment,gt_string* const src_text);
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_string* const src_text);
 
 #endif /* GT_INPUT_MAP_PARSER_H_ */

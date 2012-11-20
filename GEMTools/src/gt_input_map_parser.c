@@ -12,8 +12,6 @@
 /*
  * Useful macros
  */
-#define GT_IMP_PARAMS_FILE__LINE(buffered_input_file) \
-  buffered_input_file->input_file->file_name,buffered_input_file->current_line_num
 // MAP/MAPQ related
 #define gt_is_valid_template_separator(character) \
   (character==' ')
@@ -135,12 +133,12 @@ GT_INLINE gt_status gt_input_map_parser_check_map_file_format(gt_buffered_input_
  * MAP file. Error handler
  */
 GT_INLINE void gt_input_map_parser_prompt_error(
-    gt_buffered_input_file* const buffered_input_file,
+    gt_buffered_input_file* const buffered_map_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code) {
   // Display textual error msg
-  register const char* const file_name = (buffered_input_file != NULL) ?
-      buffered_input_file->input_file->file_name : "<<LazyParsing>>";
-  if ((buffered_input_file == NULL)) {
+  register const char* const file_name = (buffered_map_input != NULL) ?
+      buffered_map_input->input_file->file_name : "<<LazyParsing>>";
+  if ((buffered_map_input == NULL)) {
     line_num = 0; column_pos = 0;
   }
   switch (error_code) {
@@ -167,36 +165,36 @@ GT_INLINE void gt_input_map_parser_prompt_error(
     case GT_IMP_PE_MISMS_BAD_CHARACTER: gt_error(PARSE_MAP_MISMS_BAD_CHARACTER,file_name,line_num,column_pos); break;
     case GT_IMP_PE_MISMS_BAD_MISMS_POS: gt_error(PARSE_MAP_MISMS_BAD_MISMS_POS,file_name,line_num,column_pos); break;
     default:
-      gt_error(PARSE_MAP,buffered_input_file->input_file->file_name,line_num);
+      gt_error(PARSE_MAP,buffered_map_input->input_file->file_name,line_num);
       break;
   }
 }
 /*
  * MAP file. Skip record
  */
-GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buffered_input_file) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
-  if (!gt_buffered_input_file_eob(buffered_input_file)) {
-    GT_INPUT_FILE_SKIP_LINE(buffered_input_file);
+GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buffered_map_input) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
+  if (!gt_buffered_input_file_eob(buffered_map_input)) {
+    GT_INPUT_FILE_SKIP_LINE(buffered_map_input);
   }
 }
 /*
  * MAP file. Reload internal buffer
  */
-GT_INLINE gt_status gt_input_map_parser_reload_buffer(gt_buffered_input_file* const buffered_input_file) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+GT_INLINE gt_status gt_input_map_parser_reload_buffer(gt_buffered_input_file* const buffered_map_input) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
-  if (buffered_input_file->buffered_output_file!=NULL) {
-    gt_buffered_output_file_dump(buffered_input_file->buffered_output_file);
+  if (buffered_map_input->buffered_output_file!=NULL) {
+    gt_buffered_output_file_dump(buffered_map_input->buffered_output_file);
   }
   // Read new input block
   register const uint64_t read_lines =
-      gt_buffered_input_file_get_block(buffered_input_file,GT_IMP_NUM_LINES,true);
+      gt_buffered_input_file_get_block(buffered_map_input,GT_IMP_NUM_LINES,true);
   if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
   // Assign block ID
-  if (buffered_input_file->buffered_output_file!=NULL) {
+  if (buffered_map_input->buffered_output_file!=NULL) {
     gt_buffered_output_file_set_block_ids(
-        buffered_input_file->buffered_output_file,buffered_input_file->block_id,0);
+        buffered_map_input->buffered_output_file,buffered_map_input->block_id,0);
   }
   return GT_IMP_OK;
 }
@@ -936,8 +934,12 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(
           if (gt_expect_false(split_maps!=NULL)) gt_vector_delete(split_maps);
           return GT_IMP_PE_MAP_BAD_NUMBER_OF_BLOCKS; /* FIXME: Weird case of split blocks */
         case GT_IMP_PE_MAP_GLOBAL_ATTR:
-          if (gt_expect_false(split_maps!=NULL)) gt_vector_delete(split_maps);
-          return GT_IMP_PE_MAP_BAD_CHARACTER;
+          /* FIXME: Paolo score for SE ::: instead of : */
+          // if (gt_expect_false(split_maps!=NULL)) gt_vector_delete(split_maps);
+          // return GT_IMP_PE_MAP_BAD_CHARACTER;
+          if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
+          GT_PARSE_NUMBER(text_line,map->score);
+          break;
         case GT_IMP_PE_MAP_PENDING_MAPS:
         case GT_IMP_PE_EOB: break;
         default:
@@ -1214,120 +1216,103 @@ GT_INLINE gt_status gt_input_map_parse_alignment_mismatch_string(gt_alignment* a
  * MAP High-level Parsers
  */
 GT_INLINE gt_status gt_imp_get_template(
-    gt_buffered_input_file* const buffered_input_file,gt_string* const src_text,
+    gt_buffered_input_file* const buffered_map_input,gt_string* const src_text,
     gt_template* const template,const gt_lazy_parse_mode parse_mode) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_TEMPLATE_CHECK(template);
-  register gt_input_file* const input_file = buffered_input_file->input_file;
+  register gt_input_file* const input_file = buffered_map_input->input_file;
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
-  if (gt_buffered_input_file_eob(buffered_input_file)) {
-    if ((error_code=gt_input_map_parser_reload_buffer(buffered_input_file))!=GT_IMP_OK) return error_code;
+  if (gt_buffered_input_file_eob(buffered_map_input)) {
+    if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input))!=GT_IMP_OK) return error_code;
   }
   // Check file format
-  if (gt_input_map_parser_check_map_file_format(buffered_input_file)) {
-    gt_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_input_file->current_line_num);
+  if (gt_input_map_parser_check_map_file_format(buffered_map_input)) {
+    gt_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_map_input->current_line_num);
     return GT_IMP_FAIL;
   }
   // Prepare the template
-  register char* const line_start = buffered_input_file->cursor;
-  register const uint64_t line_num = buffered_input_file->current_line_num;
+  register char* const line_start = buffered_map_input->cursor;
+  register const uint64_t line_num = buffered_map_input->current_line_num;
   gt_template_clear(template,true,true);
   template->template_id = line_num;
   // Parse template
-  if ((error_code=gt_imp_parse_template(&(buffered_input_file->cursor),
+  if ((error_code=gt_imp_parse_template(&(buffered_map_input->cursor),
       template,input_file->map_type.contains_qualities,parse_mode,UINT64_MAX))) {
-    gt_input_map_parser_prompt_error(buffered_input_file,line_num,
-        buffered_input_file->cursor-line_start,error_code);
-    gt_input_map_parser_next_record(buffered_input_file);
-    if (src_text) gt_string_set_nstring(src_text,line_start,buffered_input_file->cursor-line_start);
+    gt_input_map_parser_prompt_error(buffered_map_input,line_num,
+        buffered_map_input->cursor-line_start,error_code);
+    gt_input_map_parser_next_record(buffered_map_input);
+    if (src_text) gt_string_set_nstring(src_text,line_start,buffered_map_input->cursor-line_start);
     return GT_IMP_FAIL;
   }
   // Store source record
-  if (src_text) gt_string_set_nstring(src_text,line_start,buffered_input_file->cursor-line_start);
+  if (src_text) gt_string_set_nstring(src_text,line_start,buffered_map_input->cursor-line_start);
   // Next record
-  gt_input_map_parser_next_record(buffered_input_file);
+  gt_input_map_parser_next_record(buffered_map_input);
   return GT_IMP_OK;
 }
 GT_INLINE gt_status gt_imp_get_alignment(
-    gt_buffered_input_file* const buffered_input_file,gt_string* const src_text,
+    gt_buffered_input_file* const buffered_map_input,gt_string* const src_text,
     gt_alignment* const alignment,const gt_lazy_parse_mode parse_mode) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_ALIGNMENT_CHECK(alignment);
-  register gt_input_file* const input_file = buffered_input_file->input_file;
+  register gt_input_file* const input_file = buffered_map_input->input_file;
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
-  if (gt_buffered_input_file_eob(buffered_input_file)) {
-    if ((error_code=gt_input_map_parser_reload_buffer(buffered_input_file))!=GT_IMP_OK) return error_code;
+  if (gt_buffered_input_file_eob(buffered_map_input)) {
+    if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input))!=GT_IMP_OK) return error_code;
   }
   // Check file format
-  if (gt_input_map_parser_check_map_file_format(buffered_input_file)) {
-    gt_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_input_file->current_line_num);
+  if (gt_input_map_parser_check_map_file_format(buffered_map_input)) {
+    gt_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_map_input->current_line_num);
     return GT_IMP_FAIL;
   }
   // Allocate memory for the alignment
-  register char* const line_start = buffered_input_file->cursor;
-  register const uint64_t line_num = buffered_input_file->current_line_num;
+  register char* const line_start = buffered_map_input->cursor;
+  register const uint64_t line_num = buffered_map_input->current_line_num;
   gt_alignment_clear(alignment,true);
   alignment->alignment_id = line_num;
   // Parse alignment
-  if ((error_code=gt_imp_parse_alignment(&(buffered_input_file->cursor),
+  if ((error_code=gt_imp_parse_alignment(&(buffered_map_input->cursor),
       alignment,input_file->map_type.contains_qualities,parse_mode,UINT64_MAX))) {
-    gt_input_map_parser_prompt_error(buffered_input_file,line_num,
-        buffered_input_file->cursor-line_start,error_code);
-    gt_input_map_parser_next_record(buffered_input_file);
-    if (src_text) gt_string_set_nstring(src_text,line_start,buffered_input_file->cursor-line_start);
+    gt_input_map_parser_prompt_error(buffered_map_input,line_num,
+        buffered_map_input->cursor-line_start,error_code);
+    gt_input_map_parser_next_record(buffered_map_input);
+    if (src_text) gt_string_set_nstring(src_text,line_start,buffered_map_input->cursor-line_start);
     return GT_IMP_FAIL;
   }
   // Store source record
-  if (src_text) gt_string_set_nstring(src_text,line_start,buffered_input_file->cursor-line_start);
+  if (src_text) gt_string_set_nstring(src_text,line_start,buffered_map_input->cursor-line_start);
   // Next record
-  gt_input_map_parser_next_record(buffered_input_file);
+  gt_input_map_parser_next_record(buffered_map_input);
   return GT_IMP_OK;
 }
 GT_INLINE gt_status gt_input_map_parser_get_template(
-    gt_buffered_input_file* const buffered_input_file,gt_template* const template) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_TEMPLATE_CHECK(template);
-  return gt_imp_get_template(buffered_input_file,NULL,template,PARSE_ALL);
+  return gt_imp_get_template(buffered_map_input,NULL,template,PARSE_ALL);
 }
 GT_INLINE gt_status gt_input_map_parser_get_alignment(
-    gt_buffered_input_file* const buffered_input_file,gt_alignment* const alignment) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_ALIGNMENT_CHECK(alignment);
-  return gt_imp_get_alignment(buffered_input_file,NULL,alignment,PARSE_ALL);
+  return gt_imp_get_alignment(buffered_map_input,NULL,alignment,PARSE_ALL);
 }
 
 GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
-    gt_buffered_input_file* const buffered_input_file,gt_template* const template,gt_string* const src_text) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_string* const src_text) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_TEMPLATE_CHECK(template);
   GT_STRING_CHECK(src_text);
   gt_string_cast_static(src_text);
-  return gt_imp_get_template(buffered_input_file,src_text,template,PARSE_ALL);
+  return gt_imp_get_template(buffered_map_input,src_text,template,PARSE_ALL);
 }
 GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
-    gt_buffered_input_file* const buffered_input_file,gt_alignment* const alignment,gt_string* const src_text) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_string* const src_text) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_ALIGNMENT_CHECK(alignment);
   GT_STRING_CHECK(src_text);
   gt_string_cast_static(src_text);
-  return gt_imp_get_alignment(buffered_input_file,src_text,alignment,PARSE_ALL);
+  return gt_imp_get_alignment(buffered_map_input,src_text,alignment,PARSE_ALL);
 }
-
-
-// TODO
-//// Synchronized BMI. Attached to an output file & buffer,
-//// dumps the output whenever the end-of-input-block is reached
-//GT_INLINE gt_status gt_input_map_parser_get_template__sync_output(
-//    gt_buffered_input_file* const buffered_map_input,gt_template* template,gt_output_buffer** const output_buffer);
-//GT_INLINE gt_status gt_input_map_parser_get_alignment__sync_output(
-//    gt_buffered_input_file* const buffered_map_input,gt_alignment* alignment,gt_output_buffer** const output_buffer);
-//GT_INLINE gt_status gt_input_map_parser_get_template__sync_output(
-//    gt_buffered_input_file* const buffered_input_file,gt_template* template,gt_output_buffer** const output_buffer) {
-//  return gt_imp_get_template(buffered_input_file,template,PARSE_ALL,output_buffer);
-//}
-//GT_INLINE gt_status gt_input_map_parser_get_alignment__sync_output(
-//    gt_buffered_input_file* const buffered_input_file,gt_alignment* alignment,gt_output_buffer** const output_buffer) {
-//  return gt_imp_get_alignment(buffered_input_file,alignment,PARSE_ALL,output_buffer);
-//}

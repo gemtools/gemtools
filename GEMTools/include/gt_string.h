@@ -84,4 +84,14 @@ GT_INLINE gt_status gt_sprintf(gt_string* const sequence,const char *template,..
 GT_INLINE gt_status gt_vsprintf_append(gt_string* const sequence,const char *template,va_list v_args);
 GT_INLINE gt_status gt_sprintf_append(gt_string* const sequence,const char *template,...);
 
+/*
+ * Iterator
+ */
+#define GT_STRING_ITERATE(string,mem,pos) \
+  register uint64_t pos; \
+  register const uint64_t __length_##mem = gt_string_get_length(string); \
+  register const char* mem = gt_string_get_string(string); \
+  for (pos=0;pos<__length_##mem;++pos) /* mem[pos] */
+
+
 #endif /* GT_STRING_H_ */

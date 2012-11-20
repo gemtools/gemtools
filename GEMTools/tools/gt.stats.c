@@ -52,6 +52,18 @@
 #define MISMS_RANGE_BEHOND 13
 #define MISMS_RANGE 14
 
+#define UNIQ_RANGE_0 0
+#define UNIQ_RANGE_1 1
+#define UNIQ_RANGE_2 2
+#define UNIQ_RANGE_3 3
+#define UNIQ_RANGE_10 4
+#define UNIQ_RANGE_50 5
+#define UNIQ_RANGE_100 6
+#define UNIQ_RANGE_500 7
+#define UNIQ_RANGE_BEHOND 8
+#define UNIQ_RANGE_X 9
+#define UNIQ_RANGE 10
+
 typedef struct {
   char *name_input_file;
   bool mmap_input;
@@ -71,12 +83,15 @@ gt_stats_args parameters = {
 };
 
 typedef struct {
+  uint64_t num_reads;
   uint64_t num_alignments;
   // Mapped/Maps
   uint64_t num_maps;
   uint64_t num_mapped;
   // MMap Distribution
   uint64_t mmap[MMAP_RANGE];
+  // Uniq Distribution
+  uint64_t uniq[UNIQ_RANGE];
   // Insert Size Distribution
   uint64_t inss[INSS_RANGE];
   // Mismatch/Indel Distribution
@@ -93,6 +108,7 @@ typedef struct {
  */
 void gt_source_stats_init(gt_stats *stats) {
   // Mapped/Maps
+  stats->num_reads=0;
   stats->num_alignments=0;
   stats->num_maps=0;
   stats->num_mapped=0;
@@ -149,16 +165,18 @@ void gt_stats_get_misms_distribution(
     gt_stats* const stats,uint64_t const read_length,gt_map** const map,const uint64_t num_blocks) {
   uint64_t num_misms=0, num_indels=0, total=0, i;
   for (i=0;i<num_blocks;++i) {
-    GT_MISMS_ITERATE(map[i],misms) {
-      total++;
-      switch (misms->misms_type) {
-        case MISMS:
-          num_misms++;
-          break;
-        case INS:
-        case DEL:
-          num_indels+=misms->size;
-          break;
+    GT_MAP_ITERATE(map[i],map_block) {
+      GT_MISMS_ITERATE(map_block,misms) {
+        total++;
+        switch (misms->misms_type) {
+          case MISMS:
+            num_misms++;
+            break;
+          case INS:
+          case DEL:
+            num_indels+=misms->size;
+            break;
+        }
       }
     }
   }
@@ -187,6 +205,30 @@ void gt_stats_get_mmap_distribution(gt_stats *stats,const uint64_t num_maps) {
     } else {
       ++stats->mmap[MMAP_RANGE_BEHOND];
     }
+  }
+}
+void gt_stats_get_uniq_distribution(gt_stats *stats,gt_template* const template) {
+  register const uint64_t uniq_degree = gt_template_get_uniq_degree(template);
+  if (uniq_degree==GT_NO_STRATA) {
+    ++stats->uniq[UNIQ_RANGE_X];
+  } else if (uniq_degree==0) {
+    ++stats->uniq[UNIQ_RANGE_0];
+  } else if (uniq_degree<=1) {
+    ++stats->uniq[UNIQ_RANGE_1];
+  } else if (uniq_degree<=2) {
+    ++stats->uniq[UNIQ_RANGE_2];
+  } else if (uniq_degree<=3) {
+    ++stats->uniq[UNIQ_RANGE_3];
+  } else if (uniq_degree<=10) {
+    ++stats->uniq[UNIQ_RANGE_10];
+  } else if (uniq_degree<=50) {
+    ++stats->uniq[UNIQ_RANGE_50];
+  } else if (uniq_degree<=100) {
+    ++stats->uniq[UNIQ_RANGE_100];
+  } else if (uniq_degree<=500) {
+    ++stats->uniq[UNIQ_RANGE_500];
+  } else {
+    ++stats->uniq[UNIQ_RANGE_BEHOND];
   }
 }
 void gt_stats_get_inss_distribution(gt_stats *stats,const uint64_t insert_size) {
@@ -219,18 +261,23 @@ void gt_stats_get_inss_distribution(gt_stats *stats,const uint64_t insert_size) 
   }
 }
 GT_INLINE void gt_source_analize_template(gt_stats* const stats,gt_template* const template,const bool paired_map) {
-  register const uint64_t num_maps = gt_template_get_num_mmaps(template);
-  stats->num_maps += num_maps;
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  register const uint64_t num_maps = (num_blocks>1 || !paired_map) ?
+      gt_template_get_num_mmaps(template) : 0;
   ++stats->num_alignments;
-  if ( (paired_map && (gt_template_is_mapped(template) || num_maps > 0)) ||
-       ((num_maps > 0) || gt_alignment_is_mapped(gt_template_get_block(template,0))) ){
+  stats->num_reads += num_blocks;
+  if ( (paired_map &&  (num_maps > 0 || gt_template_is_mapped(template))) ||
+       (!paired_map && (num_maps > 0 || gt_alignment_is_mapped(gt_template_get_block(template,0)))) ){
     ++stats->num_mapped;
+    if (num_maps > 0) {
+      stats->num_maps += num_maps;
+      gt_stats_get_mmap_distribution(stats,num_maps); // MMaps classification
+    }
   }
-  // MMaps classification
-  gt_stats_get_mmap_distribution(stats,num_maps);
+  gt_stats_get_uniq_distribution(stats,template);
   if (num_maps > 0) {
     gt_stats_get_misms_distribution(stats,gt_template_get_total_length(template),
-        gt_template_get_mmap(template,0,NULL),gt_template_get_num_blocks(template));
+        gt_template_get_mmap(template,0,NULL),num_blocks);
     if (paired_map) { // Insert Size distribution
       GT_TEMPLATE_ITERATE_(template,mmap) {
         gt_stats_get_inss_distribution(stats,
@@ -242,11 +289,15 @@ GT_INLINE void gt_source_analize_template(gt_stats* const stats,gt_template* con
 void gt_stats_merge_stats(gt_stats* const stats,const uint64_t num_stats) {
   register uint64_t i, j;
   for (i=1;i<num_stats;++i) {
+    stats->num_reads += stats[i].num_reads;
     stats->num_alignments += stats[i].num_alignments;
     stats->num_maps += stats[i].num_maps;
     stats->num_mapped += stats[i].num_mapped;
     for (j=0;j<MMAP_RANGE;++j) {
       stats->mmap[j] += stats[i].mmap[j];
+    }
+    for (j=0;j<UNIQ_RANGE;++j) {
+      stats->uniq[j] += stats[i].uniq[j];
     }
     for (j=0;j<INSS_RANGE;++j) {
       stats->inss[j] += stats[i].inss[j];
@@ -273,6 +324,21 @@ void gt_stats_print_mmap_distribution(gt_stats* const stats,const uint64_t num_r
   fprintf(stderr,"  --> (500,1000] \t=> %lu \t %f%%\n",stats->mmap[MMAP_RANGE_1000],100.0*(float)stats->mmap[MMAP_RANGE_1000]/(float)num_reads);
   fprintf(stderr,"  --> (1000,inf) \t=> %lu \t %f%%\n",stats->mmap[MMAP_RANGE_BEHOND],100.0*(float)stats->mmap[MMAP_RANGE_BEHOND]/(float)num_reads);
 }
+void gt_stats_print_uniq_distribution(gt_stats* const stats,const uint64_t num_reads) {
+  fprintf(stderr,"Uniq.ranges\n");
+  fprintf(stderr,"  -->        [X] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_X],100.0*(float)(stats->uniq[UNIQ_RANGE_X])/(float)num_reads);
+  fprintf(stderr,"  -->        [0] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_0],100.0*(float)(stats->uniq[UNIQ_RANGE_0])/(float)num_reads);
+  fprintf(stderr,"  -->        [1] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_1],100.0*(float)(stats->uniq[UNIQ_RANGE_1])/(float)num_reads);
+  fprintf(stderr,"  -->        [2] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_2],100.0*(float)(stats->uniq[UNIQ_RANGE_2])/(float)num_reads);
+  fprintf(stderr,"  -->        [3] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_3],100.0*(float)(stats->uniq[UNIQ_RANGE_3])/(float)num_reads);
+  fprintf(stderr,"  -->     (3,10] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_10],100.0*(float)(stats->uniq[UNIQ_RANGE_10])/(float)num_reads);
+  fprintf(stderr,"  -->    (10,50] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_50],100.0*(float)(stats->uniq[UNIQ_RANGE_50])/(float)num_reads);
+  register const uint64_t accum = stats->uniq[UNIQ_RANGE_100]+stats->uniq[UNIQ_RANGE_500]+stats->uniq[UNIQ_RANGE_BEHOND];
+  fprintf(stderr,"  -->   (50,inf] \t=> %lu \t %f%%\n",accum,100.0*(float)(accum)/(float)num_reads);
+//  fprintf(stderr,"  -->   (50,100] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_100],100.0*(float)(stats->uniq[UNIQ_RANGE_100])/(float)num_reads);
+//  fprintf(stderr,"  -->  (100,500] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_500],100.0*(float)(stats->uniq[UNIQ_RANGE_500])/(float)num_reads);
+//  fprintf(stderr,"  -->  (500,inf] \t=> %lu \t %f%%\n",stats->uniq[UNIQ_RANGE_BEHOND],100.0*(float)(stats->uniq[UNIQ_RANGE_BEHOND])/(float)num_reads);
+}
 void gt_stats_print_inss_distribution(gt_stats* const stats,const uint64_t num_reads) {
   fprintf(stderr,"InsS.ranges\n");
   fprintf(stderr,"  -->       [0,100] \t=> %lu \t %f%%\n",stats->inss[INSS_RANGE_100],100.0*(float)stats->inss[INSS_RANGE_100]/(float)num_reads);
@@ -294,27 +360,33 @@ void gt_stats_print_misms_distribution(uint64_t* const stats,const uint64_t num_
   fprintf(stderr,"  -->         [0]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_0],100.0*(float)stats[MISMS_RANGE_0]/(float)num_reads);
   fprintf(stderr,"  -->         [1]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_1],100.0*(float)stats[MISMS_RANGE_1]/(float)num_reads);
   fprintf(stderr,"  -->         [2]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_2],100.0*(float)stats[MISMS_RANGE_2]/(float)num_reads);
-  fprintf(stderr,"  -->         [3]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_3],100.0*(float)stats[MISMS_RANGE_3]/(float)num_reads);
-  fprintf(stderr,"  -->         [4]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_4],100.0*(float)stats[MISMS_RANGE_4]/(float)num_reads);
-  fprintf(stderr,"  -->         [5]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_5],100.0*(float)stats[MISMS_RANGE_5]/(float)num_reads);
-  fprintf(stderr,"  -->         [6]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_6],100.0*(float)stats[MISMS_RANGE_6]/(float)num_reads);
-  fprintf(stderr,"  -->         [7]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_7],100.0*(float)stats[MISMS_RANGE_7]/(float)num_reads);
-  fprintf(stderr,"  -->         [8]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_8],100.0*(float)stats[MISMS_RANGE_8]/(float)num_reads);
-  fprintf(stderr,"  -->         [9]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_9],100.0*(float)stats[MISMS_RANGE_9]/(float)num_reads);
-  fprintf(stderr,"  -->        [10]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_10],100.0*(float)stats[MISMS_RANGE_10]/(float)num_reads);
+  register const uint64_t accum = stats[MISMS_RANGE_3]+stats[MISMS_RANGE_4]+
+      stats[MISMS_RANGE_5]+stats[MISMS_RANGE_6]+stats[MISMS_RANGE_7]+
+      stats[MISMS_RANGE_8]+stats[MISMS_RANGE_9]+stats[MISMS_RANGE_10];
+  fprintf(stderr,"  -->      (2,10]%% \t=> %lu \t %f%%\n",accum,100.0*(float)accum/(float)num_reads);
+//  fprintf(stderr,"  -->         [3]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_3],100.0*(float)stats[MISMS_RANGE_3]/(float)num_reads);
+//  fprintf(stderr,"  -->         [4]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_4],100.0*(float)stats[MISMS_RANGE_4]/(float)num_reads);
+//  fprintf(stderr,"  -->         [5]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_5],100.0*(float)stats[MISMS_RANGE_5]/(float)num_reads);
+//  fprintf(stderr,"  -->         [6]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_6],100.0*(float)stats[MISMS_RANGE_6]/(float)num_reads);
+//  fprintf(stderr,"  -->         [7]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_7],100.0*(float)stats[MISMS_RANGE_7]/(float)num_reads);
+//  fprintf(stderr,"  -->         [8]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_8],100.0*(float)stats[MISMS_RANGE_8]/(float)num_reads);
+//  fprintf(stderr,"  -->         [9]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_9],100.0*(float)stats[MISMS_RANGE_9]/(float)num_reads);
+//  fprintf(stderr,"  -->        [10]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_10],100.0*(float)stats[MISMS_RANGE_10]/(float)num_reads);
   fprintf(stderr,"  -->     (10,20]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_20],100.0*(float)stats[MISMS_RANGE_20]/(float)num_reads);
   fprintf(stderr,"  -->     (20,50]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_50],100.0*(float)stats[MISMS_RANGE_50]/(float)num_reads);
   fprintf(stderr,"  -->    (50,100]%% \t=> %lu \t %f%%\n",stats[MISMS_RANGE_BEHOND],100.0*(float)stats[MISMS_RANGE_BEHOND]/(float)num_reads);
 }
 void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
-  if (paired_end) num_reads>>=1; // WoW!!!
   fprintf(stderr,"[GENERAL.STATS]\n");
   fprintf(stderr,"Num.reads %lu\n",num_reads);
   fprintf(stderr,"Num.alignments %lu\n",stats->num_alignments);
-  fprintf(stderr,"  --> Num.mapped %lu (%2.3f%%)\n",stats->num_mapped,100.0*(float)stats->num_mapped/(float)num_reads);
-  fprintf(stderr,"  --> Num.maps %lu (%2.3f map/alg)\n",stats->num_maps,(float)stats->num_maps/(float)stats->num_alignments);
-  gt_stats_print_mmap_distribution(stats,num_reads);
-  if (paired_end) gt_stats_print_inss_distribution(stats,stats->num_mapped);
+  fprintf(stderr,"  --> Num.mapped %lu (%2.3f%% / %2.3f%%)\n",stats->num_mapped,
+      100.0*(float)stats->num_mapped/(float)stats->num_alignments,
+      100.0*(float)stats->num_mapped/(float)(paired_end?num_reads>>1:num_reads));
+  fprintf(stderr,"  --> Num.maps %lu (%2.3f map/alg)\n",stats->num_maps,(float)stats->num_maps/(float)stats->num_mapped);
+  gt_stats_print_mmap_distribution(stats,stats->num_alignments);
+  if (paired_end) gt_stats_print_inss_distribution(stats,stats->num_maps);
+  gt_stats_print_uniq_distribution(stats,stats->num_mapped);
   gt_stats_print_misms_distribution(stats->misms,stats->num_mapped,"Mismatches");
   gt_stats_print_misms_distribution(stats->indel,stats->num_mapped,"Indels");
   gt_stats_print_misms_distribution(stats->errors,stats->num_mapped,"Errors");
@@ -345,7 +417,7 @@ void gt_stats_generate_stats() {
   }
   // Print Statistics
   gt_stats_print_stats(&stats,(parameters.num_reads>0)?
-      parameters.num_reads:stats.num_alignments,parameters.paired_end);
+      parameters.num_reads:stats.num_reads,parameters.paired_end);
 
   // Clean
   gt_template_delete(template,true,true);

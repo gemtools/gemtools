@@ -166,5 +166,6 @@ GT_INLINE uint64_t gt_calculate_memory_required_va(const char *template,...);
  */
 #define GT_STREAM_FILE_NAME "<<STREAM>>"
 #define GT_ALL UINT64_MAX
+#define GT_NO_STRATA ((int64_t)(-1))
 
 #endif /* GT_COMMONS_H_ */

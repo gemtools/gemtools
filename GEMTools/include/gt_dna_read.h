@@ -21,9 +21,11 @@ typedef enum { GT_QUALS_OFFSET_33, GT_QUALS_OFFSET_64, GT_QUALS_OFFSET_INVALID }
 /*
  * Checkers
  */
-#define GT_DNA_READ_CHECK(read) gt_fatal_check( \
-    read==NULL||read->tag==NULL|| \
-    read->read==NULL||read->qualities==NULL,NULL_HANDLER)
+#define GT_DNA_READ_CHECK(read) \
+  GT_NULL_CHECK(read); \
+  GT_STRING_CHECK(read->tag); \
+  GT_STRING_CHECK(read->read); \
+  GT_STRING_CHECK(read->qualities)
 
 /*
  * Constructor
