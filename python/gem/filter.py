@@ -1,6 +1,61 @@
 #!/usr/bin/env python
 """Default filters for to filter reads and mappings"""
+from __future__ import print_function
+import sys
 import re
+
+class BasicStats(object):
+    """Basic statistic computation for the reads that
+    pass through this filter.
+    Statistics are gathered by calling to basic_stats, and they
+    are printed when a print_stats call is done at the end.
+    """
+    
+    def __init__(self, output=None):
+        """Initialize the statistics fields"""
+        self.mapped     = 0
+        self.unmapped   = 0
+        self.outputFile = output
+        
+    def basic_stats(self, reads):
+        """Yield all the reads and count how many
+        are mapped and how many are unmapped.
+        In short, compute the desired statistics.
+        """
+        for read in reads:
+            if read.mappings is None or len(read.mappings) == 0:
+                # This check gets rid of reads coming from not mapped input line fasta files 
+                self.unmapped += 1
+            else:
+                # Here we have an alignment try, which can work or not
+                if read.min_mismatches() == -1:
+                    self.unmapped += 1
+                else:
+                    self.mapped += 1
+    
+            yield read
+
+    def print_stats(self):
+        """Compute the final statistics and write them to a file"""
+        # Compute basic statistics
+        total        = self.mapped   + self.unmapped
+        pct_mapped   = self.mapped   * 100.0 / total
+        pct_unmapped = self.unmapped * 100.0 / total
+        
+        # Open output file
+        if self.outputFile == None or self.outputFile == sys.stdout:
+            output = None
+        else:
+            output = open(self.outputFile, "w")
+
+        # Write statistics
+        print("ALL:      {:>9d}".format(total), file=output)
+        print("Mapped:   {:>9d} ({:5.2f}%)".format(self.mapped, pct_mapped), file=output)
+        print("Unmapped: {:>9d} ({:5.2f}%)".format(self.unmapped, pct_unmapped), file=output)
+
+        # Close file, if needed
+        if self.outputFile != None and self.outputFile != sys.stdout:
+            output.close()
 
 
 def unmapped(reads, exclude=-1):
