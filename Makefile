@@ -7,7 +7,7 @@ install: all
 	python setup.py install
 
 install-user: all
-	python setup.py install-user
+	python setup.py install --user
 
 test: all
 	-$(MAKE) -C GEMTools check 
