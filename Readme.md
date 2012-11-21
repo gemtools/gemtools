@@ -36,22 +36,9 @@ requests that you find in the GEM-Tools library. If you run into problems with
 GEM and the included GEM binaries, please use the [GEM
 bugtracker](algorithms.cnag.cat/mantis).
 
-Deveopment
+Development
 =====================
 
 In order to develop on the GEM-Tools library, node that the repository contains
 a [Vagrant](http://vagrantup.com/) files to be able to quickly setup a virtual 
 machine to test and run GEM on you local non-linux-64bit machine.
-
-
-Changes
-=====================
-
-Version 1.4
-
-    [GT-22] - Add the updated gem-2-sam converter
-    [GT-23] - Initial mapping error
-    [GT-28] - Splitmapper does not contain the trim parameter to do inline trimming
-    [GT-19] - Update gem binaries
-    [GT-29] - Create a filter for concatenating sets of files
-
