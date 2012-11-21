@@ -47,8 +47,7 @@ As root:
 As non-root user:
     python setup.py install --user
 
-
-Installing as non-root user
+Install as non-root user
 --------------------------
 There are a couple of different ways to install the gemtools module as non
 root user, but the simplest is to append the --user option to the installtion
