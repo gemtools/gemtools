@@ -20,7 +20,7 @@ Installing the gemtools python module can be done in different ways. The easiest
 way is to install using *pip*. If you do not have *pip* installed or you
 do not want to use it, clone the githup repository and insall from source.
 
-Install the lates release
+Install the latest release
 ----------------------------
 Gemtools is distributed through pypi and you can install the lates released
 vesion using pip or easy install
