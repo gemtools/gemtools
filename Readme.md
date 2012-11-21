@@ -26,8 +26,11 @@ Gemtools is distributed through pypi and you can install the lates released
 vesion using pip or easy install
 
 As root:
+
     pip install gemtools
+
 As non-root user:
+    
     pip install gemtools --user
 
 Install from github
@@ -35,16 +38,22 @@ Install from github
 You can use pip to install directly from github:
 
 As root:
+    
     pip install git+http://github.com/gemtools/gemtools
+
 As non-root user:
+    
     pip install git+http://github.com/gemtools/gemtools --user
 
 If you do not have *pip* or you cloned the github repository already,
 you can simply run:
 
 As root:
+    
     python setup.py install
+
 As non-root user:
+    
     python setup.py install --user
 
 Install as non-root user
@@ -58,6 +67,7 @@ default python paath and you do not have to modify any environment variables.
 Verify the installation
 -------------------------
 To quickly check if gemtools is installed, run:
+    
     python -m gem.__main__
 
 If gemtools is installed properly, it will print the paths to the bundled binaries.
