@@ -22,10 +22,13 @@ PyObject* Template_new(PyTypeObject *type, PyObject *args, PyObject *kwds){
 PyObject* Template_fill(Template *self, PyObject *args){
     PyObject *line;
     if (PyArg_UnpackTuple(args, "ref", 1, 1, &line)) {
-        if(gt_input_map_parse_template(PyString_AsString(line), self->template) != 0){
+        char * line_chars = PyString_AsString(line);
+        if(gt_input_map_parse_template(line_chars, self->template) != 0){
             PyErr_SetString(PyExc_Exception, "Error while parsing mapping!");
             return NULL;
         }
+        printf("Template filled ");
+        printf("test uint64_t : %" PRIu64 "\n", gt_template_get_mcs(self->template));
     }
     Py_RETURN_TRUE;
 }
@@ -43,8 +46,8 @@ PyObject* Template_fill(Template *self, PyObject *args){
 //
 
 PyObject* Template_get_max_complete_strata(Template *self, void *closure){
-    PyObject* ret = PyLong_FromUnsignedLongLong(gt_template_get_mcs(self->template));
-    //Py_DECREF(ret);
+    uint64_t mcs = gt_template_get_mcs(self->template);
+    PyObject* ret = PyLong_FromUnsignedLongLong(mcs);
     return ret;
 }
 //
