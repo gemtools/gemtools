@@ -83,7 +83,7 @@ Bugs and feature requests
 Please feel free to use the Github bug tracker to report issues and feature
 requests that you find in the GEM-Tools library. If you run into problems with
 GEM and the included GEM binaries, please use the [GEM
-bugtracker](algorithms.cnag.cat/mantis).
+bugtracker](http://algorithms.cnag.cat/mantis).
 
 Development
 =====================
