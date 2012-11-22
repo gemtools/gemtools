@@ -14,6 +14,9 @@ int main(void) {
   SRunner *sr = srunner_create(gt_input_map_parser_suite());
   //srunner_add_suite(sr,gt_ihash_suite());
 
+  // add logging to xml
+  srunner_set_xml(sr, "reports/check-test-parsers.xml");
+  
   // Run the suites
   srunner_run_all(sr,CK_NORMAL);
   uint32_t num_test_failed = srunner_ntests_failed(sr);

@@ -11,6 +11,7 @@ include ../Makefile.mk
 
 FOLDER_TEST_BUILD=./build
 FOLDER_TEST_SCRIPT=./script
+FOLDER_TEST_REPORTS=./reports
 
 GT_UTESTS=gt_utest_commons gt_utest_core_structures gt_utest_parsers
 GT_ITESTS=gt_itest_map_parser
@@ -41,10 +42,10 @@ $(GT_COVERAGE): clean setup
 	$(FOLDER_TEST_BUILD)/$@
 	
 setup:
-	@mkdir -p $(FOLDER_TEST_BUILD) $(FOLDER_TEST_SCRIPT)
+	@mkdir -p $(FOLDER_TEST_BUILD) $(FOLDER_TEST_SCRIPT) $(FOLDER_TEST_REPORTS)
 	
 end_banner: 	
 	@echo "=======================================================================>>"
 	
 clean:
-	@rm -rf $(FOLDER_TEST_BUILD)
+	@rm -rf $(FOLDER_TEST_BUILD) $(FOLDER_TEST_REPORTS)
