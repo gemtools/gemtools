@@ -38,7 +38,7 @@ default_filter = "same-chromosome,same-strand"
 use_bundled_executables = True
 
 ## filter to work around GT-32 and #006 in gem-map-2-map 
-__awk_filter = ["awk", "-F", "\t", '{if($4 == "!" || $4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{print}}']
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t999999999\t"$5}else{print}}}']
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
@@ -348,6 +348,7 @@ def mapper(input, index, output=None,
            min_matched_bases=0.80,
            max_big_indel_length=15,
            max_edit_distance=0.20,
+           mismatch_alphabet="ACGT",
            trim=None,
            threads=1):
     """Start the GEM mapper on the given input.
@@ -392,6 +393,7 @@ def mapper(input, index, output=None,
           '--min-matched-bases', str(min_matched_bases),
           '--gem-quality-threshold', str(quality_threshold),
           '--max-big-indel-length', str(max_big_indel_length),
+          '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
 
@@ -437,6 +439,7 @@ def splitmapper(input,
                 quality=33,
                 trim=None,
                 post_validate=True,
+                mismatch_alphabet="ACGT",
                 threads=1):
     """Start the GEM split mapper on the given input.
     If input is a file handle, it is assumed to
@@ -469,6 +472,7 @@ def splitmapper(input,
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
           '--strata-after-first', str(mismatch_strata_delta),
+          '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
 
