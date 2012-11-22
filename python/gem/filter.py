@@ -49,9 +49,9 @@ class BasicStats(object):
             output = open(self.outputFile, "w")
 
         # Write statistics
-        print("ALL:      {:>9d}".format(total), file=output)
-        print("Mapped:   {:>9d} ({:5.2f}%)".format(self.mapped, pct_mapped), file=output)
-        print("Unmapped: {:>9d} ({:5.2f}%)".format(self.unmapped, pct_unmapped), file=output)
+        print("ALL:      {0:>9d}".format(total), file=output)
+        print("Mapped:   {0:>9d} ({1:5.2f}%)".format(self.mapped, pct_mapped), file=output)
+        print("Unmapped: {0:>9d} ({1:5.2f}%)".format(self.unmapped, pct_unmapped), file=output)
 
         # Close file, if needed
         if self.outputFile != None and self.outputFile != sys.stdout:
