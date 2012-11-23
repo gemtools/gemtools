@@ -604,9 +604,31 @@ Template* create_template(gt_template* template){
 //    return pp;
 //};
 
+/**
+Pass two Template instances and merge the templates. Returns the
+merged Template
+*/
+static PyObject* gemtools_merge_templates(PyObject *self, PyObject *args){
+    PyObject *t1 = NULL;
+    PyObject *t2 = NULL;
+    if (!PyArg_UnpackTuple(args, "ref", 2, 2, &t1, &t2)) {
+        PyErr_SetString(PyExc_Exception, "Error while parsing arguments!");
+        return NULL;
+    }
+
+    Template* t_1 = (Template*)t1;
+    Template* t_2 = (Template*)t2;
+    printf("%s\n", gt_template_get_tag(t_1->template));
+    printf("%s\n", gt_template_get_tag(t_2->template));
+    gt_template_merge_template_mmaps(t_1->template, t_2->template);
+    return (PyObject *)t_1;
+};
+
+
+
+
 static PyMethodDef GempyMethods[] = {
-//    {"update_template", gempy_update_template, METH_VARARGS, "Update a given template"},
-//    {"open_stream", gempy_open_stream, METH_VARARGS, "Iterator over a .map stream"},
+    {"merge_templates", gemtools_merge_templates, METH_VARARGS, "Merge two Templates and returns the merged result Template"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

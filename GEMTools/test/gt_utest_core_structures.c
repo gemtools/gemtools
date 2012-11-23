@@ -9,11 +9,12 @@
 
 // Include Suites
 #include "gt_suite_alignment.c"
+#include "gt_suite_template_utils.c"
 //#include "gt_suite_template.c"
 
 int main(void) {
   SRunner *sr = srunner_create(gt_alignment_suite());
-  //srunner_add_suite (sr, make_list_suite());
+  srunner_add_suite (sr, gt_template_utils_suite());
   
   // add logging to xml
   srunner_set_xml(sr, "reports/check-test-core.xml");

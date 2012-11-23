@@ -100,7 +100,8 @@ class Read(object):
         self.mappings = None
         self.line = None
         self.type = None
-        self.template = gt.Template()
+        self.template = None
+        self.__template_initialized = False
 
     def fill(self, other):
         """Fill this read with the content of another read"""
@@ -111,6 +112,8 @@ class Read(object):
         self.mappings = other.mappings
         self.line = other.line
         self.type = other.type
+        self.template = None
+        self.__template_initialized = False
 
     def min_mismatches(self):
         """Parse the mismatch string and return the minimum number
@@ -142,8 +145,12 @@ class Read(object):
         return (sums, maps)
 
 
-    def _fill_template(self):
-        return self.template.fill(self.line)
+    def _get_template(self):
+        if self.template is None:
+            self.template = gt.Template()
+        if not self.__template_initialized:
+            self.template.fill(self.line)
+        return self.template
 
 
     def __str__(self):

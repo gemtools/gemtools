@@ -27,8 +27,7 @@ PyObject* Template_fill(Template *self, PyObject *args){
             PyErr_SetString(PyExc_Exception, "Error while parsing mapping!");
             return NULL;
         }
-        printf("Template filled ");
-        printf("test uint64_t : %" PRIu64 "\n", gt_template_get_mcs(self->template));
+        return PyLong_FromUnsignedLongLong(gt_template_get_mcs(self->template));
     }
     Py_RETURN_TRUE;
 }
