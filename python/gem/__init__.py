@@ -36,9 +36,10 @@ default_filter = "same-chromosome,same-strand"
 
 ## use the bundled executables
 use_bundled_executables = True
-
+## max mappings to replace mapping counts for + and ! summaries
+__max_mappings = 999999999
 ## filter to work around GT-32 and #006 in gem-map-2-map 
-__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t999999999\t"$5}else{print}}}']
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(__max_mappings)+'\t"$5}else{print}}}']
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
@@ -131,8 +132,11 @@ class Read(object):
 
 
     def get_maps(self):
-        if self.summary == None or self.summary in ['-', '+', '*']:
+        if self.summary == None or self.summary in ['-', '*']:
             return ([0], ["-"])
+        elif self.summary in ['+', '!']:
+            return ([__max_mappings], ["-"])
+
         sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
         maps = self.mappings.split(',')
         return (sums, maps)
