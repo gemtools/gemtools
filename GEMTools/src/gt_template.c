@@ -147,13 +147,21 @@ GT_INLINE uint64_t gt_template_get_counter(gt_template* const template,const uin
   } GT_TEMPLATE_END_REDUCTION;
   return *gt_vector_get_elm(template->counters,stratum-1,uint64_t);
 }
+GT_INLINE void gt_template_dynamically_allocate_counter(gt_template* const template,const uint64_t stratum) {
+  GT_TEMPLATE_CHECK(template);
+  gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
+  gt_vector_reserve(template->counters,stratum,true);
+  if (gt_vector_get_used(template->counters)<stratum) {
+    gt_vector_set_used(template->counters,stratum);
+  }
+}
 GT_INLINE void gt_template_inc_counter(gt_template* const template,const uint64_t stratum) {
   GT_TEMPLATE_CHECK(template);
   gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     gt_alignment_inc_counter(alignment,stratum);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
-  gt_vector_reserve(template->counters,stratum,true);
+  gt_template_dynamically_allocate_counter(template,stratum);
   ++(*gt_vector_get_elm(template->counters,stratum-1,uint64_t));
 }
 GT_INLINE void gt_template_dec_counter(gt_template* const template,const uint64_t stratum) {
@@ -162,7 +170,7 @@ GT_INLINE void gt_template_dec_counter(gt_template* const template,const uint64_
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     gt_alignment_dec_counter(alignment,stratum);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
-  gt_vector_reserve(template->counters,stratum,true);
+  gt_template_dynamically_allocate_counter(template,stratum);
   --(*gt_vector_get_elm(template->counters,stratum-1,uint64_t));
 }
 GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_t stratum,const uint64_t value) {
@@ -171,7 +179,7 @@ GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     gt_alignment_set_counter(alignment,stratum,value);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
-  gt_vector_reserve(template->counters,stratum,true);
+  gt_template_dynamically_allocate_counter(template,stratum);
   *gt_vector_get_elm(template->counters,stratum-1,uint64_t) = value;
 }
 
