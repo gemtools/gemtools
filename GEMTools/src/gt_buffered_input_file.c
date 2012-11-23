@@ -43,22 +43,22 @@ GT_INLINE bool gt_buffered_input_file_eob(gt_buffered_input_file* const buffered
   return gt_buffered_input_file_get_cursor_pos(buffered_input_file) >= gt_vector_get_used(buffered_input_file->block_buffer);
 }
 GT_INLINE gt_status gt_buffered_input_file_get_block(
-    gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines,const bool use_mutex) {
+    gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
   register gt_input_file* const input_file = buffered_input_file->input_file;
   // Read lines
   if (input_file->eof) return GT_BMI_EOF;
-  if (gt_expect_true(use_mutex)) gt_input_file_lock(input_file);
+  gt_input_file_lock(input_file);
   if (input_file->eof) {
-    if (gt_expect_true(use_mutex)) gt_input_file_unlock(input_file);
+    gt_input_file_unlock(input_file);
     return GT_BMI_EOF;
   }
   buffered_input_file->block_id = gt_input_file_next_id(input_file) % UINT32_MAX;
   buffered_input_file->current_line_num = input_file->processed_lines+1;
-  buffered_input_file->lines_in_buffer = // FIXME:
+  buffered_input_file->lines_in_buffer =
       gt_input_file_get_lines(input_file,buffered_input_file->block_buffer,
           gt_expect_true(num_lines)?num_lines:GT_BMI_NUM_LINES);
-  if (gt_expect_true(use_mutex)) gt_input_file_unlock(input_file);
+  gt_input_file_unlock(input_file);
   // Setup the block
   buffered_input_file->cursor = gt_vector_get_mem(buffered_input_file->block_buffer,char);
   return buffered_input_file->lines_in_buffer;

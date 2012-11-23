@@ -23,6 +23,7 @@ GT_INLINE gt_status gt_input_generic_parser_get_alignment(
       // TODO
       break;
     default:
+      gt_fatal_error_msg("File type not supported");
       break;
   }
   return error_code;
@@ -36,19 +37,18 @@ GT_INLINE gt_status gt_input_generic_parser_get_template(
         return (error_code==GT_IMP_EOF) ? GT_IGP_EOF : GT_IGP_FAIL;
       }
       if (gt_template_get_num_blocks(template)==1 && preserve_pairness) {
-        register gt_alignment* const alignment = gt_template_get_block(template,0);
-        GT_SWAP(template->attributes,alignment->attributes);
         if ((error_code=gt_input_map_parser_get_alignment(
             buffered_input,gt_template_get_block_dyn(template,1)))!=GT_IMP_OK) {
           return GT_IGP_FAIL;
         }
-        gt_template_deduce_alignments_tags(template);
+        // gt_template_deduce_alignments_tags(template); // TODO: Contrariwise
       }
       break;
     case SAM:
       // TODO
       break;
     default:
+      gt_fatal_error_msg("File type not supported");
       break;
   }
   return error_code;

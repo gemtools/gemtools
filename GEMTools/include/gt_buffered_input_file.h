@@ -49,7 +49,7 @@ gt_status gt_buffered_input_file_close(gt_buffered_input_file* const buffered_in
 GT_INLINE uint64_t gt_buffered_input_file_get_cursor_pos(gt_buffered_input_file* const buffered_input_file);
 GT_INLINE bool gt_buffered_input_file_eob(gt_buffered_input_file* const buffered_input_file);
 GT_INLINE gt_status gt_buffered_input_file_get_block(
-    gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines,const bool use_mutex);
+    gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines);
 GT_INLINE gt_status gt_buffered_input_file_add_lines_to_block(
     gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines);
 
@@ -68,9 +68,6 @@ GT_INLINE void gt_buffered_input_file_attach_buffered_output(
   } \
   buffered_map_input->cursor[0]=EOS; \
   ++buffered_map_input->cursor; \
-  if (gt_expect_false(!gt_buffered_input_file_eob(buffered_map_input) && buffered_map_input->cursor[0]==DOS_EOL)) { \
-    ++buffered_map_input->cursor; \
-  } \
   ++buffered_map_input->current_line_num; \
 }
 

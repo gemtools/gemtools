@@ -164,3 +164,26 @@ GT_INLINE gt_status gt_input_fastq_parser_get_template(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,const uint64_t num_blocks) {
   // TODO
 }
+
+/*
+ * FASTQ utils
+ */
+GT_INLINE uint64_t gt_fastq_tag_chomp_end_info(gt_string* const tag) {
+  GT_STRING_CHECK(tag);
+  // Parse the end information {/1,/2}
+  register const uint64_t tag_length = gt_string_get_length(tag);
+  if (tag_length>2 && *gt_string_char_at(tag,tag_length-2)==SLASH) {
+    register const char tag_end = gt_string_char_at(tag,tag_length-1);
+    if (tag_end=='1') {
+      gt_string_set_length(tag,tag_length-2);
+      return 0;
+    } else if (tag_end=='2') {
+      gt_string_set_length(tag,tag_length-2);
+      return 1;
+    } else {
+      return UINT64_MAX;
+    }
+  } else {
+    return UINT64_MAX;
+  }
+}

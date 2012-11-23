@@ -17,30 +17,25 @@
 #define GT_INPUT_FILE_LINE_READ 1
 
 /*
- * Checkers // TODO: Augment check
+ * Checkers
  */
-#define GT_INPUT_FILE_CHECK(input_file) gt_fatal_check( \
-  input_file==NULL||input_file->file_name==NULL,NULL_HANDLER)
+#define GT_INPUT_FILE_CHECK(input_file) \
+  GT_NULL_CHECK(input_file); \
+  GT_NULL_CHECK(input_file->file_name)
 
 /*
  * File specifics (formats, attributes, ...)
  */
 typedef enum { MULTI_FASTA, FASTQ, MAP, SAM, FILE_FORMAT_UNKNOWN } gt_file_format;
-/*
- * MAP specific info
- */
+// MAP specific info
 typedef struct {
   bool contains_qualities;
 } gt_map_file_format;
-/*
- * FASTQ/FASTA specific info
- */
+// FASTQ/FASTA specific info
 typedef struct {
   bool contains_qualities;
 } gt_fasta_file_format;
-/*
- * SAM specific info (headers)
- */
+// SAM specific info (headers)
 typedef struct {
   // gt_reference_sequences reference_sequences;
   char* program_name;
@@ -49,7 +44,10 @@ typedef struct {
 } gt_sam_headers;
 /* */
 
-// GT Input file
+
+/*
+ * GT Input file
+ */
 typedef enum { STREAM, REGULAR_FILE, MAPPED_FILE } gt_file_type;
 typedef struct {
   /* Input file */
@@ -95,21 +93,28 @@ gt_input_file* gt_input_file_segmented_file_open(
 gt_input_file* gt_input_file_reads_segmented_file_open(
     char* const file_name,const bool mmap_file,
     const uint64_t num_init_line,const uint64_t num_end_line);
+/* Format detection */
+gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file);
 
 /*
- * Mutex functions
+ * Accessors (Mutex,ID,...) functions
  */
 GT_INLINE void gt_input_file_lock(gt_input_file* const input_file);
 GT_INLINE void gt_input_file_unlock(gt_input_file* const input_file);
 GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file);
 
 /*
- * Format detection
+ * Basic line functions
  */
-gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file);
+GT_INLINE size_t gt_input_file_dump_to_buffer(gt_input_file* const input_file,gt_vector* const buffer_dst);
+GT_INLINE size_t gt_input_file_next_line(gt_input_file* const input_file,gt_vector* const buffer_dst);
+GT_INLINE size_t gt_input_file_next_map_record(
+    gt_input_file* const input_file,gt_vector* const buffer_dst,uint64_t* const num_blocks);
+GT_INLINE size_t gt_input_file_next_sam_record(
+    gt_input_file* const input_file,gt_vector* const buffer_dst,gt_string* const first_field);
 
 /*
- * Reading from input (NO thread-safe, must call mutex functions before)
+ * Line Readers (thread-unsafe, must call mutex functions before)
  */
 GT_INLINE uint64_t gt_input_file_add_lines(
     gt_input_file* const input_file,gt_vector* buffer_dst,const uint64_t num_lines);
