@@ -7,11 +7,17 @@ install: all
 	python setup.py install
 
 install-user: all
-	python setup.py install-user
+	python setup.py install --user
 
 test: all
-	-$(MAKE) -C GEMTools check 
+	-$(MAKE) -C GEMTools check
 	python setup.py nosetests
+
+test-c: all
+	-$(MAKE) -C GEMTools check
+
+test-python: all
+	python setup.py nosetests --with-xunit
 
 clean:
 	$(MAKE) -C GEMTools clean

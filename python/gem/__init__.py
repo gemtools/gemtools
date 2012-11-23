@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Python wrapper around the GEM2 mapper that provides
-ability to feed data into GEM and retreive the mappings"""
+ability to feed data into GEM and retrieve the mappings"""
 import os
 import shutil
 import sys
@@ -38,7 +38,7 @@ default_filter = "same-chromosome,same-strand"
 use_bundled_executables = True
 
 ## filter to work around GT-32 and #006 in gem-map-2-map 
-__awk_filter = ["awk", "-F", "\t", '{if($4 == "!"){print $1"\t"$2"\t"$3"\t0\t"$5}else{print}}']
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t999999999\t"$5}else{print}}}']
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
@@ -143,7 +143,7 @@ class Read(object):
 
 
     def __str__(self):
-        """Returns GEM string representaton of the reads"""
+        """Returns GEM string representation of the reads"""
         if self.qualities is None:
             return "%s\t%s\t%s\t%s" % (self.id,
                                        self.sequence,
@@ -348,6 +348,7 @@ def mapper(input, index, output=None,
            min_matched_bases=0.80,
            max_big_indel_length=15,
            max_edit_distance=0.20,
+           mismatch_alphabet="ACGT",
            trim=None,
            threads=1):
     """Start the GEM mapper on the given input.
@@ -392,6 +393,7 @@ def mapper(input, index, output=None,
           '--min-matched-bases', str(min_matched_bases),
           '--gem-quality-threshold', str(quality_threshold),
           '--max-big-indel-length', str(max_big_indel_length),
+          '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
 
@@ -407,7 +409,7 @@ def mapper(input, index, output=None,
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
     # workaround for GT-32 - filter away the !
-    # buld list of tools
+    # build list of tools
     tools = [pa, __awk_filter]
     if trim is not None:
         tools.append(trim_c)
@@ -437,6 +439,7 @@ def splitmapper(input,
                 quality=33,
                 trim=None,
                 post_validate=True,
+                mismatch_alphabet="ACGT",
                 threads=1):
     """Start the GEM split mapper on the given input.
     If input is a file handle, it is assumed to
@@ -469,6 +472,7 @@ def splitmapper(input,
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
           '--strata-after-first', str(mismatch_strata_delta),
+          '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
 
@@ -706,7 +710,7 @@ def validate_and_score(input,
 
 def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True):
     if index is not None:
-        index = _prepare_index_parameter(index, False)
+        index = _prepare_index_parameter(index, True)
     gem_2_sam_p = [executables['gem-2-sam'],
                    '-T', str(threads)
     ]
