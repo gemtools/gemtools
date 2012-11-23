@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Python wrapper around the GEM2 mapper that provides
-ability to feed data into GEM and retreive the mappings"""
+ability to feed data into GEM and retrieve the mappings"""
 import os
 import shutil
 import sys
@@ -147,7 +147,7 @@ class Read(object):
 
 
     def __str__(self):
-        """Returns GEM string representaton of the reads"""
+        """Returns GEM string representation of the reads"""
         if self.qualities is None:
             return "%s\t%s\t%s\t%s" % (self.id,
                                        self.sequence,
@@ -413,7 +413,7 @@ def mapper(input, index, output=None,
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
     # workaround for GT-32 - filter away the !
-    # buld list of tools
+    # build list of tools
     tools = [pa, __awk_filter]
     if trim is not None:
         tools.append(trim_c)
