@@ -1071,10 +1071,10 @@ GT_INLINE gt_status gt_imp_parse_template(
   // COUNTERS
   gt_vector_clean(gt_template_get_counters_vector(template));
   if (gt_expect_true(num_blocks>1)) {
-    gt_imp_counters(text_line,gt_template_get_counters_vector(template),template->attributes);
+    error_code=gt_imp_counters(text_line,gt_template_get_counters_vector(template),template->attributes);
   } else {
     register gt_alignment* const alignment = gt_template_get_block(template,0);
-    gt_imp_counters(text_line,gt_alignment_get_counters_vector(alignment),alignment->attributes);
+    error_code=gt_imp_counters(text_line,gt_alignment_get_counters_vector(alignment),alignment->attributes);
   }
   if (error_code) return error_code;
   if (gt_expect_false((**text_line)!=TAB)) return GT_IMP_PE_PREMATURE_EOL;
