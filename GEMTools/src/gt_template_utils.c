@@ -320,8 +320,7 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
   GT_NULL_CHECK(gt_mmap_cmp_fx);
   GT_ZERO_CHECK(num_src_templates);
   // Create new template
-  register gt_template* const template_union = gt_template_new();
-  // gt_template_handler_copy(template_union,template_src); // FIXME
+  register gt_template* const template_union = gt_template_copy(template_src,true,true,false,false);
   // Merge template sources into template_union
   register uint64_t num_tmp_merged = 0;
   register gt_template* template_target = template_src;

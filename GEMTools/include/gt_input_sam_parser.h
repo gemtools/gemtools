@@ -10,11 +10,14 @@
 #define GT_INPUT_SAM_PARSER_H_
 
 #include "gt_commons.h"
+#include "gt_dna_string.h"
 #include "gt_alignment_utils.h"
 #include "gt_template_utils.h"
 
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
+#include "gt_input_parser.h"
+#include "gt_input_fastq_parser.h"
 
 // Codes gt_status
 #define GT_ISP_OK 1
@@ -53,6 +56,11 @@
 #define GT_SAM_FLAG_SECONDARY_ALIGNMENT 0x100
 #define GT_SAM_FLAG_NOT_PASSING_QC 0x200
 #define GT_SAM_FLAG_PCR_OR_OPTICAL_DUPLICATE 0x400
+
+/*
+ * SAM alignment/template attribute
+ */
+#define GT_ATTR_SAM_FLAGS "SAM_FLAGS"
 
 /*
  * SAM File basics

@@ -107,10 +107,41 @@ gt_status gt_input_file_close(gt_input_file* const input_file) {
 }
 
 /*
- * Internal buffer handlers
+ * Advanced I/O
  */
-GT_INLINE size_t gt_input_file_dump_to_buffer(
-    gt_input_file* const input_file,gt_vector* const buffer_dst) {
+gt_input_file* gt_input_file_segmented_file_open(
+    char* const file_name,const bool mmap_file,
+    const uint64_t segment_number,const uint64_t total_segments) {
+  // TODO
+  return NULL;
+}
+gt_input_file* gt_input_file_reads_segmented_file_open(
+    char* const file_name,const bool mmap_file,
+    const uint64_t num_init_line,const uint64_t num_end_line) {
+  // TODO
+  return NULL;
+}
+
+/*
+ * Accessors (Mutex,ID,...) functions
+ */
+GT_INLINE void gt_input_file_lock(gt_input_file* const input_file) {
+  GT_INPUT_FILE_CHECK(input_file);
+  gt_cond_fatal_error(pthread_mutex_lock(&input_file->input_mutex),SYS_MUTEX);
+}
+GT_INLINE void gt_input_file_unlock(gt_input_file* const input_file) {
+  GT_INPUT_FILE_CHECK(input_file);
+  gt_cond_fatal_error(pthread_mutex_unlock(&input_file->input_mutex),SYS_MUTEX);
+}
+GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file) {
+  GT_INPUT_FILE_CHECK(input_file);
+  return (input_file->processed_id)++;
+}
+
+/*
+ * Basic line functions
+ */
+GT_INLINE size_t gt_input_file_dump_to_buffer(gt_input_file* const input_file,gt_vector* const buffer_dst) {
   GT_INPUT_FILE_CHECK(input_file);
   // Copy internal file buffer to buffer_dst
   register const uint64_t chunk_size = input_file->buffer_pos-input_file->buffer_begin;
@@ -145,33 +176,92 @@ GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
     return 0;
   }
 }
-GT_INLINE size_t gt_input_file_next_line(
-    gt_input_file* const input_file,gt_vector* const buffer_dst) {
+#define GT_INPUT_FILE_HANDLE_EOL() \
+  if (!input_file->eof) { \
+    GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst); /* Skip EOF/DOS_EOL */  \
+    if (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==EOL)) { \
+      ++input_file->buffer_pos; \
+      if (gt_expect_true(buffer_dst!=NULL)) { \
+        gt_input_file_dump_to_buffer(input_file,buffer_dst); \
+        gt_vector_dec_used(buffer_dst); \
+        *gt_vector_get_last_elm(buffer_dst,char)=EOL; \
+      } \
+      gt_input_file_fill_buffer(input_file); \
+    } \
+  }
+GT_INLINE size_t gt_input_file_next_line(gt_input_file* const input_file,gt_vector* const buffer_dst) {
   GT_INPUT_FILE_CHECK(input_file);
   GT_VECTOR_CHECK(buffer_dst);
   GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst);
   if (input_file->eof) return GT_INPUT_FILE_EOF;
-  while (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL)) {
+  // Read line
+  while (gt_expect_true(!input_file->eof &&
+      GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL &&
+      GT_INPUT_FILE_CURRENT_CHAR(input_file)!=DOS_EOL)) {
     GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst);
   }
-  if (!input_file->eof) {
-    // GT_INPUT_FILE_CURRENT_CHAR(input_file) = EOL;
-    GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst); // Check DOS EOF
-    if (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==DOS_EOL)) {
-      // GT_INPUT_FILE_CURRENT_CHAR(input_file) = EOS;
-      GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst);
+  // Handle EOL
+  GT_INPUT_FILE_HANDLE_EOL();
+  return GT_INPUT_FILE_LINE_READ;
+}
+GT_INLINE size_t gt_input_file_next_map_record(
+    gt_input_file* const input_file,gt_vector* const buffer_dst,uint64_t* const num_blocks) {
+  GT_INPUT_FILE_CHECK(input_file);
+  GT_VECTOR_CHECK(buffer_dst);
+  GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst);
+  if (input_file->eof) return GT_INPUT_FILE_EOF;
+  // Read line
+  register uint64_t num_tabs = 0;
+  while (gt_expect_true(!input_file->eof &&
+      GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL &&
+      GT_INPUT_FILE_CURRENT_CHAR(input_file)!=DOS_EOL)) {
+    if (gt_expect_false(num_tabs==1 && GT_INPUT_FILE_CURRENT_CHAR(input_file)==SPACE)) {
+      ++(*num_blocks);
+    } else if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB)) {
+      ++num_tabs;
     }
+    GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst);
   }
+  ++(*num_blocks);
+  // Handle EOL
+  GT_INPUT_FILE_HANDLE_EOL();
+  return GT_INPUT_FILE_LINE_READ;
+}
+GT_INLINE size_t gt_input_file_next_sam_record(
+    gt_input_file* const input_file,gt_vector* const buffer_dst,gt_string* const first_field) {
+  GT_INPUT_FILE_CHECK(input_file);
+  GT_VECTOR_CHECK(buffer_dst);
+  GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst);
+  if (input_file->eof) return GT_INPUT_FILE_EOF;
+  // Read line
+  register char* const begin_line = (char*)(input_file->file_buffer+input_file->buffer_pos);
+  register uint64_t current_pfield = 0;
+  while (gt_expect_true(!input_file->eof &&
+      GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL &&
+      GT_INPUT_FILE_CURRENT_CHAR(input_file)!=DOS_EOL)) {
+    if (gt_expect_false(first_field && current_pfield==0 &&
+        (GT_INPUT_FILE_CURRENT_CHAR(input_file)==SPACE ||
+         GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB) )) {
+      register char* const end_first_field = (char*)(input_file->file_buffer+input_file->buffer_pos);
+      gt_string_set_nstring(first_field,begin_line,end_first_field-begin_line);
+      ++current_pfield;
+    } else if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB)) {
+      ++current_pfield;
+    }
+    GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst);
+  }
+  // Handle EOL
+  GT_INPUT_FILE_HANDLE_EOL();
   return GT_INPUT_FILE_LINE_READ;
 }
 
 /*
- * Format detection
+ * Format detection (cascade of checkers)
  */
-// Forward declarations (gt_file_format_test_<FORMAT> in each logic module)
+/* Forward declarations (gt_file_format_test_<FORMAT> in each logic module) */
 GT_INLINE bool gt_input_file_test_map(
     gt_input_file* const input_file,gt_map_file_format* const map_file_format,const bool show_errors);
-// Format detector (cascade of checkers)
+/* */
 gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file) {
   GT_INPUT_FILE_CHECK(input_file);
   if (input_file->file_format != FILE_FORMAT_UNKNOWN) return input_file->file_format;
@@ -189,49 +279,16 @@ gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file)
   return FILE_FORMAT_UNKNOWN;
 }
 
-/*
- * Advanced I/O
- */
-gt_input_file* gt_input_file_segmented_file_open(
-    char* const file_name,const bool mmap_file,
-    const uint64_t segment_number,const uint64_t total_segments) {
-  // TODO
-  return NULL;
-}
-gt_input_file* gt_input_file_reads_segmented_file_open(
-    char* const file_name,const bool mmap_file,
-    const uint64_t num_init_line,const uint64_t num_end_line) {
-  // TODO
-  return NULL;
-}
 
 /*
- * Mutex/ID functions
- */
-GT_INLINE void gt_input_file_lock(gt_input_file* const input_file) {
-  GT_INPUT_FILE_CHECK(input_file);
-  gt_cond_fatal_error(pthread_mutex_lock(&input_file->input_mutex),SYS_MUTEX);
-}
-GT_INLINE void gt_input_file_unlock(gt_input_file* const input_file) {
-  GT_INPUT_FILE_CHECK(input_file);
-  gt_cond_fatal_error(pthread_mutex_unlock(&input_file->input_mutex),SYS_MUTEX);
-}
-GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file) {
-  GT_INPUT_FILE_CHECK(input_file);
-  return (input_file->processed_id)++;
-}
-
-/*
- * Reading from input (NOT thread safe, must call mutex functions before)
+ * Line Readers (thread-unsafe, must call mutex functions before)
  */
 GT_INLINE uint64_t gt_input_file_add_lines(
     gt_input_file* const input_file,gt_vector* buffer_dst,const uint64_t num_lines) {
   GT_INPUT_FILE_CHECK(input_file);
   GT_VECTOR_CHECK(buffer_dst);
-  register uint64_t lines_read = 0;
-  // Clear dst buffer
-  gt_vector_clean(buffer_dst);
   // Read lines
+  register uint64_t lines_read = 0;
   while (lines_read<num_lines && gt_input_file_next_line(input_file,buffer_dst)) {
     ++lines_read;
   }

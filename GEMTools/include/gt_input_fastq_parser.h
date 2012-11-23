@@ -10,6 +10,7 @@
 #define GT_INPUT_FASTQ_PARSER_H_
 
 #include "gt_commons.h"
+#include "gt_dna_read.h"
 #include "gt_sequence_archive.h"
 
 #include "gt_input_file.h"
@@ -49,5 +50,11 @@ GT_INLINE gt_status gt_input_fastq_parser_get_template(
 
 GT_INLINE gt_status gt_input_fastq_parser_get_archive(
     gt_buffered_input_file* const buffered_fastq_input,gt_sequence_archive* const sequence_archive);
+
+/*
+ * FASTQ utils
+ */
+GT_INLINE uint64_t gt_fastq_tag_chomp_end_info(gt_string* const tag);
+
 
 #endif /* GT_INPUT_FASTQ_PARSER_H_ */

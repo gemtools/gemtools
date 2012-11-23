@@ -130,8 +130,9 @@ GT_INLINE gt_status gt_input_map_parser_check_map_file_format(gt_buffered_input_
 }
 
 /*
- * MAP file. Error handler
+ * MAP File basics
  */
+/* Error handler */
 GT_INLINE void gt_input_map_parser_prompt_error(
     gt_buffered_input_file* const buffered_map_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code) {
@@ -169,27 +170,56 @@ GT_INLINE void gt_input_map_parser_prompt_error(
       break;
   }
 }
-/*
- * MAP file. Skip record
- */
+/* MAP file. Skip record */
 GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buffered_map_input) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   if (!gt_buffered_input_file_eob(buffered_map_input)) {
     GT_INPUT_FILE_SKIP_LINE(buffered_map_input);
   }
 }
-/*
- * MAP file. Reload internal buffer
- */
-GT_INLINE gt_status gt_input_map_parser_reload_buffer(gt_buffered_input_file* const buffered_map_input) {
+/* MAP file. Synchronized get block wrt to paired map records */
+GT_INLINE gt_status gt_input_map_parser_get_block(
+    gt_buffered_input_file* const buffered_map_input,const uint64_t num_records) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
+  register gt_input_file* const input_file = buffered_map_input->input_file;
+  // Read lines
+  if (input_file->eof) return GT_BMI_EOF;
+  gt_input_file_lock(input_file);
+  if (input_file->eof) {
+    gt_input_file_unlock(input_file);
+    return GT_BMI_EOF;
+  }
+  buffered_map_input->block_id = gt_input_file_next_id(input_file) % UINT32_MAX;
+  buffered_map_input->current_line_num = input_file->processed_lines+1;
+  gt_vector_clean(buffered_map_input->block_buffer); // Clear dst buffer
+  // Read lines
+  uint64_t lines_read = 0, num_blocks = 0;
+  while ( (lines_read<num_records || num_blocks%2!=0) &&
+      gt_input_file_next_map_record(input_file,buffered_map_input->block_buffer,&num_blocks) ) ++lines_read;
+  // Dump remaining content into the buffer
+  gt_input_file_dump_to_buffer(input_file,buffered_map_input->block_buffer);
+  if (lines_read > 0 && *gt_vector_get_last_elm(buffered_map_input->block_buffer,char) != EOL) {
+    gt_vector_insert(buffered_map_input->block_buffer,EOL,char);
+  }
+  input_file->processed_lines+=lines_read;
+  buffered_map_input->lines_in_buffer = lines_read;
+  gt_input_file_unlock(input_file);
+  // Setup the block
+  buffered_map_input->cursor = gt_vector_get_mem(buffered_map_input->block_buffer,char);
+  return buffered_map_input->lines_in_buffer;
+}
+/* MAP file. Reload internal buffer */
+GT_INLINE gt_status gt_input_map_parser_reload_buffer(
+    gt_buffered_input_file* const buffered_map_input,const bool synchronized_map) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
   if (buffered_map_input->buffered_output_file!=NULL) {
     gt_buffered_output_file_dump(buffered_map_input->buffered_output_file);
   }
   // Read new input block
-  register const uint64_t read_lines =
-      gt_buffered_input_file_get_block(buffered_map_input,GT_IMP_NUM_LINES,true);
+  register const uint64_t read_lines = (synchronized_map) ?
+      gt_input_map_parser_get_block(buffered_map_input,GT_IMP_NUM_LINES):
+      gt_buffered_input_file_get_block(buffered_map_input,GT_IMP_NUM_LINES);
   if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
   // Assign block ID
   if (buffered_map_input->buffered_output_file!=NULL) {
@@ -198,6 +228,7 @@ GT_INLINE gt_status gt_input_map_parser_reload_buffer(gt_buffered_input_file* co
   }
   return GT_IMP_OK;
 }
+
 /*
  * MAP format. Basic building block for parsing
  */
@@ -283,7 +314,7 @@ GT_INLINE gt_status gt_imp_counters(char** const text_line,gt_vector* const coun
     return 0;
   }
   // Parse counters
-  register bool prev_char_was_sep = false;
+  register bool prev_char_was_sep = false, is_mcs_set = false;
   register uint64_t number;
   while (gt_expect_true(**text_line!=TAB && **text_line!=EOL && **text_line!=EOS)) {
     if (gt_is_number(**text_line)) {
@@ -304,7 +335,8 @@ GT_INLINE gt_status gt_imp_counters(char** const text_line,gt_vector* const coun
         gt_vector_insert(counters,number,uint64_t);
       }
     } else if (**text_line==GT_MAP_MCS) {
-      if (prev_char_was_sep) return GT_IMP_PE_COUNTERS_BAD_CHARACTER;
+      if (prev_char_was_sep || is_mcs_set) return GT_IMP_PE_COUNTERS_BAD_CHARACTER;
+      is_mcs_set = true;
       gt_attribute_set(attributes,GT_ATTR_MAX_COMPLETE_STRATA,&(gt_vector_get_used(counters)),sizeof(uint64_t));
       GT_NEXT_CHAR(text_line);
       prev_char_was_sep = true;
@@ -316,6 +348,10 @@ GT_INLINE gt_status gt_imp_counters(char** const text_line,gt_vector* const coun
     } else {
       return GT_IMP_PE_COUNTERS_BAD_CHARACTER;
     }
+  }
+  // Set default MCS
+  if (!is_mcs_set) {
+    gt_attribute_set(attributes,GT_ATTR_MAX_COMPLETE_STRATA,&(gt_vector_get_used(counters)),sizeof(uint64_t));
   }
   // Parse attributes (if any)
   if (**text_line==GT_MAP_COUNTS_SEP && *(*text_line+1)==GT_MAP_COUNTS_SEP) { // 0:0::<Value>::<Value>
@@ -1011,8 +1047,12 @@ GT_INLINE gt_status gt_imp_parse_template(
     ++num_blocks;
   }
 
-  // Tag Splitting (try to deduce alignments' tag out of the one template's tag)
-  gt_template_deduce_alignments_tags(template);
+  // TAG Setup {Tag Splitting/Swapping}
+  if (gt_expect_true(num_blocks>1)) {
+    gt_template_deduce_alignments_tags(template);
+  } else {
+    GT_SWAP(template->tag,gt_template_get_block(template,0)->tag);
+  }
 
   // QUALITIES
   if (has_map_quality) {
@@ -1030,7 +1070,13 @@ GT_INLINE gt_status gt_imp_parse_template(
   }
   // COUNTERS
   gt_vector_clean(gt_template_get_counters_vector(template));
-  if ((error_code=gt_imp_counters(text_line,gt_template_get_counters_vector(template),template->attributes))) return error_code;
+  if (gt_expect_true(num_blocks>1)) {
+    gt_imp_counters(text_line,gt_template_get_counters_vector(template),template->attributes);
+  } else {
+    register gt_alignment* const alignment = gt_template_get_block(template,0);
+    gt_imp_counters(text_line,gt_alignment_get_counters_vector(alignment),alignment->attributes);
+  }
+  if (error_code) return error_code;
   if (gt_expect_false((**text_line)!=TAB)) return GT_IMP_PE_PREMATURE_EOL;
   GT_NEXT_CHAR(text_line);
   // MAPS
@@ -1224,7 +1270,7 @@ GT_INLINE gt_status gt_imp_get_template(
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_map_input)) {
-    if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input))!=GT_IMP_OK) return error_code;
+    if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,true))!=GT_IMP_OK) return error_code;
   }
   // Check file format
   if (gt_input_map_parser_check_map_file_format(buffered_map_input)) {
@@ -1260,7 +1306,7 @@ GT_INLINE gt_status gt_imp_get_alignment(
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_map_input)) {
-    if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input))!=GT_IMP_OK) return error_code;
+    if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,false))!=GT_IMP_OK) return error_code;
   }
   // Check file format
   if (gt_input_map_parser_check_map_file_format(buffered_map_input)) {

@@ -51,13 +51,15 @@ GT_INLINE void gt_alignment_clear(gt_alignment* const alignment,const bool delet
 }
 GT_INLINE void gt_alignment_delete(gt_alignment* const alignment,const bool delete_maps) {
   GT_ALIGNMENT_CHECK(alignment);
-  if (delete_maps) gt_alignment_clear_maps(alignment);
+  if (delete_maps) {
+    gt_alignment_clear_maps(alignment);
+    gt_shash_delete(alignment->maps_dictionary,true,true);
+  }
   gt_string_delete(alignment->tag);
   gt_string_delete(alignment->read);
   gt_string_delete(alignment->qualities);
   gt_vector_delete(alignment->counters);
   gt_vector_delete(alignment->maps);
-  gt_shash_delete(alignment->maps_dictionary,true,true);
   gt_shash_delete(alignment->attributes,true,true);
   free(alignment);
 }
@@ -285,15 +287,7 @@ GT_INLINE void gt_alignment_handler_copy(gt_alignment* const alignment_dst,gt_al
   alignment_dst->qualities = gt_string_dup(alignment_src->qualities);
   alignment_dst->maps_txt = alignment_src->maps_txt;
 }
-GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment) {
-  GT_ALIGNMENT_CHECK(alignment);
-  gt_alignment* alignment_cp = gt_alignment_new();
-  gt_cond_fatal_error(!alignment_cp,MEM_HANDLER);
-  // Copy handler
-  gt_alignment_handler_copy(alignment_cp,alignment);
-  return alignment_cp;
-}
-GT_INLINE gt_alignment* gt_alignment_deep_copy(gt_alignment* const alignment) {
+GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment,const bool copy_maps,const bool deep_copy_maps) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_alignment* alignment_cp = gt_alignment_new();
   gt_cond_fatal_error(!alignment_cp,MEM_HANDLER);
@@ -303,8 +297,17 @@ GT_INLINE gt_alignment* gt_alignment_deep_copy(gt_alignment* const alignment) {
   alignment_cp->attributes = gt_shash_deep_copy(alignment->attributes);
   // Copy map related fields (deep copy) {MAPS,MAPS_DICCTIONARY,COUNTERS,ATTRIBUTES}
   gt_vector_copy(alignment_cp->counters,alignment->counters);
-  GT_VECTOR_ITERATE(alignment->maps,alg_map,alg_map_pos,gt_map*) {
-    gt_alignment_add_map(alignment_cp,gt_map_copy(*alg_map));
+  // Copy maps
+  if (copy_maps) {
+    if (deep_copy_maps) {
+      GT_VECTOR_ITERATE(alignment->maps,alg_map,alg_map_pos,gt_map*) {
+        gt_alignment_add_map(alignment_cp,gt_map_copy(*alg_map));
+      }
+    } else {
+      gt_vector_copy(alignment_cp->maps,alignment->maps);
+      gt_shash_delete(alignment->maps_dictionary,true,true);
+      alignment_cp->maps_dictionary = alignment->maps_dictionary;
+    }
   }
   return alignment_cp;
 }

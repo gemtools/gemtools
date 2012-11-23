@@ -9,6 +9,7 @@
 
 #include "gt_string.h"
 
+#define GT_STRING_STATIC 0
 #define GT_STRING_DEFAULT_BUFFER_SIZE 200
 
 /*

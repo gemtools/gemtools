@@ -207,8 +207,7 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_v(
   GT_NULL_CHECK(gt_map_cmp_fx);
   GT_ZERO_CHECK(num_src_alignments);
   // Create new alignment
-  register gt_alignment* const alignment_union = gt_alignment_new();
-  gt_alignment_handler_copy(alignment_union,alignment_src);
+  register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false,false);
   // Merge alignment sources into alignment_union
   register uint64_t num_alg_merged = 0;
   register gt_alignment* alignment_target = alignment_src;
@@ -250,8 +249,7 @@ GT_INLINE gt_alignment* gt_alignment_subtract_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_minuend);
   GT_ALIGNMENT_CHECK(alignment_subtrahend);
   // Create new alignment
-  register gt_alignment* const alignment_difference = gt_alignment_new();
-  gt_alignment_handler_copy(alignment_difference,alignment_minuend);
+  register gt_alignment* const alignment_difference = gt_alignment_copy(alignment_minuend,false,false);
   // Copy not common maps
   GT_ALIGNMENT_ITERATE(alignment_minuend,map_minuend) {
     if (!gt_alignment_is_map_contained_fx(gt_map_cmp_fx,alignment_subtrahend,map_minuend)) { // TODO Improvement: Scheduled for v2.0
@@ -274,8 +272,7 @@ GT_INLINE gt_alignment* gt_alignment_intersect_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_src_A);
   GT_ALIGNMENT_CHECK(alignment_src_B);
   // Create new alignment
-  register gt_alignment* const alignment_intersection = gt_alignment_new();
-  gt_alignment_handler_copy(alignment_intersection,alignment_src_A);
+  register gt_alignment* const alignment_intersection = gt_alignment_copy(alignment_src_A,false,false);
   // Copy common maps
   GT_ALIGNMENT_ITERATE(alignment_src_A,map_A) {
     if (gt_alignment_is_map_contained_fx(gt_map_cmp_fx,alignment_src_B,map_A)) { // TODO Improvement: Scheduled for v2.0

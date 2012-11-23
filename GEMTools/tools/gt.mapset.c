@@ -20,7 +20,6 @@ typedef struct {
   bool mmap_input;
   bool paired_end;
   uint64_t eq_threshold;
-  uint64_t num_threads;
   bool verbose;
 } gt_stats_args;
 
@@ -31,7 +30,6 @@ gt_stats_args parameters = {
     .mmap_input=false,
     .paired_end=false,
     .eq_threshold=50,
-    .num_threads=1,
     .verbose=false,
 };
 
@@ -44,40 +42,38 @@ int64_t gt_mapset_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint6
 
 GT_INLINE gt_status gt_mapset_read_template_sync(
     gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
-    gt_template* const template_master,gt_template* const template_slave) {
-  register gt_status error_code;
+    gt_template* const template_master,gt_template* const template_slave,
+    gt_buffered_output_file* const buffered_output) {
   register bool synch = false, slave_read = false;
-  while (!synch) {
-    // Check EOB
-    if (gt_buffered_input_file_eob(buffered_input_master) != gt_buffered_input_file_eob(buffered_input_slave)) {
-      gt_fatal_error_msg("Input files unsynchronized");
+  // Read master
+  register gt_status error_code_master, error_code_slave;
+  if ((error_code_master=gt_input_generic_parser_get_template(
+      buffered_input_master,template_master,parameters.paired_end))==GT_IMP_FAIL) {
+    gt_fatal_error_msg("Fatal error parsing file <<Master>>");
+  }
+  // Read slave
+  if ((error_code_slave=gt_input_generic_parser_get_template(
+      buffered_input_slave,template_slave,parameters.paired_end))==GT_IMP_FAIL) {
+    gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
+  }
+  if (error_code_master==GT_IMP_EOF) {
+    if (error_code_slave!=GT_IMP_EOF) {
+      gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
     }
-    if (gt_buffered_input_file_eob(buffered_input_master)) {
-      #pragma omp critical
-      {
-        if ((error_code=gt_input_map_parser_reload_buffer(buffered_input_master))==GT_IMP_OK) {
-          if ((error_code=gt_input_map_parser_reload_buffer(buffered_input_slave))!=GT_IMP_OK) {
-            gt_fatal_error_msg("Slave Input file raised and error (Master didn't)");
-          }
-        }
-      }
-      if (error_code!=GT_IMP_OK) return error_code;
+    return GT_IMP_EOF;
+  }
+  while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
+    // Print non correlative master's template
+    gt_output_map_bofprint_gem_template(buffered_output,template_master,GT_ALL,true);
+    // Fetch next master's template
+    if ((error_code_master=gt_input_generic_parser_get_template(
+        buffered_input_master,template_master,parameters.paired_end))!=GT_IMP_OK) {
+      gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
     }
-    // Read slave
-    if (!slave_read && gt_input_generic_parser_get_template(
-        buffered_input_slave,template_slave,parameters.paired_end)!=GT_IMP_OK) {
-      gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
-    }
-    // Read master
-    if (gt_input_generic_parser_get_template(
-        buffered_input_master,template_master,parameters.paired_end)!=GT_IMP_OK) {
-      gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-    }
-    // Check synch
-    synch = gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave));
   }
   return GT_IMP_OK;
 }
+
 void gt_mapset_read__write() {
   // Open file IN/OUT
   gt_input_file* input_file_1 = gt_input_file_open(parameters.name_input_file_1,parameters.mmap_input);
@@ -88,71 +84,68 @@ void gt_mapset_read__write() {
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
   // Parallel reading+process
-  #pragma omp parallel num_threads(parameters.num_threads)
-  {
-    register const gt_operation op = parameters.operation;
-    gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
-    gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
-    gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
-    gt_buffered_input_file_attach_buffered_output(buffered_input_1,buffered_output);
+  register const gt_operation op = parameters.operation;
+  gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
+  gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
+  gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
+  gt_buffered_input_file_attach_buffered_output(buffered_input_1,buffered_output);
 
-    gt_status error_code;
-    gt_template *template_1 = gt_template_new();
-    gt_template *template_2 = gt_template_new();
-    while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2)) {
-      // Apply operation
-      if (parameters.paired_end) { // PE
-        register gt_template *ptemplate;
-        switch (op) {
-          case GT_MAP_SET_UNION:
-            ptemplate=gt_template_union_template_mmaps_fx(gt_mapset_mmap_cmp,template_1,template_2);
-            break;
-          case GT_MAP_SET_INTERSECTION:
-            ptemplate=gt_template_intersect_template_mmaps_fx(gt_mapset_mmap_cmp,template_1,template_2);
-            break;
-          case GT_MAP_SET_DIFFERENCE:
-            ptemplate=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,template_1,template_2);
-            break;
-          default:
-            gt_fatal_error(SELECTION_NOT_VALID);
-            break;
-        }
-        // Print template
-        gt_output_map_bofprint_gem_template(buffered_output,ptemplate,GT_ALL,true);
-        // Delete template
-        gt_template_delete(ptemplate,true,false);
-      } else { // SE
-        register gt_alignment* palignment;
-        register gt_alignment* const alignment_1 = gt_template_get_block(template_1,0);
-        register gt_alignment* const alignment_2 = gt_template_get_block(template_2,0);
-        switch (op) {
-          case GT_MAP_SET_UNION:
-            palignment=gt_alignment_union_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
-            break;
-          case GT_MAP_SET_INTERSECTION:
-            palignment=gt_alignment_intersect_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
-            break;
-          case GT_MAP_SET_DIFFERENCE:
-            palignment=gt_alignment_subtract_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
-            break;
-          default:
-            gt_fatal_error(SELECTION_NOT_VALID);
-            break;
-        }
-        // Print alignment
-        gt_output_map_bofprint_alignment(buffered_output,palignment,GT_ALL,true);
-        // Delete alignment
-        gt_alignment_delete(palignment,false);
+  gt_status error_code;
+  gt_template *template_1 = gt_template_new();
+  gt_template *template_2 = gt_template_new();
+  while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,buffered_output)) {
+    // Apply operation
+    if (parameters.paired_end) { // PE
+      register gt_template *ptemplate;
+      switch (op) {
+        case GT_MAP_SET_UNION:
+          ptemplate=gt_template_union_template_mmaps_fx(gt_mapset_mmap_cmp,template_1,template_2);
+          break;
+        case GT_MAP_SET_INTERSECTION:
+          ptemplate=gt_template_intersect_template_mmaps_fx(gt_mapset_mmap_cmp,template_1,template_2);
+          break;
+        case GT_MAP_SET_DIFFERENCE:
+          ptemplate=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,template_1,template_2);
+          break;
+        default:
+          gt_fatal_error(SELECTION_NOT_VALID);
+          break;
       }
+      // Print template
+      gt_output_map_bofprint_gem_template(buffered_output,ptemplate,GT_ALL,true);
+      // Delete template
+      gt_template_delete(ptemplate,true,false);
+    } else { // SE
+      register gt_alignment* palignment;
+      register gt_alignment* const alignment_1 = gt_template_get_block(template_1,0);
+      register gt_alignment* const alignment_2 = gt_template_get_block(template_2,0);
+      switch (op) {
+        case GT_MAP_SET_UNION:
+          palignment=gt_alignment_union_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
+          break;
+        case GT_MAP_SET_INTERSECTION:
+          palignment=gt_alignment_intersect_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
+          break;
+        case GT_MAP_SET_DIFFERENCE:
+          palignment=gt_alignment_subtract_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
+          break;
+        default:
+          gt_fatal_error(SELECTION_NOT_VALID);
+          break;
+      }
+      // Print alignment
+      gt_output_map_bofprint_alignment(buffered_output,palignment,GT_ALL,true);
+      // Delete alignment
+      gt_alignment_delete(palignment,false);
     }
-
-    // Clean
-    gt_template_delete(template_1,true,true);
-    gt_template_delete(template_2,true,true);
-    gt_buffered_input_file_close(buffered_input_1);
-    gt_buffered_input_file_close(buffered_input_2);
-    gt_buffered_output_file_close(buffered_output);
   }
+
+  // Clean
+  gt_template_delete(template_1,true,true);
+  gt_template_delete(template_2,true,true);
+  gt_buffered_input_file_close(buffered_input_1);
+  gt_buffered_input_file_close(buffered_input_2);
+  gt_buffered_output_file_close(buffered_output);
 
   // Clean
   gt_input_file_close(input_file_1);
@@ -171,7 +164,6 @@ void usage() {
                   "         --mmap-input\n"
                   "         --output|-o [FILE]\n"
                   "         --paired-end|p\n"
-                  "         --threads|t\n"
                   "         --verbose|v\n"
                   "         --help|h\n");
 }
@@ -208,13 +200,12 @@ void parse_arguments(int argc,char** argv) {
     { "output", required_argument, 0, 'o' },
     { "paired-end", no_argument, 0, 'p' },
     { "eq-th", no_argument, 0, 4 },
-    { "threads", no_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:o:t:phv",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:o:phv",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     case 1:
@@ -234,9 +225,6 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 4:
       parameters.eq_threshold = atol(optarg);
-      break;
-    case 't':
-      parameters.num_threads = atol(optarg);
       break;
     case 'v':
       parameters.verbose = true;
