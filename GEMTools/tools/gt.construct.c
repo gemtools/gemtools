@@ -257,10 +257,11 @@ void gt_example_sam_parsing() {
 }
 
 void gt_constructor_merge_template() {
+  gt_status error_code;
   gt_template* templateA = gt_template_new();
   gt_template* templateB = gt_template_new();
 
-  gt_status error_code;
+
   error_code = gt_input_map_parse_template(
       "TAG_A\t"
       "ACTCCAGTCA AA\t"
@@ -282,8 +283,11 @@ void gt_constructor_merge_template() {
     gt_fatal_error_msg("Error parsing B");
   }
 
-    gt_template_merge_template_mmaps(templateA,templateB);
-    gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
+  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
+  gt_output_map_fprint_template(stdout,templateB,GT_ALL,true);
+
+  gt_template_merge_template_mmaps(templateA,templateB);
+  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
 
 //  gt_template* tunion = gt_template_union_template_mmaps(templateA,templateB);
 //  gt_output_map_fprint_template(stdout,tunion,GT_ALL,true);

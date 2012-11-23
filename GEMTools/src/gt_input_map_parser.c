@@ -1051,7 +1051,7 @@ GT_INLINE gt_status gt_imp_parse_template(
   if (gt_expect_true(num_blocks>1)) {
     gt_template_deduce_alignments_tags(template);
   } else {
-    GT_SWAP(template->tag,gt_template_get_block(template,0)->tag);
+    gt_string_copy(gt_template_get_block(template,0)->tag,template->tag);
   }
 
   // QUALITIES

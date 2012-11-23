@@ -56,7 +56,7 @@ GT_INLINE gt_status gt_vgprintf(gt_generic_printer* const generic_printer,const 
     case GT_STRING_PRINTER:
       GT_STRING_CHECK(generic_printer->string);
       gt_cond_fatal_error( (chars_printed=
-          gt_vsprintf(generic_printer->string,template,v_args))<0,SPRINTF);
+          gt_vsprintf_append(generic_printer->string,template,v_args))<0,SPRINTF);
       break;
     case GT_BUFFER_PRINTER:
       GT_OUTPUT_BUFFER_CHECK(generic_printer->output_buffer);
