@@ -279,7 +279,7 @@ GT_INLINE void gt_template_merge_template_mmaps(gt_template* const template_dst,
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   // Merge mmaps
   GT_TEMPLATE__ATTR_ITERATE_(template_src,mmap,mmap_attr) {
-    gt_template_insert_mmap(template_dst,mmap,mmap_attr,true);
+    gt_template_put_mmap(gt_mmap_cmp,gt_map_cmp,template_dst,mmap,mmap_attr,false,true,false);
   }
 }
 GT_INLINE void gt_template_merge_template_mmaps_fx(
@@ -290,7 +290,7 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   // Merge mmaps
   GT_TEMPLATE__ATTR_ITERATE_(template_src,mmap,mmap_attr) {
-    gt_template_insert_mmap_fx(gt_mmap_cmp_fx,template_dst,mmap,mmap_attr,true);
+    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp,template_dst,mmap,mmap_attr,false,true,false); // FIXME gt_map_cmp wrt gt_mmap_cmp_fx
   }
 }
 
@@ -320,15 +320,15 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
   GT_NULL_CHECK(gt_mmap_cmp_fx);
   GT_ZERO_CHECK(num_src_templates);
   // Create new template
-  register gt_template* const template_union = gt_template_copy(template_src,true,true,false,false);
+  register gt_template* const template_union = gt_template_copy(template_src,true,true,false,false,false);
   // Merge template sources into template_union
   register uint64_t num_tmp_merged = 0;
-  register gt_template* template_target = template_src;
-  do {
+  while (num_tmp_merged < num_src_templates) {
+    register gt_template* template_target = (gt_expect_true(num_tmp_merged>0)) ? va_arg(v_args,gt_template*) : template_src;
     GT_TEMPLATE_CONSISTENCY_CHECK(template_target);
     gt_template_merge_template_mmaps_fx(gt_mmap_cmp_fx,template_union,template_target);
-    template_target = (++num_tmp_merged < num_src_templates) ? va_arg(v_args,gt_template*) : NULL;
-  } while (gt_expect_true(template_target!=NULL));
+    ++num_tmp_merged;
+  }
   return template_union;
 }
 GT_INLINE gt_template* gt_template_union_template_mmaps_fx_va(

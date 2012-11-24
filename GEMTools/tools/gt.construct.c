@@ -266,8 +266,10 @@ void gt_constructor_merge_template() {
       "TAG_A\t"
       "ACTCCAGTCA AA\t"
       "########## ##\t"
-      "0:0:1:0\t"
-      "chr14:-:74094161:(5)4A::chr2:+:9087:2",templateA);
+      "1:0:1:0\t"
+      "chr5:-:2001:10::chr5:+:3500:2,"
+      "chr14:-:740:(5)4A::chr2:+:9087:2",templateA);
+  //      "chr14:-:74094161:(5)4A::chr2:+:9087:2",templateA);
   if (error_code) {
     gt_fatal_error_msg("Error parsing A");
   }
@@ -277,8 +279,9 @@ void gt_constructor_merge_template() {
       "ACTCCAGTCA AA\t"
       "########## ##\t"
       "0:0:1:1\t"
-      "chr8:-:1009:(5)2C1A::chr1:+:9087:2,"
-      "chr14:-:740:(5)4A::chr2:+:9087:2",templateB);
+      "chr14:-:740:(5)4A::chr2:+:9087:2,"
+      "chr8:-:1009:(5)2C1A::chr1:+:9087:2"
+      ,templateB);
   if (error_code) {
     gt_fatal_error_msg("Error parsing B");
   }
@@ -286,15 +289,15 @@ void gt_constructor_merge_template() {
   gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
   gt_output_map_fprint_template(stdout,templateB,GT_ALL,true);
 
-  gt_template_merge_template_mmaps(templateA,templateB);
-  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
+//  gt_template_merge_template_mmaps(templateA,templateB);
+//  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
 
-//  gt_template* tunion = gt_template_union_template_mmaps(templateA,templateB);
-//  gt_output_map_fprint_template(stdout,tunion,GT_ALL,true);
-//
-//  gt_template_delete(templateA,true,true);
-//  gt_template_delete(templateB,true,true);
-//  gt_template_delete(tunion,true,false);
+  gt_template* tunion = gt_template_union_template_mmaps(templateA,templateB);
+  gt_output_map_fprint_template(stdout,tunion,GT_ALL,true);
+
+  gt_template_delete(templateA,true,true);
+  gt_template_delete(templateB,true,true);
+  gt_template_delete(tunion,true,false);
 }
 
 void usage() {
@@ -345,8 +348,8 @@ int main(int argc,char** argv) {
   //gt_example_map_string_parsing();
   //gt_dummy_example();
 
-  gt_error_msg("Incorrect test name provided");
-  usage();
+//  gt_error_msg("Incorrect test name provided");
+//  usage();
   return -1;
 }
 

@@ -293,19 +293,19 @@ GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment,const bo
   gt_cond_fatal_error(!alignment_cp,MEM_HANDLER);
   // Copy handler
   gt_alignment_handler_copy(alignment_cp,alignment);
-  // Copy attributes
-  alignment_cp->attributes = gt_shash_deep_copy(alignment->attributes);
-  // Copy map related fields (deep copy) {MAPS,MAPS_DICCTIONARY,COUNTERS,ATTRIBUTES}
-  gt_vector_copy(alignment_cp->counters,alignment->counters);
   // Copy maps
   if (copy_maps) {
+    // Copy attributes
+    alignment_cp->attributes = gt_shash_deep_copy(alignment->attributes);
+    // Copy map related fields (deep copy) {MAPS,MAPS_DICCTIONARY,COUNTERS,ATTRIBUTES}
+    gt_vector_copy(alignment_cp->counters,alignment->counters);
     if (deep_copy_maps) {
       GT_VECTOR_ITERATE(alignment->maps,alg_map,alg_map_pos,gt_map*) {
         gt_alignment_add_map(alignment_cp,gt_map_copy(*alg_map));
       }
     } else {
       gt_vector_copy(alignment_cp->maps,alignment->maps);
-      gt_shash_delete(alignment->maps_dictionary,true,true);
+      gt_shash_delete(alignment->maps_dictionary,true,true); // FIXME: Risky...
       alignment_cp->maps_dictionary = alignment->maps_dictionary;
     }
   }

@@ -161,7 +161,7 @@ GT_INLINE void gt_template_add_mmap_va(
  */
 GT_INLINE gt_template* gt_template_copy(
     gt_template* const template,const bool copy_blocks,const bool deep_copy_blocks,
-    const bool deep_copy_maps,const bool copy_mmaps);
+    const bool copy_maps,const bool deep_copy_maps,const bool copy_mmaps);
 
 /*
  * Template's Alignments iterator (end1,end2, ... )

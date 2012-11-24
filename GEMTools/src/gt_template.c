@@ -405,7 +405,9 @@ GT_INLINE void gt_template_copy_handler(gt_template* template_dst,gt_template* c
   // Copy templates' attributes
   template_dst->attributes = gt_shash_deep_copy(template_src->attributes);
 }
-GT_INLINE void gt_template_copy_blocks(gt_template* template_dst,gt_template* const template_src,const bool copy_maps,const bool deep_copy_maps) {
+GT_INLINE void gt_template_copy_blocks(
+    gt_template* template_dst,gt_template* const template_src,
+    const bool copy_maps,const bool deep_copy_maps) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   gt_vector_clean(template_dst->blocks);
   register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
@@ -418,7 +420,7 @@ GT_INLINE void gt_template_copy_blocks(gt_template* template_dst,gt_template* co
 }
 GT_INLINE gt_template* gt_template_copy(
     gt_template* const template,const bool copy_blocks,const bool deep_copy_blocks,
-    const bool deep_copy_maps,const bool copy_mmaps) {
+    const bool copy_maps,const bool deep_copy_maps,const bool copy_mmaps) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   gt_template* template_cpy = gt_template_new();
   gt_cond_fatal_error(!template_cpy,MEM_HANDLER);
@@ -427,7 +429,7 @@ GT_INLINE gt_template* gt_template_copy(
   if (!copy_blocks) return template_cpy;
   // Copy blocks
   if (deep_copy_blocks) {
-    gt_template_copy_blocks(template_cpy,template,true,deep_copy_maps);
+    gt_template_copy_blocks(template_cpy,template,copy_maps,deep_copy_maps);
   } else {
     gt_vector_copy(template_cpy->blocks,template->blocks);
   }
@@ -435,7 +437,7 @@ GT_INLINE gt_template* gt_template_copy(
   if (copy_mmaps) {
     // Copy counters
     gt_vector_copy(template_cpy->counters,template->counters);
-    if (deep_copy_maps) {
+    if (deep_copy_maps) { // FIXME: Don't like this
       // Copy mmaps & mmaps_attributes
       gt_map** mmap;
       gt_mmap_attributes* mmap_attr = NULL;
