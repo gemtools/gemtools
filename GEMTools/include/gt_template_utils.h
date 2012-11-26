@@ -22,34 +22,25 @@ GT_INLINE gt_status gt_template_deduce_alignments_tags(gt_template* const templa
  * Template's MMaps high-level insertion (basic building block)
  */
 GT_INLINE gt_map** gt_template_raw_put_mmap(
-    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
-    const bool alignment_insertion,const bool delete_unused_mmap_members);
+    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_template* const template,
+    gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
 GT_INLINE gt_map** gt_template_put_mmap(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
-    const bool replace_dup,const bool alignment_insertion,const bool delete_unused_mmap_members);
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool replace_duplicated);
 
 /*
  * Template's MMaps high-level insertion operators (Update global state: counters, ...)
  */
 GT_INLINE void gt_template_insert_mmap(
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion);
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
 GT_INLINE void gt_template_insert_mmap_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion);
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
 GT_INLINE void gt_template_insert_mmap_gtvector(
-    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion);
+    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr);
 GT_INLINE void gt_template_insert_mmap_gtvector_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion);
-
-// TODO: Scheduled for v2.0
-GT_INLINE void gt_template_remove_mmap(
-    gt_template* const template,gt_map** const mmap);
-GT_INLINE void gt_template_remove_mmap_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template,gt_map** const mmap);
+    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr);
 
 GT_INLINE bool gt_template_find_mmap_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
@@ -74,38 +65,32 @@ GT_INLINE void gt_template_recalculate_counters(gt_template* const template);
  */
 GT_INLINE void gt_template_merge_template_mmaps(gt_template* const template_dst,gt_template* const template_src);
 GT_INLINE void gt_template_merge_template_mmaps_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template_dst,gt_template* const template_src);
-
-// TODO: Scheduled for v2.0
-GT_INLINE void gt_template_remove_template_mmaps(gt_template* const template_dst,gt_template* const template_src);
-GT_INLINE void gt_template_remove_template_mmaps_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     gt_template* const template_dst,gt_template* const template_src);
 
 GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_templates,gt_template* const template_src,va_list v_args);
 GT_INLINE gt_template* gt_template_union_template_mmaps_fx_va(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_templates,gt_template* const template_src,...);
 GT_INLINE gt_template* gt_template_union_template_mmaps_va(
     const uint64_t num_src_templates,gt_template* const template_src,...);
 #define gt_template_union_template_mmaps(template_src_A,template_src_B) \
-        gt_template_union_template_mmaps_fx_va(gt_mmap_cmp,2,template_src_A,template_src_B)
-#define gt_template_union_template_mmaps_fx(gt_mmap_cmp_fx,template_src_A,template_src_B) \
-        gt_template_union_template_mmaps_fx_va(gt_mmap_cmp_fx,2,template_src_A,template_src_B)
+        gt_template_union_template_mmaps_fx_va(gt_mmap_cmp,gt_map_cmp,2,template_src_A,template_src_B)
+#define gt_template_union_template_mmaps_fx(gt_mmap_cmp_fx,gt_map_cmp_fx,template_src_A,template_src_B) \
+        gt_template_union_template_mmaps_fx_va(gt_mmap_cmp_fx,gt_map_cmp_fx,2,template_src_A,template_src_B)
 
 GT_INLINE gt_template* gt_template_subtract_template_mmaps_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     gt_template* const template_minuend,gt_template* const template_subtrahend);
 GT_INLINE gt_template* gt_template_subtract_template_mmaps(
     gt_template* const template_minuend,gt_template* const template_subtrahend);
 
 GT_INLINE gt_template* gt_template_intersect_template_mmaps_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template_src_A,gt_template* const template_src_B);
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
+    gt_template* const template_A,gt_template* const template_B);
 GT_INLINE gt_template* gt_template_intersect_template_mmaps(
-    gt_template* const template_src_A,gt_template* const template_src_B);
+    gt_template* const template_A,gt_template* const template_B);
 
 #endif /* GT_TEMPLATE_UTILS_H_ */

@@ -349,6 +349,17 @@ GT_INLINE gt_map* gt_map_copy(gt_map* const map) {
   }
   return map_cpy;
 }
+GT_INLINE gt_map** gt_mmap_array_copy(gt_map** mmap,const uint64_t num_blocks) {
+  GT_ZERO_CHECK(num_blocks);
+  gt_map** mmap_copy = malloc(num_blocks*sizeof(gt_map*));
+  gt_cond_fatal_error(!mmap_copy,MEM_HANDLER);
+  register uint64_t i;
+  for (i=0;i<num_blocks;++i) {
+    GT_MAP_CHECK(mmap[i]);
+    mmap_copy[i] = gt_map_copy(mmap[i]);
+  }
+  return mmap_copy;
+}
 
 /*
  * Map's Blocks iterator

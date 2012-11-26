@@ -420,7 +420,7 @@ void gt_stats_generate_stats() {
       parameters.num_reads:stats.num_reads,parameters.paired_end);
 
   // Clean
-  gt_template_delete(template,true,true);
+  gt_template_delete(template);
   gt_buffered_input_file_close(buffered_input);
   gt_input_file_close(input_file);
 }
@@ -452,7 +452,7 @@ void gt_stats_parallel_generate_stats() {
     }
 
     // Clean
-    gt_template_delete(template,true,true);
+    gt_template_delete(template);
     gt_buffered_input_file_close(buffered_input);
   }
 

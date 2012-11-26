@@ -37,9 +37,8 @@ GT_INLINE gt_status gt_template_deduce_alignments_tags(gt_template* const templa
  * Template's MMaps operators (Update global state: counters, ...)
  */
 GT_INLINE void gt_template_alias_dup_mmap_members(
-    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
-    gt_template* const template,gt_map** const mmap,gt_map** const uniq_mmaps,
-    const bool alignment_insertion,const bool delete_unused_mmap_members) {
+    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_template* const template,
+    gt_map** const mmap,gt_map** const uniq_mmaps) {
   GT_NULL_CHECK(gt_map_cmp_fx);
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap); GT_NULL_CHECK(uniq_mmaps);
@@ -48,120 +47,103 @@ GT_INLINE void gt_template_alias_dup_mmap_members(
   register uint64_t i;
   for (i=0;i<num_blocks;++i) {
     GT_NULL_CHECK(mmap[i]);
-    if (gt_expect_false(alignment_insertion)) {
-      register gt_map* current_map = mmap[i];
-      uniq_mmaps[i] = gt_alignment_put_map(gt_map_cmp_fx,gt_template_get_block(template,i),mmap[i],false);
-      if (delete_unused_mmap_members && uniq_mmaps[i]!=mmap[i]) gt_map_delete(current_map);
-    } else {
-      uint64_t found_map_pos;
-      gt_map* found_map;
-      if (gt_alignment_find_map_fx(gt_map_cmp_fx,gt_template_get_block(template,i),mmap[i],&found_map_pos,&found_map)) {
-        uniq_mmaps[i] = found_map;
-        if (delete_unused_mmap_members) gt_map_delete(mmap[i]);
-      } else {
-        uniq_mmaps[i] = mmap[i];
-      }
-    }
+    uniq_mmaps[i] = gt_alignment_put_map(gt_map_cmp_fx,gt_template_get_block(template,i),mmap[i],false);
   }
 }
 GT_INLINE gt_map** gt_template_raw_put_mmap(
-    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
-    const bool alignment_insertion,const bool delete_unused_mmap_members) {
+    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_template* const template,
+    gt_map** const mmap,gt_mmap_attributes* const mmap_attr) {
   GT_NULL_CHECK(gt_map_cmp_fx);
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap);
   GT_NULL_CHECK(mmap_attr);
   // Resolve mmap aliasing/insertion
-  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-  register gt_map** uniq_mmaps = malloc(num_blocks*sizeof(gt_map*));
-  gt_template_alias_dup_mmap_members(
-      gt_map_cmp_fx,template,mmap,uniq_mmaps,
-      alignment_insertion,delete_unused_mmap_members);
+  register gt_map** uniq_mmaps = malloc(gt_template_get_num_blocks(template)*sizeof(gt_map*));
+  gt_template_alias_dup_mmap_members(gt_map_cmp_fx,template,mmap,uniq_mmaps);
   // Raw mmap insertion
   gt_template_add_mmap(template,uniq_mmaps,mmap_attr);
   register gt_map** template_mmap=gt_template_get_mmap(template,gt_template_get_num_mmaps(template)-1,NULL);
-  // Free auxiliary vector
-  free(uniq_mmaps);
+  free(uniq_mmaps); // Free auxiliary vector
   return template_mmap;
 }
 GT_INLINE gt_map** gt_template_put_mmap(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,
-    const bool replace_dup,const bool alignment_insertion,const bool delete_unused_mmap_members) {
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool replace_duplicated) {
   GT_NULL_CHECK(gt_mmap_cmp_fx); GT_NULL_CHECK(gt_map_cmp_fx);
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap);
   GT_NULL_CHECK(mmap_attr);
-  // Resolve mmap aliasing/insertion
-  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-  register gt_map** uniq_mmaps = malloc(num_blocks*sizeof(gt_map*));
-  gt_template_alias_dup_mmap_members(
-      gt_map_cmp_fx,template,mmap,uniq_mmaps,
-      alignment_insertion,delete_unused_mmap_members);
-  // Handle mmap duplicates
+  // Check mmap duplicates
   gt_map** found_mmap;
   gt_mmap_attributes found_mmap_attr;
   uint64_t found_mmap_pos;
+  register bool is_duplicated = gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp_fx,
+      template,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr));
   register gt_map** template_mmap;
-  if (gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp,template,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr))) {
-    if (gt_expect_true(replace_dup)) {
-      // Remove old mmap
-      gt_template_dec_counter(template,found_mmap_attr.distance+1);
-      // Replace old mmap
-      gt_template_set_mmap(template,found_mmap_pos,uniq_mmaps,mmap_attr);
+  if (!is_duplicated || replace_duplicated) {
+    // Resolve mmap aliasing/insertion
+    register gt_map** uniq_mmaps = malloc(gt_template_get_num_blocks(template)*sizeof(gt_map*));
+    gt_template_alias_dup_mmap_members(gt_map_cmp_fx,template,mmap,uniq_mmaps);
+    // Insert mmap
+    if (!is_duplicated) { // Add new mmap
+      gt_template_inc_counter(template,mmap_attr->distance+1);
+      gt_template_add_mmap(template,uniq_mmaps,mmap_attr);
+      template_mmap=gt_template_get_mmap(template,gt_template_get_num_mmaps(template)-1,NULL);
+    } else { // Replace mmap
+      gt_template_dec_counter(template,found_mmap_attr.distance+1); // Remove old mmap
+      gt_template_set_mmap(template,found_mmap_pos,uniq_mmaps,mmap_attr); // Replace old mmap
+      template_mmap=gt_template_get_mmap(template,found_mmap_pos,NULL);
+    }
+    free(uniq_mmaps); // Free auxiliary vector
+  } else {
+    // Delete mmap
+    GT_MULTIMAP_ITERATE_BLOCKS(mmap,gt_template_get_num_blocks(template),map,end_pos) {
+      gt_map_delete(map);
     }
     template_mmap=gt_template_get_mmap(template,found_mmap_pos,NULL);
-  } else {
-    // Add new map
-    gt_template_inc_counter(template,mmap_attr->distance+1);
-    gt_template_add_mmap(template,uniq_mmaps,mmap_attr);
-    template_mmap=gt_template_get_mmap(template,gt_template_get_num_mmaps(template)-1,NULL);
   }
-  // Free auxiliary vector
-  free(uniq_mmaps);
   return template_mmap;
 }
 
 GT_INLINE void gt_template_insert_mmap(
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion) {
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap); GT_NULL_CHECK(mmap_attr);
-  gt_template_insert_mmap_fx(gt_mmap_cmp,template,mmap,mmap_attr,alignment_insertion);
+  gt_template_insert_mmap_fx(gt_mmap_cmp,template,mmap,mmap_attr);
 }
 GT_INLINE void gt_template_insert_mmap_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion) {
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap); GT_NULL_CHECK(mmap_attr);
-  gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp,template,mmap,mmap_attr,true,alignment_insertion,true);
+  gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp,template,mmap,mmap_attr,true);
 }
 GT_INLINE void gt_template_insert_mmap_gtvector(
-    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion) {
+    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_VECTOR_CHECK(mmap); GT_NULL_CHECK(mmap_attr);
-  gt_template_insert_mmap_gtvector_fx(gt_mmap_cmp,template,mmap,mmap_attr,alignment_insertion);
+  gt_template_insert_mmap_gtvector_fx(gt_mmap_cmp,template,mmap,mmap_attr);
 }
 GT_INLINE void gt_template_insert_mmap_gtvector_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr,const bool alignment_insertion) {
+    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr) {
   GT_NULL_CHECK(gt_mmap_cmp_fx);
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_VECTOR_CHECK(mmap); GT_NULL_CHECK(mmap_attr);
   gt_check(gt_vector_get_used(mmap)!=gt_template_get_num_blocks(template),TEMPLATE_ADD_BAD_NUM_BLOCKS);
-  gt_template_insert_mmap_fx(gt_mmap_cmp_fx,template,gt_vector_get_mem(mmap,gt_map*),mmap_attr,alignment_insertion);
+  gt_template_insert_mmap_fx(gt_mmap_cmp_fx,template,gt_vector_get_mem(mmap,gt_map*),mmap_attr);
 }
 
-// TODO: Scheduled for v2.0
-GT_INLINE void gt_template_remove_mmap(
-    gt_template* const template,gt_map** const mmap) {
-  // TODO
-}
-GT_INLINE void gt_template_remove_mmap_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template,gt_map** const mmap) {
-  // TODO
-}
+//// TODO: Scheduled for v2.0
+//GT_INLINE void gt_template_remove_mmap(
+//    gt_template* const template,gt_map** const mmap) {
+//  // TODO
+//}
+//GT_INLINE void gt_template_remove_mmap_fx(
+//    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+//    gt_template* const template,gt_map** const mmap) {
+//  // TODO
+//}
 
 
 GT_INLINE bool gt_template_find_mmap_fx(
@@ -256,6 +238,9 @@ GT_INLINE int64_t gt_template_get_uniq_degree(gt_template* const template) {
 }
 GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_recalculate_counters(alignment);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Clear previous counters
   gt_vector_clean(gt_template_get_counters_vector(template));
   // Recalculate counters
@@ -277,62 +262,68 @@ GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
 GT_INLINE void gt_template_merge_template_mmaps(gt_template* const template_dst,gt_template* const template_src) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
-  // Merge mmaps
-  GT_TEMPLATE__ATTR_ITERATE_(template_src,mmap,mmap_attr) {
-    gt_template_put_mmap(gt_mmap_cmp,gt_map_cmp,template_dst,mmap,mmap_attr,false,true,false);
-  }
+  gt_template_merge_template_mmaps_fx(gt_mmap_cmp,gt_map_cmp,template_dst,template_src);
 }
 GT_INLINE void gt_template_merge_template_mmaps_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     gt_template* const template_dst,gt_template* const template_src) {
-  GT_NULL_CHECK(gt_mmap_cmp_fx);
+  GT_NULL_CHECK(gt_mmap_cmp_fx); GT_NULL_CHECK(gt_map_cmp_fx);
+  GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_dst,template_src);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+    GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_dst,alignment_dst) {
+      gt_alignment_merge_alignment_maps_fx(gt_map_cmp_fx,alignment_dst,alignment_src);
+    } GT_TEMPLATE_END_REDUCTION;
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  // Merge mmaps
   GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
-  // Merge mmaps
-  GT_TEMPLATE__ATTR_ITERATE_(template_src,mmap,mmap_attr) {
-    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp,template_dst,mmap,mmap_attr,false,true,false); // FIXME gt_map_cmp wrt gt_mmap_cmp_fx
+  GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
+    register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__map_array_num_blocks);
+    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,false);
+    free(mmap_copy); // Free array handler
   }
 }
 
-// TODO: Scheduled for v2.0
-GT_INLINE void gt_template_remove_template_mmaps(
-    gt_template* const template_dst,gt_template* const template_src) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
-  GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
-  GT_TEMPLATE_ITERATE_(template_src,mmap) {
-    gt_template_remove_mmap(template_dst,mmap);
-  }
-}
-GT_INLINE void gt_template_remove_template_mmaps_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template_dst,gt_template* const template_src) {
-  GT_NULL_CHECK(gt_mmap_cmp_fx);
-  GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
-  GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
-  GT_TEMPLATE_ITERATE_(template_src,mmap) {
-    gt_template_remove_mmap_fx(gt_mmap_cmp_fx,template_dst,mmap);
-  }
-}
+//// TODO: Scheduled for v2.0
+//GT_INLINE void gt_template_remove_template_mmaps(
+//    gt_template* const template_dst,gt_template* const template_src) {
+//  GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
+//  GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
+//  GT_TEMPLATE_ITERATE_(template_src,mmap) {
+//    gt_template_remove_mmap(template_dst,mmap);
+//  }
+//}
+//GT_INLINE void gt_template_remove_template_mmaps_fx(
+//    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+//    gt_template* const template_dst,gt_template* const template_src) {
+//  GT_NULL_CHECK(gt_mmap_cmp_fx);
+//  GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
+//  GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
+//  GT_TEMPLATE_ITERATE_(template_src,mmap) {
+//    gt_template_remove_mmap_fx(gt_mmap_cmp_fx,template_dst,mmap);
+//  }
+//}
 
 GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_templates,gt_template* const template_src,va_list v_args) {
   GT_NULL_CHECK(gt_mmap_cmp_fx);
   GT_ZERO_CHECK(num_src_templates);
   // Create new template
-  register gt_template* const template_union = gt_template_copy(template_src,true,true,false,false,false);
+  register gt_template* const template_union = gt_template_copy(template_src,true,true);
   // Merge template sources into template_union
   register uint64_t num_tmp_merged = 0;
   while (num_tmp_merged < num_src_templates) {
     register gt_template* template_target = (gt_expect_true(num_tmp_merged>0)) ? va_arg(v_args,gt_template*) : template_src;
+    GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_union,template_target);
     GT_TEMPLATE_CONSISTENCY_CHECK(template_target);
-    gt_template_merge_template_mmaps_fx(gt_mmap_cmp_fx,template_union,template_target);
+    gt_template_merge_template_mmaps_fx(gt_mmap_cmp_fx,gt_map_cmp_fx,template_union,template_target);
     ++num_tmp_merged;
   }
   return template_union;
 }
 GT_INLINE gt_template* gt_template_union_template_mmaps_fx_va(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_templates,gt_template* const template_src,...) {
   GT_NULL_CHECK(gt_mmap_cmp_fx);
   GT_ZERO_CHECK(num_src_templates);
@@ -340,7 +331,7 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_fx_va(
   va_list v_args;
   va_start(v_args,template_src);
   register gt_template* const template_union =
-      gt_template_union_template_mmaps_fx_v(gt_mmap_cmp_fx,num_src_templates,template_src,v_args);
+      gt_template_union_template_mmaps_fx_v(gt_mmap_cmp_fx,gt_map_cmp_fx,num_src_templates,template_src,v_args);
   va_end(v_args);
   return template_union;
 }
@@ -351,44 +342,83 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_va(
   va_list v_args;
   va_start(v_args,template_src);
   register gt_template* const template_union =
-      gt_template_union_template_mmaps_fx_v(gt_mmap_cmp,num_src_templates,template_src,v_args);
+      gt_template_union_template_mmaps_fx_v(gt_mmap_cmp,gt_map_cmp,num_src_templates,template_src,v_args);
   va_end(v_args);
   return template_union;
 }
 
 GT_INLINE gt_template* gt_template_subtract_template_mmaps_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     gt_template* const template_minuend,gt_template* const template_subtrahend) {
-  // TODO
-  return NULL;
+  GT_NULL_CHECK(gt_mmap_cmp_fx);
+  GT_NULL_CHECK(gt_map_cmp_fx);
+  GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_minuend,template_subtrahend);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_minuend,alignment_minuend) {
+    GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_subtrahend,alignment_subtrahend) {
+      register gt_alignment* const alignment_difference =
+          gt_alignment_subtract_alignment_maps_fx(gt_map_cmp_fx,alignment_minuend,alignment_subtrahend);
+      register gt_template* const template_difference = gt_template_new();
+      gt_template_add_block(template_difference,alignment_difference);
+      return template_difference;
+    } GT_TEMPLATE_END_REDUCTION;
+  } GT_TEMPLATE_END_REDUCTION;
+  // Subtract
+  GT_TEMPLATE_CONSISTENCY_CHECK(template_minuend);
+  GT_TEMPLATE_CONSISTENCY_CHECK(template_subtrahend);
+  register gt_template* const template_difference = gt_template_copy(template_minuend,false,false);
+  uint64_t found_mmap_pos;
+  gt_map** found_mmap;
+  gt_mmap_attributes found_mmap_attr;
+  GT_TEMPLATE__ATTR_ITERATE(template_minuend,mmap,mmap_attr) {
+    if (!gt_template_find_mmap_fx(gt_mmap_cmp_fx,template_subtrahend,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr)) {
+      register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__map_array_num_blocks);
+      gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_difference,mmap_copy,mmap_attr,false);
+      free(mmap_copy);
+    }
+  }
+  return template_difference;
 }
 GT_INLINE gt_template* gt_template_subtract_template_mmaps(
     gt_template* const template_minuend,gt_template* const template_subtrahend) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template_minuend);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_subtrahend);
-  return gt_template_subtract_template_mmaps_fx(gt_mmap_cmp,template_minuend,template_subtrahend);
+  return gt_template_subtract_template_mmaps_fx(gt_mmap_cmp,gt_map_cmp,template_minuend,template_subtrahend);
 }
 
 GT_INLINE gt_template* gt_template_intersect_template_mmaps_fx(
-    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template_src_A,gt_template* const template_src_B) {
-  // TODO
-//  // Create new template
-//  register gt_template* const template_union = gt_template_new();
-//  gt_template_handler_copy(template_union,template_src);
-//  //
-//....
-//  // Copy common mmaps
-//  GT_TEMPLATE__ATTR_ITERATE(template_src_A,mmap,mmap_attr) {
-//    if (gt_template_is_mmap_contained_fx(gt_mmap_cmp_fx,template_src_B,mmap)) {
-//
-//    }
-//  }
-  return NULL;
+    int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
+    gt_template* const template_A,gt_template* const template_B) {
+  GT_NULL_CHECK(gt_mmap_cmp_fx);
+  GT_NULL_CHECK(gt_map_cmp_fx);
+  GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_A,template_B);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_A,alignment_A) {
+    GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_B,alignment_B) {
+      register gt_alignment* const alignment_intersection =
+          gt_alignment_intersect_alignment_maps_fx(gt_map_cmp_fx,alignment_A,alignment_B);
+      register gt_template* const template_intersection = gt_template_new();
+      gt_template_add_block(template_intersection,alignment_intersection);
+      return template_intersection;
+    } GT_TEMPLATE_END_REDUCTION;
+  } GT_TEMPLATE_END_REDUCTION;
+  // Intersect
+  GT_TEMPLATE_CONSISTENCY_CHECK(template_A);
+  GT_TEMPLATE_CONSISTENCY_CHECK(template_B);
+  register gt_template* const template_intersection = gt_template_copy(template_A,false,false);
+  uint64_t found_mmap_pos;
+  gt_map** found_mmap;
+  gt_mmap_attributes found_mmap_attr;
+  GT_TEMPLATE__ATTR_ITERATE(template_A,mmap,mmap_attr) {
+    if (gt_template_find_mmap_fx(gt_mmap_cmp_fx,template_B,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr)) {
+      register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__map_array_num_blocks);
+      gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_intersection,mmap_copy,mmap_attr,false);
+      free(mmap_copy);
+    }
+  }
+  return template_intersection;
 }
 GT_INLINE gt_template* gt_template_intersect_template_mmaps(
-    gt_template* const template_src_A,gt_template* const template_src_B) {
-  GT_TEMPLATE_CONSISTENCY_CHECK(template_src_A);
-  GT_TEMPLATE_CONSISTENCY_CHECK(template_src_B);
-  return gt_template_intersect_template_mmaps_fx(gt_mmap_cmp,template_src_A,template_src_B);
+    gt_template* const template_A,gt_template* const template_B) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template_A);
+  GT_TEMPLATE_CONSISTENCY_CHECK(template_B);
+  return gt_template_intersect_template_mmaps_fx(gt_mmap_cmp,gt_map_cmp,template_A,template_B);
 }

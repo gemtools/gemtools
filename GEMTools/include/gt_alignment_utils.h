@@ -16,7 +16,8 @@
  * Alignment's Maps operators (Update global state: counters, ...)
  */
 GT_INLINE gt_map* gt_alignment_put_map(
-    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map,const bool replace_dup);
+    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,
+    gt_map* const map,const bool replace_duplicated);
 
 GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map);
 GT_INLINE void gt_alignment_insert_map_fx(

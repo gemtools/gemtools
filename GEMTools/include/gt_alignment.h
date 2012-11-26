@@ -53,8 +53,8 @@ typedef struct {
  * Setup
  */
 GT_INLINE gt_alignment* gt_alignment_new(void);
-GT_INLINE void gt_alignment_clear(gt_alignment* const alignment,const bool delete_maps);
-GT_INLINE void gt_alignment_delete(gt_alignment* const alignment,const bool delete_maps);
+GT_INLINE void gt_alignment_clear(gt_alignment* const alignment);
+GT_INLINE void gt_alignment_delete(gt_alignment* const alignment);
 
 /*
  * Accessors
@@ -113,7 +113,7 @@ GT_INLINE bool gt_alignment_locate_map_reference(gt_alignment* const alignment,g
 /*
  * Miscellaneous
  */
-GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment,const bool copy_maps,const bool deep_copy_maps);
+GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment,const bool copy_maps);
 
 // Alignment's Maps iterator
 GT_INLINE void gt_alignment_new_map_iterator(gt_alignment* const alignment,gt_alignment_map_iterator* const alignment_map_iterator);

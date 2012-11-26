@@ -261,7 +261,23 @@ void gt_constructor_merge_template() {
   gt_template* templateA = gt_template_new();
   gt_template* templateB = gt_template_new();
 
+  /*
+   * Alignment
+   */
+  gt_input_map_parse_template(
+      "ID\tACGT\t####\t1\tchr1:-:20:4",templateA);
+  gt_input_map_parse_template(
+      "ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1",templateB);
+  // Merge into source
+  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
+  gt_output_map_fprint_template(stdout,templateB,GT_ALL,true);
+  gt_template_merge_template_mmaps(templateA,templateB);
+  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
 
+
+  /*
+   * Template
+   */
   error_code = gt_input_map_parse_template(
       "TAG_A\t"
       "ACTCCAGTCA AA\t"
@@ -295,9 +311,9 @@ void gt_constructor_merge_template() {
   gt_template* tunion = gt_template_union_template_mmaps(templateA,templateB);
   gt_output_map_fprint_template(stdout,tunion,GT_ALL,true);
 
-  gt_template_delete(templateA,true,true);
-  gt_template_delete(templateB,true,true);
-  gt_template_delete(tunion,true,false);
+  gt_template_delete(templateA);
+  gt_template_delete(templateB);
+  gt_template_delete(tunion);
 }
 
 void usage() {

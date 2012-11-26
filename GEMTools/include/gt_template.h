@@ -44,7 +44,7 @@ typedef struct {
 } gt_template_maps_iterator;
 
 /*
- * Checkers
+ * Checkers & Errors
  */
 #define GT_TEMPLATE_CHECK(template) \
   gt_fatal_check(template==NULL,NULL_HANDLER); \
@@ -54,7 +54,7 @@ typedef struct {
   GT_VECTOR_CHECK(template->mmaps); \
   GT_VECTOR_CHECK(template->mmaps_attributes); \
   GT_HASH_CHECK(template->attributes)
-// TODO: Check
+
 #define GT_TEMPLATE_CONSISTENCY_CHECK(template) \
   GT_TEMPLATE_CHECK(template); \
   gt_fatal_check(gt_vector_get_used(template->blocks)==0,TEMPLATE_ZERO_BLOCKS); \
@@ -62,6 +62,12 @@ typedef struct {
            TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION); \
   gt_fatal_check((gt_vector_get_used(template->mmaps)/gt_vector_get_used(template->blocks)) != \
             gt_vector_get_used(template->mmaps_attributes),TEMPLATE_INCONSISTENT_MMAPS_ATTRB_RELATION)
+
+#define GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_A,template_B) \
+  gt_cond_fatal_error(gt_template_get_num_blocks(template_A) != \
+    gt_template_get_num_blocks(template_B),TEMPLATE_INCONSISTENT_NUM_BLOCKS)
+
+
 /*
  *  TODO: Scheduled for v2.0 (all lazy parsing)
  *  #define GT_TEMPLATE_EDITABLE_CHECK(template) \
@@ -87,8 +93,9 @@ typedef struct {
  * Setup
  */
 GT_INLINE gt_template* gt_template_new(void);
-GT_INLINE void gt_template_clear(gt_template* const template,const bool delete_alignments,const bool delete_maps);
-GT_INLINE void gt_template_delete(gt_template* const template,const bool delete_alignments,const bool delete_maps);
+GT_INLINE void gt_template_clear(gt_template* const template,const bool delete_alignments);
+GT_INLINE void gt_template_clear_alignments(gt_template* const template);
+GT_INLINE void gt_template_delete(gt_template* const template);
 
 /*
  * Accessors
@@ -102,7 +109,7 @@ GT_INLINE void gt_template_add_block(gt_template* const template,gt_alignment* c
 GT_INLINE gt_alignment* gt_template_get_block(gt_template* const template,const uint64_t position);
 GT_INLINE gt_alignment* gt_template_get_block_dyn(gt_template* const template,const uint64_t position);
 GT_INLINE void gt_template_clear_blocks(gt_template* const template);
-GT_INLINE void gt_template_delete_blocks(gt_template* const template,const bool delete_maps);
+GT_INLINE void gt_template_delete_blocks(gt_template* const template);
 /* Counters */
 GT_INLINE gt_vector* gt_template_get_counters_vector(gt_template* const template);
 GT_INLINE void gt_template_set_counters_vector(gt_template* const template,gt_vector* const counters);
@@ -159,9 +166,7 @@ GT_INLINE void gt_template_add_mmap_va(
 /*
  * Miscellaneous
  */
-GT_INLINE gt_template* gt_template_copy(
-    gt_template* const template,const bool copy_blocks,const bool deep_copy_blocks,
-    const bool copy_maps,const bool deep_copy_maps,const bool copy_mmaps);
+GT_INLINE gt_template* gt_template_copy(gt_template* const template,const bool copy_maps,const bool copy_mmaps);
 
 /*
  * Template's Alignments iterator (end1,end2, ... )
@@ -209,12 +214,14 @@ GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const te
  *   map_array = (end1.map1,end2.map1)
  *   GT_MULTIMAP_ITERATE(map_array) := {end1.map1,end2.map1}
  */
-#define GT_MULTIMAP_ITERATE(mmap_array,map,end_position) \
+#define GT_MULTIMAP_ITERATE_BLOCKS(mmap_array,num_blocks,map,end_position) \
+  register const uint64_t _num_blocks_##mmap_array = num_blocks; \
   register uint64_t end_position; \
   register gt_map* map; \
   for (end_position=0,map=*mmap_array; \
-       end_position<(__map_array##_num_blocks); \
-       ++end_position,map=*(mmap_array+end_position))
+       end_position<(_num_blocks_##mmap_array);map=*(mmap_array+(++end_position)))
+#define GT_MULTIMAP_ITERATE(mmap_array,map,end_position) \
+  GT_MULTIMAP_ITERATE_BLOCKS(mmap_array,__map_array##_num_blocks,map,end_position)
 
 /*
  * Iterate over the alignment of a template (individual blocks)

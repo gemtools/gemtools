@@ -923,7 +923,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
       return GT_IMP_PE_MAP_BAD_NUMBER_OF_BLOCKS;
     }
     gt_template_raw_put_mmap(gt_map_cmp,template,
-        gt_vector_get_mem(vector_maps,gt_map*),&mmap_attr,true,true);
+        gt_vector_get_mem(vector_maps,gt_map*),&mmap_attr);
     ++num_maps_parsed;
   }
   gt_vector_delete(vector_maps);
@@ -1134,7 +1134,7 @@ GT_INLINE gt_status gt_input_map_parse_template(char* const string,gt_template* 
   GT_NULL_CHECK(string);
   GT_TEMPLATE_CHECK(template);
   char* _string = string; // Placeholder
-  gt_template_clear(template,true,true); // Clear template
+  gt_template_clear(template,true); // Clear template
   // Count fields
   register uint64_t num_fields=0, i=0;
   while (gt_expect_true(_string[i]!=EOS)) {
@@ -1150,7 +1150,7 @@ GT_INLINE gt_status gt_input_map_parse_alignment(char* const string,gt_alignment
   GT_NULL_CHECK(string);
   GT_ALIGNMENT_CHECK(alignment);
   char* _string = string; // Placeholder
-  gt_alignment_clear(alignment,true); // Clear alignment
+  gt_alignment_clear(alignment); // Clear alignment
   // Count fields
   register uint64_t num_fields=0, i=0;
   while (gt_expect_true(_string[i]!=EOS)) {
@@ -1280,7 +1280,7 @@ GT_INLINE gt_status gt_imp_get_template(
   // Prepare the template
   register char* const line_start = buffered_map_input->cursor;
   register const uint64_t line_num = buffered_map_input->current_line_num;
-  gt_template_clear(template,true,true);
+  gt_template_clear(template,true);
   template->template_id = line_num;
   // Parse template
   if ((error_code=gt_imp_parse_template(&(buffered_map_input->cursor),
@@ -1316,7 +1316,7 @@ GT_INLINE gt_status gt_imp_get_alignment(
   // Allocate memory for the alignment
   register char* const line_start = buffered_map_input->cursor;
   register const uint64_t line_num = buffered_map_input->current_line_num;
-  gt_alignment_clear(alignment,true);
+  gt_alignment_clear(alignment);
   alignment->alignment_id = line_num;
   // Parse alignment
   if ((error_code=gt_imp_parse_alignment(&(buffered_map_input->cursor),

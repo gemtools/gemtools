@@ -179,6 +179,7 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_TEMPLATE_INCONSISTENT_MMAPS_ALIGNMENT "Template inconsistency. Multimaps' members must be contained by single alignments"
 #define GT_ERROR_TEMPLATE_INCONSISTENT_MMAPS_ATTRB_RELATION "Template inconsistency. Incorrect number of mmaps and mmaps' attributes"
 #define GT_ERROR_TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION "Template inconsistency. Incorrect number of matches' elements (check num_blocks_template)"
+#define GT_ERROR_TEMPLATE_INCONSISTENT_NUM_BLOCKS "Template inconsistency. Number of blocks must be the same across templates"
 #define GT_ERROR_TEMPLATE_ADD_BAD_NUM_BLOCKS "Trying to add wrong number of blocks to the template"
 #define GT_ERROR_PALIGN_BAD_NUM_BLOCKS "Invalid Paired-alignment. Wrong number of alignment blocks (%"PRIu64")"
 

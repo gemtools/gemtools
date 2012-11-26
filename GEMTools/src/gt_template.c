@@ -36,18 +36,26 @@ GT_INLINE void gt_template_clear_handler(gt_template* const template) {
   template->maps_txt = NULL;
   gt_shash_clean(template->attributes,true,true);
 }
-GT_INLINE void gt_template_clear(gt_template* const template,const bool delete_alignments,const bool delete_maps) {
+GT_INLINE void gt_template_clear(gt_template* const template,const bool delete_alignments) {
   GT_TEMPLATE_CHECK(template);
-  if (delete_alignments) gt_template_delete_blocks(template,delete_maps);
+  if (delete_alignments) {
+    gt_template_delete_blocks(template);
+  }
   gt_vector_clean(template->counters);
   gt_vector_clean(template->mmaps);
   gt_vector_clean(template->mmaps_attributes);
   gt_template_clear_handler(template);
 }
-GT_INLINE void gt_template_delete(gt_template* const template,const bool delete_alignments,const bool delete_maps) {
+GT_INLINE void gt_template_clear_alignments(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_VECTOR_ITERATE(template->blocks,alignment_it,alignment_pos,gt_alignment*) {
+    gt_alignment_clear(*alignment_it);
+  }
+}
+GT_INLINE void gt_template_delete(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   gt_string_delete(template->tag);
-  if (delete_alignments) gt_template_delete_blocks(template,delete_maps);
+  gt_template_delete_blocks(template);
   gt_vector_delete(template->blocks);
   gt_vector_delete(template->counters);
   gt_vector_delete(template->mmaps);
@@ -109,10 +117,10 @@ GT_INLINE void gt_template_clear_blocks(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   gt_vector_clean(template->blocks);
 }
-GT_INLINE void gt_template_delete_blocks(gt_template* const template,const bool delete_maps) {
+GT_INLINE void gt_template_delete_blocks(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   GT_VECTOR_ITERATE(template->blocks,alignment_it,alignment_pos,gt_alignment*) {
-    gt_alignment_delete(*alignment_it,delete_maps);
+    gt_alignment_delete(*alignment_it);
   }
   gt_vector_clean(template->blocks);
 }
@@ -405,58 +413,39 @@ GT_INLINE void gt_template_copy_handler(gt_template* template_dst,gt_template* c
   // Copy templates' attributes
   template_dst->attributes = gt_shash_deep_copy(template_src->attributes);
 }
-GT_INLINE void gt_template_copy_blocks(
-    gt_template* template_dst,gt_template* const template_src,
-    const bool copy_maps,const bool deep_copy_maps) {
+GT_INLINE void gt_template_copy_blocks(gt_template* template_dst,gt_template* const template_src,const bool copy_maps) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   gt_vector_clean(template_dst->blocks);
   register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
   register uint64_t i;
   for (i=0;i<num_blocks;++i) {
-    register gt_alignment* alg_copy =
-        gt_alignment_copy(gt_template_get_block(template_src,i),copy_maps,deep_copy_maps);
-    gt_template_add_block(template_dst,alg_copy);
+    register gt_alignment* alignment_copy =
+        gt_alignment_copy(gt_template_get_block(template_src,i),copy_maps);
+    gt_template_add_block(template_dst,alignment_copy);
   }
 }
-GT_INLINE gt_template* gt_template_copy(
-    gt_template* const template,const bool copy_blocks,const bool deep_copy_blocks,
-    const bool copy_maps,const bool deep_copy_maps,const bool copy_mmaps) {
+GT_INLINE gt_template* gt_template_copy(gt_template* const template,const bool copy_maps,const bool copy_mmaps) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   gt_template* template_cpy = gt_template_new();
   gt_cond_fatal_error(!template_cpy,MEM_HANDLER);
   // Copy handler
   gt_template_copy_handler(template_cpy,template);
-  if (!copy_blocks) return template_cpy;
   // Copy blocks
-  if (deep_copy_blocks) {
-    gt_template_copy_blocks(template_cpy,template,copy_maps,deep_copy_maps);
-  } else {
-    gt_vector_copy(template_cpy->blocks,template->blocks);
-  }
+  gt_template_copy_blocks(template_cpy,template,copy_maps);
   // Copy mmaps
-  if (copy_mmaps) {
+  if (copy_maps && copy_mmaps) {
     // Copy counters
     gt_vector_copy(template_cpy->counters,template->counters);
-    if (deep_copy_maps) { // FIXME: Don't like this
-      // Copy mmaps & mmaps_attributes
-      gt_map** mmap;
-      gt_mmap_attributes* mmap_attr = NULL;
-      gt_template_maps_iterator template_maps_iterator;
-      gt_template_new_mmap_iterator(template,&template_maps_iterator);
-      register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-      while (gt_expect_true(gt_template_next_mmap(&template_maps_iterator,&mmap,&mmap_attr))) {
-        uint64_t i, map_pos;
-        for (i=0;i<num_blocks;++i) {
-          gt_cond_fatal_error(!gt_alignment_locate_map_reference(
-              gt_template_get_block(template,i),mmap[i],&map_pos),TEMPLATE_INCONSISTENT_MMAPS_ALIGNMENT);
-          register gt_map* homologe_map = gt_alignment_get_map(gt_template_get_block(template_cpy,i),map_pos);
-          gt_vector_insert(template->mmaps,homologe_map,gt_map*);
-        }
-        gt_vector_insert(template->mmaps_attributes,*mmap_attr,gt_mmap_attributes);
+    // Copy mmaps & mmaps_attributes
+    GT_TEMPLATE__ATTR_ITERATE(template,mmap,mmap_attr) {
+      uint64_t map_pos;
+      GT_MULTIMAP_ITERATE(mmap,map,end_pos) {
+        gt_cond_fatal_error(!gt_alignment_locate_map_reference(
+            gt_template_get_block(template,end_pos),map,&map_pos),TEMPLATE_INCONSISTENT_MMAPS_ALIGNMENT);
+        register gt_map* homologe_map = gt_alignment_get_map(gt_template_get_block(template_cpy,end_pos),map_pos);
+        gt_vector_insert(template_cpy->mmaps,homologe_map,gt_map*);
       }
-    } else {
-      gt_vector_copy(template_cpy->mmaps,template->mmaps);
-      gt_vector_copy(template_cpy->mmaps_attributes,template->mmaps_attributes);
+      gt_vector_insert(template_cpy->mmaps_attributes,*mmap_attr,gt_mmap_attributes);
     }
   }
   return template_cpy;

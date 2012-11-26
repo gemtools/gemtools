@@ -11,14 +11,19 @@
  * Alignment high-level insert (Update global state: counters, ...)
  */
 GT_INLINE gt_map* gt_alignment_put_map(
-    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map,const bool replace_dup) {
+    int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,
+    gt_map* const map,const bool replace_duplicated) {
   GT_NULL_CHECK(gt_map_cmp_fx);
   GT_ALIGNMENT_CHECK(alignment); GT_MAP_CHECK(map);
+  /*
+   * Once the @map is given to @gt_alignment_put_map, it belong to the given @alignment.
+   * So, in case of duplication, one of the maps will be deleted wrt @replace_duplicated
+   */
   // Handle duplicates
   gt_map* found_map;
   uint64_t found_map_pos;
   if (gt_expect_false(gt_alignment_find_map_fx(gt_map_cmp_fx,alignment,map,&found_map_pos,&found_map))) {
-    if (gt_expect_true(replace_dup)) {
+    if (gt_expect_true(replace_duplicated)) {
       // Remove old map
       gt_alignment_dec_counter(alignment,gt_map_get_global_distance(found_map)+1);
       gt_map_delete(found_map); // TODO: v2. Removal of a mmap member in duplicates resolution of conflict
@@ -27,6 +32,7 @@ GT_INLINE gt_map* gt_alignment_put_map(
       gt_alignment_set_map(alignment,map,found_map_pos);
       return map;
     } else {
+      gt_map_delete(map);
       return found_map;
     }
   } else {
@@ -46,7 +52,7 @@ GT_INLINE void gt_alignment_insert_map_fx(
   GT_NULL_CHECK(gt_map_cmp_fx);
   GT_ALIGNMENT_CHECK(alignment); GT_MAP_CHECK(map);
   // Prevent duplicates
-  gt_alignment_put_map(gt_map_cmp_fx,alignment,map,true);
+  gt_alignment_put_map(gt_map_cmp_fx,alignment,map,true); /* TODO: Why replace_duplicated?? */
 }
 GT_INLINE void gt_alignment_insert_map_gt_vector(gt_alignment* const alignment,gt_vector* const map_vector) {
   GT_ALIGNMENT_CHECK(alignment);
@@ -167,10 +173,7 @@ GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) 
 GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {
   GT_ALIGNMENT_CHECK(alignment_dst);
   GT_ALIGNMENT_CHECK(alignment_src);
-  GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
-    register gt_map* const map_src_cp = gt_map_copy(map_src);
-    gt_alignment_insert_map(alignment_dst,map_src_cp);
-  }
+  gt_alignment_merge_alignment_maps_fx(gt_map_cmp,alignment_dst,alignment_src);
 }
 GT_INLINE void gt_alignment_merge_alignment_maps_fx(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
@@ -179,7 +182,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_src);
   GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
     register gt_map* const map_src_cp = gt_map_copy(map_src);
-    gt_alignment_insert_map_fx(gt_map_cmp_fx,alignment_dst,map_src_cp);
+    gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,false);
   }
 }
 
@@ -207,15 +210,15 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_v(
   GT_NULL_CHECK(gt_map_cmp_fx);
   GT_ZERO_CHECK(num_src_alignments);
   // Create new alignment
-  register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false,false);
+  register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,true);
   // Merge alignment sources into alignment_union
-  register uint64_t num_alg_merged = 0;
-  register gt_alignment* alignment_target = alignment_src;
-  do {
+  register uint64_t num_alg_merged = 1;
+  while (num_alg_merged < num_src_alignments) {
+    register gt_alignment* alignment_target = va_arg(v_args,gt_alignment*);
     GT_ALIGNMENT_CHECK(alignment_target);
     gt_alignment_merge_alignment_maps_fx(gt_map_cmp_fx,alignment_union,alignment_target);
-    alignment_target = (++num_alg_merged < num_src_alignments) ? va_arg(v_args,gt_alignment*) : NULL;
-  } while (gt_expect_true(alignment_target!=NULL));
+    ++num_alg_merged;
+  }
   return alignment_union;
 }
 GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_va(
@@ -249,12 +252,12 @@ GT_INLINE gt_alignment* gt_alignment_subtract_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_minuend);
   GT_ALIGNMENT_CHECK(alignment_subtrahend);
   // Create new alignment
-  register gt_alignment* const alignment_difference = gt_alignment_copy(alignment_minuend,false,false);
+  register gt_alignment* const alignment_difference = gt_alignment_copy(alignment_minuend,false);
   // Copy not common maps
   GT_ALIGNMENT_ITERATE(alignment_minuend,map_minuend) {
     if (!gt_alignment_is_map_contained_fx(gt_map_cmp_fx,alignment_subtrahend,map_minuend)) { // TODO Improvement: Scheduled for v2.0
       register gt_map* const map_cp = gt_map_copy(map_minuend);
-      gt_alignment_insert_map_fx(gt_map_cmp_fx,alignment_difference,map_cp);
+      gt_alignment_put_map(gt_map_cmp_fx,alignment_difference,map_cp,false);
     }
   }
   return alignment_difference;
@@ -272,12 +275,12 @@ GT_INLINE gt_alignment* gt_alignment_intersect_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_src_A);
   GT_ALIGNMENT_CHECK(alignment_src_B);
   // Create new alignment
-  register gt_alignment* const alignment_intersection = gt_alignment_copy(alignment_src_A,false,false);
+  register gt_alignment* const alignment_intersection = gt_alignment_copy(alignment_src_A,false);
   // Copy common maps
   GT_ALIGNMENT_ITERATE(alignment_src_A,map_A) {
     if (gt_alignment_is_map_contained_fx(gt_map_cmp_fx,alignment_src_B,map_A)) { // TODO Improvement: Scheduled for v2.0
       register gt_map* const map_cp = gt_map_copy(map_A);
-      gt_alignment_insert_map_fx(gt_map_cmp_fx,alignment_intersection,map_cp);
+      gt_alignment_put_map(gt_map_cmp_fx,alignment_intersection,map_cp,false);
     }
   }
   return alignment_intersection;

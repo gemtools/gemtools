@@ -164,6 +164,8 @@ GT_INLINE int64_t gt_mmap_range_cmp(gt_map** const map_1,gt_map** const map_2,co
  * Miscellaneous
  */
 GT_INLINE gt_map* gt_map_copy(gt_map* map);
+GT_INLINE gt_map** gt_mmap_array_copy(gt_map** mmap,const uint64_t num_blocks);
+
 // Macro generic iterator
 //  GT_MAP_MISMS_ITERATOR(map,misms_it,misms_pos) {
 //    ..code..

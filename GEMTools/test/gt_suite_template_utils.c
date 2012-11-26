@@ -16,8 +16,8 @@ void gt_template_utils_setup(void) {
 }
 
 void gt_template_utils_teardown(void) {
-  gt_template_delete(source, true, true);
-  gt_template_delete(target, true, true);
+  gt_template_delete(source);
+  gt_template_delete(target);
 }
 
 START_TEST(gt_test_template_merge)
@@ -28,9 +28,7 @@ START_TEST(gt_test_template_merge)
   fail_unless(gt_input_map_parse_template(
       "ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1",target)==0);
   // merge into source
-  gt_template_merge_template_mmaps(source, target);
-
-
+  gt_template_merge_template_mmaps(source,target);
 }
 END_TEST
 
@@ -43,7 +41,7 @@ START_TEST(gt_test_template_to_string)
   gt_output_map_sprint_template(string, source, GT_ALL, true);
   // convert to string
   char * line = gt_string_get_string(string);
-  printf("\n\n111'%s'222\n\n", line);
+  fail_unless(gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4\n"));
 }
 END_TEST
 
