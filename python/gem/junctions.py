@@ -223,8 +223,8 @@ def _get_chromosomes(index):
     """Return the list of chromosome names contained in the given index file"""
     if not isinstance(index, basestring):
         raise ValueError("The index must be a string")
-    if index.endswith(".gem"):
-        index = index[:-4]
+#    if index.endswith(".gem"):
+#        index = index[:-4]
     pa = subprocess.Popen(gem.executables['gem-info'] + ' ' + index, stdout=subprocess.PIPE, shell=True)
     chrs = []
     for line in pa.stdout:
