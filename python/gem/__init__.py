@@ -8,7 +8,7 @@ import logging
 
 
 # set this to true to cpli qualities to
-# read length and print a waring instead of raising an
+# read length and print a warning instead of raising an
 # exception
 import tempfile
 import files
@@ -887,3 +887,20 @@ class merger(object):
             of.write("\n")
         of.close()
         return files.open(output, type="map")
+
+
+def _is_i3_compliant(stream):
+    """Reads lines from the input stream and scans "flags" lines
+    and returns true if the flags are compatible with the GEM
+    i3 bundle. This is usually filled with the content of /proc/cpuinfo
+    to determine the current systems capabilities
+
+    The input is a stream that must provide a readline method"""
+    i3_flags = set(["popcnt", "ssse3", "sse4_1", "sse4_2"])
+    cpu_flags = set([])
+    for line in iter(stream.readline,''):
+        line = line.rstrip()
+        if line.startswith("flags"):
+            for e in line.split(":")[1].strip().split(" "):
+                cpu_flags.add(e)
+    return i3_flags.issubset(cpu_flags)

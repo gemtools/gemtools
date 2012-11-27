@@ -11,3 +11,4 @@ python/Gemtools.egg-info
 .vagrant
 nosetests.xml
 check-*.xml
+dist/
