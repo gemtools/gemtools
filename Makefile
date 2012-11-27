@@ -23,5 +23,6 @@ clean:
 	$(MAKE) -C GEMTools clean
 	@rm -Rf build dist
 	@rm -Rf python/Gem.egg-info
+	@rm -Rf python/Gemtools.egg-info
 
 

@@ -12,3 +12,5 @@ python/Gemtools.egg-info
 nosetests.xml
 check-*.xml
 dist/
+python/gem/gembinaries/
+downloads/

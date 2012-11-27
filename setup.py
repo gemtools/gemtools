@@ -3,6 +3,8 @@ from setuptools import setup, Command
 from distutils.core import Extension
 from setuptools.command.install import install as _install
 from setuptools.command.build_ext import build_ext as _build_ext
+from nose.commands import nosetests as _nosetests
+
 import subprocess
 import urllib
 import tempfile
@@ -33,7 +35,7 @@ def _is_i3_compliant():
     stream.close()
     return i3_flags.issubset(cpu_flags)
 
-def _install_bundle(install_dir):
+def _install_bundle(install_dir, base=None):
     """Download GEM bundle and move
     the bundled executables into the given target directory
     """
@@ -51,28 +53,56 @@ def _install_bundle(install_dir):
 
     file_name = __DOWNLOAD_FILE_TEMPLATE__ % (__VERSION__, type)
     base_url = "%s/%s" % (__DOWNLOAD_URL__,file_name)
-    dirpath = tempfile.mkdtemp()
+
+    if base is not None:
+        dirpath = base
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath)
+    else:
+        dirpath = tempfile.mkdtemp()
+
     target = "%s/%s" %(dirpath, file_name)
-    print "Downloading %s bundle from %s to %s" % (type, base_url, target)
-    urllib.urlretrieve (base_url, target)
+    if not os.path.exists(target):
+        print "Downloading %s bundle from %s to %s" % (type, base_url, target)
+        urllib.urlretrieve (base_url, target)
+
     tar = subprocess.Popen("tar xzvf %s" % (target), shell=True, cwd=dirpath)
     if tar.wait() != 0:
         print "Error while extracting gem bundle"
         exit(1)
-    os.remove(target)
+    if base is None:
+        os.remove(target)
 
     bins=[x for x in os.listdir(dirpath)]
-
     for file in bins:
-        print "Move bundle library: %s to %s" % (file, install_dir)
-        result_file = "%s/%s" % (install_dir, file)
-        if os.path.exists(result_file):
-            os.remove(result_file)
-        shutil.move("%s/%s" % (dirpath, file), install_dir)
-        os.chmod(result_file, 0755)
+        if not file.endswith(".tgz"):
+            print "Move bundle library: %s to %s" % (file, install_dir)
+            result_file = "%s/%s" % (install_dir, file)
+            if os.path.exists(result_file):
+                os.remove(result_file)
+            shutil.move("%s/%s" % (dirpath, file), install_dir)
+            os.chmod(result_file, 0755)
 
     # remove temp directory
-    os.removedirs(dirpath)
+    if base is None:
+        os.removedirs(dirpath)
+
+# extend nosetests command to
+# ensure we have the bundle installed and
+# locally
+class nosetests(_nosetests):
+    def run(self):
+        parent_dir = os.path.split(os.path.abspath(__file__))[0]
+        target_dir = "%s/%s" % (parent_dir, "python/gem/gembinaries")
+        _install_bundle(target_dir, base=parent_dir+"/downloads")
+        _nosetests.run(self)
+
+## install bundle command
+class install_bundle(Command):
+    def run(self):
+        parent_dir = os.path.split(os.path.abspath(__file__))[0]
+        target_dir = "%s/%s" % (parent_dir, "python/gem/gembinaries")
+        _install_bundle(target_dir, base=parent_dir+"/downloads")
 
 
 
@@ -111,7 +141,7 @@ gemtools = Extension('gem.gemtools',
                                'python/src/py_template.c', 'python/src/gemtoolsmodule.c', 'python/src/py_mappings_iterator.c'])
 
 setup(
-        cmdclass={'install': install, 'build_ext': build_ext},
+        cmdclass={'install': install, 'build_ext': build_ext, "nosetests":nosetests},
         name='Gemtools',
         version=__VERSION__,
         description='Python support library for the GEM mapper and the gemtools library',
