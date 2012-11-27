@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import gem
-import gem.gemtools as gt
+#import gem
+#import gem.gemtools as gt
 from testfiles import testfiles
 
 test_mapping = testfiles["test.map"]
