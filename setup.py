@@ -28,7 +28,7 @@ class build_ext(_build_ext):
 
 gemtools = Extension('gem.gemtools',
                     define_macros=[('MAJOR_VERSION', '1'),
-                                   ('MINOR_VERSION', '4')],
+                                   ('MINOR_VERSION', '6')],
                     include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
                     library_dirs=['GEMTools/lib'],
                     libraries=['gemtools'],
@@ -39,7 +39,7 @@ gemtools = Extension('gem.gemtools',
 setup(
         cmdclass={'install': install, 'build_ext': build_ext},
         name='Gemtools',
-        version='1.5',
+        version='1.6',
         description='Python support library for the GEM mapper and the gemtools library',
         author='Thasso Griebel, Santiago Marco Sola',
         author_email='thasso.griebel@gmail.com',
