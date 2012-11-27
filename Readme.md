@@ -90,3 +90,12 @@ Development
 In order to develop on the GEM-Tools library, node that the repository contains
 a [Vagrant](http://vagrantup.com/) files to be able to quickly setup a virtual 
 machine to test and run GEM on you local non-linux-64bit machine.
+
+Changelog
+=====================
+
+    1.5
+    - Fixed issues with gem-rna-mapper output and validation
+    - Moved validation to be a default step after split-mapping
+    - Added stats filter
+    - Fixed issue with gem-2-sam binary
