@@ -75,7 +75,7 @@ def _install_bundle(install_dir, base=None):
 
     bins=[x for x in os.listdir(dirpath)]
     for file in bins:
-        if not file.endswith(".tgz"):
+        if not file.endswith("gz"):
             print "Move bundle library: %s to %s" % (file, install_dir)
             result_file = "%s/%s" % (install_dir, file)
             if os.path.exists(result_file):

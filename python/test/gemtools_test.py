@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-#import gem
-#import gem.gemtools as gt
+import gem
+import gem.gemtools as gt
 from testfiles import testfiles
 
 test_mapping = testfiles["test.map"]
@@ -10,20 +10,20 @@ test_fastq = testfiles["test.fastq"]
 
 
 
-#def test_get_template():
-#    infile = gem.files.open(test_mapping)
-#    for read in infile:
-#        assert read._get_template() is not None
-#        #print read.template.max_complete_strata
-#
-#def test_gt_merge_templates():
-#    read_1 = gem.Read()
-#    read_1.id = "ID"
-#    read_1.line = "ID\tACGT\t####\t1\tchr1:-:20:4"
-#    read_2 = gem.Read()
-#    read_2.id = "ID"
-#    read_2.line = "ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1"
-#    print gt.merge_templates(read_1._get_template(), read_2._get_template())
+def test_get_template():
+    infile = gem.files.open(test_mapping)
+    for read in infile:
+        assert read._get_template() is not None
+        #print read.template.max_complete_strata
+
+def test_gt_merge_templates():
+    read_1 = gem.Read()
+    read_1.id = "ID"
+    read_1.line = "ID\tACGT\t####\t1\tchr1:-:20:4"
+    read_2 = gem.Read()
+    read_2.id = "ID"
+    read_2.line = "ID\tACGT\t####\t1:1\tchr1:-:30:4,chr9:+:50:3C"
+    print gt.merge_templates(read_1._get_template(), read_2._get_template())
 
 #def test_map_2_fastq_conversion():
 #    infile = gt.open_file(test_mapping)
