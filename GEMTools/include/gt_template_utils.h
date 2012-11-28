@@ -16,7 +16,8 @@
 /*
  * Template basic tools
  */
-GT_INLINE gt_status gt_template_deduce_alignments_tags(gt_template* const template);
+GT_INLINE void gt_template_deduce_alignments_tags(gt_template* const template);
+GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_alignment* const alignment);
 
 /*
  * Template's MMaps high-level insertion (basic building block)

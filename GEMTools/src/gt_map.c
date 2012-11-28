@@ -95,6 +95,9 @@ GT_INLINE uint64_t gt_map_get_length(gt_map* const map) {
         break;
     }
   }
+  if (length<0) {
+    printf("ss\n");
+  }
   gt_fatal_check(length<0,MAP_NEG_LENGTH);
   return (uint64_t)length;
 }

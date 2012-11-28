@@ -232,16 +232,12 @@ GT_INLINE gt_status gt_input_map_parser_reload_buffer(
 /*
  * MAP format. Basic building block for parsing
  */
-GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* const tag) { // FIXME: read all
+GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* const tag) {
   // Delimit the tag
   register char* const tag_begin = *text_line;
   GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
   if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
   register uint64_t tag_length = *text_line-tag_begin;
-  // Erase trailing postfixes
-  if (tag_length>2 && tag_begin[tag_length-2]==SLASH) {
-    tag_length -= 2;
-  }
   // Copy string
   gt_string_set_nstring(tag,tag_begin,tag_length);
   // Place cursor at beginning of the next field
@@ -1051,7 +1047,7 @@ GT_INLINE gt_status gt_imp_parse_template(
   if (gt_expect_true(num_blocks>1)) {
     gt_template_deduce_alignments_tags(template);
   } else {
-    gt_string_copy(gt_template_get_block(template,0)->tag,template->tag);
+    gt_template_deduce_template_tag(template,gt_template_get_block(template,0));
   }
 
   // QUALITIES

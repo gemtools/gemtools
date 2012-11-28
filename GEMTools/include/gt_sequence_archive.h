@@ -9,6 +9,8 @@
 #define GT_SEQUENCE_ARCHIVE_H_
 
 #include "gt_commons.h"
+#include "gt_map.h"
+#include "gt_dna_string.h"
 
 #define GT_SEQ_ARCHIVE_BLOCK_SIZE GT_BUFFER_SIZE_2M
 

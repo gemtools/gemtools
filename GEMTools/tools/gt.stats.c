@@ -497,7 +497,7 @@ void parse_arguments(int argc,char** argv) {
     case 'i':
       parameters.name_input_file = optarg;
       break;
-    case 0:
+    case 1:
       parameters.mmap_input = true;
       break;
     case 'p':

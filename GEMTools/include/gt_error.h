@@ -10,6 +10,8 @@
 
 #include <stdio.h>
 
+inline void gt_print_stack_trace();
+
 // Base-name of the sources
 #define GT_ERROR_BASENAME(S) \
   ({ register const char* const slash=strrchr((S),'/'); \
@@ -44,6 +46,7 @@ extern FILE* gt_error_stream;
 #define _gt_error_end_block() \
   } while (0)
 #define _gt_error_end_block__exit(exit_error_code) \
+    gt_print_stack_trace(); \
     exit(exit_error_code); \
   } while (0)
 /*
@@ -67,6 +70,7 @@ extern FILE* gt_error_stream;
     "Fatal error (%s:%d,%s)\n "gt_error_msg"\n", \
      GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
   fflush(error_stream); \
+  gt_print_stack_trace(); \
   exit(1); \
   } while (0)
 #define gt_error_msg(gt_error_msg,args...) \

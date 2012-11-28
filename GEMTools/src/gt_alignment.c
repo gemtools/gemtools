@@ -51,12 +51,12 @@ GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
 }
 GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
+  gt_alignment_clear_maps(alignment);
+  gt_shash_delete(alignment->maps_dictionary,true,true);
   gt_string_delete(alignment->tag);
   gt_string_delete(alignment->read);
   gt_string_delete(alignment->qualities);
   gt_vector_delete(alignment->counters);
-  gt_alignment_clear_maps(alignment);
-  gt_shash_delete(alignment->maps_dictionary,true,true);
   gt_vector_delete(alignment->maps);
   gt_shash_delete(alignment->attributes,true,true);
   free(alignment);

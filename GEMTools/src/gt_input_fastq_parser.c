@@ -19,9 +19,9 @@ GT_INLINE bool gt_input_file_detect_fastq_format(char* const buffer,const uint64
   return true;
 }
 GT_INLINE bool gt_input_file_test_fastq(
-    gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors) {
+    gt_input_file* const input_file,gt_fasta_file_format* const fasta_file_format,const bool show_errors) {
   GT_INPUT_FILE_CHECK(input_file);
-  GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,NULL);
+  //GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,NULL);
   if (gt_input_file_detect_fastq_format((char*)input_file->file_buffer,input_file->buffer_size,show_errors)) {
     // TODO
     return true;
@@ -29,7 +29,7 @@ GT_INLINE bool gt_input_file_test_fastq(
     return false;
   }
 }
-GT_INLINE gt_status gt_input_fastq_parser_check_sam_file_format(gt_buffered_input_file* const buffered_map_input) {
+GT_INLINE gt_status gt_input_fastq_parser_check_fastq_file_format(gt_buffered_input_file* const buffered_map_input) {
 //  register gt_input_file* const input_file = buffered_map_input->input_file;
 //  if (gt_expect_false(input_file->file_format==UNKNOWN)) { // Unknown
 //    gt_sam_headers sam_headers;
@@ -44,6 +44,7 @@ GT_INLINE gt_status gt_input_fastq_parser_check_sam_file_format(gt_buffered_inpu
 //    return GT_ISP_PE_WRONG_FILE_FORMAT;
 //  }
 //  return 0;
+  return 0;
 }
 
 /*
@@ -58,18 +59,18 @@ GT_INLINE void gt_input_fastq_parser_next_record(gt_buffered_input_file* const b
 GT_INLINE void gt_input_fastq_parser_prompt_error(
     gt_buffered_input_file* const buffered_map_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code) {
-  // Display textual error msg
-  register const char* const file_name = (buffered_map_input != NULL) ?
-      buffered_map_input->input_file->file_name : "<<LazyParsing>>";
-  if ((buffered_map_input == NULL)) {
-    line_num = 0; column_pos = 0;
-  }
-  switch (error_code) {
-    case 0: /* No error */ break;
-    default:
-      gt_error(PARSE_SAM,buffered_map_input->input_file->file_name,line_num);
-      break;
-  }
+//  // Display textual error msg
+//  register const char* const file_name = (buffered_map_input != NULL) ?
+//      buffered_map_input->input_file->file_name : "<<LazyParsing>>";
+//  if ((buffered_map_input == NULL)) {
+//    line_num = 0; column_pos = 0;
+//  }
+//  switch (error_code) {
+//    case 0: /* No error */ break;
+//    default:
+//      gt_error(PARSE_SAM,buffered_map_input->input_file->file_name,line_num);
+//      break;
+//  }
 }
 
 GT_INLINE gt_status gt_ifp_read_tag(
@@ -80,12 +81,12 @@ GT_INLINE gt_status gt_ifp_read_tag(
   // Read tag
   *tag = *text_line;
   GT_READ_UNTIL(text_line,**text_line==TAB || **text_line==SPACE);
-  if (GT_IS_EOL(text_line)) return GT_ISP_PE_PREMATURE_EOL;
+  if (GT_IS_EOL(text_line)) return GT_IFP_PE_PREMATURE_EOL;
   register char* last_parsed_tag_char = *text_line-1;
   *tag_length = *text_line-*tag;
   if (**text_line==SPACE) {
     GT_READ_UNTIL(text_line,**text_line==TAB);
-    if (GT_IS_EOL(text_line)) return GT_ISP_PE_PREMATURE_EOL;
+    if (GT_IS_EOL(text_line)) return GT_IFP_PE_PREMATURE_EOL;
   }
   GT_NEXT_CHAR(text_line);
   // Parse the end information {/1,/2,...}
@@ -104,7 +105,7 @@ GT_INLINE gt_status gt_ifp_read_tag(
 }
 
 #define GT_INPUT_SOAP_PARSER_CHECK_PREMATURE_EOL() \
-  if (GT_IS_EOL(text_line)) return GT_ISP_PE_PREMATURE_EOL
+  if (GT_IS_EOL(text_line)) return GT_IFP_PE_PREMATURE_EOL
 #define GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL__NEXT() \
   GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL(); \
   GT_NEXT_CHAR(text_line)
@@ -117,9 +118,8 @@ GT_INLINE gt_status gt_ifp_read_tag(
 
 GT_INLINE gt_status gt_ifp_parse_fastq_record(
     char** const text_line,char* const sequence,char* const qualities) {
-  register gt_status error_code;
   // TODO
-  return 0;
+  return GT_IFP_FAIL;
 }
 
 /*
@@ -154,15 +154,17 @@ GT_INLINE gt_status gt_input_fastq_parser_get_sequence(
 //    return GT_ISP_FAIL;
 //  }
 //  gt_input_sam_parser_next_record(buffered_map_input);
-  return GT_ISP_OK;
+  return GT_IFP_FAIL;
 }
 GT_INLINE gt_status gt_input_fastq_parser_get_alignment(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment) {
   // TODO
+  return GT_IFP_FAIL;
 }
 GT_INLINE gt_status gt_input_fastq_parser_get_template(
-    gt_buffered_input_file* const buffered_map_input,gt_template* const template,const uint64_t num_blocks) {
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template) {
   // TODO
+  return GT_IFP_FAIL;
 }
 
 /*
@@ -173,7 +175,7 @@ GT_INLINE uint64_t gt_fastq_tag_chomp_end_info(gt_string* const tag) {
   // Parse the end information {/1,/2}
   register const uint64_t tag_length = gt_string_get_length(tag);
   if (tag_length>2 && *gt_string_char_at(tag,tag_length-2)==SLASH) {
-    register const char tag_end = gt_string_char_at(tag,tag_length-1);
+    register const char tag_end = *gt_string_char_at(tag,tag_length-1);
     if (tag_end=='1') {
       gt_string_set_length(tag,tag_length-2);
       return 0;
