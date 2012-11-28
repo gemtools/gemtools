@@ -98,7 +98,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
 
     ## handle input stream
     if input is not None:
-        if raw_stream:
+        if raw_stream and isinstance(input, gem.files.ReadIterator):
             process_in = input.stream
         else:
             process_in = subprocess.PIPE
@@ -204,7 +204,7 @@ def __write_input(sequence, stream, transformer=None):
     @param transformer: optional transformer function
     @type transformer: function
     """
-    logging.info("Input thread method startedfor %s" % (stream))
+    logging.info("Input thread method started for %s" % (stream))
     for e in sequence:
         if transformer is not None:
             e = transformer(e)
