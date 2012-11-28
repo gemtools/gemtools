@@ -96,6 +96,8 @@ Changelog
 
     1.6
     - Added new bundle system and detection for i3 vs core2
+    - Added optional appending NH field to SAM entries
+
 
     1.5
     - Fixed issues with gem-rna-mapper output and validation
