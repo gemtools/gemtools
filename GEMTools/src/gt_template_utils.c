@@ -37,7 +37,9 @@ GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_al
   if (tag_length>2 && *gt_string_char_at(tag,tag_length-2)==SLASH) {
     tag_length-=2;
   }
-  gt_sprintf(template->tag,PRIgts,(int)tag_length,gt_string_get_string(tag));
+  if (tag_length>0) {
+    gt_string_set_nstring(template->tag,gt_string_get_string(tag),tag_length);
+  }
 }
 
 /*

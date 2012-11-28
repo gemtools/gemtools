@@ -261,6 +261,8 @@ GT_INLINE size_t gt_input_file_next_sam_record(
 /* Forward declarations (gt_file_format_test_<FORMAT> in each logic module) */
 GT_INLINE bool gt_input_file_test_map(
     gt_input_file* const input_file,gt_map_file_format* const map_file_format,const bool show_errors);
+GT_INLINE bool gt_input_file_test_sam(
+    gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors);
 /* */
 gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file) {
   GT_INPUT_FILE_CHECK(input_file);
@@ -273,7 +275,7 @@ gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file)
     return MAP;
   }
   // SAM test
-  if (gt_input_file_test_sam(input_file,&(input_file->map_type),false)) {
+  if (gt_input_file_test_sam(input_file,&(input_file->sam_headers),false)) {
     input_file->file_format = MAP;
     return MAP;
   }

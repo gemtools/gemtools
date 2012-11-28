@@ -324,6 +324,151 @@ void usage() {
                   "        --help|h    \n");
 }
 
+void gt_constructor_copy_template() {
+  gt_status error_code;
+  gt_alignment* alignment = gt_alignment_new();
+  gt_template* source = gt_template_new();
+
+  // test no maps no mmaps
+  gt_input_map_parse_template(
+      "ID\tACGT\t####\t1\tchr1:-:20:4",source);
+  gt_template* copy = gt_template_copy(source, false, false);
+  gt_string* string = gt_string_new(1024);
+  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  // convert to string for simple check
+  char * line = gt_string_get_string(string);
+  gt_streq(line,"ID\tACGT\t####\t0\t-\n");
+  gt_template_delete(copy);
+
+  // test maps no mmaps
+  gt_string_clear(string);
+  copy = gt_template_copy(source, true, false);
+  string = gt_string_new(1024);
+  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  // convert to string for simple check
+  line = gt_string_get_string(string);
+  gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4\n");
+  gt_template_delete(copy);
+
+  // test maps no mmaps with multi map string
+  gt_input_map_parse_template(
+    "ID\tACGT\t####\t1\tchr1:-:20:4,chr2:-:40:4",source);
+
+  gt_string_clear(string);
+  copy = gt_template_copy(source, true, false);
+  string = gt_string_new(1024);
+  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  // convert to string for simple check
+  line = gt_string_get_string(string);
+  gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4,chr2:-:40:4\n");
+  gt_template_delete(copy);
+
+  // test maps and mmaps
+  gt_string_clear(string);
+  copy = gt_template_copy(source, true, true);
+  string = gt_string_new(1024);
+  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  // convert to string for simple check
+  line = gt_string_get_string(string);
+  gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4,chr2:-:40:4\n");
+  gt_template_delete(copy);
+}
+
+void gt_constructor_parse_again() {
+  gt_map* map = gt_map_new();
+  gt_vector* map_list = gt_vector_new(10,sizeof(gt_map*));
+  gt_alignment* alignment = gt_alignment_new();
+  gt_template* template = gt_template_new();
+
+  /*
+   * Parse old map
+   */
+  gt_input_map_parse_map("chr7:F127708134G27<+5>30A34<-5>40T88",map);
+  /*
+   * Parse new map
+   */
+  gt_input_map_parse_map("chr12:+:9570521:6C2>1+1>1-3T>1-2T12>4-8T23T8",map);
+
+  /*
+   * Parsing single maps
+   */
+  // Parse old map
+  gt_input_map_parse_map("chr7:F127708134G27<+5>30A34<-5>40T88",map);
+  // Parse new SE-map
+  gt_input_map_parse_map("chr12:+:9570521:6C2>1+1>1-3T>1-2T12>4-8T23T8",map);
+  // Parse new PE-map
+  gt_input_map_parse_map("chr15:-:102516634:66G9::chr15:+:102516358:66>1+10:::7936",map);
+
+  /*
+   * Parsing list of maps
+   */
+  // Parse multiple old split-map
+  gt_input_map_parse_map("[26]=chr7:R1203797~chr7:R1203108",map);
+  gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list,1);
+  gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list,1);
+  gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list,1);
+  gt_input_map_parse_map_list("[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,1);
+  gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list,1);
+  gt_input_map_parse_map_list(
+      "chrM:F6598<+1>16@0/0,[23]=chr6:R31322884~chr6:R31237276,"
+      "[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,GT_ALL);
+  // Parse multiple old SE-map
+  gt_input_map_parse_map_list("chr1:F8926499@0/0,chr12:R7027116G39A42@77/2",map_list,GT_ALL);
+  // Parse multiple new SE-map
+  gt_input_map_parse_map_list(
+      "chrX:-:155255234:1T36A37,chrY:-:59358240:1T36A37:200,"
+      "chr15:-:102516664:1>1-28>5+8A37,chr16:+:64108:3>1-30>1+1>4+3A37,"
+      "chr9:+:14540:3>1-34A33A2>1-",map_list,GT_ALL);
+  // Parse multiple new PE-map
+  gt_input_map_parse_map_list(
+      "chr15:-:102516742:(3)3GCA67::chr15:+:102516611:76:::7936,"
+      "chr16:+:64114:1>1-26>1+1>4+47::chr16:-:64196:68A6T:::12224,"
+      "chr1:+:16731:(5)35>92*16(20),chrY:-:59355959:(5)6G4G24>1-3A1CA1AAA1>1-1(20),"
+      "chrX:-:155252953:(5)6G4G24>1-3A1CA1AAA1>1-1(20)",map_list,GT_ALL);
+
+  /*
+   * Parsing counters
+   */
+
+  /*
+   * Parsing Alignments
+   */
+  gt_input_map_parse_alignment(
+      "C0LMTACXX120523:8:2209:19417:37092/1\t"
+      "ACTCCAGTCACTCCAGCAAATCTCGGATGCCGTCTTCTGCTTGAACGAAACCAGAACTGTGTGGAGAACAGCTTAA\t"
+      "7=7AAAA7<722<C+AA;=C?<3A3+2<):@)?###########################################\t"
+      "0+0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:1:0:1:0:1:1\t"
+      "chr10:+:28549954:(5)17A1AA1GC1A1ATGGG1C1CCA1TTC2T1A1TT1(20):65472,"
+      "chr13:+:43816250:(5)10A7ACTC2AGA1A2TCCAG3C1CTCTT1TTGC(20):12224,"
+      "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20):1984,"
+      "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20):1984,"
+      "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20):1984",alignment);
+  gt_input_map_parse_alignment(
+      "C0LMTACXX120523:8:2209:19417:37092/1\t"
+      "ACTCCAGTCACTCCAGCAAATCTCGGATGCCGTCTTCTGCTTGAACGAAACCAGAACTGTGTGGAGAACAGCTTAA\t"
+      "7=7AAAA7<722<C+AA;=C?<3A3+2<):@)?###########################################\t"
+      "0+0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:1:0:1:0:1:1\t"
+      "-",alignment);
+
+  /*
+   * Parsing Templates
+   */
+  gt_input_map_parse_template(
+      "C0LMTACXX120523:8:2209:19417:37092/1\t"
+      "ACTCCAGTCACTCCAGCAAATCTCGGATGCCGTCTTCTGCTTGAACGAAACCAGAACTGTGTGGAGAACAGCTTAA\t"
+      "7=7AAAA7<722<C+AA;=C?<3A3+2<):@)?###########################################\t"
+      "0+0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:1:0:1:0:1:1\t"
+      "chr10:+:28549954:(5)17A1AA1GC1A1ATGGG1C1CCA1TTC2T1A1TT1(20),"
+      "chr13:+:43816250:(5)10A7ACTC2AGA1A2TCCAG3C1CTCTT1TTGC(20),"
+      "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20),"
+      "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20),"
+      "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20)",template);
+  /*
+   * Check mcs delegation for single end
+   */
+  gt_template_get_mcs(template);
+}
+
 void parse_arguments(int argc,char** argv) {
   struct option long_options[] = {
     { "input", required_argument, 0, 'i' },
@@ -360,7 +505,10 @@ int main(int argc,char** argv) {
   //
   // Load it!
   //
-  gt_constructor_merge_template();
+  gt_constructor_parse_again();
+  gt_constructor_copy_template();
+
+  //gt_constructor_merge_template();
   //gt_example_map_string_parsing();
   //gt_dummy_example();
 

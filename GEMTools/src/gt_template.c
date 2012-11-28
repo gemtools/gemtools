@@ -439,7 +439,7 @@ GT_INLINE gt_template* gt_template_copy(gt_template* const template,const bool c
   // Copy blocks
   gt_template_copy_blocks(template_cpy,template,copy_maps);
   // Copy mmaps
-  if (copy_maps && copy_mmaps) {
+  if (copy_maps && copy_mmaps && gt_template_get_num_blocks(template)>1) {
     // Copy counters
     gt_vector_copy(template_cpy->counters,template->counters);
     // Copy mmaps & mmaps_attributes

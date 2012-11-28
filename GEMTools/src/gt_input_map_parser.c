@@ -1047,7 +1047,9 @@ GT_INLINE gt_status gt_imp_parse_template(
   if (gt_expect_true(num_blocks>1)) {
     gt_template_deduce_alignments_tags(template);
   } else {
-    gt_template_deduce_template_tag(template,gt_template_get_block(template,0));
+    gt_alignment* const alignment = gt_template_get_block(template,0);
+    GT_SWAP(template->tag,alignment->tag);
+    gt_template_deduce_template_tag(template,alignment);
   }
 
   // QUALITIES

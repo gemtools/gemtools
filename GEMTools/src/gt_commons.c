@@ -66,7 +66,7 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
       gt_check(centinel==EOS,PRINT_FORMAT);
       // Check format
       switch (*centinel) {
-        case 's': { // String requires fetching the argument length
+        case 's': { // String requires fetching the argument length // FIXME: %.*s
           register char* const string = va_arg(v_args_cpy,char*);
           mem_required+=strlen(string);
           break;
