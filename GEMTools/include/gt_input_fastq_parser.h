@@ -15,6 +15,7 @@
 
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
+#include "gt_input_parser.h"
 
 // Codes gt_status
 #define GT_IFP_OK 1
@@ -25,6 +26,7 @@
  * Parsing error/state codes
  */
 // #define GT_IFP_PE_WRONG_FILE_FORMAT 10
+#define GT_IFP_PE_PREMATURE_EOL 10
 
 /*
  * FASTQ File basics

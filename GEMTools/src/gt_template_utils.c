@@ -10,7 +10,7 @@
 /*
  * Template useful functions
  */
-GT_INLINE gt_status gt_template_deduce_alignments_tags(gt_template* const template) {
+GT_INLINE void gt_template_deduce_alignments_tags(gt_template* const template) {
   /*
    * Tag Block Conventions::
    *  (1) line1: NAME => line1&2: NAME
@@ -30,7 +30,16 @@ GT_INLINE gt_status gt_template_deduce_alignments_tags(gt_template* const templa
     register gt_alignment* const alignment = gt_template_get_block(template,i);
     gt_sprintf(alignment->tag,"%s/%"PRIu64,gt_string_get_string(template->tag),i+1);
   }
-  return 0;
+}
+GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_alignment* const alignment) {
+  register uint64_t tag_length = gt_alignment_get_tag_length(alignment);
+  register gt_string* const tag = alignment->tag;
+  if (tag_length>2 && *gt_string_char_at(tag,tag_length-2)==SLASH) {
+    tag_length-=2;
+  }
+  if (tag_length>0) {
+    gt_string_set_nstring(template->tag,gt_string_get_string(tag),tag_length);
+  }
 }
 
 /*

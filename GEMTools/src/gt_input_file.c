@@ -62,16 +62,15 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
       (uint8_t*) mmap(0,input_file->file_size,PROT_READ,MAP_PRIVATE,input_file->fildes,0);
     gt_cond_fatal_error(input_file->file_buffer==MAP_FAILED,SYS_MMAP,file_name);
     input_file->file_type = MAPPED_FILE;
-    input_file->buffer_size = input_file->file_size;
   } else {
     input_file->fildes = -1;
     gt_cond_fatal_error(!(input_file->file=fopen(file_name,"r")),FILE_OPEN,file_name);
     input_file->file_type = REGULAR_FILE;
     input_file->file_buffer = malloc(GT_INPUT_BUFFER_SIZE);
     gt_cond_fatal_error(!input_file->file_buffer,MEM_ALLOC);
-    input_file->buffer_size = 0;
   }
   // Auxiliary Buffer (for synch purposes)
+  input_file->buffer_size = 0;
   input_file->buffer_begin = 0;
   input_file->buffer_pos = 0;
   input_file->global_pos = 0;
@@ -162,7 +161,7 @@ GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
   input_file->buffer_begin = 0;
   if (gt_expect_true(
       (input_file->file_type==STREAM && !feof(input_file->file)) ||
-      (input_file->global_pos < input_file->file_size))) {
+      (input_file->file_type==REGULAR_FILE && input_file->global_pos < input_file->file_size))) {
     input_file->buffer_size =
         fread(input_file->file_buffer,sizeof(uint8_t),GT_INPUT_BUFFER_SIZE,input_file->file);
     if (input_file->buffer_size==0) {
@@ -170,7 +169,8 @@ GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
     }
     return input_file->buffer_size;
   } else if (input_file->file_type==MAPPED_FILE && input_file->global_pos < input_file->file_size) {
-    return input_file->file_size-input_file->global_pos;
+    input_file->buffer_size = input_file->file_size-input_file->global_pos;
+    return input_file->buffer_size;
   } else {
     input_file->eof = true;
     return 0;
@@ -261,6 +261,8 @@ GT_INLINE size_t gt_input_file_next_sam_record(
 /* Forward declarations (gt_file_format_test_<FORMAT> in each logic module) */
 GT_INLINE bool gt_input_file_test_map(
     gt_input_file* const input_file,gt_map_file_format* const map_file_format,const bool show_errors);
+GT_INLINE bool gt_input_file_test_sam(
+    gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors);
 /* */
 gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file) {
   GT_INPUT_FILE_CHECK(input_file);
@@ -272,7 +274,11 @@ gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file)
     input_file->file_format = MAP;
     return MAP;
   }
-  // TODO: Install SAM
+  // SAM test
+  if (gt_input_file_test_sam(input_file,&(input_file->sam_headers),false)) {
+    input_file->file_format = MAP;
+    return MAP;
+  }
   // TODO: Install FASTQ
   // Unknown format
   // gt_error(FILE_FORMAT);

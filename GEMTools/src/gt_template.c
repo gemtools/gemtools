@@ -69,11 +69,17 @@ GT_INLINE void gt_template_delete(gt_template* const template) {
  */
 GT_INLINE char* gt_template_get_tag(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_tag(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
   return gt_string_get_string(template->tag);
 }
 GT_INLINE void gt_template_set_tag(gt_template* const template,char* const tag,const uint64_t length) {
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(tag);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_set_tag(alignment,tag,length);
+  } GT_TEMPLATE_END_REDUCTION;
   gt_string_set_nstring(template->tag,tag,length);
 }
 GT_INLINE uint64_t gt_template_get_total_length(gt_template* const template) {
@@ -219,7 +225,7 @@ GT_INLINE void gt_template_set_attr(
 /*
  * Predefined attributes
  */
-GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) { // FIXME: reduce
+GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   register uint64_t* mcs = gt_template_get_attribute(template,GT_ATTR_MAX_COMPLETE_STRATA,uint64_t);
   if (mcs == NULL) return UINT64_MAX;
@@ -433,7 +439,7 @@ GT_INLINE gt_template* gt_template_copy(gt_template* const template,const bool c
   // Copy blocks
   gt_template_copy_blocks(template_cpy,template,copy_maps);
   // Copy mmaps
-  if (copy_maps && copy_mmaps) {
+  if (copy_maps && copy_mmaps && gt_template_get_num_blocks(template)>1) {
     // Copy counters
     gt_vector_copy(template_cpy->counters,template->counters);
     // Copy mmaps & mmaps_attributes

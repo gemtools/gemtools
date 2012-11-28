@@ -84,7 +84,6 @@ void gt_mapset_read__write() {
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
   // Parallel reading+process
-  register const gt_operation op = parameters.operation;
   gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
   gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
   gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
@@ -95,49 +94,25 @@ void gt_mapset_read__write() {
   gt_template *template_2 = gt_template_new();
   while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,buffered_output)) {
     // Apply operation
-    if (parameters.paired_end) { // PE
-      register gt_template *ptemplate;
-      switch (op) {
-        case GT_MAP_SET_UNION:
-          ptemplate=gt_template_union_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
-          break;
-        case GT_MAP_SET_INTERSECTION:
-          ptemplate=gt_template_intersect_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
-          break;
-        case GT_MAP_SET_DIFFERENCE:
-          ptemplate=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
-          break;
-        default:
-          gt_fatal_error(SELECTION_NOT_VALID);
-          break;
-      }
-      // Print template
-      gt_output_map_bofprint_gem_template(buffered_output,ptemplate,GT_ALL,true);
-      // Delete template
-      gt_template_delete(ptemplate);
-    } else { // SE
-      register gt_alignment* palignment;
-      register gt_alignment* const alignment_1 = gt_template_get_block(template_1,0);
-      register gt_alignment* const alignment_2 = gt_template_get_block(template_2,0);
-      switch (op) {
-        case GT_MAP_SET_UNION:
-          palignment=gt_alignment_union_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
-          break;
-        case GT_MAP_SET_INTERSECTION:
-          palignment=gt_alignment_intersect_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
-          break;
-        case GT_MAP_SET_DIFFERENCE:
-          palignment=gt_alignment_subtract_alignment_maps_fx(gt_mapset_map_cmp,alignment_1,alignment_2);
-          break;
-        default:
-          gt_fatal_error(SELECTION_NOT_VALID);
-          break;
-      }
-      // Print alignment
-      gt_output_map_bofprint_alignment(buffered_output,palignment,GT_ALL,true);
-      // Delete alignment
-      gt_alignment_delete(palignment);
+    register gt_template *ptemplate;
+    switch (parameters.operation) {
+      case GT_MAP_SET_UNION:
+        ptemplate=gt_template_union_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
+        break;
+      case GT_MAP_SET_INTERSECTION:
+        ptemplate=gt_template_intersect_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
+        break;
+      case GT_MAP_SET_DIFFERENCE:
+        ptemplate=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
+        break;
+      default:
+        gt_fatal_error(SELECTION_NOT_VALID);
+        break;
     }
+    // Print template
+    gt_output_map_bofprint_gem_template(buffered_output,ptemplate,GT_ALL,true);
+    // Delete template
+    gt_template_delete(ptemplate);
   }
 
   // Clean
