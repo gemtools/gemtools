@@ -8,7 +8,7 @@ import logging
 
 
 # set this to true to cpli qualities to
-# read length and print a waring instead of raising an
+# read length and print a warning instead of raising an
 # exception
 import tempfile
 import files
@@ -449,6 +449,7 @@ def splitmapper(input,
                 mismatch_strata_delta=1,
                 quality=33,
                 trim=None,
+                filter_splitmaps=True,
                 post_validate=True,
                 mismatch_alphabet="ACGT",
                 threads=1):
@@ -469,7 +470,7 @@ def splitmapper(input,
     """
 
     ## check the index
-    index = _prepare_index_parameter(index, False)
+    index = _prepare_index_parameter(index, gem_suffix=True)
     if quality is None and isinstance(input, files.ReadIterator):
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
@@ -506,7 +507,9 @@ def splitmapper(input,
             raise ValueError("Trim parameter has to be a list or a tuple of size 2")
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
-    tools = [pa, __awk_filter]
+    tools = [pa]
+    if filter_splitmaps:
+        tools.append(__awk_filter)
     if trim is not None:
         tools.append(trim_c)
 
@@ -557,6 +560,7 @@ def extract_junctions(input,
         matches_threshold=matches_threshold,
         splice_consensus=splice_consensus,
         quality=quality,
+        filter_splitmaps=False,
         post_validate=False,
         threads=threads)
     ## make sure we have an output file
@@ -588,9 +592,9 @@ def extract_junctions(input,
     if output is None:
         ## return delete iterator
         return (
-        files.open(output_file, type="map", process=splitmapper, remove_after_iteration=True), denovo_junctions)
+        files.open(output_file, type="map", process=splitmap, remove_after_iteration=True), denovo_junctions)
     else:
-        return files.open(output_file, type="map", process=splitmapper), denovo_junctions
+        return files.open(output_file, type="map", process=splitmap), denovo_junctions
 
 
 def pairalign(input, index, output=None,
@@ -650,7 +654,7 @@ def realign(input,
             index,
             output=None,
             threads=1, ):
-    index = _prepare_index_parameter(index, gem_suffix=False)
+    index = _prepare_index_parameter(index, gem_suffix=True)
     validate_p = [executables['gem-map-2-map'],
                   '-I', index,
                   '-r',
@@ -669,7 +673,7 @@ def validate(input,
              validate_score=None, # "-s,-b,-i"
              validate_filter=None, # "2,25"
              threads=1, ):
-    index = _prepare_index_parameter(index, gem_suffix=False)
+    index = _prepare_index_parameter(index, gem_suffix=True)
     validate_p = [executables['gem-map-2-map'],
                   '-I', index,
                   '-v', '-r',
@@ -695,7 +699,7 @@ def score(input,
           output=None,
           scoring="+U,+u,-t,-s,-i,-a",
           threads=1):
-    index = _prepare_index_parameter(index, gem_suffix=False)
+    index = _prepare_index_parameter(index, gem_suffix=True)
     score_p = [executables['gem-map-2-map'],
                '-I', index,
                '-s', scoring,
@@ -721,7 +725,7 @@ def validate_and_score(input,
 
 def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True):
     if index is not None:
-        index = _prepare_index_parameter(index, True)
+        index = _prepare_index_parameter(index, gem_suffix=True)
     gem_2_sam_p = [executables['gem-2-sam'],
                    '-T', str(threads)
     ]
@@ -887,3 +891,20 @@ class merger(object):
             of.write("\n")
         of.close()
         return files.open(output, type="map")
+
+
+def _is_i3_compliant(stream):
+    """Reads lines from the input stream and scans "flags" lines
+    and returns true if the flags are compatible with the GEM
+    i3 bundle. This is usually filled with the content of /proc/cpuinfo
+    to determine the current systems capabilities
+
+    The input is a stream that must provide a readline method"""
+    i3_flags = set(["popcnt", "ssse3", "sse4_1", "sse4_2"])
+    cpu_flags = set([])
+    for line in iter(stream.readline,''):
+        line = line.rstrip()
+        if line.startswith("flags"):
+            for e in line.split(":")[1].strip().split(" "):
+                cpu_flags.add(e)
+    return i3_flags.issubset(cpu_flags)

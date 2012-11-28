@@ -22,7 +22,7 @@ def test_gt_merge_templates():
     read_1.line = "ID\tACGT\t####\t1\tchr1:-:20:4"
     read_2 = gem.Read()
     read_2.id = "ID"
-    read_2.line = "ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1"
+    read_2.line = "ID\tACGT\t####\t1:1\tchr1:-:30:4,chr9:+:50:3C"
     print gt.merge_templates(read_1._get_template(), read_2._get_template())
 
 #def test_map_2_fastq_conversion():

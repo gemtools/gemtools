@@ -618,10 +618,18 @@ static PyObject* gemtools_merge_templates(PyObject *self, PyObject *args){
 
     Template* t_1 = (Template*)t1;
     Template* t_2 = (Template*)t2;
-    printf("%s\n", gt_template_get_tag(t_1->template));
-    printf("%s\n", gt_template_get_tag(t_2->template));
+    printf("Copy ...");
+    gt_template* tmpl = gt_template_copy(t_1->template, true, false);
+    printf("Done\n");
     gt_template_merge_template_mmaps(t_1->template, t_2->template);
-    return (PyObject *)t_1;
+
+    gt_string* string = gt_string_new(1024);
+    gt_output_map_sprint_template(string, t_1->template, GT_ALL, true);
+    char * line = gt_string_get_string(string);
+    PyObject* returnvalue = PyString_FromString(line);
+    //gt_string_delete(string);
+    //gt_template_delete(tmpl);
+    return returnvalue;
 };
 
 
