@@ -78,6 +78,10 @@ class parse_map(Parser):
         line = stream.readline()
         if not line:
             return None
+        self.line2read(line)
+        return self.read
+
+    def line2read(self, line):
         line = line.rstrip()
         split = line.split("\t")
         self.read.type = "map"
@@ -94,10 +98,12 @@ class parse_map(Parser):
             self.read.summary = split[2]
             self.read.mappings = split[3]
             self.read.qualities = None
-        if self.read.summary in ["+", "-", "*"]:
-            self.read.summary = "0"
-        return self.read
 
+        if self.read.summary == None or self.read.summary in ['-', '*']:
+            self.read.summary = 0
+        elif self.read.summary in ['+', '!']:
+            self.read.summary = gem.__max_mappings
+        return self.read
 
 class parse_sam(Parser):
     """Parse gem map entries from a stream"""
