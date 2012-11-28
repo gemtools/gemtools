@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Python wrapper around the GEM2 mapper that provides
 ability to feed data into GEM and retrieve the mappings"""
+from Queue import Queue
 import os
 import shutil
 import sys
@@ -723,7 +724,7 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, max(threads / 2, 1))
 
 
-def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True):
+def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True, append_nh=False):
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
     gem_2_sam_p = [executables['gem-2-sam'],
@@ -746,18 +747,45 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
 
     # GT-25 transform id's
     transform = utils.read_to_map
-    if check_ids and not single_end:
+    nh_queue = None
+    if append_nh:
+        nh_queue = Queue()
+    if check_ids and not single_end or append_nh:
         def t(read):
-            split = read.id.split()
-            if len(split) > 1:
-                if split[1][0] in ("1", "2"):
-                    read.id = "%s/%s" % (split[0], split[1][0])
-                else:
-                    raise ValueError("Unable to identify read id pair counter from %s" % read.id)
+            if check_ids and not single_end:
+                split = read.id.split()
+                if len(split) > 1:
+                    if split[1][0] in ("1", "2"):
+                        read.id = "%s/%s" % (split[0], split[1][0])
+                    else:
+                        raise ValueError("Unable to identify read id pair counter from %s" % read.id)
+            if append_nh:
+                nh = sum(read.get_maps()[0])
+                if __max_mappings == nh: nh = 0
+                nh_queue.put(nh)
             return utils.read_to_map(read)
         transform = t
 
-    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform)
+
+    post_transform = None
+    if append_nh:
+        class nh_filter(object):
+            def __init__(self, _queue):
+                self.queue = _queue
+                self.last_id = None
+                self.nh = 0
+
+            def add_nh(self, e):
+                if e[0] == "@": return e
+
+                current_id = e.split("\t")[0]
+                if self.last_id is None or self.last_id != current_id:
+                    self.nh = self.queue.get(timeout=5)
+                    self.last_id = current_id
+                return "%s\tNH:i:%d\n" % (e.strip(), self.nh)
+        post_transform = nh_filter(nh_queue).add_nh
+
+    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform, post_transform=post_transform)
     return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
 
 

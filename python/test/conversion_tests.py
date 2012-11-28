@@ -111,5 +111,6 @@ def test_gem2sam_execution():
     assert sam.filename is None
     count = 0
     for read in sam:
+        #print read.line.strip()
         count += 1
-    assert count == 10000
+    assert count == 10000, "Count 10000!=%d" % count

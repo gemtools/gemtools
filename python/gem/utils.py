@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Gem tools utilities
 """
+from Queue import Queue
 import os
 import re
 import string
@@ -11,6 +12,67 @@ from threading import Thread
 
 import gem
 import sys
+
+
+class ProcessWrapper(object):
+    def __init__(self, _parent, _threads, stdout=None):
+        self._parent = _parent
+        self._threads = _threads
+        self.stdout = _parent.stdout
+        self.stderr = _parent.stderr
+        self.stdin = _parent.stdin
+        if stdout is not None:
+            self.stdout = stdout
+
+    def wait(self):
+        if self._threads is not None:
+            for t in self._threads:
+                t.join()
+        return self._parent.wait()
+
+
+class StreamWrapper(object):
+    def __init__(self):
+        self.queue = Queue()
+        self.__closed = False
+        self.__written = 0
+        self.__read = 0
+
+    def write(self, e):
+        self.__written += 1
+        self.queue.put(e)
+
+
+    def readline(self, timeout=None):
+        if self.__closed and self.__read == self.__written:
+            return None
+
+        if timeout is None:
+            timeout = 1
+        line = None
+        try:
+            line = self.queue.get(timeout=timeout)
+        except Exception, e:
+            if not self.__closed:
+                if timeout > 30:
+                    raise e
+                else:
+                    return self.readline(timeout=timeout*2)
+        self.__read += 1
+        return line
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        line = self.readline()
+        if line is None:
+            raise StopIteration()
+        return line
+
+    def close(self):
+        self.__closed = True
+
 
 def read_to_sequence(read):
     """
@@ -54,7 +116,8 @@ def reverseComplement(sequence):
     return sequence.translate(complement)[::-1]
 
 
-def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None, raw_stream=False, path=None):
+def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None
+              , raw_stream=False, path=None):
     """
     Run the tools defined in the tools list using a new process per tools.
     The input is a ReadIterator and the method checks
@@ -89,7 +152,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             if name:
                 tools_name = name
             logging.debug("Appending stderr read thread to watch for errors in %s" % process)
-            err_thread = Thread(target=__parse_error_output, args=(process.stderr,tools_name,))
+            err_thread = Thread(target=__parse_error_output, args=(process.stderr, tools_name,))
             err_thread.start()
 
     process_in = None
@@ -104,7 +167,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             process_in = subprocess.PIPE
 
     ## handle output stream
-    if output is not None:
+    if output is not None or post_transform is not None:
         if isinstance(output, basestring):
             process_out = open(output, 'w')
         else:
@@ -128,7 +191,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
 
     env = None
     if path is not None:
-        env = {'PATH':path}
+        env = {'PATH': path}
     for i, params in enumerate(tools):
         logging.info("Starting %s :\n\t%s" % (name, " ".join(params)))
         #print "Starting %s :\n\t%s" % (name, " ".join(params))
@@ -138,34 +201,56 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
         if first_process is None:
             ## start the first process
             ## and set stdout to PIPE if there are more
-            if num_tools > 1:
+            if num_tools > 1 or post_transform is not None:
                 p_out = subprocess.PIPE
-            logging.debug("Starting Initial process %s %s\nstdout: %s\nstderr %s" % (name, str(params), str(process_out), str(process_err)))
-            first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True, env=env)
+            logging.debug("Starting Initial process %s %s\nstdout: %s\nstderr %s" % (
+                name, str(params), str(process_out), str(process_err)))
+            first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True,
+                env=env)
             current_process = first_process
         else:
             ## add the next process
             ## and set process out if it is the last one
             p_out = process_out
-            if i < num_tools - 1:
+            if i < num_tools - 1 or post_transform is not None:
                 p_out = subprocess.PIPE
             logging.debug("Starting Piped process %s %s" % (name, str(params)))
-            current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err, close_fds=True, env=env)
+            current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err,
+                close_fds=True, env=env)
         if gem.log_output != gem.LOG_STDERR:
             append_logger(current_process, logfile)
         last_process = current_process
 
 
     ## start the input thread
+    threads = []
+    stdout = last_process.stdout
+
     if input is not None and not raw_stream:
         logging.debug("Starting input stream thread for %s " % (name))
         input_thread = Thread(target=__write_input, args=(input, first_process.stdin, transform_fun))
         input_thread.start()
+        threads.append(input_thread)
 
-    return last_process
+    if post_transform is not None:
+        ## post_transform output
+        logging.debug("Starting post transform thread for %s " % (name))
+        thread_out = None
+        if output is not None and isinstance(output, basestring):
+            thread_out = open(output, 'w')
+        else:
+            thread_out = StreamWrapper()
+        stdout = thread_out
+
+        output_thread = Thread(target=__write_output, args=(last_process.stdout, thread_out, post_transform))
+        output_thread.start()
+        threads.append(output_thread)
+
+    return ProcessWrapper(last_process, threads, stdout=stdout)
 
 
-def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, logfile=None, raw_stream=False):
+def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None
+             , raw_stream=False):
     """
     Run the tool defined in the params array using a new process.
     The input is a ReadIterator and the method checks
@@ -190,7 +275,8 @@ def run_tool(params, input=None, output=None, name="", transform_fun=read_to_seq
     @raise: ValueError in case the execution failed
 
     """
-    return run_tools([params], input, output, name, transform_fun, logfile, raw_stream)
+    return run_tools([params], input, output, name, transform_fun, post_transform, logfile, raw_stream)
+
 
 def __write_input(sequence, stream, transformer=None):
     """
@@ -215,6 +301,34 @@ def __write_input(sequence, stream, transformer=None):
             exit(1)
     stream.close()
     logging.info("Input thread method finished for %s" % (stream))
+
+
+def __write_output(output, stream, transformer=None):
+    """
+    Put lines from output through transformer function and write them to
+    stream
+    @param sequence: the input sequence
+    @type sequence: sequence
+    @param stream: the output stream
+    @type stream: stream
+    @param transformer: optional transformer function
+    @type transformer: function
+    """
+    logging.info("Output thread method started for %s" % (stream))
+    while True:
+        e = output.readline()
+        if e is None or len(e) == 0:
+            break
+        if transformer is not None:
+            e = transformer(e)
+        try:
+            stream.write(str(e))
+        except Exception, ex:
+            logging.error("Failed to write %s to stream: %s" % (str(e), str(ex)))
+            stream.close()
+            exit(1)
+    stream.close()
+    logging.info("Output thread method finished for %s" % (stream))
 
 
 def multisplit(s, seps):
@@ -261,6 +375,7 @@ def find_in_path(program):
     @return: absolute path to the program or None
     @rtype: string
     """
+
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 

@@ -100,7 +100,7 @@ class parse_map(Parser):
             self.read.qualities = None
 
         if self.read.summary == None or self.read.summary in ['-', '*']:
-            self.read.summary = 0
+            self.read.summary = "0"
         elif self.read.summary in ['+', '!']:
             self.read.summary = gem.__max_mappings
         return self.read
