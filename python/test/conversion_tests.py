@@ -130,3 +130,16 @@ def test_gem2sam_execution_to_file():
         #print read.line.strip()
         count += 1
     assert count == 10000, "Count 10000!=%d" % count
+
+@with_setup(setup_func, cleanup)
+def test_gem2sam_sam2bam_with_nh():
+    input = gem.files.open(testfiles["reads_1.fastq"])
+    mappings = gem.mapper(input, index)
+    sam = gem.gem2sam(mappings, index, compact=True, append_nh=True)
+    result = results_dir+"/test_sam.bam"
+    bam = gem.sam2bam(sam, output=result)
+    assert os.path.exists(result)
+    count = 0
+    for l in gem.files.open(result):
+        count += 1
+    assert count == 10000, "Count 10000!=%d" % count

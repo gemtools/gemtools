@@ -339,7 +339,7 @@ def _write_sequence_file(input, tmpdir=None):
     return inputfile, count
 
 
-def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False, quality=None):
+def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False, quality=None, raw=False):
     """If output is not None, this waits for the process to
     finish and opens a ReadIterator
     on the output file using the given type.
@@ -351,11 +351,11 @@ def _prepare_output(process, output=None, type="map", name="GEM", remove_after_i
         # wait for the process to finish
         if process.wait() != 0:
             raise ValueError("%s execution failed!" % name)
-        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality)
+        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
     else:
         ## running in async mode, return iterator on
         ## the output stream
-        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality)
+        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
 
 
 def validate_executables():
@@ -807,7 +807,7 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
         post_transform.append(nh_filter(nh_queue).add_nh)
 
     process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform, post_transform=post_transform)
-    return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
+    return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality, raw=True)
 
 
 def sam2bam(input, output=None, sorted=False, tmpdir=None):
@@ -824,7 +824,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None):
         bam_sort = ['samtools', 'sort', '-', out_name]
         out_name = out_name + ".bam"
         tools.append(bam_sort)
-    process = utils.run_tools(tools, input, output, "SAM-2-BAM", raw_stream=True)
+    process = utils.run_tools(tools, input, output, "SAM-2-BAM", transform_fun=lambda x: x)
     quality = None
     if isinstance(input, files.ReadIterator):
         quality = input.quality

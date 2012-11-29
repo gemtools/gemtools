@@ -150,7 +150,7 @@ class parse_sam(Parser):
 
 
 class ReadIterator(object):
-    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False, quality=None):
+    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False, quality=None, raw=False):
         """
         Create a ReadIterator from a stream with a given parser.
         If the filename is given, the iterator can be cloned to re-read
@@ -175,6 +175,7 @@ class ReadIterator(object):
         self.process = process
         self.remove_after_iteration = remove_after_iteration
         self.quality = quality
+        self.raw= raw
 
     def __iter__(self):
         return self
@@ -183,7 +184,11 @@ class ReadIterator(object):
         """ Delegates to the parser
         to get the next entry
         """
-        ret = self.parser.next(self.stream)
+        ret = None
+        if self.raw:
+            ret = self.stream.readline()
+        else:
+            ret = self.parser.next(self.stream)
         if not ret:
             self.stream.close()
             if self.remove_after_iteration and self.filename:
@@ -212,7 +217,7 @@ supported_types = {
 }
 
 
-def open(input, type=None, process=None, remove_after_iteration=False, quality=None):
+def open(input, type=None, process=None, remove_after_iteration=False, quality=None, raw=False):
     """
     Open the given file and return on iterator
     over Reads.
@@ -252,7 +257,7 @@ def open(input, type=None, process=None, remove_after_iteration=False, quality=N
         input = None  ## reset filename
 
     return ReadIterator(stream, supported_types[type](), input, process=process,
-                        remove_after_iteration=remove_after_iteration, quality=quality)
+                        remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
 
 
 def open_file(file):
