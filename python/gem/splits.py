@@ -60,7 +60,8 @@ def __extract(delta, is_donor, chr, strand, pos):
 
 def _pipe_geminput(input, process):
     for read in input:
-        process.stdin.write(str(read))
+        ## avoid printing max reads
+        process.stdin.write(read.to_map(no_max_mappings=True))
         process.stdin.write("\n")
     process.stdin.close()
 

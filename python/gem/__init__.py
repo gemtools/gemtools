@@ -38,9 +38,9 @@ default_filter = "same-chromosome,same-strand"
 ## use the bundled executables
 use_bundled_executables = True
 ## max mappings to replace mapping counts for + and ! summaries
-__max_mappings = 999999999
+_max_mappings = 999999999
 ## filter to work around GT-32 and #006 in gem-map-2-map 
-__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(__max_mappings)+'\t"$5}else{print}}}']
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(_max_mappings)+'\t"$5}else{print}}}']
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
@@ -89,6 +89,8 @@ class Read(object):
     The read can be transformed to GEM input using the to_sequence
     method. The __str__ implementation returns the GEM representation.
     """
+
+    __max_mappings_string = "%d" % _max_mappings
 
     def __init__(self):
         """Create a new empty read the is supposed to be used as a
@@ -139,7 +141,7 @@ class Read(object):
         if self.summary == None or self.summary in ['-', '*']:
             return ([0], ["-"])
         elif self.summary in ['+', '!']:
-            return ([__max_mappings], ["-"])
+            return ([_max_mappings], ["-"])
 
         sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
         maps = self.mappings.split(',')
@@ -161,6 +163,17 @@ class Read(object):
         line = gt.merge_templates(self._get_template(), other._get_template())
         if line is not None and len(line) > 0:
             pass
+
+
+    def to_map(self, no_max_mappings=False):
+
+        if not no_max_mappings or self.summary != Read.__max_mappings_string:
+            return str(self)
+        self.summary = "0"
+        l = str(self)
+        self.summary = Read.__max_mappings_string
+        return l
+
 
     def __str__(self):
         """Returns GEM string representation of the reads"""
@@ -769,7 +782,7 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
                         raise ValueError("Unable to identify read id pair counter from %s" % read.id)
             if append_nh:
                 nh = sum(read.get_maps()[0])
-                if __max_mappings == nh: nh = 0
+                if _max_mappings == nh: nh = 0
                 nh_queue.put(nh)
             return utils.read_to_map(read)
         transform = t
