@@ -153,6 +153,14 @@ class Read(object):
             self.template.fill(self.line)
         return self.template
 
+    def merge(self, other):
+        """Merge the other read into this one
+        NOTE that this currently works only
+        for GEM reads
+        """
+        line = gt.merge_templates(self._get_template(), other._get_template())
+        if line is not None and len(line) > 0:
+            pass
 
     def __str__(self):
         """Returns GEM string representation of the reads"""
