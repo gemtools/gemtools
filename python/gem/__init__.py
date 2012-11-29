@@ -807,10 +807,12 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
         post_transform.append(nh_filter(nh_queue).add_nh)
 
     process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform, post_transform=post_transform)
-    return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality, raw=True)
+    return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
 
 
 def sam2bam(input, output=None, sorted=False, tmpdir=None):
+    if isinstance(input, files.ReadIterator):
+        input.raw = True
     sam2bam_p = ['samtools', 'view', '-S', '-b', '-']
     tools = [sam2bam_p]
     out_name = output
