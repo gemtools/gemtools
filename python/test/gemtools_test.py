@@ -23,7 +23,8 @@ def test_gt_merge_templates():
     read_2 = gem.Read()
     read_2.id = "ID"
     read_2.line = "ID\tACGT\t####\t1:1\tchr1:-:30:4,chr9:+:50:3C"
-    print gt.merge_templates(read_1._get_template(), read_2._get_template())
+    merged_line = gt.merge_templates(read_1._get_template(), read_2._get_template())
+    assert merged_line == "ID\tACGT\t####\t2+1\tchr1:-:20:4,chr1:-:30:4,chr9:+:50:3C"
 
 #def test_map_2_fastq_conversion():
 #    infile = gt.open_file(test_mapping)

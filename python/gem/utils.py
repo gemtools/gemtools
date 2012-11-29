@@ -232,6 +232,10 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
         input_thread.start()
         threads.append(input_thread)
 
+    if post_transform is not None and isinstance(post_transform, (list, tuple)):
+        if len(post_transform) == 0:
+            post_transform = None
+
     if post_transform is not None:
         ## post_transform output
         logging.debug("Starting post transform thread for %s " % (name))
@@ -315,12 +319,18 @@ def __write_output(output, stream, transformer=None):
     @type transformer: function
     """
     logging.info("Output thread method started for %s" % (stream))
+    transformer_list = []
+    if isinstance(transformer, (list, tuple)):
+        transformer_list.extend(transformer)
+    else:
+        transformer_list.append(transformer)
     while True:
         e = output.readline()
         if e is None or len(e) == 0:
             break
         if transformer is not None:
-            e = transformer(e)
+            for t in transformer_list:
+                e = t(e)
         try:
             stream.write(str(e))
         except Exception, ex:
@@ -400,3 +410,53 @@ def gzip(file):
     if subprocess.Popen(['gzip', file]).wait() != 0:
         raise ValueError("Error wile executing gzip on %s" % file)
     return "%s.gz" % file
+
+
+class retriever(object):
+    """Wrap around an instance of the gem retriever.
+    The retriever instance is open until you explicitly
+    close it
+    """
+    def __init__(self, index_hash):
+        """Create a new instance specifying the index hash
+        that should be used.
+        """
+        self.index_hash = index_hash
+        self.__process = None
+        if not os.path.exists(self.index_hash):
+            raise ValueError("Index hash %s not found", self.index_hash)
+
+    def __initialize_process(self):
+        """Initialize the retriever instance"""
+        if self.__process is not None:
+            raise ValueError("Retriever instance is running already")
+        pa = [gem.executables['gem-retriever'], 'query', self.index_hash]
+        self.__process = subprocess.Popen(pa,
+                                          stdin=subprocess.PIPE,
+                                          stdout=subprocess.PIPE,
+                                          shell=False)
+
+
+    def get_junction(self, chr, strand, start, length):
+        """Get junction site. Return a tuple left,right
+        with left being the sequence from start to start+4
+        and right being start+length-5 to start+length-1
+        """
+        if self.__process is None:
+            self.__initialize_process()
+
+        left = "%s\t%s\t%d\t%d\n"%(chr, strand, start, start+4)
+        right = "%s\t%s\t%d\t%d\n"%(chr, strand, start+length-5, start+length-1)
+        self.__process.stdin.write(left+right)
+        self.__process.stdin.flush()
+        g_left = self.__process.stdout.readline().rstrip()
+        g_right = self.__process.stdout.readline().rstrip()
+        return g_left, g_right
+
+    def close(self):
+        """Close the retriever instance"""
+        if self.__process is not None:
+            self.__process.stdin.close()
+            self.__process.stdout.close()
+            self.__process = None
+

@@ -7,7 +7,7 @@ import gem
 from testfiles import testfiles
 
 index = testfiles["genome.gem"]
-
+results_dir = None
 def setup_func():
     global results_dir
     results_dir = "test_results"
@@ -109,6 +109,22 @@ def test_gem2sam_execution():
     assert sam is not None
     assert sam.process is not None
     assert sam.filename is None
+    count = 0
+    for read in sam:
+        #print read.line.strip()
+        count += 1
+    assert count == 10000, "Count 10000!=%d" % count
+
+@with_setup(setup_func, cleanup)
+def test_gem2sam_execution_to_file():
+    input = gem.files.open(testfiles["reads_1.fastq"])
+    mappings = gem.mapper(input, index)
+    result = results_dir+"/test_sam.sam"
+    sam = gem.gem2sam(mappings, index, output=result, compact=True, append_nh=True)
+    assert sam is not None
+    assert sam.process is not None
+    assert sam.filename == result
+    assert os.path.exists(result)
     count = 0
     for read in sam:
         #print read.line.strip()

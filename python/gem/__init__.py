@@ -724,7 +724,7 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, max(threads / 2, 1))
 
 
-def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True, append_nh=False):
+def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True, append_nh=False, append_xs=None):
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
     gem_2_sam_p = [executables['gem-2-sam'],
@@ -767,7 +767,7 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
         transform = t
 
 
-    post_transform = None
+    post_transform = []
     if append_nh:
         class nh_filter(object):
             def __init__(self, _queue):
@@ -783,7 +783,7 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
                     self.nh = self.queue.get(timeout=5)
                     self.last_id = current_id
                 return "%s\tNH:i:%d\n" % (e.strip(), self.nh)
-        post_transform = nh_filter(nh_queue).add_nh
+        post_transform.append(nh_filter(nh_queue).add_nh)
 
     process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform, post_transform=post_transform)
     return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
@@ -812,7 +812,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None):
 
 
 def index(input, output, content="dna", threads=1):
-    """Run teh gem-indexer on the given input. Input has to be the path
+    """Run the gem-indexer on the given input. Input has to be the path
     to a single fasta file that contains the genome to be indexed.
     Output should be the path to the target index file. Note that
     the gem index has to end in .gem and the prefix is added if necessary and
@@ -855,6 +855,20 @@ def index(input, output, content="dna", threads=1):
     if process.wait() != 0:
         raise ValueError("Error while executing the gem-indexer")
     return os.path.abspath("%s.gem" % output)
+
+def hash(input, output):
+    """Run the gem-retriever on the given input and create a hash
+    version of a genome that can be used by the retriever to query
+    the reference by chromosome and coordinates
+    """
+    p = [
+        executables['gem-retriever'],
+        'hash', input, output
+    ]
+    process = utils.run_tools([p], input=None, output=None, name="gem-retriever", raw_stream=True)
+    if process.wait() != 0:
+        raise ValueError("Error while executing the gem-retriever")
+    return os.path.abspath(output)
 
 
 class merger(object):
