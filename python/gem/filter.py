@@ -3,6 +3,7 @@
 from __future__ import print_function
 import sys
 import re
+import gem
 
 class BasicStats(object):
     """Basic statistic computation for the reads that
@@ -190,6 +191,8 @@ def keep_short_indel(read):
     map_idx = 0
     matches = []
     for i, sum in enumerate(sums):
+        if sum == gem._max_mappings:
+            sum = 0
         for j in range(sum):
             match = re.search(">([0-9]+)\*", maps[map_idx])
             if match:

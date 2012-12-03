@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Python wrapper around the GEM2 mapper that provides
 ability to feed data into GEM and retrieve the mappings"""
+from Queue import Queue
 import os
 import shutil
 import sys
@@ -37,9 +38,9 @@ default_filter = "same-chromosome,same-strand"
 ## use the bundled executables
 use_bundled_executables = True
 ## max mappings to replace mapping counts for + and ! summaries
-__max_mappings = 999999999
+_max_mappings = 999999999
 ## filter to work around GT-32 and #006 in gem-map-2-map 
-__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(__max_mappings)+'\t"$5}else{print}}}']
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(_max_mappings)+'\t"$5}else{print}}}']
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
@@ -88,6 +89,8 @@ class Read(object):
     The read can be transformed to GEM input using the to_sequence
     method. The __str__ implementation returns the GEM representation.
     """
+
+    __max_mappings_string = "%d" % _max_mappings
 
     def __init__(self):
         """Create a new empty read the is supposed to be used as a
@@ -138,7 +141,7 @@ class Read(object):
         if self.summary == None or self.summary in ['-', '*']:
             return ([0], ["-"])
         elif self.summary in ['+', '!']:
-            return ([__max_mappings], ["-"])
+            return ([_max_mappings], ["-"])
 
         sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
         maps = self.mappings.split(',')
@@ -151,6 +154,25 @@ class Read(object):
         if not self.__template_initialized:
             self.template.fill(self.line)
         return self.template
+
+    def merge(self, other):
+        """Merge the other read into this one
+        NOTE that this currently works only
+        for GEM reads
+        """
+        line = gt.merge_templates(self._get_template(), other._get_template())
+        if line is not None and len(line) > 0:
+            pass
+
+
+    def to_map(self, no_max_mappings=False):
+
+        if not no_max_mappings or self.summary != Read.__max_mappings_string:
+            return str(self)
+        self.summary = "0"
+        l = str(self)
+        self.summary = Read.__max_mappings_string
+        return l
 
 
     def __str__(self):
@@ -317,7 +339,7 @@ def _write_sequence_file(input, tmpdir=None):
     return inputfile, count
 
 
-def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False, quality=None):
+def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False, quality=None, raw=False):
     """If output is not None, this waits for the process to
     finish and opens a ReadIterator
     on the output file using the given type.
@@ -329,11 +351,11 @@ def _prepare_output(process, output=None, type="map", name="GEM", remove_after_i
         # wait for the process to finish
         if process.wait() != 0:
             raise ValueError("%s execution failed!" % name)
-        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality)
+        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
     else:
         ## running in async mode, return iterator on
         ## the output stream
-        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality)
+        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
 
 
 def validate_executables():
@@ -723,7 +745,7 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, max(threads / 2, 1))
 
 
-def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True):
+def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True, append_nh=False, append_xs=None):
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
     gem_2_sam_p = [executables['gem-2-sam'],
@@ -746,22 +768,51 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
 
     # GT-25 transform id's
     transform = utils.read_to_map
-    if check_ids and not single_end:
+    nh_queue = None
+    if append_nh:
+        nh_queue = Queue()
+    if check_ids and not single_end or append_nh:
         def t(read):
-            split = read.id.split()
-            if len(split) > 1:
-                if split[1][0] in ("1", "2"):
-                    read.id = "%s/%s" % (split[0], split[1][0])
-                else:
-                    raise ValueError("Unable to identify read id pair counter from %s" % read.id)
+            if check_ids and not single_end:
+                split = read.id.split()
+                if len(split) > 1:
+                    if split[1][0] in ("1", "2"):
+                        read.id = "%s/%s" % (split[0], split[1][0])
+                    else:
+                        raise ValueError("Unable to identify read id pair counter from %s" % read.id)
+            if append_nh:
+                nh = sum(read.get_maps()[0])
+                if _max_mappings == nh: nh = 0
+                nh_queue.put(nh)
             return utils.read_to_map(read)
         transform = t
 
-    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform)
+
+    post_transform = []
+    if append_nh:
+        class nh_filter(object):
+            def __init__(self, _queue):
+                self.queue = _queue
+                self.last_id = None
+                self.nh = 0
+
+            def add_nh(self, e):
+                if e[0] == "@": return e
+
+                current_id = e.split("\t")[0]
+                if self.last_id is None or self.last_id != current_id:
+                    self.nh = self.queue.get(timeout=5)
+                    self.last_id = current_id
+                return "%s\tNH:i:%d\n" % (e.strip(), self.nh)
+        post_transform.append(nh_filter(nh_queue).add_nh)
+
+    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform, post_transform=post_transform)
     return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
 
 
 def sam2bam(input, output=None, sorted=False, tmpdir=None):
+    if isinstance(input, files.ReadIterator):
+        input.raw = True
     sam2bam_p = ['samtools', 'view', '-S', '-b', '-']
     tools = [sam2bam_p]
     out_name = output
@@ -775,7 +826,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None):
         bam_sort = ['samtools', 'sort', '-', out_name]
         out_name = out_name + ".bam"
         tools.append(bam_sort)
-    process = utils.run_tools(tools, input, output, "SAM-2-BAM", raw_stream=True)
+    process = utils.run_tools(tools, input, output, "SAM-2-BAM", transform_fun=lambda x: x)
     quality = None
     if isinstance(input, files.ReadIterator):
         quality = input.quality
@@ -784,7 +835,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None):
 
 
 def index(input, output, content="dna", threads=1):
-    """Run teh gem-indexer on the given input. Input has to be the path
+    """Run the gem-indexer on the given input. Input has to be the path
     to a single fasta file that contains the genome to be indexed.
     Output should be the path to the target index file. Note that
     the gem index has to end in .gem and the prefix is added if necessary and
@@ -827,6 +878,20 @@ def index(input, output, content="dna", threads=1):
     if process.wait() != 0:
         raise ValueError("Error while executing the gem-indexer")
     return os.path.abspath("%s.gem" % output)
+
+def hash(input, output):
+    """Run the gem-retriever on the given input and create a hash
+    version of a genome that can be used by the retriever to query
+    the reference by chromosome and coordinates
+    """
+    p = [
+        executables['gem-retriever'],
+        'hash', input, output
+    ]
+    process = utils.run_tools([p], input=None, output=None, name="gem-retriever", raw_stream=True)
+    if process.wait() != 0:
+        raise ValueError("Error while executing the gem-retriever")
+    return os.path.abspath(output)
 
 
 class merger(object):

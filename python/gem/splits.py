@@ -60,6 +60,79 @@ def __extract(delta, is_donor, chr, strand, pos):
 
 def _pipe_geminput(input, process):
     for read in input:
-        process.stdin.write(str(read))
+        ## avoid printing max reads
+        process.stdin.write(read.to_map(no_max_mappings=True))
         process.stdin.write("\n")
     process.stdin.close()
+
+
+
+class append_xs_filter(object):
+    ## for now, statically implemented junction sites
+    # forward strand junctions
+    forward = ["GT","GC","ATATC","GTATC"]
+    # reverse strand junctions
+    reverse = ["AG","AG","A.","AT"]
+
+    # forward strand reverse complements
+    forwardc = ["CT","CT",".T","AT"]
+    # reverse strand reverse complements
+    reversec = ["AC","GC","GATAT","GATAC"]
+
+    # pattern to parse SAM cigar
+    pat = re.compile("(\d+[A-Z=])")
+    # pattern to identify split maps
+    split_re = re.compile(".*N.*")
+
+    def __init__(self, index_hash):
+        """Create a new filter providing the .hash file
+        of the genome reference
+        """
+        self.retriever = gem.utils.retriever(index_hash)
+
+    def filter(self, input):
+        if input[0] == "@" :
+            return input
+
+        line = input.rstrip()
+        split = line.split("\t")
+        start = int(split[3])
+        sum = 0
+        strandplus = 0
+        strandminus = 0
+        ## check for split map
+        if not append_xs_filter.split_re.search(split[5]):
+            return input
+
+        # found split, check junction site
+        for i in append_xs_filter.pat.findall(split[5]):
+            if i[-1] == "N":
+                ## get junction sequence
+                ## todo : why only + strand ? because sam contains reverse complement in case of - strand ?
+                left, right = self.retriever.get_junction(split[2], "+", start+sum, int(i[:-1]))
+
+                strand = None
+
+                ## we check both forward and
+                ## reverse complement junctions here
+                ## to make sure this is unique
+
+                #check normal forward
+                for j,f in enumerate(append_xs_filter.forward):
+                    if re.search("^"+f, left):
+                        if re.search(append_xs_filter.reverse[j]+"$", right ):
+                            strand = "+"
+                            strandplus += 1
+
+                #check reverse complement forward
+                for j,f in enumerate(append_xs_filter.forwardc):
+                    if re.search("^"+f, left):
+                        if re.search(append_xs_filter.reversec[j]+"$", right ):
+                            strand = "-"
+                            strandminus += 1
+                # set XS to 0 for unknown/non unique site
+                #if (strandplus > 0 and strandminus == 0) or (strandplus == 0 and strandminus > 0):
+                if (strandplus == 0 and strandminus == 0) or (strandplus > 0 and strandminus > 0):
+                    strand = "0"
+                split.append("XS:A:"+strand)
+                return "\t".join(split)+"\n"
