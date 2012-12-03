@@ -62,11 +62,17 @@ START_TEST(gt_test_template_merge_error)
 {
 
   fail_unless(gt_input_map_parse_template(
-      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
-      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1\tchr19:+:35613736:C7>78*37>316*38>132*18",source)==0);
+      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\t"
+      "NGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
+      "0:0:0:0:1\t"
+      "chr19:+:35613736:C7>78*37>316*38>132*18",source)==0);
   fail_unless(gt_input_map_parse_template(
-      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
-      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1+0:1\tchr19:+:35613741:(5)3>78*37>316*36(20),chr19:+:35613819:(5)CAG37>316*36(20)", target)==0);
+      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\t"
+      "NGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
+      "0:0:0:0:1+0:1\t"
+      "chr19:+:35613741:(5)3>78*37>316*36(20),chr19:+:35613819:(5)CAG37>316*36(20)", target)==0);
   // merge into source
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);
@@ -74,8 +80,11 @@ START_TEST(gt_test_template_merge_error)
   // convert to string
   char * line = gt_string_get_string(string);
   fail_unless(gt_streq(line,
-      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
-      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1+0:1\tchr19:+:35613736:C7>78*37>316*38>132*18,chr19:+:35613819:(5)CAG37>316*36(20)\n"));
+      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\t"
+      "NGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
+      "0:0:0:0:2+0:1\t"
+      "chr19:+:35613736:C7>78*37>316*38>132*18,chr19:+:35613741:(5)3>78*37>316*36(20),chr19:+:35613819:(5)CAG37>316*36(20)\n"));
 }
 END_TEST
 

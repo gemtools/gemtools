@@ -215,7 +215,22 @@ GT_INLINE void gt_map_set_misms_string(gt_map* const map,char* misms_string,cons
 /*
  * High-level Procedures
  */
-
+// Trim helpers
+GT_INLINE uint64_t gt_map_get_left_length(gt_map* const map) {
+  if (gt_map_get_num_misms(map)>0) {
+    register gt_misms* const first_misms = gt_map_get_misms(map,0);
+    if (first_misms->position==0 && first_misms->misms_type==DEL) return first_misms->size;
+  }
+  return 0;
+}
+GT_INLINE uint64_t gt_map_get_right_length(gt_map* const map) {
+  register const uint64_t num_misms = gt_map_get_num_misms(map);
+  if (num_misms>0) {
+    register gt_misms* const last_misms = gt_map_get_misms(map,num_misms-1);
+    if (last_misms->position+last_misms->size==map->base_length && last_misms->misms_type==DEL) return last_misms->size;
+  }
+  return 0;
+}
 // Global metrics
 GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map) {
   GT_MAP_CHECK(map);
@@ -296,12 +311,17 @@ GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2) {
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   if (gt_string_equals(map_1->seq_name,map_2->seq_name) && map_1->strand==map_2->strand) {
-    register const int64_t begin_distance = (int64_t)map_1->position-(int64_t)map_2->position;
-    if (GT_ABS(begin_distance)<=range_tolerated) return 0;
+    register const int64_t begin_distance = ((int64_t)map_1->position-(int64_t)gt_map_get_left_length(map_1)) -
+        ((int64_t)map_2->position-(int64_t)gt_map_get_left_length(map_2));
+    if (GT_ABS(begin_distance)>range_tolerated) return begin_distance;
     register const int64_t end_distance = (int64_t)(map_1->position+gt_map_get_global_length(map_1)) -
         (int64_t)(map_2->position+gt_map_get_global_length(map_2));
-    if (GT_ABS(end_distance)<=range_tolerated) return 0;
-    return begin_distance;
+    if (GT_ABS(end_distance)>range_tolerated) return end_distance;
+    // Cmp next maps
+    if (map_1->next_block==NULL && map_2->next_block!=NULL) return INT64_MAX;
+    if (map_1->next_block!=NULL && map_2->next_block==NULL) return INT64_MIN;
+    if (map_1->next_block==NULL && map_2->next_block==NULL) return 0;
+    return gt_map_range_cmp(map_1->next_block->map,map_2->next_block->map,range_tolerated);
   } else {
     return INT64_MAX;
   }

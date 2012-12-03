@@ -474,11 +474,17 @@ void gt_constructor_template_merge_hung() {
   gt_template* target = gt_template_new();
 
   gt_input_map_parse_template(
-      "HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t"
-      "@CCFFFFFHHHHHIJIJJIJJJJJJJIIJGIDGIHHHFF6>CCCDEDDDDCBDD>CCDCC>CCCCCDDDDDBDC>\t0:0:0:0:0:0\t-",source);
+      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\t"
+      "NGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
+      "0:0:0:0:1\tchr19:+:35613736:C7>78*37>316*38>132*18",source);
+  gt_output_map_fprint_template(stderr, source, GT_ALL, true);
   gt_input_map_parse_template(
-      "HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t"
-      "@CCFFFFFHHHHHIJIJJIJJJJJJJIIJGIDGIHHHFF6>CCCDEDDDDCBDD>CCDCC>CCCCCDDDDDBDC>\t0:1\tchr21:+:47848466:39>1419*36",target);
+      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\t"
+      "NGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
+      "0:0:0:0:1+0:1\tchr19:+:35613741:(5)3>78*37>316*36(20),chr19:+:35613819:(5)CAG37>316*36(20)", target);
+  gt_output_map_fprint_template(stderr, target, GT_ALL, true);
   // merge into source
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);

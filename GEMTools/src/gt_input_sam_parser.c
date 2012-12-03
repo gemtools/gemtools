@@ -526,7 +526,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     }
   }
   // Add the main map
-  if (**text_line==EOL && **text_line==EOS) return GT_ISP_PE_BAD_CHARACTER;
+  if (**text_line!=EOL && **text_line!=EOS) return GT_ISP_PE_BAD_CHARACTER;
   if (is_mapped) {
     pending->map_displacement = gt_alignment_get_num_maps(alignment);
     gt_alignment_insert_map_gt_vector(alignment,maps_vector);

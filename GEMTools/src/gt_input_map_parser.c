@@ -529,9 +529,9 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(char** const text_line,gt_ma
         gt_map_set_seq_name(next_map,gt_string_get_string(map->seq_name),gt_string_get_length(map->seq_name));
         gt_map_set_position(next_map,gt_map_get_position(map)+length+size);
         gt_map_set_strand(next_map,gt_map_get_strand(map));
-        gt_map_set_base_length(next_map,gt_map_get_base_length(map)-length);
+        gt_map_set_base_length(next_map,gt_map_get_base_length(map)-position); // FIXED: position->length
         // Close current map block
-        gt_map_set_base_length(map,length);
+        gt_map_set_base_length(map,position); // FIXED: position->length
         gt_map_set_next_block(map,next_map,junction);
         // Swap maps & Reset length,position
         map = next_map;
@@ -889,7 +889,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
       gt_map* map = gt_map_new_(true);
       gt_vector_insert(vector_maps,map,gt_map*);
       // Set base length (needed to calculate the alignment's length in GEMv0)
-      gt_map_set_base_length(map,gt_string_get_length(gt_template_get_block(template,num_blocks_parsed)->read));
+      gt_map_set_base_length(map,gt_alignment_get_read_length(gt_template_get_block(template,num_blocks_parsed)));
       // Parse current MAP
       error_code = gt_imp_parse_map(text_line,map,parse_mode);
       if (GT_IMP_PARSE_MAP_ERROR(error_code)) return error_code;
@@ -940,7 +940,7 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(
   // Parse MAPS. Formats allowed:
   //   OLD (v0): chr7:F127708134G27T88
   //   NEW (v1): chr11:-:51590050:(5)43T46A9>24*
-  register const uint64_t alignment_base_length = gt_string_get_length(alignment->read);
+  register const uint64_t alignment_base_length = gt_alignment_get_read_length(alignment);
   register uint64_t num_maps_parsed = 0;
   register gt_status error_code = GT_IMP_PE_MAP_PENDING_MAPS;
   register gt_vector* split_maps = NULL;
