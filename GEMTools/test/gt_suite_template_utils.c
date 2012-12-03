@@ -57,6 +57,30 @@ START_TEST(gt_test_template_merge_hang)
 }
 END_TEST
 
+
+START_TEST(gt_test_template_merge_error)
+{
+
+  fail_unless(gt_input_map_parse_template(
+      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1\tchr19:+:35613736:C7>78*37>316*38>132*18",source)==0);
+  fail_unless(gt_input_map_parse_template(
+      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1+0:1\tchr19:+:35613741:(5)3>78*37>316*36(20),chr19:+:35613819:(5)CAG37>316*36(20)", target)==0);
+  // merge into source
+  gt_template_merge_template_mmaps(source,target);
+  gt_string* string = gt_string_new(1024);
+  gt_output_map_sprint_template(string, source, GT_ALL, true);
+  // convert to string
+  char * line = gt_string_get_string(string);
+  fail_unless(gt_streq(line,
+      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1+0:1\tchr19:+:35613736:C7>78*37>316*38>132*18,chr19:+:35613819:(5)CAG37>316*36(20)\n"));
+}
+END_TEST
+
+
+
 START_TEST(gt_test_template_to_string)
 {
 
@@ -129,6 +153,7 @@ Suite *gt_template_utils_suite(void) {
   tcase_add_checked_fixture(test_case,gt_template_utils_setup,gt_template_utils_teardown);
   tcase_add_test(test_case,gt_test_template_merge);
   tcase_add_test(test_case,gt_test_template_merge_hang);
+  tcase_add_test(test_case,gt_test_template_merge_error);
   tcase_add_test(test_case,gt_test_template_to_string);
   tcase_add_test(test_case,gt_test_template_copy);
   suite_add_tcase(s,test_case);
