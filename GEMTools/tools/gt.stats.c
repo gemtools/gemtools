@@ -395,12 +395,13 @@ GT_INLINE void gt_stats_analize_template(gt_stats* const stats,gt_template* cons
   // Length
   register uint64_t total_length = 0;
   GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
-    total_length += (gt_alignment_get_num_maps(alignment)>0) ?
+    register uint64_t read_length = (gt_alignment_get_num_maps(alignment)>0) ?
         gt_map_get_base_length(gt_alignment_get_map(alignment,0)) : gt_alignment_get_read_length(alignment);
-    stats->total_bases += read_length;
+    total_length += read_length;
     stats->min_length = GT_MIN(stats->min_length,read_length);
     stats->max_length = GT_MAX(stats->max_length,read_length);
   }
+  stats->total_bases += total_length;
   // Is mapped?
   if ( (paired_map &&  (num_maps > 0 || gt_template_is_mapped(template))) ||
        (!paired_map && (num_maps > 0 || gt_alignment_is_mapped(gt_template_get_block(template,0)))) ){

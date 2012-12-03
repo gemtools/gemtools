@@ -100,7 +100,7 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_map,gt_map* const map,cons
     gt_output_map_gprint_mismatch_string(gprinter,map_it);
     if (gt_map_has_next_block(map_it)) {
       next_map = gt_map_get_next_block(map_it);
-      if ((cigar_pending=(gt_streq(last_seq_name,gt_map_get_seq_name(map_it))))){
+      if ((cigar_pending=(gt_streq(last_seq_name,gt_map_get_seq_name(map_it))))) {
         switch (gt_map_get_junction(map_it)) {
           case SPLICE:
             gt_gprintf(gprinter,">""%"PRIu64"*",gt_map_get_junction_distance(map_it));
@@ -121,6 +121,7 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_map,gt_map* const map,cons
             break;
         }
       }
+      map_it = next_map;
     } else {
       cigar_pending = false;
     }

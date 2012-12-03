@@ -469,6 +469,22 @@ void gt_constructor_parse_again() {
   gt_template_get_mcs(template);
 }
 
+void gt_constructor_template_merge_hung() {
+  gt_template* source = gt_template_new();
+  gt_template* target = gt_template_new();
+
+  gt_input_map_parse_template(
+      "HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t"
+      "@CCFFFFFHHHHHIJIJJIJJJJJJJIIJGIDGIHHHFF6>CCCDEDDDDCBDD>CCDCC>CCCCCDDDDDBDC>\t0:0:0:0:0:0\t-",source);
+  gt_input_map_parse_template(
+      "HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t"
+      "@CCFFFFFHHHHHIJIJJIJJJJJJJIIJGIDGIHHHFF6>CCCDEDDDDCBDD>CCDCC>CCCCCDDDDDBDC>\t0:1\tchr21:+:47848466:39>1419*36",target);
+  // merge into source
+  gt_template_merge_template_mmaps(source,target);
+  gt_string* string = gt_string_new(1024);
+  gt_output_map_sprint_template(string, source, GT_ALL, true);
+}
+
 void parse_arguments(int argc,char** argv) {
   struct option long_options[] = {
     { "input", required_argument, 0, 'i' },
@@ -505,8 +521,10 @@ int main(int argc,char** argv) {
   //
   // Load it!
   //
-  gt_constructor_parse_again();
-  gt_constructor_copy_template();
+  gt_constructor_template_merge_hung();
+
+  //gt_constructor_parse_again();
+  //gt_constructor_copy_template();
 
   //gt_constructor_merge_template();
   //gt_example_map_string_parsing();
