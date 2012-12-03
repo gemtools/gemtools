@@ -44,10 +44,11 @@ GT_INLINE bool gt_input_file_test_sam(
     gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors) {
   GT_INPUT_FILE_CHECK(input_file);
   if (gt_input_file_detect_sam_format((char*)input_file->file_buffer,input_file->buffer_size,show_errors)) {
+    register uint64_t lines_read = 0;
     while (!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==GT_SAM_HEADER_BEGIN) {
 
       // TODO => sam_headers
-      while (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL)) {
+      while (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL)) { // FIXM: DOS_EOL
         GT_INPUT_FILE_NEXT_CHAR(input_file,NULL);
         GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,NULL);
       }
@@ -57,11 +58,13 @@ GT_INLINE bool gt_input_file_test_sam(
           GT_INPUT_FILE_NEXT_CHAR(input_file,NULL);
         }
       }
+      ++lines_read;
       // TODO => sam_headers
 
     }
     // Skip header from input-file buffer
     input_file->buffer_begin = input_file->buffer_pos;
+    input_file->processed_lines = lines_read;
     return true;
   } else {
     return false;
@@ -92,15 +95,24 @@ GT_INLINE void gt_input_sam_parser_prompt_error(
     gt_buffered_input_file* const buffered_sam_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code) {
   // Display textual error msg
-//  register const char* const file_name = (buffered_sam_input != NULL) ?
-//      buffered_sam_input->input_file->file_name : "<<LazyParsing>>";
+  register const char* const file_name = (buffered_sam_input != NULL) ?
+      buffered_sam_input->input_file->file_name : "<<LazyParsing>>";
   if ((buffered_sam_input == NULL)) {
     line_num = 0; column_pos = 0;
   }
   switch (error_code) {
     case 0: /* No error */ break;
+    case GT_ISP_PE_WRONG_FILE_FORMAT: gt_error(PARSE_SAM_BAD_FILE_FORMAT,file_name,line_num,column_pos); break;
+    case GT_ISP_PE_PREMATURE_EOL: gt_error(PARSE_SAM_PREMATURE_EOL,file_name,line_num,column_pos); break;
+    case GT_ISP_PE_EXPECTED_NUMBER: gt_error(PARSE_SAM_EXPECTED_NUMBER,file_name,line_num,column_pos); break;
+    case GT_ISP_PE_BAD_CHARACTER: gt_error(PARSE_SAM_BAD_CHARACTER,file_name,line_num,column_pos); break;
+    case GT_ISP_PE_WRONG_READ_CONTENT: gt_error(PARSE_SAM_WRONG_READ_CONTENT,file_name,line_num,column_pos); break;
+    case GT_ISP_PE_CIGAR_PREMATURE_END: gt_error(PARSE_SAM_CIGAR_PREMATURE_END,file_name,line_num,column_pos); break;
+    case GT_ISP_PE_SAM_UNMAPPED_XA: gt_error(PARSE_SAM_UNMAPPED_XA,file_name,line_num,column_pos); break;
+    case GT_ISP_PE_WRONG_NUM_XA: gt_error(PARSE_SAM_WRONG_NUM_XA,file_name,line_num,column_pos); break;
+    case GT_ISP_PE_UNSOLVED_PENDING_MAPS: gt_error(PARSE_SAM_UNSOLVED_PENDING_MAPS,file_name,line_num,column_pos); break;
     default:
-      gt_error(PARSE_SAM,buffered_sam_input->input_file->file_name,line_num);
+      gt_error(PARSE_SAM,file_name,line_num,column_pos);
       break;
   }
 }
@@ -135,16 +147,14 @@ GT_INLINE gt_status gt_input_sam_parser_get_block(
       gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,NULL) ) ++lines_read;
   if (lines_read==num_records) { // !EOF, Synch wrt to tag content
     register gt_string* const reference_tag = gt_string_new(30);
-    register gt_string* const tag = gt_string_new(30);
     if (gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,reference_tag)) {
       gt_fastq_tag_chomp_end_info(reference_tag);
-      while (gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,tag)) {
-        gt_fastq_tag_chomp_end_info(tag);
-        if (gt_string_equals(reference_tag,tag)) break; // Synch!
+      while (gt_input_file_cmp_next_sam_record(input_file,reference_tag)) {
+        if (!gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,NULL)) break;
+        ++lines_read;
       }
     }
     gt_string_delete(reference_tag);
-    gt_string_delete(tag);
   }
   // Dump remaining content into the buffer
   gt_input_file_dump_to_buffer(input_file,buffered_sam_input->block_buffer);
@@ -203,7 +213,6 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const 
   GT_NULL_CHECK(text_line); GT_NULL_CHECK(*text_line);
   GT_MAP_CHECK(map);
   register uint64_t position = 0;
-  register uint64_t map_length = 0;
   if (**text_line==STAR) {
     GT_NEXT_CHAR(text_line);
     return 0;
@@ -225,24 +234,22 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const 
       case 'X':
         position += length;
         break;
+      case 'P': // Padding. Nothing specific implemented
+      case 'S': // Soft clipping. Nothing specific implemented
+      case 'H': // Hard clipping. Nothing specific implemented
       case 'I': // Insertion to the reference
-      case 'P': // Padding. Nothing implemented
-      case 'S': // Soft clipping. Nothing implemented
-        misms.misms_type = INS;
-        misms.position = position;
-        misms.size = length;
-        position += length;
-        map_length -= length;
-        gt_map_add_misms(map,&misms);
-        break;
-      case 'D':  // Deletion from the reference
         misms.misms_type = DEL;
         misms.position = position;
         misms.size = length;
-        map_length += length;
+        position += length;
         gt_map_add_misms(map,&misms);
         break;
-      case 'H': // Hard clipping. Nothing implemented
+      case 'D': // Deletion from the reference
+        misms.misms_type = INS;
+        misms.position = position;
+        misms.size = length;
+        gt_map_add_misms(map,&misms);
+        break;
         break;
       case 'N':
         gt_fatal_error(SELECTION_NOT_IMPLEMENTED);
@@ -251,6 +258,7 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const 
         break;
     }
   }
+  gt_map_set_base_length(map,position);
   return 0;
 }
 
@@ -453,24 +461,28 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
     register const uint64_t read_length = *text_line-seq_read;
     GT_NEXT_CHAR(text_line);
-    if (!gt_string_is_null(alignment->read)) {
-      register gt_string* const check_read = gt_string_new(0); // Writing to buffer's info
-      gt_string_set_nstring(check_read,seq_read,read_length);
-      if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
-        gt_dna_string_reverse_complement(check_read);
-      }
-      register const bool equals = gt_string_equals(alignment->read,check_read);
-      gt_string_delete(check_read);
-      if (!equals) {
-        gt_map_delete(map); return GT_ISP_PE_WRONG_READ_CONTENT;
-      }
-    } else {
+//    // FIXME: Check disabled due to wrong SAM outputs produced some mappers when trimming
+//    if (!gt_string_is_null(alignment->read)) {
+//      register gt_string* const check_read = gt_string_new(0); // Writing to buffer's info
+//      gt_string_set_nstring(check_read,seq_read,read_length);
+//      if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
+//        gt_dna_string_reverse_complement(check_read);
+//      }
+//      register const bool equals = gt_string_equals(alignment->read,check_read);
+//      gt_string_delete(check_read);
+//
+//      if (!equals) {
+//        gt_map_delete(map);
+//        return GT_ISP_PE_WRONG_READ_CONTENT;
+//      }
+//    }
+    if (gt_string_is_null(alignment->read)) {
       gt_string_set_nstring(alignment->read,seq_read,read_length);
       if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
         gt_dna_string_reverse_complement(alignment->read);
       }
     }
-    gt_map_set_base_length(map,gt_alignment_get_read_length(alignment));
+    if (gt_map_get_base_length(map)==0) gt_map_set_base_length(map,gt_alignment_get_read_length(alignment));
   }
   /*
    * Parse QUAL (QUALITY STRING)
@@ -488,9 +500,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
         gt_string_reverse(alignment->qualities);
       }
     }
-    if (gt_map_get_base_length(map)==0) {
-      gt_map_set_base_length(map,gt_string_get_length(alignment->qualities));
-    }
+    if (gt_map_get_base_length(map)==0) gt_map_set_base_length(map,gt_string_get_length(alignment->qualities));
   }
   if (!gt_string_is_null(alignment->read) && !gt_string_is_null(alignment->qualities)) {
     gt_fatal_check(gt_string_get_length(alignment->read)!=gt_string_get_length(alignment->qualities),ALIGN_READ_QUAL_LENGTH);
@@ -612,7 +622,7 @@ GT_INLINE void gt_isp_solve_pending_maps(
 
 /* SAM general */
 GT_INLINE gt_status gt_input_sam_parser_parse_template(
-    gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
+    gt_buffered_input_file* const buffered_sam_input,gt_template* const template) { // FIXME: On error read the rest of the tag SAM records
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
   register char** text_line = &(buffered_sam_input->cursor);
@@ -717,7 +727,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_template_(
   // Check file format
   register gt_input_file* input_file = buffered_sam_input->input_file;
   if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
-    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,1ul);
+    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,0ul);
     return GT_ISP_FAIL;
   }
   // Prepare the template
@@ -737,7 +747,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_template_(
     gt_input_sam_parser_next_record(buffered_sam_input);
     return GT_ISP_FAIL;
   }
-  gt_input_sam_parser_next_record(buffered_sam_input);
+  //gt_input_sam_parser_next_record(buffered_sam_input);
   return GT_ISP_OK;
 }
 GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
@@ -762,7 +772,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_alignment(
   // Check file format
   register gt_input_file* input_file = buffered_sam_input->input_file;
   if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
-    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num);
+    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,0ul);
     return GT_ISP_FAIL;
   }
   // Allocate memory for the alignment
@@ -777,6 +787,6 @@ GT_INLINE gt_status gt_input_sam_parser_get_alignment(
     gt_input_sam_parser_next_record(buffered_sam_input);
     return GT_ISP_FAIL;
   }
-  gt_input_sam_parser_next_record(buffered_sam_input);
+  //gt_input_sam_parser_next_record(buffered_sam_input);
   return GT_ISP_OK;
 }

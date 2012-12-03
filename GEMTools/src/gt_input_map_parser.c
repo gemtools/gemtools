@@ -166,7 +166,7 @@ GT_INLINE void gt_input_map_parser_prompt_error(
     case GT_IMP_PE_MISMS_BAD_CHARACTER: gt_error(PARSE_MAP_MISMS_BAD_CHARACTER,file_name,line_num,column_pos); break;
     case GT_IMP_PE_MISMS_BAD_MISMS_POS: gt_error(PARSE_MAP_MISMS_BAD_MISMS_POS,file_name,line_num,column_pos); break;
     default:
-      gt_error(PARSE_MAP,buffered_map_input->input_file->file_name,line_num);
+      gt_error(PARSE_MAP,file_name,line_num);
       break;
   }
 }

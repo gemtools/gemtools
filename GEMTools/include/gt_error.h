@@ -227,10 +227,16 @@ extern FILE* gt_error_stream;
  * Parsing SAM File format errors
  */
 // ISP (Input SAM Parser). General
-#define GT_ERROR_PARSE_SAM "Parsing SAM error(%s:%"PRIu64")"
-#define GT_ERROR_PARSE_SAM_BAD_FILE_FORMAT "Parsing SAM error(%s:%"PRIu64"). Not a SAM file"
+#define GT_ERROR_PARSE_SAM "Parsing SAM error(%s:%"PRIu64":%"PRIu64")"
+#define GT_ERROR_PARSE_SAM_BAD_FILE_FORMAT "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Not a SAM file"
 #define GT_ERROR_PARSE_SAM_BAD_CHARACTER "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Bad character found"
-#define GT_ERROR_PARSE_SAM_UNMAPPED_XA "Parsing SAM error(%s:%"PRIu64"). Unmapped read contains XA field (inconsistency)"
+#define GT_ERROR_PARSE_SAM_UNMAPPED_XA "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Unmapped read contains XA field (inconsistency)"
+#define GT_ERROR_PARSE_SAM_PREMATURE_EOL "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Premature End-of-line found"
+#define GT_ERROR_PARSE_SAM_EXPECTED_NUMBER "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Expected number"
+#define GT_ERROR_PARSE_SAM_WRONG_READ_CONTENT "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Read in template doesn't match previously parse reads with same tag"
+#define GT_ERROR_PARSE_SAM_CIGAR_PREMATURE_END "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Premature end of CIGAR string"
+#define GT_ERROR_PARSE_SAM_WRONG_NUM_XA "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Wrong number of eXtra mAps (as to pair them)"
+#define GT_ERROR_PARSE_SAM_UNSOLVED_PENDING_MAPS "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Failed to pair maps"
 
 // Output File
 #define GT_ERROR_OUTPUT_FILE_INCONSISTENCY "Output file state inconsistent"

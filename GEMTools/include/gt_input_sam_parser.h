@@ -37,7 +37,6 @@
 #define GT_ISP_PE_SAM_UNMAPPED_XA 21
 /* PairedEnd Parsing */
 #define GT_ISP_PE_WRONG_NUM_XA 30
-//#define GT_ISP_PE_WRONG_END_POS 31
 #define GT_ISP_PE_UNSOLVED_PENDING_MAPS 32
 
 /*

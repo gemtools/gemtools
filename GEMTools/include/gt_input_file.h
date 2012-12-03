@@ -109,10 +109,12 @@ GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file);
 GT_INLINE size_t gt_input_file_dump_to_buffer(gt_input_file* const input_file,gt_vector* const buffer_dst);
 GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file);
 GT_INLINE size_t gt_input_file_next_line(gt_input_file* const input_file,gt_vector* const buffer_dst);
+
 GT_INLINE size_t gt_input_file_next_map_record(
     gt_input_file* const input_file,gt_vector* const buffer_dst,uint64_t* const num_blocks);
 GT_INLINE size_t gt_input_file_next_sam_record(
     gt_input_file* const input_file,gt_vector* const buffer_dst,gt_string* const first_field);
+GT_INLINE bool gt_input_file_cmp_next_sam_record(gt_input_file* const input_file,gt_string* const reference_tag);
 
 /*
  * Line Readers (thread-unsafe, must call mutex functions before)

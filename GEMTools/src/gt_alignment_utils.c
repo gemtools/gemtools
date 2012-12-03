@@ -137,12 +137,11 @@ GT_INLINE int64_t gt_alignment_get_min_matching_strata(gt_alignment* const align
   }
   return GT_NO_STRATA;
 }
-GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment) {
-  GT_ALIGNMENT_CHECK(alignment);
-  register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
+GT_INLINE int64_t gt_alignment_get_uniq_degree_gt_vector(gt_vector* const counters_vector) {
+  GT_VECTOR_CHECK(counters_vector);
   register bool found_uniq_strata = false;
   register int64_t uniq_degree = 0;
-  GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
+  GT_VECTOR_ITERATE(counters_vector,counter,counter_pos,uint64_t) {
     if (*counter==0) {
       if (found_uniq_strata) ++uniq_degree;
     } else if (*counter==1) {
@@ -153,7 +152,12 @@ GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment) {
       return GT_NO_STRATA;
     }
   }
+  if (found_uniq_strata) return uniq_degree;
   return GT_NO_STRATA;
+}
+GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return gt_alignment_get_uniq_degree_gt_vector(gt_alignment_get_counters_vector(alignment));
 }
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);

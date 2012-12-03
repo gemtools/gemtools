@@ -53,7 +53,7 @@ GT_INLINE void gt_dna_string_reverse_complement(gt_dna_string* const dna_string)
     buffer[i] = gt_get_complement(buffer[length-i-1]);
     buffer[length-i-1] = gt_get_complement(aux);
   }
-  if (middle%2==0) {
+  if (length%2==1) {
     buffer[middle] = gt_get_complement(buffer[middle]);
   }
 }

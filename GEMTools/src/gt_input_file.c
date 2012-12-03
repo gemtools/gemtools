@@ -254,6 +254,33 @@ GT_INLINE size_t gt_input_file_next_sam_record(
   GT_INPUT_FILE_HANDLE_EOL();
   return GT_INPUT_FILE_LINE_READ;
 }
+#define GT_INPUT_SAM_FILE_TEST_NEXT_CHAR(input_file,buffer_centinel) \
+  ++buffer_centinel; \
+  if (gt_expect_false(buffer_centinel >= input_file->buffer_size)) return true;
+#define GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel) input_file->file_buffer[buffer_centinel]
+GT_INLINE bool gt_input_file_cmp_next_sam_record(gt_input_file* const input_file,gt_string* const reference_tag) {
+  GT_INPUT_FILE_CHECK(input_file);
+  GT_STRING_CHECK(reference_tag);
+  if (gt_expect_false(input_file->eof || input_file->buffer_pos >= input_file->buffer_size)) return true;
+  // Read line
+  register char* const tag_begin = (char*)(input_file->file_buffer+input_file->buffer_pos);
+  register uint64_t buffer_centinel = input_file->buffer_pos;
+  while (gt_expect_true(!input_file->eof &&
+      GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)!=EOL &&
+      GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)!=DOS_EOL)) {
+    if (gt_expect_false(
+        (GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)==SPACE ||
+         GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)==TAB) )) {
+      register char* const tag_end = (char*)(input_file->file_buffer+buffer_centinel);
+      register uint64_t tag_lenth = tag_end-tag_begin;
+      if (tag_lenth>2 && tag_begin[tag_lenth-2]==SLASH) tag_lenth-=2;
+      if (reference_tag->length != tag_lenth) return false;
+      return gt_strneq(reference_tag->buffer,tag_begin,tag_lenth);
+    }
+    GT_INPUT_SAM_FILE_TEST_NEXT_CHAR(input_file,buffer_centinel);
+  }
+  return true;
+}
 
 /*
  * Format detection (cascade of checkers)
@@ -276,8 +303,8 @@ gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file)
   }
   // SAM test
   if (gt_input_file_test_sam(input_file,&(input_file->sam_headers),false)) {
-    input_file->file_format = MAP;
-    return MAP;
+    input_file->file_format = SAM;
+    return SAM;
   }
   // TODO: Install FASTQ
   // Unknown format

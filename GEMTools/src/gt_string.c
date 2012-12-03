@@ -148,7 +148,9 @@ GT_INLINE int64_t gt_string_cmp(gt_string* const string_a,gt_string* const strin
   register uint64_t i;
   register int8_t diff;
   for (i=0;i<min_length;++i) {
-    if ((diff=(buffer_a[i]-buffer_b[i]))) return (diff>0)?(i):(-i);
+    if ((diff=(buffer_a[i]-buffer_b[i]))) {
+      return (diff>0)?(i):(-i);
+    }
   }
   if (string_a->length==string_b->length) {
     return 0;
