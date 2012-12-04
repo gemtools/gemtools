@@ -189,6 +189,9 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_TEMPLATE_ADD_BAD_NUM_BLOCKS "Trying to add wrong number of blocks to the template"
 #define GT_ERROR_PALIGN_BAD_NUM_BLOCKS "Invalid Paired-alignment. Wrong number of alignment blocks (%"PRIu64")"
 
+// Sequence Archive/Segmented Sequence errors
+#define GT_ERROR_SEGMENTED_SEQ_IDX_OUT_OF_RANGE "Error accessing segmented sequence. Index "PRIu64" out out range [0,"PRIu64")"
+
 /*
  * Parsing MAP File format errors
  */
