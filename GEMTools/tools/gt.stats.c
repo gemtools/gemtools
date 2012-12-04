@@ -566,12 +566,17 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
       stats->best_match_ep->total_misms_events,stats->mmaps_match_ep->total_misms_events,stats->max_length);
 }
 void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
-  /*
+  /*  #mapped, %mapped, #unmapped, %unmapped, MMap(maps/alg), Bases.aligned(%), Bases.trimmed(%)
    *  mapped(%), MMap(maps/alg), Bases.aligned(%), Bases.trimmed(%)
    */
-  // mapped(%)
+  // #mapped, %mapped
   register const uint64_t eff_num_reads = paired_end?num_reads>>1:num_reads;
+  fprintf(stderr,"%lu,",stats->num_mapped);
   fprintf(stderr,"%2.3f,",100.0*(float)stats->num_mapped/(float)eff_num_reads);
+  // #unmapped, %unmapped
+  register const uint64_t unmapped = eff_num_reads-stats->num_mapped;
+  fprintf(stderr,"%lu,",unmapped);
+  fprintf(stderr,"%2.3f,",100.0*(float)unmapped/(float)eff_num_reads);
   // MMap(maps/alg)
   fprintf(stderr,"%2.3f,",(float)stats->num_maps/(float)stats->num_mapped);
   // Bases.aligned(%)

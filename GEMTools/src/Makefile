@@ -13,7 +13,7 @@ SRCS=gem_tools.c \
      gt_ihash.c gt_shash.c gt_vector.c gt_string.c gt_error.c gt_commons.c \
      gt_dna_string.c gt_dna_read.c \
      gt_template.c gt_alignment.c gt_map.c gt_misms.c \
-     gt_template_utils.c gt_alignment_utils.c \
+     gt_template_utils.c gt_alignment_utils.c gt_counters_utils.c \
      gt_input_file.c gt_buffered_input_file.c \
      gt_input_map_parser.c gt_input_sam_parser.c gt_input_fastq_parser.c \
      gt_generic_printer.c gt_output_buffer.c gt_output_map.c \

@@ -11,6 +11,7 @@
 
 #include "gt_commons.h"
 #include "gt_alignment.h"
+#include "gt_counters_utils.h"
 
 /*
  * Alignment's Maps operators (Update global state: counters, ...)
@@ -43,13 +44,13 @@ GT_INLINE bool gt_alignment_is_map_contained_fx(
  */
 GT_INLINE bool gt_alignment_is_mapped(gt_alignment* const alignment);
 GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,const int64_t max_allowed_strata);
+GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment);
+
+GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment);
 GT_INLINE int64_t gt_alignment_get_min_matching_strata(gt_alignment* const alignment);
 GT_INLINE bool gt_alignment_get_next_matching_strata(
-    gt_vector* const counters_vector,const uint64_t begin_strata,
+    gt_alignment* const alignment,const uint64_t begin_strata,
     uint64_t* const next_matching_strata,uint64_t* const num_maps);
-GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment);
-GT_INLINE int64_t gt_alignment_get_uniq_degree_gt_vector(gt_vector* const counters_vector);
-GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment);
 
 /*
  * Alignment's Maps set-operators
