@@ -190,24 +190,25 @@ GT_INLINE gt_status gt_input_sam_parser_reload_buffer(gt_buffered_input_file* co
 /*
  * SAM format. Basic building block for parsing
  */
-GT_INLINE char* gt_isp_read_tag(char** const text_line,gt_string* const tag) {
+GT_INLINE uint64_t gt_isp_read_tag(char** const init_text_line,char** const end_text_line,gt_string* const tag) {
   // Save text_line state
-  char* text_cp = *text_line;
+  char* text_cp = *init_text_line;
   register char** const ptext_cp = &text_cp;
   // Read tag
   register char* const tag_begin = *ptext_cp;
   GT_READ_UNTIL(ptext_cp,**ptext_cp==TAB || **ptext_cp==SPACE);
-  if (GT_IS_EOL(ptext_cp)) return NULL;
+  if (GT_IS_EOL(ptext_cp)) return GT_ISP_PE_PREMATURE_EOL;
   // Set tag
   register uint64_t const tag_length = *ptext_cp-tag_begin;
   gt_string_set_nstring(tag,tag_begin,tag_length);
   // Read the rest till next field
   if (**ptext_cp==SPACE) {
     GT_READ_UNTIL(ptext_cp,**ptext_cp==TAB);
-    if (GT_IS_EOL(ptext_cp)) return NULL;
+    if (GT_IS_EOL(ptext_cp)) return GT_ISP_PE_PREMATURE_EOL;
   }
   GT_NEXT_CHAR(ptext_cp);
-  return *ptext_cp;
+  *end_text_line = *ptext_cp;
+  return 0;
 }
 GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const map) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK(*text_line);
@@ -289,7 +290,7 @@ GT_INLINE gt_status gt_isp_parse_sam_optional_field(
   /*
    * XA:Z:chr17,-34553512,125M,0;chr17,-34655077,125M,0;
    */
-  GT_ISP_IF_OPT_FIELD(text_line,'X','A','Z') {
+  GT_ISP_IF_OPT_FIELD(text_line,'X','A','Z') { // FIXME:
     if (!is_mapped) return GT_ISP_PE_SAM_UNMAPPED_XA;
     *text_line+=5;
     while (**text_line!=TAB && **text_line!=EOL) { // Read new attached maps
@@ -488,7 +489,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
    * Parse QUAL (QUALITY STRING)
    */
   GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
-  if (gt_expect_false(**text_line==STAR)) {
+  if (gt_expect_false(**text_line==STAR && (*((*text_line)+1)==TAB || *((*text_line)+1)==EOL || *((*text_line)+1)==EOS) )) {
     GT_NEXT_CHAR(text_line);
   } else {
     register char* const seq_qual = *text_line;
@@ -544,9 +545,10 @@ GT_INLINE bool gt_isp_fetch_next_line(
   if (gt_buffered_input_file_eob(buffered_sam_input)) return false;
   // Fetch next tag
   register gt_string* const next_tag = gt_string_new(0);
-  register char* const ptext_line = gt_isp_read_tag(&(buffered_sam_input->cursor),next_tag);
+  char* ptext_line;
+  if (gt_isp_read_tag(&(buffered_sam_input->cursor),&ptext_line,next_tag)) return false;
   gt_fastq_tag_chomp_end_info(next_tag);
-  register const bool same_tag = ptext_line!=NULL && gt_string_equals(expected_tag,next_tag);
+  register const bool same_tag = gt_string_equals(expected_tag,next_tag);
   gt_string_delete(next_tag);
   if (same_tag) {
     buffered_sam_input->cursor = ptext_line;
@@ -625,11 +627,11 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
     gt_buffered_input_file* const buffered_sam_input,gt_template* const template) { // FIXME: On error read the rest of the tag SAM records
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
+  register gt_status error_code;
   register char** text_line = &(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
-  if (!((*text_line)=gt_isp_read_tag(text_line,template->tag))) return GT_ISP_PE_PREMATURE_EOL;
+  if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
   // Read all maps related to this TAG
-  register gt_status error_code;
   gt_vector* pending_v = gt_vector_new(GT_ISP_NUM_INITIAL_MAPS,sizeof(gt_sam_pending_end));
   do {
     // Parse SAM Alignment
@@ -662,7 +664,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
   register char** text_line = &(buffered_sam_input->cursor);
   register gt_status error_code;
   // Read initial TAG (QNAME := Query template)
-  if (!((*text_line)=gt_isp_read_tag(text_line,template->tag))) return GT_ISP_PE_PREMATURE_EOL; // TODO: Alignment tag builds
+  if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code; // TODO: Alignment tag builds
   gt_fastq_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   do {
@@ -694,15 +696,15 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
     gt_buffered_input_file* const buffered_sam_input,gt_alignment* alignment) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_ALIGNMENT_CHECK(alignment);
+  register gt_status error_code;
   register char** text_line = &(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
-  if (!((*text_line)=gt_isp_read_tag(text_line,alignment->tag))) return GT_ISP_PE_PREMATURE_EOL;
+  if ((error_code=gt_isp_read_tag(text_line,text_line,alignment->tag))) return error_code;
   // Read all maps related to this TAG
   do {
     // Parse SAM Alignment
     gt_sam_pending_end pending;
     uint64_t alignment_flag;
-    register gt_status error_code;
     if (gt_expect_false((error_code=gt_isp_parse_sam_alignment(
         text_line,NULL,alignment,&alignment_flag,&pending,true))!=0)) {
       return error_code;

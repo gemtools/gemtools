@@ -91,7 +91,6 @@ GT_INLINE gt_status gt_gprintf(gt_generic_printer* const generic_printer,const c
     gt_generic_printer gprinter; \
     gt_generic_new_buffered_output_file_printer(&gprinter,buffered_output_file); \
     return MODULE_NAME##_g##FUNCTION_NAME(&gprinter,GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS); \
-  } \
-  GT_INLINE gt_status MODULE_NAME##_g##FUNCTION_NAME(gt_generic_printer* const gprinter,##SIGNATURE)
+  }
 
 #endif /* GT_OUTPUT_PRINTER_H_ */
