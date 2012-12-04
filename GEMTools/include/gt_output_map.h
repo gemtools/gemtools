@@ -21,18 +21,21 @@
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_string,gt_map* const map);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_counters,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map,gt_map* const map,const bool print_scores);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_maps,gt_template* const template,const uint64_t num_maps,const bool print_scores);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_maps,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_maps,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_maps,gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores);
+// Sorted print by mismatch number
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_maps_sorted,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_maps_sorted,gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores);
 
 /*
  * High-level MAP Printers
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template,gt_template* const template,const uint64_t num_maps,const bool print_scores);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment,gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment,gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores);
 
 /*
  * GEM printer
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_gem_template,gt_template* const template,const uint64_t num_maps,const bool print_scores);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_gem_template,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores);
 
 #endif /* GT_OUTPUT_MAP_H_ */

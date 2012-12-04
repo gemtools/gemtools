@@ -503,7 +503,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     if (gt_map_get_base_length(map)==0) gt_map_set_base_length(map,gt_string_get_length(alignment->qualities));
   }
   if (!gt_string_is_null(alignment->read) && !gt_string_is_null(alignment->qualities)) {
-    gt_fatal_check(gt_string_get_length(alignment->read)!=gt_string_get_length(alignment->qualities),ALIGN_READ_QUAL_LENGTH);
+    gt_fatal_check(gt_string_get_length(alignment->read)!=gt_string_get_length(alignment->qualities),ALIGNMENT_READ_QUAL_LENGTH);
   }
   // Build a list of alignments
   register gt_vector *maps_vector = NULL;

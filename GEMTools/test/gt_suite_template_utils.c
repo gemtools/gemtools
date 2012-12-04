@@ -130,7 +130,7 @@ START_TEST(gt_test_template_copy)
 
   // test maps no mmaps with multi map string
   fail_unless(gt_input_map_parse_template(
-    "ID\tACGT\t####\t1\tchr1:-:20:4,chr2:-:40:4",source)==0);
+    "ID\tACGT\t####\t2\tchr1:-:20:4,chr2:-:40:4",source)==0);
 
   gt_string_clear(string);
   copy = gt_template_copy(source, true, false);
@@ -138,7 +138,7 @@ START_TEST(gt_test_template_copy)
   gt_output_map_sprint_template(string, copy, GT_ALL, true);
   // convert to string for simple check
   line = gt_string_get_string(string);
-  fail_unless(gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4,chr2:-:40:4\n"));
+  fail_unless(gt_streq(line,"ID\tACGT\t####\t2\tchr1:-:20:4,chr2:-:40:4\n"));
   gt_template_delete(copy);
 
   // test maps and mmaps
@@ -148,7 +148,7 @@ START_TEST(gt_test_template_copy)
   gt_output_map_sprint_template(string, copy, GT_ALL, true);
   // convert to string for simple check
   line = gt_string_get_string(string);
-  fail_unless(gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4,chr2:-:40:4\n"));
+  fail_unless(gt_streq(line,"ID\tACGT\t####\t2\tchr1:-:20:4,chr2:-:40:4\n"));
   gt_template_delete(copy);
 
 }

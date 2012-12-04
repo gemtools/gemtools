@@ -40,7 +40,6 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_counters,
   }
   return 0;
 }
-
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_mismatch_string,gt_map* const map) {
@@ -136,10 +135,13 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_map,gt_map* const map,cons
   }
   return 0;
 }
+/*
+ * Print maps unsorted
+ */
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,num_maps,print_scores
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,max_printable_maps,print_scores
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template_maps,
-    gt_template* const template,const uint64_t num_maps,const bool print_scores) {
+    gt_template* const template,const uint64_t max_printable_maps,const bool print_scores) {
   GT_NULL_CHECK(gprinter); GT_TEMPLATE_CHECK(template);
   // NOTE: No sorting performed. Written as laid in the vector.
   //       Thus, if you want a particular sorting (by score, by distance, ...) sorting must be done beforehand
@@ -148,7 +150,7 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template_maps,
     gt_gprintf(gprinter,"-");
   } else {
     GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) {
-      if (i>=num_maps) break;
+      if (i>=max_printable_maps) break;
       if ((i++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
       GT_MULTIMAP_ITERATE(map_array,map,end_position) {
         if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
@@ -162,9 +164,9 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template_maps,
   return 0;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,num_maps,print_scores
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,max_printable_maps,print_scores
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment_maps,
-    gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
+    gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores) {
   GT_NULL_CHECK(gprinter); GT_ALIGNMENT_CHECK(alignment);
   // NOTE: No sorting performed. Written as laid in the vector.
   //       Thus, if you want a particular sorting (by score, by distance, ...) sort beforehand
@@ -173,9 +175,68 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment_maps,
     gt_gprintf(gprinter,"-");
   } else {
     GT_ALIGNMENT_ITERATE(alignment,map) {
-      if (i>=num_maps) break;
+      if (i>=max_printable_maps) break;
       if ((i++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
       gt_output_map_gprint_map(gprinter,map,print_scores);
+    }
+  }
+  return 0;
+}
+/*
+ * Print map sorted by distance
+ */
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,max_printable_maps,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template_maps_sorted,
+    gt_template* const template,const uint64_t max_printable_maps,const bool print_scores) {
+  GT_NULL_CHECK(gprinter); GT_TEMPLATE_CHECK(template);
+  if (gt_expect_false(gt_template_get_num_mmaps(template)==0)) {
+    gt_gprintf(gprinter,"-");
+  } else {
+    register const uint64_t num_maps = gt_template_get_num_mmaps(template);
+    uint64_t strata = 0, pending_maps = 0, total_maps_printed = 0;
+    while (gt_alignment_get_next_matching_strata(gt_template_get_counters_vector(template),strata,&strata,&pending_maps)) {
+      GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) {
+        if (map_array_attr->distance!=strata) continue;
+        // Print mmap
+        if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
+        GT_MULTIMAP_ITERATE(map_array,map,end_position) {
+          if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
+          gt_output_map_gprint_map(gprinter,map,print_scores);
+          if (print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
+            gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
+          }
+        }
+        if (total_maps_printed>=max_printable_maps || total_maps_printed>=num_maps) break;
+        if (--pending_maps==0) break;
+      }
+      gt_cond_fatal_error(pending_maps>0,TEMPLATE_INCONSISTENT_COUNTERS);
+      ++strata;
+    }
+  }
+  return 0;
+}
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,max_printable_maps,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment_maps_sorted,
+    gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores) {
+  GT_NULL_CHECK(gprinter); GT_ALIGNMENT_CHECK(alignment);
+  if (gt_expect_false(gt_alignment_get_num_maps(alignment)==0)) {
+    gt_gprintf(gprinter,"-");
+  } else {
+    register const uint64_t num_maps = gt_alignment_get_num_maps(alignment);
+    uint64_t strata = 0, pending_maps = 0, total_maps_printed = 0;
+    while (gt_alignment_get_next_matching_strata(gt_alignment_get_counters_vector(alignment),strata,&strata,&pending_maps)) {
+      GT_ALIGNMENT_ITERATE(alignment,map) {
+        if (gt_map_get_global_distance(map)!=strata) continue;
+        // Print map
+        if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
+        gt_output_map_gprint_map(gprinter,map,print_scores);
+        if (total_maps_printed>=max_printable_maps || total_maps_printed>=num_maps) return 0;
+        if (--pending_maps==0) break;
+      }
+      gt_cond_fatal_error(pending_maps>0,ALIGNMENT_INCONSISTENT_COUNTERS);
+      ++strata;
     }
   }
   return 0;
@@ -183,12 +244,12 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment_maps,
 
 
 /*
- * Specific High-level MAP Printers
+ * Specific High-level MAP Printers {Alignment/Template}
  */
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,num_maps,print_scores
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,max_printable_maps,print_scores
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template,
-    gt_template* const template,const uint64_t num_maps,const bool print_scores) {
+    gt_template* const template,const uint64_t max_printable_maps,const bool print_scores) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   // Print TAG
@@ -217,14 +278,19 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template,
   }
   // Print MAPS
   gt_gprintf(gprinter,"\t");
-  gt_output_map_gprint_template_maps(gprinter,template,num_maps,print_scores);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,max_printable_maps,print_scores); // _sorted
+    gt_gprintf(gprinter,"\n");
+    return 0;
+  } GT_TEMPLATE_END_REDUCTION;
+  gt_output_map_gprint_template_maps_sorted(gprinter,template,max_printable_maps,print_scores); // _sorted
   gt_gprintf(gprinter,"\n");
   return 0;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,num_maps,print_scores
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,max_printable_maps,print_scores
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment,
-    gt_alignment* const alignment,const uint64_t num_maps,const bool print_scores) {
+    gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_ALIGNMENT_CHECK(alignment);
   // Print TAG
@@ -244,7 +310,7 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment,
   }
   // Print MAPS
   gt_gprintf(gprinter,"\t");
-  gt_output_map_gprint_alignment_maps(gprinter,alignment,num_maps,print_scores);
+  gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,max_printable_maps,print_scores); // _sorted
   gt_gprintf(gprinter,"\n");
   return 0;
 }
@@ -254,16 +320,16 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment,
  * GEM printer
  */
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,num_maps,print_scores
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_gem_template,gt_template* const template,const uint64_t num_maps,const bool print_scores) {
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,max_printable_maps,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_gem_template,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   if (gt_template_get_num_mmaps(template)>0) {
-    return gt_output_map_gprint_template(gprinter,template,num_maps,print_scores);
+    return gt_output_map_gprint_template(gprinter,template,max_printable_maps,print_scores);
   } else {
     register gt_status error_code = 0;
     GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
-       if ((error_code=gt_output_map_gprint_alignment(gprinter,alignment,num_maps,print_scores))) return error_code;
+       if ((error_code=gt_output_map_gprint_alignment(gprinter,alignment,max_printable_maps,print_scores))) return error_code;
     }
     return error_code;
   }

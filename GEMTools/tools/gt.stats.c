@@ -74,6 +74,7 @@ typedef struct {
   uint64_t num_threads;
   bool compact;
   bool verbose;
+  bool quiet;
 } gt_stats_args;
 
 gt_stats_args parameters = {
@@ -84,6 +85,7 @@ gt_stats_args parameters = {
     .num_threads=1,
     .compact = false,
     .verbose=false,
+    .quiet=false,
 };
 
 typedef struct {
@@ -617,14 +619,15 @@ void gt_stats_parallel_generate_stats() {
   gt_stats_merge(stats,parameters.num_threads);
 
   // Print Statistics
-  if (!parameters.compact) {
-    gt_stats_print_stats(stats[0],(parameters.num_reads>0)?
-        parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
-  } else {
-    gt_stats_print_stats_compact(stats[0],(parameters.num_reads>0)?
-        parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
+  if (!parameters.quiet) {
+    if (!parameters.compact) {
+      gt_stats_print_stats(stats[0],(parameters.num_reads>0)?
+          parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
+    } else {
+      gt_stats_print_stats_compact(stats[0],(parameters.num_reads>0)?
+          parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
+    }
   }
-
 
   // Clean
   free(stats);
@@ -640,6 +643,7 @@ void usage() {
                   "        --threads|t\n"
                   "        --compact|c\n"
                   "        --verbose|v\n"
+                  "        --quiet|q\n"
                   "        --help|h\n");
 }
 
@@ -652,11 +656,12 @@ void parse_arguments(int argc,char** argv) {
     { "threads", no_argument, 0, 't' },
     { "compact", no_argument, 0, 'c' },
     { "verbose", no_argument, 0, 'v' },
+    { "quiet", no_argument, 0, 'q' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:n:t:pchv",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:n:t:pchqv",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     case 'i':
@@ -679,6 +684,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'v':
       parameters.verbose = true;
+      break;
+    case 'q':
+      parameters.quiet = true;
       break;
     case 'h':
       usage();

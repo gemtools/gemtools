@@ -491,6 +491,13 @@ void gt_constructor_template_merge_hung() {
   gt_output_map_sprint_template(string, source, GT_ALL, true);
 }
 
+void gt_constructor_bug_merge__parse() {
+  gt_template* source = gt_template_new();
+  gt_template* target = gt_template_new();
+
+
+}
+
 void parse_arguments(int argc,char** argv) {
   struct option long_options[] = {
     { "input", required_argument, 0, 'i' },
@@ -527,7 +534,10 @@ int main(int argc,char** argv) {
   //
   // Load it!
   //
-  gt_constructor_template_merge_hung();
+
+  gt_constructor_bug_merge__parse();
+
+  //gt_constructor_template_merge_hung();
 
   //gt_constructor_parse_again();
   //gt_constructor_copy_template();

@@ -137,6 +137,21 @@ GT_INLINE int64_t gt_alignment_get_min_matching_strata(gt_alignment* const align
   }
   return GT_NO_STRATA;
 }
+GT_INLINE bool gt_alignment_get_next_matching_strata(
+    gt_vector* const counters_vector,const uint64_t begin_strata,
+    uint64_t* const next_matching_strata,uint64_t* const num_maps) {
+  register const uint64_t num_counters = gt_vector_get_used(counters_vector);
+  register uint64_t i;
+  for (i=begin_strata;i<num_counters;++i) {
+    register const uint64_t counter_val = *gt_vector_get_elm(counters_vector,i,uint64_t);
+    if (counter_val!=0) {
+      *next_matching_strata = i;
+      *num_maps = counter_val;
+      return true;
+    }
+  }
+  return false;
+}
 GT_INLINE int64_t gt_alignment_get_uniq_degree_gt_vector(gt_vector* const counters_vector) {
   GT_VECTOR_CHECK(counters_vector);
   register bool found_uniq_strata = false;

@@ -56,12 +56,21 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
       buffered_input_slave,template_slave,parameters.paired_end))==GT_IMP_FAIL) {
     gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
   }
+  // Check EOF conditions
   if (error_code_master==GT_IMP_EOF) {
     if (error_code_slave!=GT_IMP_EOF) {
       gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
     }
     return GT_IMP_EOF;
+  } else if (error_code_slave==GT_IMP_EOF) { // Slave exhausted. Dump master & return EOF
+    do {
+      if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
+      gt_output_map_bofprint_gem_template(buffered_output,template_master,GT_ALL,true);
+    } while ((error_code_master=gt_input_generic_parser_get_template(
+                buffered_input_master,template_master,parameters.paired_end)));
+    return GT_IMP_EOF;
   }
+  // Synch loop
   while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
     // Print non correlative master's template
     gt_output_map_bofprint_gem_template(buffered_output,template_master,GT_ALL,true);
@@ -145,7 +154,7 @@ void usage() {
 
 void parse_arguments(int argc,char** argv) {
   // Parse operation
-  if (argc<=1) gt_fatal_error_msg("Please specify operation {union,intersection}");
+  if (argc<=1) gt_fatal_error_msg("Please specify operation {union,intersection,difference}");
   if (gt_streq(argv[1],"INTERSECCTION") || gt_streq(argv[1],"Intersection") || gt_streq(argv[1],"intersection")) {
     parameters.operation = GT_MAP_SET_INTERSECTION;
   } else if (gt_streq(argv[1],"UNION") || gt_streq(argv[1],"Union") || gt_streq(argv[1],"union")) {
@@ -156,7 +165,7 @@ void parse_arguments(int argc,char** argv) {
     if (argv[1][0]=='I' || argv[1][0]=='i') {
       fprintf(stderr,"\tAssuming 'Intersection' ...");
       parameters.operation = GT_MAP_SET_INTERSECTION;
-    } else if (argv[1][0]=='I' || argv[1][0]=='i') {
+    } else if (argv[1][0]=='U' || argv[1][0]=='u') {
       fprintf(stderr,"\tAssuming 'Union' ...");
       parameters.operation = GT_MAP_SET_UNION;
     } else if (argv[1][0]=='D' || argv[1][0]=='d') {
@@ -169,8 +178,8 @@ void parse_arguments(int argc,char** argv) {
   argc--; argv++;
   // Parse arguments
   struct option long_options[] = {
-    { "i2", required_argument, 0, 1 },
-    { "i1", required_argument, 0, 2 },
+    { "i1", required_argument, 0, 1 },
+    { "i2", required_argument, 0, 2 },
     { "mmap-input", no_argument, 0, 3 },
     { "output", required_argument, 0, 'o' },
     { "paired-end", no_argument, 0, 'p' },

@@ -87,7 +87,7 @@ GT_INLINE void gt_alignment_set_read(gt_alignment* const alignment,char* const r
   GT_NULL_CHECK(read);
   gt_string_set_nstring(alignment->read,read,length);
   gt_fatal_check(!gt_string_is_null(alignment->qualities) &&
-      gt_string_get_length(alignment->qualities)!=gt_string_get_length(alignment->read),ALIGN_READ_QUAL_LENGTH);
+      gt_string_get_length(alignment->qualities)!=gt_string_get_length(alignment->read),ALIGNMENT_READ_QUAL_LENGTH);
 }
 GT_INLINE uint64_t gt_alignment_get_read_length(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
@@ -102,7 +102,7 @@ GT_INLINE void gt_alignment_set_qualities(gt_alignment* const alignment,char* co
   GT_NULL_CHECK(qualities);
   gt_string_set_nstring(alignment->qualities,qualities,length);
   gt_fatal_check(!gt_string_is_null(alignment->read) &&
-      gt_string_get_length(alignment->qualities)!=gt_string_get_length(alignment->read),ALIGN_READ_QUAL_LENGTH);
+      gt_string_get_length(alignment->qualities)!=gt_string_get_length(alignment->read),ALIGNMENT_READ_QUAL_LENGTH);
 }
 GT_INLINE bool gt_alignment_has_qualities(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
