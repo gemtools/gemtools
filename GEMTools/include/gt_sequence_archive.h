@@ -10,14 +10,11 @@
 
 #include "gt_commons.h"
 #include "gt_map.h"
-#include "gt_dna_string.h"
-
-#define GT_SEQ_ARCHIVE_BLOCK_SIZE GT_BUFFER_SIZE_2M
-
-#define gt_string_impl gt_dna_string
+#include "gt_compact_dna_string.h"
 
 typedef struct {
-  gt_vector* blocks;
+  gt_string* seq_name;
+  gt_vector* blocks; /* (gt_compact_dna_string*) */
   uint64_t sequence_total_length;
 } gt_segmented_sequence;
 
@@ -26,11 +23,11 @@ typedef struct {
   gt_strand strand;
   uint64_t global_pos;
   uint64_t local_pos;
-  gt_string_impl* dna_string;
+  gt_compact_dna_string* dna_string;
 } gt_segmented_sequence_iterator;
 
 typedef struct {
-  gt_shash* sequences;
+  gt_shash* sequences; /* (gt_segmented_sequence*) */
 } gt_sequence_archive;
 
 typedef struct {
@@ -41,27 +38,32 @@ typedef struct {
 /*
  * Checkers
  */
-#define GT_SEQ_ARCHIVE_CHECK(reference) gt_fatal_check(reference==NULL||reference->dna_sequences==NULL,NULL_HANDLER)
-#define GT_SEG_DNA_SEQ_CHECK(dna_sequence) \
-  gt_fatal_check(dna_sequence==NULL,NULL_HANDLER); \
-  GT_VECTOR_CHECK(dna_sequence->blocks)
+#define GT_SEQUENCE_ARCHIVE_CHECK(seq_archive) \
+  GT_NULL_CHECK(seq_archive); \
+  GT_NULL_CHECK(seq_archive->sequences)
+#define GT_SEGMENTED_SEQ_CHECK(segmented_sequence) \
+  GT_NULL_CHECK(segmented_sequence); \
+  GT_NULL_CHECK(segmented_sequence->blocks); \
+  GT_STRING_CHECK(segmented_sequence->seq_name)
 
 /*
- * Constructor
+ * SequenceARCHIVE Constructor
  */
 GT_INLINE gt_sequence_archive* gt_sequence_archive_new(void);
 GT_INLINE void gt_sequence_archive_clear(gt_sequence_archive* const seq_archive);
 GT_INLINE void gt_sequence_archive_delete(gt_sequence_archive* const seq_archive);
 /*
- * Multi-Sequence handler
+ * SequenceARCHIVE handler
  */
-GT_INLINE void gt_sequence_archive_add_sequence(gt_sequence_archive* const seq_archive,char* const seq_id,gt_segmented_sequence* const sequence);
+GT_INLINE void gt_sequence_archive_add_sequence(gt_sequence_archive* const seq_archive,gt_segmented_sequence* const sequence);
 GT_INLINE void gt_sequence_archive_remove_sequence(gt_sequence_archive* const seq_archive,char* const seq_id);
+GT_INLINE void gt_sequence_archive_get_sequence(gt_sequence_archive* const seq_archive,char* const seq_id);
+
 GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int64_t (*gt_cmp_string)(char*,char*));
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive);
 GT_INLINE void gt_sequence_archive_karyotypic_sort(gt_sequence_archive* const seq_archive);
 /*
- * Sequence Archive Iterator
+ * SequenceARCHIVE Iterator
  */
 GT_INLINE void gt_sequence_archive_new_iterator(
     gt_sequence_archive* const seq_archive,gt_sequence_archive_iterator* const seq_archive_iterator);
@@ -70,19 +72,22 @@ GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_next(gt_sequence_a
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_previous(gt_sequence_archive_iterator* const seq_archive_iterator);
 
 /*
- * Constructor
+ * SegmentedSEQ Constructor
  */
 GT_INLINE gt_segmented_sequence* gt_segmented_sequence_new(void);
 GT_INLINE void gt_segmented_sequence_clear(gt_segmented_sequence* const sequence);
 GT_INLINE void gt_segmented_sequence_delete(gt_segmented_sequence* const sequence);
 /*
- * Sequence handler
+ * SegmentedSEQ Sequence handler
  */
+GT_INLINE void gt_segmented_sequence_set_name(char* const seq_name,const uint64_t seq_length);
+GT_INLINE char* gt_segmented_sequence_get_name(gt_segmented_sequence* const sequence);
+
 GT_INLINE char gt_segmented_sequence_get_char_at(gt_segmented_sequence* const sequence,const uint64_t pos);
 GT_INLINE void gt_segmented_sequence_set_char_at(gt_segmented_sequence* const sequence,const uint64_t pos,const char character);
 GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const sequence,char* const string,const uint64_t length);
 /*
- * Segmented Sequence Iterator
+ * SegmentedSEQ Iterator
  */
 GT_INLINE void gt_segmented_sequence_new_iterator(
     gt_segmented_sequence* const sequence,const uint64_t pos,gt_strand const strand,

@@ -474,28 +474,82 @@ void gt_constructor_template_merge_hung() {
   gt_template* target = gt_template_new();
 
   gt_input_map_parse_template(
-      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\t"
-      "NGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "ID/1\t"
+      "GAGAGAACAGGCCTCTGAGCCCAAGCCAAGCCATCGCATCCCCTGTGACTTGCCCGTATATATGCCCAGATGGCCTGAAGTAACTGAAGAATCACAAAAGA\t"
       "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
-      "0:0:0:0:1\tchr19:+:35613736:C7>78*37>316*38>132*18",source);
-  gt_output_map_fprint_template(stderr, source, GT_ALL, true);
+      "0:0:0:0:1:4+27:46:45:34:12:16:3:0:1\t"
+      "chr7:+:24435865:1T>5-46A8C38,chr2:+:64479547:>1-1T>1-1T>1-94,chr4:+:16999371:1T>5-35>2-9A8C38,chr9:+:90025610:1T>5-28A17A8C38,chr11:-:130623749:2>1-1T1T46A2>2-43",source);
   gt_input_map_parse_template(
-      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\t"
-      "NGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+      "ID/1\t"
+      "GAGAGAACAGGCCTCTGAGCCCAAGCCAAGCCATCGCATCCCCTGTGACTTGCCCGTATATATGCCCAGATGGCCTGAAGTAACTGAAGAATCACAAAAGA\t"
       "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
-      "0:0:0:0:1+0:1\tchr19:+:35613741:(5)3>78*37>316*36(20),chr19:+:35613819:(5)CAG37>316*36(20)", target);
-  gt_output_map_fprint_template(stderr, target, GT_ALL, true);
+      "0:1:0:0:0:0:1:3\t"
+      "chr2:+:64479108:10>436*91,chr2:+:64479544:TTC1TGT94,chr13:+:91496959:1GA1TGT27T18A47,chr2:+:216792393:1GA1TGT46A8C38,chr2:+:64478959:AG1T1G1TT1>585*91",target);
   // merge into source
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);
+  gt_output_map_fprint_counters(stderr,gt_template_get_block(source,0)->counters,UINT64_MAX,false);
   gt_output_map_sprint_template(string, source, GT_ALL, true);
+  // convert to string
+  char * line = gt_string_get_string(string);
+  printf("%s\n", line);
+//  fail_unless(gt_streq(line,
+//      "HISEQ8_0071:3:1101:19107:2010#TGACCA/1\t"
+//      "NGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\t"
+//      "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
+//      "0:0:0:0:2+0:1\t"
+//      "chr19:+:35613736:C7>78*37>316*38>132*18,chr19:+:35613741:(5)3>78*37>316*36(20),chr19:+:35613819:(5)CAG37>316*36(20)\n"));
 }
 
-void gt_constructor_bug_merge__parse() {
-  gt_template* source = gt_template_new();
-  gt_template* target = gt_template_new();
+void gt_remove_maps_with_n_or_more_mismatches() {
+  // Open file IN/OUT
+  gt_input_file* input_file = gt_input_file_open("bug",false);
+  gt_output_file* output_file = gt_output_stream_new(stdout, SORTED_FILE);
 
+  // Parallel reading+process
+  #pragma omp parallel num_threads(4)
+  {
+    gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
+    gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
+    gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
 
+    gt_status error_code;
+    gt_alignment *alignment_src = gt_alignment_new();
+    gt_alignment *alignment_dst;
+    while ((error_code = gt_input_generic_parser_get_alignment(buffered_input,alignment_src))) {
+      if (error_code != GT_IMP_OK) {
+        gt_error_msg("Fatal error parsing file \n");
+      }
+
+      // Filter by number of mismatches
+      alignment_dst = gt_alignment_copy(alignment_src,false);
+      GT_ALIGNMENT_ITERATE(alignment_src,map) {
+        // Count number of mismatches
+        int num_misms = 0;
+        GT_MISMS_ITERATE(map,misms) {
+          if (misms->misms_type == MISMS)
+            num_misms++;
+        }
+        // Add the map
+        if (num_misms <= 3) {
+          gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+        }
+      }
+
+      // Print template
+      gt_output_map_bofprint_alignment(buffered_output,alignment_dst,GT_ALL,true);
+      gt_alignment_delete(alignment_dst);
+    }
+
+    // Clean
+    gt_alignment_delete(alignment_src);
+    gt_buffered_input_file_close(buffered_input);
+    gt_buffered_output_file_close(buffered_output);
+  }
+
+  // Clean
+  gt_input_file_close(input_file);
+  gt_output_file_close(output_file);
 }
 
 void parse_arguments(int argc,char** argv) {
@@ -535,7 +589,7 @@ int main(int argc,char** argv) {
   // Load it!
   //
 
-  gt_constructor_bug_merge__parse();
+  gt_remove_maps_with_n_or_more_mismatches();
 
   //gt_constructor_template_merge_hung();
 

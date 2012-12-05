@@ -200,7 +200,8 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_v(
   GT_NULL_CHECK(gt_map_cmp_fx);
   GT_ZERO_CHECK(num_src_alignments);
   // Create new alignment
-  register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,true);
+  register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false);
+  gt_alignment_merge_alignment_maps_fx(gt_map_cmp_fx,alignment_union,alignment_src);
   // Merge alignment sources into alignment_union
   register uint64_t num_alg_merged = 1;
   while (num_alg_merged < num_src_alignments) {

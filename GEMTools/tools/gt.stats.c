@@ -583,7 +583,9 @@ void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const
   register const uint64_t total_bases_mmaps = stats->mmaps_match_ep->total_bases_aligned+stats->mmaps_match_ep->total_bases_trimmed;
   fprintf(stderr,"%2.3f,",100.0*(float)stats->mmaps_match_ep->total_bases_aligned/(float)total_bases_mmaps);
   // Bases.trimmed(%)
-  fprintf(stderr,"%2.3f\n",100.0*(float)stats->mmaps_match_ep->total_bases_trimmed/(float)total_bases_mmaps);
+  fprintf(stderr,"%2.3f,",100.0*(float)stats->mmaps_match_ep->total_bases_trimmed/(float)total_bases_mmaps);
+  // Uniq-0
+  fprintf(stderr,"%2.3f\n",100.0*(float)stats->uniq[UNIQ_RANGE_0]/(float)eff_num_reads);
 }
 
 /*

@@ -16,7 +16,7 @@ GT_INLINE gt_shash* gt_shash_new(void) {
   shash->shash_head = NULL; // uthash initializer
   return shash;
 }
-GT_INLINE void gt_shash_clean(gt_shash* const shash,const bool free_element,const bool free_key) {
+GT_INLINE void gt_shash_clean(gt_shash* const shash,const bool free_element,const bool free_key) { // FIXME: Erase free_key
   GT_HASH_CHECK(shash);
   gt_shash_element *shash_element, *tmp;
   HASH_ITER(hh,shash->shash_head,shash_element,tmp) {

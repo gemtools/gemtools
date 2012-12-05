@@ -311,7 +311,8 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
   GT_NULL_CHECK(gt_mmap_cmp_fx);
   GT_ZERO_CHECK(num_src_templates);
   // Create new template
-  register gt_template* const template_union = gt_template_copy(template_src,true,true);
+  register gt_template* const template_union = gt_template_copy(template_src,false,false);
+  gt_template_merge_template_mmaps_fx(gt_mmap_cmp_fx,gt_map_cmp_fx,template_union,template_src);
   // Merge template sources into template_union
   register uint64_t num_tmp_merged = 0;
   while (num_tmp_merged < num_src_templates) {
