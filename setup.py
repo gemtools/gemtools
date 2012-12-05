@@ -1,4 +1,10 @@
 import os
+try:
+    import setuptools
+except:
+    from ez_setup import use_setuptools
+    use_setuptools()
+
 from setuptools import setup, Command
 from distutils.core import Extension
 from setuptools.command.install import install as _install
