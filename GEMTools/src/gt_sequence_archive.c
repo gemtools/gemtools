@@ -55,12 +55,7 @@ int gt_sequence_archive_lexicographical_sort_fx(char *a,char *b) {
   return gt_strcmp(a,b);
 }
 int gt_sequence_archive_karyotypic_sort_fx(char *a,char *b) {
-  /*
-   * return (int) -1 if (a < b)
-   * return (int)  0 if (a == b)
-   * return (int)  1 if (a > b)
-   */
-  return gt_strcmp(a,b);
+//
 }
 GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int64_t (*gt_cmp_string)(char*,char*)) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
@@ -68,7 +63,7 @@ GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,i
 }
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-
+  HASH_SORT(seq_archive->sequences,gt_sequence_archive_lexicographical_sort_fx);
 }
 GT_INLINE void gt_sequence_archive_karyotypic_sort(gt_sequence_archive* const seq_archive) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
