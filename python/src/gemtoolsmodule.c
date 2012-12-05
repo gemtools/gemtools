@@ -618,6 +618,7 @@ static PyObject* gemtools_merge_templates(PyObject *self, PyObject *args){
 
     Template* t_1 = (Template*)t1;
     Template* t_2 = (Template*)t2;
+    gt_template_recalculate_counters(t_1->template);
     //gt_template* tmpl = gt_template_copy(t_1->template, true, false);
     gt_template_merge_template_mmaps(t_1->template, t_2->template);
 

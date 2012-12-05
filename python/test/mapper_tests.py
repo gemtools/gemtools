@@ -46,6 +46,25 @@ def test_merging_maps():
             assert read.mappings == "chr15:+:72492866:75"
     assert count == 10
 
+@with_setup(setup_func, cleanup)
+def test_merging_maps_chr21():
+    s = ["chr21_mapping_initial.map",
+          "chr21_mapping_denovo.map",
+          "chr21_mapping_initial_split.map",
+          "chr21_mapping_trim_20.map",
+          "chr21_mapping_trim_20_split.map"
+         ]
+    fs = []
+    for f in s:
+        fs.append(files.open(testfiles[f]))
+    m = gem.merger(fs[0], fs[1:])
+    count = 0
+    ms = 0
+    for read in m:
+        count += 1
+        ms += len(read.get_maps()[1])
+    assert count == 2000
+    assert ms == 3606
 
 @with_setup(setup_func, cleanup)
 def test_merging_maps_to_file():

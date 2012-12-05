@@ -6,6 +6,7 @@ import subprocess
 import types
 import tempfile
 import re
+import logging
 
 from . import filter as gemfilters
 from threading import Thread
@@ -29,13 +30,15 @@ def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None
     ## read from process stdout and get junctions
     if sites is None:
         sites = set([])
-
+    initial_size = len(sites)
     for line in p.stdout:
         sites.add(JunctionSite(line = line))
 
     exit_value = p.wait()
     if exit_value != 0:
-        raise ValueError("Error while executing junction extraction")
+        logging.error("Error while executing junction extraction")
+        exit(1)
+    logging.info("Junction extraction: Initial %d, Output %d (%d new)" % (initial_size, len(sites), (len(sites) - initial_size)))
     return sites
 
 

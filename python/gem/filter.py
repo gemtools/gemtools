@@ -169,7 +169,7 @@ def trim(reads, left_trim=0, right_trim=0, min_length=10, append_label=False):
                 right_seq = read.sequence[-right_trim:]
                 if read.qualities:
                     left_qual = read.qualities[:left_trim]
-                    right_qual = read.qualities[:right_trim]
+                    right_qual = read.qualities[-right_trim:]
                 read.id = "%s B T %s %s %s %s" % (read.id, left_seq, right_seq, left_qual, right_qual)
 
             read.sequence = seq

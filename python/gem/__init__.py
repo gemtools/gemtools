@@ -115,7 +115,6 @@ class Read(object):
         self.mappings = other.mappings
         self.line = other.line
         self.type = other.type
-        self.template = None
         self.__template_initialized = False
 
     def min_mismatches(self):
@@ -152,7 +151,11 @@ class Read(object):
         if self.template is None:
             self.template = gt.Template()
         if not self.__template_initialized:
-            self.template.fill(self.line)
+            try:
+                self.template.fill(self.line)
+            except Exception, e:
+                print "ERROR PARSING "+self.line
+                raise e
         return self.template
 
     def merge(self, other):
@@ -162,7 +165,7 @@ class Read(object):
         """
         line = gt.merge_templates(self._get_template(), other._get_template())
         if line is not None and len(line) > 0:
-            pass
+            self.fill(files.parse_map().line2read(line))
 
 
     def to_map(self, no_max_mappings=False):
@@ -434,7 +437,7 @@ def mapper(input, index, output=None,
         pa.append("-e")
         pa.append("%s"%str(max_edit_distance))
 
-    trim_c = [executables['gem-map-2-map'], '-c']
+    trim_c = [executables['gem-map-2-map'], '-c', '-T', str(threads)]
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
@@ -492,7 +495,7 @@ def splitmapper(input,
     """
 
     ## check the index
-    index = _prepare_index_parameter(index, gem_suffix=True)
+    index = _prepare_index_parameter(index, gem_suffix=False)
     if quality is None and isinstance(input, files.ReadIterator):
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
@@ -509,7 +512,7 @@ def splitmapper(input,
           '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
-
+    min_threads = int(round(max(1, threads/2)))
     if junctions_file is not None:
         pa.append("-J")
         pa.append(os.path.abspath(junctions_file))
@@ -522,7 +525,7 @@ def splitmapper(input,
         pa.append("-c")
         pa.append(splice_cons)
 
-    trim_c = [executables['gem-map-2-map'], '-c']
+    trim_c = [executables['gem-map-2-map'], '-c', '-T', str(min_threads)]
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
@@ -943,8 +946,14 @@ class merger(object):
 
             if target_read.id == source_read.id:
                 mis = source_read.min_mismatches()
-                if mis >= 0:
+                t_mis = self.result_read.min_mismatches()
+                if t_mis < 0:
                     self.result_read.fill(source_read)
+                else:
+                    if mis >= 0 and mis < _max_mappings:
+                        #self.result_read.fill(source_read)
+                        self.result_read.merge(source_read)
+
                 ## read next into cache
                 self.reads[i] = self.__get_next_read(h)
         return self.result_read

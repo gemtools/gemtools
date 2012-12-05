@@ -16,6 +16,14 @@ def test_get_template():
         assert read._get_template() is not None
         #print read.template.max_complete_strata
 
+
+def test_gt_parse_map():
+    line="HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\tBPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1:0:0:0\tchr19:+:35613736:C7>78*37::chr19:+:35613736:C7>78*37>316*38>132*18:+:35614175:38>132*18"
+    read_1 = gem.files.parse_map().line2read(line)
+    assert read_1 is not None
+    assert read_1._get_template() is not None
+
+
 def test_gt_merge_templates():
     read_1 = gem.Read()
     read_1.id = "ID"
@@ -25,6 +33,32 @@ def test_gt_merge_templates():
     read_2.line = "ID\tACGT\t####\t1:1\tchr1:-:30:4,chr9:+:50:3C"
     merged_line = gt.merge_templates(read_1._get_template(), read_2._get_template())
     assert merged_line == "ID\tACGT\t####\t2+1\tchr1:-:20:4,chr1:-:30:4,chr9:+:50:3C\n", "Line should be\n"+"ID\tACGT\t####\t2+1\tchr1:-:20:4,chr1:-:30:4,chr9:+:50:3C"+"\nbut is\n"+merged_line
+
+
+def test_gt_merge_templates_hang():
+    read_1 = gem.files.parse_map().line2read("HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t@CCFFFFFHHHHHIJIJJIJJJJJJJIIJGIDGIHHHFF6>CCCDEDDDDCBDD>CCDCC>CCCCCDDDDDBDC>\t0:0:0:0:0:0\t-")
+    read_2 = gem.files.parse_map().line2read("HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t@CCFFFFFHHHHHIJIJJIJJJJJJJIIJGIDGIHHHFF6>CCCDEDDDDCBDD>CCDCC>CCCCCDDDDDBDC>\t0:1\tchr21:+:47848466:39>1419*36")
+    merged_line = gt.merge_templates(read_1._get_template(), read_2._get_template())
+    assert merged_line == "HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t@CCFFFFFHHHHHIJIJJIJJJJJJJIIJGIDGIHHHFF6>CCCDEDDDDCBDD>CCDCC>CCCCCDDDDDBDC>\t0:1:0:0:0:0\tchr21:+:47848466:39>1419*36\n"
+
+def test_gt_merge_templates_error():
+    read_1 = gem.files.parse_map().line2read("HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\tBPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1\tchr19:+:35613736:C7>78*37>316*38>132*18")
+    read_2 = gem.files.parse_map().line2read("HISEQ8_0071:3:1101:19107:2010#TGACCA/1\tNGTCATGAGTGCAAAATGCAAATGCAAGTTTGGCCAGAAGTCCGGTCACCATCCAGGGGAGACTCCACCTCTCATCACCCCAGGCTCAGCCCAAAGCTGAT\tBPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t0:0:0:0:1+0:1\tchr19:+:35613741:(5)3>78*37>316*36(20),chr19:+:35613819:(5)CAG37>316*36(20)")
+    merged_line = gt.merge_templates(read_1._get_template(), read_2._get_template())
+    print merged_line
+
+def test_gt_merge_reads():
+    read_1 = gem.Read()
+    read_1.id = "ID"
+    read_1.line = "ID\tACGT\t####\t1\tchr1:-:20:4"
+    read_2 = gem.Read()
+    read_2.id = "ID"
+    read_2.line = "ID\tACGT\t####\t1:1\tchr1:-:30:4,chr9:+:50:3C"
+    read_1.merge(read_2)
+    assert read_1.get_maps()[0] == [2,1]
+    assert len(read_1.get_maps()[1]) == 3
+    #merged_line = gt.merge_templates(read_1._get_template(), read_2._get_template())
+
 
 #def test_map_2_fastq_conversion():
 #    infile = gt.open_file(test_mapping)

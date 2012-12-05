@@ -100,12 +100,13 @@ def read_to_map(read):
 
 def __parse_error_output(stream, name="Tool"):
     """Parse the GEM error output stream and
-    raise an exception if 'error' occurs"""
+    if 'error' occurs exists"""
     logging.info("Error thread started for %s %s" % (name, stream))
     for line in stream:
         line = line.rstrip()
         if re.search("error", line):
             logging.error("%s raised an error !\n%s\n" % (name, line))
+            exit(1)
     logging.info("Error thread method finished for %s %s" % (name, stream))
 
 
@@ -402,13 +403,20 @@ def find_in_path(program):
     return None
 
 
-def gzip(file):
+def gzip(file, threads=1):
     """Helper to call gzip on the given file name
     and compress the file
+
+    If threads is > 1, pigz has to be in path and is used
     """
     logging.debug("Starting GZIP compression for %s" % (file))
-    if subprocess.Popen(['gzip', file]).wait() != 0:
-        raise ValueError("Error wile executing gzip on %s" % file)
+
+    if threads > 1:
+        if subprocess.Popen(['pigz','-p', str(threads), file]).wait() != 0:
+            raise ValueError("Error wile executing pigz on %s" % file)
+    else:
+        if subprocess.Popen(['gzip', file]).wait() != 0:
+            raise ValueError("Error wile executing gzip on %s" % file)
     return "%s.gz" % file
 
 
