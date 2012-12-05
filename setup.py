@@ -66,7 +66,7 @@ def _install_bundle(install_dir, base=None):
         print "Downloading %s bundle from %s to %s" % (type, base_url, target)
         urllib.urlretrieve (base_url, target)
 
-    tar = subprocess.Popen("tar xzvf %s" % (target), shell=True, cwd=dirpath)
+    tar = subprocess.Popen("tar xzvf %s --exclude \"._*\"" % (target), shell=True, cwd=dirpath)
     if tar.wait() != 0:
         print "Error while extracting gem bundle"
         exit(1)
