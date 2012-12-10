@@ -263,3 +263,12 @@ def test_sam2bam_sort_async_execution():
     bam = gem.sam2bam(input, sorted=True)
     assert bam is not None
     assert sum(1 for x in bam) == 10000
+
+
+def test_parameter_extension():
+    pa = []
+    gem._extend_parameters(pa, "--test me")
+    assert pa == ["--test", "me"]
+    pa = []
+    gem._extend_parameters(pa, ["--test", "me"])
+    assert pa == ["--test", "me"]

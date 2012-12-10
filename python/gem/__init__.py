@@ -1013,7 +1013,7 @@ def _extend_parameters(pa, extra=None):
     it is appended to the parameter array as is.
     """
     if extra is not None:
-        if isinstance(extra, (basestring, tuple)):
+        if isinstance(extra, (basestring,)):
             pa.extend(extra.split(" "))
         else:
             pa.extend(extra)
