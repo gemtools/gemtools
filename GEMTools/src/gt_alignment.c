@@ -280,9 +280,9 @@ GT_INLINE void gt_alignment_handler_copy(gt_alignment* const alignment_dst,gt_al
   GT_ALIGNMENT_CHECK(alignment_src);
   alignment_dst->alignment_id = alignment_src->alignment_id;
   alignment_dst->in_block_id = alignment_src->in_block_id;
-  alignment_dst->tag = gt_string_dup(alignment_src->tag);
-  alignment_dst->read = gt_string_dup(alignment_src->read);
-  alignment_dst->qualities = gt_string_dup(alignment_src->qualities);
+  gt_string_copy(alignment_dst->tag,alignment_src->tag);
+  gt_string_copy(alignment_dst->read,alignment_src->read);
+  gt_string_copy(alignment_dst->qualities,alignment_src->qualities);
   alignment_dst->maps_txt = alignment_src->maps_txt;
 }
 GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment,const bool copy_maps) {

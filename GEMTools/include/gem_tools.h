@@ -33,6 +33,9 @@
 #include "gt_template.h"
 #include "gt_template_utils.h"
 
+// HighLevel Modules
+#include "gt_stats.h"
+
 /*
  * Parsers Helpers
  */

@@ -59,7 +59,7 @@ GT_INLINE void gt_sequence_archive_add_sequence(gt_sequence_archive* const seq_a
 GT_INLINE void gt_sequence_archive_remove_sequence(gt_sequence_archive* const seq_archive,char* const seq_id);
 GT_INLINE void gt_sequence_archive_get_sequence(gt_sequence_archive* const seq_archive,char* const seq_id);
 
-GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int64_t (*gt_cmp_string)(char*,char*));
+GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int (*gt_cmp_string)(char*,char*));
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive);
 GT_INLINE void gt_sequence_archive_karyotypic_sort(gt_sequence_archive* const seq_archive);
 /*
@@ -74,13 +74,13 @@ GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_previous(gt_sequen
 /*
  * SegmentedSEQ Constructor
  */
-GT_INLINE gt_segmented_sequence* gt_segmented_sequence_new(void);
+GT_INLINE gt_segmented_sequence* gt_segmented_sequence_new(char* const seq_name,const uint64_t seq_name_length);
 GT_INLINE void gt_segmented_sequence_clear(gt_segmented_sequence* const sequence);
 GT_INLINE void gt_segmented_sequence_delete(gt_segmented_sequence* const sequence);
 /*
  * SegmentedSEQ Sequence handler
  */
-GT_INLINE void gt_segmented_sequence_set_name(char* const seq_name,const uint64_t seq_length);
+GT_INLINE void gt_segmented_sequence_set_name(char* const seq_name,const uint64_t seq_name_length);
 GT_INLINE char* gt_segmented_sequence_get_name(gt_segmented_sequence* const sequence);
 
 GT_INLINE char gt_segmented_sequence_get_char_at(gt_segmented_sequence* const sequence,const uint64_t pos);

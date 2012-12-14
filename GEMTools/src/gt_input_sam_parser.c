@@ -15,16 +15,18 @@
 // Internal pair-pending
 typedef struct {
   // Current map info
-  char* map_seq_name;
+  gt_string map_seq_name;
   uint64_t map_position;
   uint64_t end_position; // 0/1
   // Next map info
-  char* next_seq_name;
+  gt_string next_seq_name;
   uint64_t next_position;
   // Map location and span info
   uint64_t map_displacement; // In alignment's map vector
   uint64_t num_maps; // Maps in the vector coupled to the first one
 } gt_sam_pending_end;
+
+#define GT_SAM_INIT_PENDING {.map_seq_name.allocated=0, .next_seq_name.allocated=0}
 
 /*
  * SAM File Format test
@@ -210,7 +212,10 @@ GT_INLINE uint64_t gt_isp_read_tag(char** const init_text_line,char** const end_
   *end_text_line = *ptext_cp;
   return 0;
 }
-GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const map) {
+/*
+ * 2M503N34M757N40M
+ */
+GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK(*text_line);
   GT_MAP_CHECK(map);
   register uint64_t position = 0;
@@ -221,7 +226,7 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const 
   // 5M1D95M3I40M
   while (**text_line!=TAB && **text_line!=EOL) {
     // Parse misms_op length
-    register uint64_t length;
+    register uint64_t length, reference_span=0;
     if (!gt_is_number(**text_line)) return GT_ISP_PE_EXPECTED_NUMBER;
     GT_PARSE_NUMBER(text_line,length);
     // Parse misms_op
@@ -229,11 +234,12 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const 
     gt_misms misms;
     register const char cigar_op = **text_line;
     GT_NEXT_CHAR(text_line);
-    switch (cigar_op) {
+    switch (cigar_op) { // TODO: Insert mismatches
       case 'M':
       case '=':
       case 'X':
         position += length;
+        reference_span += length;
         break;
       case 'P': // Padding. Nothing specific implemented
       case 'S': // Soft clipping. Nothing specific implemented
@@ -249,11 +255,24 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const 
         misms.misms_type = INS;
         misms.position = position;
         misms.size = length;
+        reference_span += length;
         gt_map_add_misms(map,&misms);
         break;
+      case 'N': { // Split. Eg TOPHAT, GEM, ...
+        // Create a new map block
+        gt_map* next_map = gt_map_new_(true);
+        gt_map_set_seq_name(next_map,gt_string_get_string(map->seq_name),gt_string_get_length(map->seq_name));
+        gt_map_set_position(next_map,gt_map_get_position(map)+reference_span+length);
+        gt_map_set_strand(next_map,gt_map_get_strand(map));
+        gt_map_set_base_length(next_map,gt_map_get_base_length(map)-position);
+        // Close current map block
+        gt_map_set_base_length(map,position);
+        gt_map_set_next_block(map,next_map,SPLICE);
+        // Swap maps & Reset position,reference_span
+        map = next_map;
+        position=0; reference_span=0;
+        }
         break;
-      case 'N':
-        gt_fatal_error(SELECTION_NOT_IMPLEMENTED);
       default:
         return GT_ISP_PE_BAD_CHARACTER;
         break;
@@ -278,63 +297,71 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* const 
   GT_PARSE_NUMBER(text_line,number)
 #define GT_ISP_IF_OPT_FIELD(text_line,char1,char2,type_char) { \
   if ((*text_line)[0]==char1 && (*text_line)[1]==char2 && (*text_line)[2]!=EOL && (*text_line)[3]==type_char) {
-#define GT_ISP_END_OPT_FIELD \
-    return 0; \
-  }}
+#define GT_ISP_END_OPT_FIELD }}
 
+GT_INLINE gt_status gt_isp_parse_sam_opt_xa_bwa(
+    char** const text_line,gt_alignment* const alignment,
+    gt_vector* const maps_vector,gt_sam_pending_end* const pending) {
+  // TODO if (!is_mapped) return GT_ISP_PE_SAM_UNMAPPED_XA;
+  *text_line+=5;
+  while (**text_line!=TAB && **text_line!=EOL) { // Read new attached maps
+    gt_map* map = gt_map_new();
+    gt_map_set_base_length(map,gt_alignment_get_read_length(alignment));
+    // Sequence-name/Chromosome
+    register char* const seq_name = *text_line;
+    GT_READ_UNTIL(text_line,**text_line==COMA);
+    GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
+    gt_map_set_seq_name(map,seq_name,*text_line-seq_name);
+    GT_NEXT_CHAR(text_line);
+    // Position
+    if (**text_line==MINUS) {
+      gt_map_set_strand(map,REVERSE);
+      GT_NEXT_CHAR(text_line);
+    } else if (**text_line==PLUS) {
+      gt_map_set_strand(map,FORWARD);
+      GT_NEXT_CHAR(text_line);
+    } else {
+      gt_map_delete(map);
+      return GT_ISP_PE_BAD_CHARACTER;
+    }
+    GT_ISP_PARSE_SAM_ALG_PARSE_NUMBER(map->position);
+    GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
+    GT_NEXT_CHAR(text_line);
+    // CIGAR // TODO: Parse it !!
+    GT_READ_UNTIL(text_line,**text_line==COMA);
+    GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
+    GT_NEXT_CHAR(text_line);
+    // Edit distance
+    GT_READ_UNTIL(text_line,**text_line==SEMICOLON);
+    if (**text_line==SEMICOLON) GT_NEXT_CHAR(text_line);
+    // Add it to the list
+    gt_vector_insert(maps_vector,map,gt_map*);
+    // Consider pending relation
+    ++pending->num_maps;
+  }
+  return 0;
+}
 
 GT_INLINE gt_status gt_isp_parse_sam_optional_field(
     char** const text_line,gt_alignment* const alignment,
     gt_vector* const maps_vector,gt_sam_pending_end* const pending,
     const bool is_mapped) {
+  register char* const init_opt_field = *text_line;
+
   /*
    * XA:Z:chr17,-34553512,125M,0;chr17,-34655077,125M,0;
    */
-  GT_ISP_IF_OPT_FIELD(text_line,'X','A','Z') { // FIXME:
-    if (!is_mapped) return GT_ISP_PE_SAM_UNMAPPED_XA;
-    *text_line+=5;
-    while (**text_line!=TAB && **text_line!=EOL) { // Read new attached maps
-      gt_map* map = gt_map_new();
-      gt_map_set_base_length(map,gt_alignment_get_read_length(alignment));
-      // Sequence-name/Chromosome
-      register char* const seq_name = *text_line;
-      GT_READ_UNTIL(text_line,**text_line==COMA);
-      GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
-      gt_map_set_seq_name(map,seq_name,*text_line-seq_name);
-      GT_NEXT_CHAR(text_line);
-      // Position
-      if (**text_line==MINUS) {
-        gt_map_set_strand(map,REVERSE);
-        GT_NEXT_CHAR(text_line);
-      } else if (**text_line==PLUS) {
-        gt_map_set_strand(map,FORWARD);
-        GT_NEXT_CHAR(text_line);
-      } else {
-        gt_map_delete(map);
-        return GT_ISP_PE_BAD_CHARACTER;
-      }
-      GT_ISP_PARSE_SAM_ALG_PARSE_NUMBER(map->position);
-      GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
-      GT_NEXT_CHAR(text_line);
-      // CIGAR // TODO: Parse it !!
-      GT_READ_UNTIL(text_line,**text_line==COMA);
-      GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
-      GT_NEXT_CHAR(text_line);
-      // Edit distance
-      GT_READ_UNTIL(text_line,**text_line==SEMICOLON);
-      if (**text_line==SEMICOLON) GT_NEXT_CHAR(text_line);
-      // Add it to the list
-      gt_vector_insert(maps_vector,map,gt_map*);
-      // Consider pending relation
-      ++pending->num_maps;
+  GT_ISP_IF_OPT_FIELD(text_line,'X','A','Z') {
+    if (gt_isp_parse_sam_opt_xa_bwa(text_line,alignment,maps_vector,pending)) {
+      *text_line = init_opt_field;
     }
   } GT_ISP_END_OPT_FIELD;
 
   // TODO: MD field, and more ....
 
-  // TODO: Store in attributes
-
-  // Unknown field (skip it)
+  /*
+   * Unknown field (store it as attribute and skip)
+   */
   GT_READ_UNTIL(text_line,**text_line==TAB);
   return 0;
 }
@@ -382,15 +409,17 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   /*
    * Parse RNAME (Sequence-name/Chromosome)
    */
+  register char* const seq_name = *text_line;
+  register uint64_t seq_length = 0;
   if (gt_expect_false(**text_line==STAR)) {
     is_mapped=false; /* Unmapped */
     GT_NEXT_CHAR(text_line);
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL__NEXT();
   } else {
-    register char* const seq_name = *text_line;
     GT_READ_UNTIL(text_line,**text_line==TAB);
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
-    gt_map_set_seq_name(map,seq_name,*text_line-seq_name);
+    seq_length = *text_line-seq_name;
+    gt_map_set_seq_name(map,seq_name,seq_length);
     GT_NEXT_CHAR(text_line);
   }
   /*
@@ -416,33 +445,33 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
    */
   if (**text_line==STAR || is_single_segment || !is_mapped ||
       (*alignment_flag&GT_SAM_FLAG_NEXT_UNMAPPED)) {
-    pending->next_seq_name = NULL;
+    gt_string_clear(&pending->next_seq_name);
     GT_ISP_PARSE_SAM_ALG_SKIP_FIELD(); // RNEXT
     GT_ISP_PARSE_SAM_ALG_SKIP_FIELD(); // PNEXT
   } else {
     // Parse RNEXT
     if (**text_line==EQUAL) {
-      pending->next_seq_name = gt_map_get_seq_name(map);
+      gt_string_set_nstring(&pending->next_seq_name,seq_name,seq_length);
       GT_NEXT_CHAR(text_line);
       if (**text_line!=TAB) {
         gt_map_delete(map); return GT_ISP_PE_BAD_CHARACTER;
       }
       GT_NEXT_CHAR(text_line);
     } else {
-      pending->next_seq_name = *text_line;
+      register char* const next_seq_name = *text_line;
       GT_READ_UNTIL(text_line,**text_line==TAB);
       GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
-      **text_line=EOS; // Writing to buffer's info
+      gt_string_set_nstring(&pending->next_seq_name,next_seq_name,*text_line-next_seq_name);
       GT_NEXT_CHAR(text_line);
     }
     // Parse PNEXT (Position of the next segment)
     GT_ISP_PARSE_SAM_ALG_PARSE_NUMBER(pending->next_position);
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL__NEXT();
     if (pending->next_position==0) {
-      pending->next_seq_name = NULL;
+      gt_string_clear(&pending->next_seq_name);
     } else {
+      gt_string_set_nstring(&pending->map_seq_name,seq_name,seq_length);
       pending->num_maps = 1;
-      pending->map_seq_name = gt_map_get_seq_name(map);
       pending->map_position = gt_map_get_position(map);
     }
   }
@@ -530,7 +559,14 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   if (**text_line!=EOL && **text_line!=EOS) return GT_ISP_PE_BAD_CHARACTER;
   if (is_mapped) {
     pending->map_displacement = gt_alignment_get_num_maps(alignment);
-    gt_alignment_insert_map_gt_vector(alignment,maps_vector);
+    if (override_pairing) {
+      gt_alignment_insert_map_gt_vector(alignment,maps_vector);
+    } else {
+      GT_VECTOR_ITERATE(maps_vector,map_elm,map_pos,gt_map*) {
+        gt_alignment_inc_counter(alignment,gt_map_get_global_distance(*map_elm)+1);
+        gt_alignment_add_map(alignment,*map_elm);
+      }
+    }
     gt_vector_delete(maps_vector);
   }
   return 0;
@@ -547,7 +583,7 @@ GT_INLINE bool gt_isp_fetch_next_line(
   register gt_string* const next_tag = gt_string_new(0);
   char* ptext_line;
   if (gt_isp_read_tag(&(buffered_sam_input->cursor),&ptext_line,next_tag)) return false;
-  gt_fastq_tag_chomp_end_info(next_tag);
+  if (chomp_tag) gt_fastq_tag_chomp_end_info(next_tag);
   register const bool same_tag = gt_string_equals(expected_tag,next_tag);
   gt_string_delete(next_tag);
   if (same_tag) {
@@ -561,25 +597,29 @@ GT_INLINE bool gt_isp_fetch_next_line(
 GT_INLINE void gt_isp_add_mmap(
     gt_template* const template,const uint64_t start_pos_end1,const uint64_t start_pos_end2,
     const uint64_t pending_maps_end1,const uint64_t pending_maps_end2) {
-  register gt_map** mmap_end1 = gt_vector_get_elm(gt_template_get_block(template,0)->maps,start_pos_end1,gt_map*);
-  register gt_map** mmap_end2 = gt_vector_get_elm(gt_template_get_block(template,1)->maps,start_pos_end2,gt_map*);
+  register gt_map** mmap_end1 = gt_vector_get_elm(gt_template_get_block_dyn(template,0)->maps,start_pos_end1,gt_map*);
+  register gt_map** mmap_end2 = gt_vector_get_elm(gt_template_get_block_dyn(template,1)->maps,start_pos_end2,gt_map*);
   register uint64_t i;
   gt_mmap_attributes attr;
   register const uint64_t pending_maps = GT_MAX(pending_maps_end1,pending_maps_end2);
   for (i=0;i<pending_maps;++i) {
-    register gt_map* const map_end1 = (pending_maps_end1>1) ? mmap_end1[i] : mmap_end1[0];
-    register gt_map* const map_end2 = (pending_maps_end2>1) ? mmap_end2[i] : mmap_end2[0];
-    attr.distance = gt_map_get_global_distance(map_end1)+gt_map_get_global_distance(map_end2);
-    gt_template_add_mmap_va(template,&attr,map_end1,map_end2);
+    gt_map* map_end[2];
+    map_end[0] = (pending_maps_end1>1) ? mmap_end1[i] : mmap_end1[0];
+    map_end[1] = (pending_maps_end2>1) ? mmap_end2[i] : mmap_end2[0];
+    attr.distance = gt_map_get_global_distance(map_end[0])+gt_map_get_global_distance(map_end[1]);
+    attr.score = GT_MAP_NO_SCORE;
+    // gt_template_put_mmap(gt_mmap_cmp,gt_map_cmp,template,map_end,&attr,); //FIXME
+    gt_template_inc_counter(template,attr.distance+1);
+    gt_template_add_mmap_va(template,&attr,map_end[0],map_end[1]);
   }
 }
 
 GT_INLINE bool gt_isp_check_pending_record__add_mmap(
     gt_template* const template,gt_sam_pending_end* const pending,
-    const uint64_t end_position,char* const seq_name,const uint64_t position,
+    const uint64_t end_position,gt_string* const seq_name,const uint64_t position,
     const uint64_t map_displacement,const uint64_t num_maps) {
   if (pending->end_position!=end_position &&
-      gt_streq(pending->next_seq_name,seq_name) &&
+      gt_string_equals(&pending->next_seq_name,seq_name) &&
       pending->next_position==position) { // Found!
     // BWA_Compact. MMAPs paired against MMaps need to have the same cardinality (otherwise it's unpaired)
     if (pending->num_maps!=1 && num_maps!=1 && pending->num_maps!=num_maps) return false; //FIXME return true;
@@ -599,43 +639,46 @@ GT_INLINE void gt_isp_solve_pending_maps(
   register bool found_match = false;
   // Look into pending records
   GT_VECTOR_ITERATE(pending_v,pending_elm,pending_counter,gt_sam_pending_end) {
+    if (gt_string_is_null(&pending_elm->next_seq_name)) continue;
     if ((found_match=gt_isp_check_pending_record__add_mmap(
-            template,pending_elm,pending->end_position,pending->map_seq_name,
+            template,pending_elm,pending->end_position,&pending->map_seq_name,
             pending->map_position,pending->map_displacement,pending->num_maps))) {
-      pending_elm->next_seq_name = NULL; // Mark as solved
+      gt_string_clear(&pending_elm->next_seq_name); // Mark as solved
       break;
     }
   }
-  // Look into alignment maps
-  if (!found_match) {
-    register const uint64_t map_end = (pending->end_position+1)%2;
-    register uint64_t pos = 0;
-    GT_ALIGNMENT_ITERATE(gt_template_get_block(template,map_end),map) {
-      if ((found_match=gt_isp_check_pending_record__add_mmap(template,pending,map_end,
-          gt_string_get_string(map->seq_name),map->position,pos,1))) {
-        break;
-      }
-      ++pos;
-    }
-  }
+//  // Look into alignment maps // FIXME: BWA-Based
+//  if (!found_match) {
+//    register const uint64_t map_end = (pending->end_position+1)%2;
+//    register uint64_t pos = 0;
+//    GT_ALIGNMENT_ITERATE(gt_template_get_block_dyn(template,map_end),map) {
+//      if ((found_match=gt_isp_check_pending_record__add_mmap(template,
+//          pending,map_end,map->seq_name,map->position,pos,1))) {
+//        break;
+//      }
+//      ++pos;
+//    }
+//  }
   // Queue if not found
   if (!found_match) gt_vector_insert(pending_v,*pending,gt_sam_pending_end);
 }
 
 /* SAM general */
 GT_INLINE gt_status gt_input_sam_parser_parse_template(
-    gt_buffered_input_file* const buffered_sam_input,gt_template* const template) { // FIXME: On error read the rest of the tag SAM records
+    gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
+  // FIXME: On error read the rest of the tag SAM records
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
   register gt_status error_code;
   register char** text_line = &(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
+  gt_fastq_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   gt_vector* pending_v = gt_vector_new(GT_ISP_NUM_INITIAL_MAPS,sizeof(gt_sam_pending_end));
   do {
     // Parse SAM Alignment
-    gt_sam_pending_end pending;
+    gt_sam_pending_end pending = GT_SAM_INIT_PENDING;
     uint64_t alignment_flag;
     if (gt_expect_false(error_code=gt_isp_parse_sam_alignment(
           text_line,template,NULL,&alignment_flag,&pending,false))) {
@@ -643,12 +686,12 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
       return error_code;
     }
     // Solve pending ends
-    if (pending.next_seq_name!=NULL) gt_isp_solve_pending_maps(pending_v,&pending,template);
+    if (!gt_string_is_null(&pending.next_seq_name)) gt_isp_solve_pending_maps(pending_v,&pending,template);
   } while (gt_isp_fetch_next_line(buffered_sam_input,template->tag,true));
   // Check for unsolved pending maps
   error_code = 0;
   GT_VECTOR_ITERATE(pending_v,pending_elm,pending_counter,gt_sam_pending_end) {
-    if (pending_elm->next_seq_name!=NULL) {
+    if (!gt_string_is_null(&pending_elm->next_seq_name)) {
       error_code = GT_ISP_PE_UNSOLVED_PENDING_MAPS;
       break;
     }
@@ -669,7 +712,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
   // Read all maps related to this TAG
   do {
     // Parse SAM Alignment
-    gt_sam_pending_end pending;
+    gt_sam_pending_end pending = GT_SAM_INIT_PENDING;
     uint64_t alignment_flag;
     if (gt_expect_false(error_code=gt_isp_parse_sam_alignment(
           text_line,template,NULL,&alignment_flag,&pending,false))) {
@@ -677,8 +720,8 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
     }
   } while (gt_isp_fetch_next_line(buffered_sam_input,template->tag,true));
   // SOAP2 paired maps convention. Add maps
-  register gt_alignment* const alignment_end0 = gt_template_get_block(template,0);
-  register gt_alignment* const alignment_end1 = gt_template_get_block(template,1);
+  register gt_alignment* const alignment_end0 = gt_template_get_block_dyn(template,0);
+  register gt_alignment* const alignment_end1 = gt_template_get_block_dyn(template,1);
   if (gt_alignment_get_num_maps(alignment_end0) !=
       gt_alignment_get_num_maps(alignment_end1)) return GT_ISP_PE_UNSOLVED_PENDING_MAPS;
   register uint64_t pos_end_it=0;
@@ -703,7 +746,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
   // Read all maps related to this TAG
   do {
     // Parse SAM Alignment
-    gt_sam_pending_end pending;
+    gt_sam_pending_end pending = GT_SAM_INIT_PENDING;
     uint64_t alignment_flag;
     if (gt_expect_false((error_code=gt_isp_parse_sam_alignment(
         text_line,NULL,alignment,&alignment_flag,&pending,true))!=0)) {

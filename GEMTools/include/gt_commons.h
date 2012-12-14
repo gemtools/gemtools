@@ -34,6 +34,10 @@
 
 #include <pthread.h>
 
+// Data constants
+#define UINT64_ZEROS 0x0000000000000000ul
+#define UINT64_ONES  0xFFFFFFFFFFFFFFFFul
+
 // Internally to Gem-tools error codes are returned as gt_status
 typedef int32_t gt_status;
 

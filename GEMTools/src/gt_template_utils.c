@@ -279,7 +279,7 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
-    register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__map_array_num_blocks);
+    register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
     gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,false);
     free(mmap_copy); // Free array handler
   }
@@ -314,9 +314,9 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
   register gt_template* const template_union = gt_template_copy(template_src,false,false);
   gt_template_merge_template_mmaps_fx(gt_mmap_cmp_fx,gt_map_cmp_fx,template_union,template_src);
   // Merge template sources into template_union
-  register uint64_t num_tmp_merged = 0;
+  register uint64_t num_tmp_merged = 1;
   while (num_tmp_merged < num_src_templates) {
-    register gt_template* template_target = (gt_expect_true(num_tmp_merged>0)) ? va_arg(v_args,gt_template*) : template_src;
+    register gt_template* template_target = va_arg(v_args,gt_template*);
     GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_union,template_target);
     GT_TEMPLATE_CONSISTENCY_CHECK(template_target);
     gt_template_merge_template_mmaps_fx(gt_mmap_cmp_fx,gt_map_cmp_fx,template_union,template_target);
@@ -373,7 +373,7 @@ GT_INLINE gt_template* gt_template_subtract_template_mmaps_fx(
   gt_mmap_attributes found_mmap_attr;
   GT_TEMPLATE__ATTR_ITERATE(template_minuend,mmap,mmap_attr) {
     if (!gt_template_find_mmap_fx(gt_mmap_cmp_fx,template_subtrahend,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr)) {
-      register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__map_array_num_blocks);
+      register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
       gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_difference,mmap_copy,mmap_attr,false);
       free(mmap_copy);
     }
@@ -411,7 +411,7 @@ GT_INLINE gt_template* gt_template_intersect_template_mmaps_fx(
   gt_mmap_attributes found_mmap_attr;
   GT_TEMPLATE__ATTR_ITERATE(template_A,mmap,mmap_attr) {
     if (gt_template_find_mmap_fx(gt_mmap_cmp_fx,template_B,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr)) {
-      register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__map_array_num_blocks);
+      register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
       gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_intersection,mmap_copy,mmap_attr,false);
       free(mmap_copy);
     }

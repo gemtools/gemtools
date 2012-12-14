@@ -205,16 +205,17 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_sorted(
       GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) {
         if (map_array_attr->distance!=strata) continue;
         // Print mmap
+        --pending_maps;
         if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
         GT_MULTIMAP_ITERATE(map_array,map,end_position) {
           if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-          gt_output_map_gprint_map(gprinter,map,print_scores);
-          if (print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
-            gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
-          }
+          gt_output_map_gprint_map(gprinter,map,false/*FIXME:print_scores*/);
+        }
+        if (print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
+          gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
         }
         if (total_maps_printed>=max_printable_maps || total_maps_printed>=num_maps) break;
-        if (--pending_maps==0) break;
+        if (pending_maps==0) break;
       }
       gt_cond_fatal_error(pending_maps>0,TEMPLATE_INCONSISTENT_COUNTERS);
       ++strata;
@@ -237,10 +238,11 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps_sorted(
       GT_ALIGNMENT_ITERATE(alignment,map) {
         if (gt_map_get_global_distance(map)!=strata) continue;
         // Print map
+        --pending_maps;
         if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
         gt_output_map_gprint_map(gprinter,map,print_scores);
         if (total_maps_printed>=max_printable_maps || total_maps_printed>=num_maps) return 0;
-        if (--pending_maps==0) break;
+        if (pending_maps==0) break;
       }
       gt_cond_fatal_error(pending_maps>0,ALIGNMENT_INCONSISTENT_COUNTERS);
       ++strata;

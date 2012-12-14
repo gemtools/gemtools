@@ -42,8 +42,7 @@ int64_t gt_mapset_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint6
 
 GT_INLINE gt_status gt_mapset_read_template_sync(
     gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
-    gt_template* const template_master,gt_template* const template_slave,
-    gt_buffered_output_file* const buffered_output) {
+    gt_template* const template_master,gt_template* const template_slave,const gt_operation operation) {
   register bool synch = false, slave_read = false;
   // Read master
   register gt_status error_code_master, error_code_slave;
@@ -65,7 +64,9 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
   } else if (error_code_slave==GT_IMP_EOF) { // Slave exhausted. Dump master & return EOF
     do {
       if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-      gt_output_map_bofprint_gem_template(buffered_output,template_master,GT_ALL,true);
+      if (operation==GT_MAP_SET_UNION || operation==GT_MAP_SET_DIFFERENCE) {
+        gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
+      }
     } while ((error_code_master=gt_input_generic_parser_get_template(
                 buffered_input_master,template_master,parameters.paired_end)));
     return GT_IMP_EOF;
@@ -73,7 +74,9 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
   // Synch loop
   while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
     // Print non correlative master's template
-    gt_output_map_bofprint_gem_template(buffered_output,template_master,GT_ALL,true);
+    if (operation==GT_MAP_SET_UNION || operation==GT_MAP_SET_DIFFERENCE) {
+      gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
+    }
     // Fetch next master's template
     if ((error_code_master=gt_input_generic_parser_get_template(
         buffered_input_master,template_master,parameters.paired_end))!=GT_IMP_OK) {
@@ -95,13 +98,11 @@ void gt_mapset_read__write() {
   // Parallel reading+process
   gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
   gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
-  gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
-  gt_buffered_input_file_attach_buffered_output(buffered_input_1,buffered_output);
 
   gt_status error_code;
   gt_template *template_1 = gt_template_new();
   gt_template *template_2 = gt_template_new();
-  while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,buffered_output)) {
+  while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,parameters.operation)) {
     // Apply operation
     register gt_template *ptemplate;
     switch (parameters.operation) {
@@ -119,7 +120,7 @@ void gt_mapset_read__write() {
         break;
     }
     // Print template
-    gt_output_map_bofprint_gem_template(buffered_output,ptemplate,GT_ALL,true);
+    gt_output_map_fprint_gem_template(stdout,ptemplate,GT_ALL,true);
     // Delete template
     gt_template_delete(ptemplate);
   }
@@ -129,7 +130,6 @@ void gt_mapset_read__write() {
   gt_template_delete(template_2);
   gt_buffered_input_file_close(buffered_input_1);
   gt_buffered_input_file_close(buffered_input_2);
-  gt_buffered_output_file_close(buffered_output);
 
   // Clean
   gt_input_file_close(input_file_1);

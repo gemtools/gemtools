@@ -206,7 +206,7 @@ GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const te
   gt_template_new_mmap_iterator(template,&(__##template##_maps_iterator)); \
   while (gt_template_next_mmap(&(__##template##_maps_iterator),&map_array,&map_array_attr))
 #define GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) \
-  register const uint64_t __map_array##_num_blocks = gt_template_get_num_blocks(template); \
+  register const uint64_t __##map_array##_num_blocks = gt_template_get_num_blocks(template); \
   GT_TEMPLATE__ATTR_ITERATE_(template,map_array,map_array_attr)
 
 /*
@@ -221,7 +221,7 @@ GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const te
   for (end_position=0,map=*mmap_array; \
        end_position<(_num_blocks_##mmap_array);map=*(mmap_array+(++end_position)))
 #define GT_MULTIMAP_ITERATE(mmap_array,map,end_position) \
-  GT_MULTIMAP_ITERATE_BLOCKS(mmap_array,__map_array##_num_blocks,map,end_position)
+  GT_MULTIMAP_ITERATE_BLOCKS(mmap_array,__##mmap_array##_num_blocks,map,end_position)
 
 /*
  * Iterate over the alignment of a template (individual blocks)

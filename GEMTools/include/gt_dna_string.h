@@ -11,6 +11,14 @@
 #include "gt_commons.h"
 #include "gt_map.h"
 
+#define GT_DNA_RANGE 5
+
+#define GT_DNA_CHAR_A 'A'
+#define GT_DNA_CHAR_C 'C'
+#define GT_DNA_CHAR_G 'G'
+#define GT_DNA_CHAR_T 'T'
+#define GT_DNA_CHAR_N 'N'
+
 #define gt_dna_string gt_string
 
 typedef struct {
@@ -18,8 +26,8 @@ typedef struct {
   uint64_t current_pos;
 } gt_dna_string_iterator;
 
-extern bool gt_dna[256];
-extern char gt_complement_table[256];
+extern const bool gt_dna[256];
+extern const char gt_complement_table[256];
 #define gt_is_dna(character) gt_dna[(int)character]
 #define gt_get_complement(character) (gt_complement_table[(int)character])
 

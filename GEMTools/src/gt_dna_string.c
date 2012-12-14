@@ -7,14 +7,14 @@
 
 #include "gt_dna_string.h"
 
-bool gt_dna[256] =
+const bool gt_dna[256] =
 {
     [0 ... 255] = false,
     ['A'] = true,['C'] = true,['G'] = true,['T'] = true,
     ['a'] = true,['c'] = true,['g'] = true,['t'] = true,
     ['N'] = true
 };
-char gt_complement_table[256] =
+const char gt_complement_table[256] =
 {
   [0 ... 255] = '~',
   ['A'] = 'T', ['C'] = 'G', ['G'] = 'C',  ['T'] = 'A', ['N'] = 'N'

@@ -11,10 +11,15 @@
 #include "gem_tools.h"
 
 typedef struct {
+  /* I/O */
   char* name_input_file;
   char* name_output_file;
   bool mmap_input;
   bool paired_end;
+  /* Filter */
+  bool no_split_maps;
+  bool best_map;
+  /* Misc */
   uint64_t num_threads;
   bool verbose;
 } gt_stats_args;
@@ -24,9 +29,23 @@ gt_stats_args parameters = {
     .name_output_file=NULL,
     .mmap_input=false,
     .paired_end=false,
+    /* Filter */
+    .no_split_maps=false,
+    .best_map=false,
+    /* Misc */
     .num_threads=1,
     .verbose=false,
 };
+
+void gt_alignment_filter(gt_alignment *alignment_dst,gt_alignment *alignment_src) {
+  GT_ALIGNMENT_ITERATE(alignment_src,map) {
+    register const bool check_sm = !parameters.no_split_maps || gt_map_get_num_blocks(map)==1;
+    if (check_sm) {
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      if (parameters.best_map) return;
+    }
+  }
+}
 
 void gt_filter_read__write() {
   // Open file IN/OUT
@@ -43,18 +62,23 @@ void gt_filter_read__write() {
     gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
 
     gt_status error_code;
-    gt_template *template = gt_template_new();
-    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,parameters.paired_end))) {
+    gt_alignment *alignment = gt_alignment_new();
+    while ((error_code=gt_input_generic_parser_get_alignment(buffered_input,alignment))) {
       if (error_code!=GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file '%s'\n",parameters.name_input_file);
       }
 
+      // DO STH
+      gt_alignment *alignment_best = gt_alignment_copy(alignment,false);
+      gt_alignment_filter(alignment_best,alignment);
+
       // Print template
-      gt_output_map_bofprint_gem_template(buffered_output,template,GT_ALL,true);
+      gt_output_map_bofprint_alignment(buffered_output,alignment_best,GT_ALL,false);
+      gt_alignment_delete(alignment_best);
     }
 
     // Clean
-    gt_template_delete(template);
+    gt_alignment_delete(alignment);
     gt_buffered_input_file_close(buffered_input);
     gt_buffered_output_file_close(buffered_output);
   }
@@ -66,21 +90,31 @@ void gt_filter_read__write() {
 
 void usage() {
   fprintf(stderr, "USE: ./gt.filter [ARGS]...\n"
-                  "        --input|-i [FILE]\n"
-                  "        --output|-o [FILE]\n"
-                  "        --mmap-input\n"
-                  "        --paired-end|p\n"
-                  "        --threads|t\n"
-                  "        --verbose|v\n"
-                  "        --help|h\n");
+                  "         [I/O]\n"
+                  "           --input|-i [FILE]\n"
+                  "           --output|-o [FILE]\n"
+                  "           --mmap-input\n"
+                  "           --paired-end|p\n"
+                  "         [Filter]\n"
+                  "           --no-split-maps\n"
+                  "           --best-map\n"
+                  "         [Misc]\n"
+                  "           --threads|t\n"
+                  "           --verbose|v\n"
+                  "           --help|h\n");
 }
 
 void parse_arguments(int argc,char** argv) {
   struct option long_options[] = {
+    /* I/O */
     { "input", required_argument, 0, 'i' },
     { "output", required_argument, 0, 'o' },
     { "mmap-input", no_argument, 0, 1 },
     { "paired-end", no_argument, 0, 'p' },
+    /* Filter */
+    { "no-split-maps", no_argument, 0, 2 },
+    { "best-map", no_argument, 0, 3 },
+    /* Misc */
     { "threads", no_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
     { "help", no_argument, 0, 'h' },
@@ -90,18 +124,27 @@ void parse_arguments(int argc,char** argv) {
     c=getopt_long(argc,argv,"i:o:t:phv",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
+    /* I/O */
     case 'i':
       parameters.name_input_file = optarg;
       break;
     case 'o':
       parameters.name_output_file = optarg;
       break;
-    case 0:
+    case 1:
       parameters.mmap_input = true;
       break;
     case 'p':
       parameters.paired_end = true;
       break;
+    /* Filter */
+    case 2:
+      parameters.no_split_maps = true;
+      break;
+    case 3:
+      parameters.best_map = true;
+      break;
+    /* Misc */
     case 't':
       parameters.num_threads = atol(optarg);
       break;
@@ -127,5 +170,4 @@ int main(int argc,char** argv) {
 
   return 0;
 }
-
 

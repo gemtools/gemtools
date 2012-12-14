@@ -145,6 +145,7 @@ GT_INLINE void gt_map_set_next_block(gt_map* const map,gt_map* const next_map,gt
   GT_MAP_CHECK(next_map);
   register gt_map_junction *aux_next_block = map->next_block;
   map->next_block = malloc(sizeof(gt_map_junction));
+  gt_cond_fatal_error(!map->next_block,MEM_HANDLER);
   map->next_block->junction = junction;
   map->next_block->map = next_map;
   next_map->next_block = aux_next_block;
@@ -216,14 +217,14 @@ GT_INLINE void gt_map_set_misms_string(gt_map* const map,char* misms_string,cons
  * High-level Procedures
  */
 // Trim helpers
-GT_INLINE uint64_t gt_map_get_left_length(gt_map* const map) {
+GT_INLINE uint64_t gt_map_get_left_trim_length(gt_map* const map) {
   if (gt_map_get_num_misms(map)>0) {
     register gt_misms* const first_misms = gt_map_get_misms(map,0);
     if (first_misms->position==0 && first_misms->misms_type==DEL) return first_misms->size;
   }
   return 0;
 }
-GT_INLINE uint64_t gt_map_get_right_length(gt_map* const map) {
+GT_INLINE uint64_t gt_map_get_right_trim_length(gt_map* const map) {
   register const uint64_t num_misms = gt_map_get_num_misms(map);
   if (num_misms>0) {
     register gt_misms* const last_misms = gt_map_get_misms(map,num_misms-1);
@@ -311,8 +312,8 @@ GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2) {
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   if (gt_string_equals(map_1->seq_name,map_2->seq_name) && map_1->strand==map_2->strand) {
-    register const int64_t begin_distance = ((int64_t)map_1->position-(int64_t)gt_map_get_left_length(map_1)) -
-        ((int64_t)map_2->position-(int64_t)gt_map_get_left_length(map_2));
+    register const int64_t begin_distance = ((int64_t)map_1->position-(int64_t)gt_map_get_left_trim_length(map_1)) -
+        ((int64_t)map_2->position-(int64_t)gt_map_get_left_trim_length(map_2));
     if (GT_ABS(begin_distance)>range_tolerated) return begin_distance;
     register const int64_t end_distance = (int64_t)(map_1->position+gt_map_get_global_length(map_1)) -
         (int64_t)(map_2->position+gt_map_get_global_length(map_2));
@@ -352,7 +353,7 @@ GT_INLINE int64_t gt_mmap_range_cmp(
 GT_INLINE gt_map* gt_map_copy(gt_map* const map) {
   GT_MAP_CHECK(map);
   gt_map* map_cpy = gt_map_new();
-  map_cpy->seq_name = gt_string_dup(map->seq_name);
+  gt_string_copy(map_cpy->seq_name,map->seq_name);
   map_cpy->position = map->position;
   map_cpy->base_length = map->base_length;
   map_cpy->strand = map->strand;

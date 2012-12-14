@@ -155,9 +155,9 @@ GT_INLINE int64_t gt_string_cmp(gt_string* const string_a,gt_string* const strin
   if (string_a->length==string_b->length) {
     return 0;
   } else if (string_a->length<string_b->length) {
-    return min_length;
+    return min_length+1;
   } else {
-    return -min_length;
+    return -min_length-1;
   }
 }
 GT_INLINE int64_t gt_string_ncmp(gt_string* const string_a,gt_string* const string_b,const uint64_t length) {
@@ -197,6 +197,7 @@ GT_INLINE gt_string* gt_string_dup(gt_string* const sequence) {
 GT_INLINE void gt_string_copy(gt_string* const sequence_dst,gt_string* const sequence_src) {
   GT_STRING_CHECK_NO_STATIC(sequence_dst);
   GT_STRING_CHECK(sequence_src);
+  gt_string_resize(sequence_dst,sequence_src->length+1);
   gt_strncpy(sequence_dst->buffer,sequence_src->buffer,sequence_src->length);
   sequence_dst->length = sequence_src->length;
 }

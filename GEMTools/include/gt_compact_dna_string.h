@@ -20,25 +20,30 @@ typedef struct {
   gt_compact_dna_string* cdna_string;
   uint64_t current_pos;
   uint64_t* current_bitmap;
-  uint64_t bp_0;
-  uint64_t bp_1;
-  uint64_t bp_2;
+  uint64_t bm_0;
+  uint64_t bm_1;
+  uint64_t bm_2;
 } gt_compact_dna_sequence_iterator;
+
+extern const char gt_cdna_decode[8];
+extern const uint8_t gt_cdna_encode[256];
 
 /*
  * Checkers
  */
-#define GT_COMPACT_DNA_STRING_CHECK(cdna_string) gt_fatal_check(cdna_string==NULL||cdna_string->bitmaps==NULL,NULL_HANDLER)
+#define GT_COMPACT_DNA_STRING_CHECK(cdna_string) \
+  GT_NULL_CHECK(cdna_string); \
+  GT_NULL_CHECK(cdna_string->bitmaps)
 #define GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator) \
-  GT_NULL_CHECK(cdna_string_iterator) \
-  GT_COMPACT_DNA_STRING_CHECK(cdna_string_iterator->cdna_string) \
+  GT_NULL_CHECK(cdna_string_iterator); \
+  GT_COMPACT_DNA_STRING_CHECK(cdna_string_iterator->cdna_string); \
   GT_NULL_CHECK(cdna_string_iterator->current_bitmap)
 
 /*
  * Constructor
  */
-GT_INLINE gt_compact_dna_string* gt_cdna_string_new(const uint64_t initial_buffer_size);
-GT_INLINE void gt_cdna_string_resize(gt_compact_dna_string* const cdna_string,const uint64_t new_buffer_size);
+GT_INLINE gt_compact_dna_string* gt_cdna_string_new(const uint64_t initial_chars);
+GT_INLINE void gt_cdna_string_resize(gt_compact_dna_string* const cdna_string,const uint64_t num_chars);
 GT_INLINE void gt_cdna_string_clear(gt_compact_dna_string* const cdna_string);
 GT_INLINE void gt_cdna_string_delete(gt_compact_dna_string* const cdna_string);
 
