@@ -115,7 +115,6 @@ class Read(object):
         self.mappings = other.mappings
         self.line = other.line
         self.type = other.type
-        self.template = None
         self.__template_initialized = False
 
     def min_mismatches(self):
@@ -152,7 +151,11 @@ class Read(object):
         if self.template is None:
             self.template = gt.Template()
         if not self.__template_initialized:
-            self.template.fill(self.line)
+            try:
+                self.template.fill(self.line)
+            except Exception, e:
+                print "ERROR PARSING "+self.line
+                raise e
         return self.template
 
     def merge(self, other):
@@ -162,7 +165,7 @@ class Read(object):
         """
         line = gt.merge_templates(self._get_template(), other._get_template())
         if line is not None and len(line) > 0:
-            pass
+            self.fill(files.parse_map().line2read(line))
 
 
     def to_map(self, no_max_mappings=False):
@@ -383,7 +386,9 @@ def mapper(input, index, output=None,
            max_edit_distance=0.20,
            mismatch_alphabet="ACGT",
            trim=None,
-           threads=1):
+           threads=1,
+           extra=None,
+           ):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
     provide fastq entries. If input is a string,
@@ -407,6 +412,7 @@ def mapper(input, index, output=None,
     min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 2 2
     min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
     trim -- tuple or list that specifies left and right trimmings
+    extra -- list of additional parameters added to gem mapper call
     """
 
     ## check the index
@@ -432,9 +438,12 @@ def mapper(input, index, output=None,
 
     if max_edit_distance > 0:
         pa.append("-e")
-        pa.append("%s"%str(max_edit_distance))
+        pa.append("%s" % str(max_edit_distance))
 
-    trim_c = [executables['gem-map-2-map'], '-c']
+    ## extend with additional parameters
+    _extend_parameters(pa, extra)
+
+    trim_c = [executables['gem-map-2-map'], '-c', '-T', str(threads)]
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
@@ -473,8 +482,9 @@ def splitmapper(input,
                 trim=None,
                 filter_splitmaps=True,
                 post_validate=True,
-                mismatch_alphabet="ACGT",
-                threads=1):
+                mismatch_alphabet="ACGT",                
+                threads=1,
+                extra=None):
     """Start the GEM split mapper on the given input.
     If input is a file handle, it is assumed to
     provide fastq entries. If input is a string,
@@ -492,7 +502,7 @@ def splitmapper(input,
     """
 
     ## check the index
-    index = _prepare_index_parameter(index, gem_suffix=True)
+    index = _prepare_index_parameter(index, gem_suffix=False)
     if quality is None and isinstance(input, files.ReadIterator):
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
@@ -509,7 +519,7 @@ def splitmapper(input,
           '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
-
+    min_threads = int(round(max(1, threads/2)))
     if junctions_file is not None:
         pa.append("-J")
         pa.append(os.path.abspath(junctions_file))
@@ -522,7 +532,10 @@ def splitmapper(input,
         pa.append("-c")
         pa.append(splice_cons)
 
-    trim_c = [executables['gem-map-2-map'], '-c']
+    ## extend with additional parameters
+    _extend_parameters(pa, extra)
+
+    trim_c = [executables['gem-map-2-map'], '-c', '-T', str(min_threads)]
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
@@ -569,7 +582,8 @@ def extract_junctions(input,
                       min_split=4,
                       max_split=2500000,
                       keep_short_indels=True,
-                      tmpdir=None):
+                      tmpdir=None,
+                      extra=None):
     ## run the splitmapper
     splitmap = splitmapper(input,
         index,
@@ -584,7 +598,8 @@ def extract_junctions(input,
         quality=quality,
         filter_splitmaps=False,
         post_validate=False,
-        threads=threads)
+        threads=threads,
+        extra=extra)
     ## make sure we have an output file
     ## for the splitmap results
     output_file = output
@@ -632,7 +647,8 @@ def pairalign(input, index, output=None,
               max_matches_per_extension=1,
               unique_pairing=False,
               map_both_ends=False,
-              threads=1):
+              threads=1,
+              extra=None):
     ## check the index
     if index is None:
         raise ValueError("No valid GEM index specified!")
@@ -662,14 +678,20 @@ def pairalign(input, index, output=None,
           '--max-extensions-per-match', str(max_matches_per_extension),
           '-T', str(threads)
     ]
+
+    ## extend with additional parameters
+    _extend_parameters(pa, extra)
+
     if unique_pairing:
         pa.append("--unique-pairing")
     if map_both_ends:
         pa.append("--map-both-ends")
 
         ## run the mapper
-    process = utils.run_tool(pa, input, output, "GEM-Pair-align", utils.read_to_map)
-    return _prepare_output(process, output, type="map", name="GEM-Pair-align", quality=quality)
+    process = utils.run_tool(pa, input, output,
+        "GEM-Pair-align", utils.read_to_map)
+    return _prepare_output(process, output, type="map",
+        name="GEM-Pair-align", quality=quality)
 
 
 def realign(input,
@@ -685,15 +707,17 @@ def realign(input,
     quality = None
     if isinstance(input, files.ReadIterator):
         quality = input.quality
-    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
-    return _prepare_output(process, output, type="map", name="GEM-Validate", quality=quality)
+    process = utils.run_tool(validate_p, input, output,
+        "GEM-Validate", utils.read_to_map)
+    return _prepare_output(process, output, type="map",
+        name="GEM-Validate", quality=quality)
 
 
 def validate(input,
              index,
              output=None,
-             validate_score=None, # "-s,-b,-i"
-             validate_filter=None, # "2,25"
+             validate_score=None,  # "-s,-b,-i"
+             validate_filter=None,  # "2,25"
              threads=1, ):
     index = _prepare_index_parameter(index, gem_suffix=True)
     validate_p = [executables['gem-map-2-map'],
@@ -943,8 +967,14 @@ class merger(object):
 
             if target_read.id == source_read.id:
                 mis = source_read.min_mismatches()
-                if mis >= 0:
+                t_mis = self.result_read.min_mismatches()
+                if t_mis < 0:
                     self.result_read.fill(source_read)
+                else:
+                    if mis >= 0 and mis < _max_mappings:
+                        #self.result_read.fill(source_read)
+                        self.result_read.merge(source_read)
+
                 ## read next into cache
                 self.reads[i] = self.__get_next_read(h)
         return self.result_read
@@ -973,3 +1003,17 @@ def _is_i3_compliant(stream):
             for e in line.split(":")[1].strip().split(" "):
                 cpu_flags.add(e)
     return i3_flags.issubset(cpu_flags)
+
+
+def _extend_parameters(pa, extra=None):
+    """Extend parameter array pa
+    with extra parameters. If extra is a string, it is
+    split by space and parameters are added separatly,
+    otherwise it is assumed that extra is a list and
+    it is appended to the parameter array as is.
+    """
+    if extra is not None:
+        if isinstance(extra, (basestring,)):
+            pa.extend(extra.split(" "))
+        else:
+            pa.extend(extra)

@@ -1,9 +1,15 @@
 import os
+try:
+    import setuptools
+except:
+    from ez_setup import use_setuptools
+    use_setuptools()
+
 from setuptools import setup, Command
 from distutils.core import Extension
 from setuptools.command.install import install as _install
 from setuptools.command.build_ext import build_ext as _build_ext
-from nose.commands import nosetests as _nosetests
+
 
 import subprocess
 import urllib
@@ -66,7 +72,7 @@ def _install_bundle(install_dir, base=None):
         print "Downloading %s bundle from %s to %s" % (type, base_url, target)
         urllib.urlretrieve (base_url, target)
 
-    tar = subprocess.Popen("tar xzvf %s" % (target), shell=True, cwd=dirpath)
+    tar = subprocess.Popen("tar xzvf %s --exclude \"._*\"" % (target), shell=True, cwd=dirpath)
     if tar.wait() != 0:
         print "Error while extracting gem bundle"
         exit(1)
@@ -87,15 +93,7 @@ def _install_bundle(install_dir, base=None):
     if base is None:
         os.removedirs(dirpath)
 
-# extend nosetests command to
-# ensure we have the bundle installed and
-# locally
-class nosetests(_nosetests):
-    def run(self):
-        parent_dir = os.path.split(os.path.abspath(__file__))[0]
-        target_dir = "%s/%s" % (parent_dir, "python/gem/gembinaries")
-        _install_bundle(target_dir, base=parent_dir+"/downloads")
-        _nosetests.run(self)
+
 
 ## install bundle command
 class install_bundle(Command):
@@ -130,6 +128,23 @@ class build_ext(_build_ext):
         _build_ext.run(self)
 
 
+_commands = {'install': install, 'build_ext': build_ext}
+
+# extend nosetests command to
+# ensure we have the bundle installed and
+# locally
+try:
+    from nose.commands import nosetests as _nosetests
+    class nosetests(_nosetests):
+        def run(self):
+            parent_dir = os.path.split(os.path.abspath(__file__))[0]
+            target_dir = "%s/%s" % (parent_dir, "python/gem/gembinaries")
+            _install_bundle(target_dir, base=parent_dir+"/downloads")
+            _nosetests.run(self)
+    _commands['nosetests'] = nosetests
+except:
+    pass
+
 gemtools = Extension('gem.gemtools',
                     define_macros=[('MAJOR_VERSION', __VERSION_MAJOR),
                                    ('MINOR_VERSION', __VERSION_MINOR)],
@@ -141,7 +156,7 @@ gemtools = Extension('gem.gemtools',
                                'python/src/py_template.c', 'python/src/gemtoolsmodule.c', 'python/src/py_mappings_iterator.c'])
 
 setup(
-        cmdclass={'install': install, 'build_ext': build_ext, "nosetests":nosetests},
+        cmdclass=_commands,
         name='Gemtools',
         version=__VERSION__,
         description='Python support library for the GEM mapper and the gemtools library',

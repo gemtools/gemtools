@@ -14,3 +14,4 @@ check-*.xml
 dist/
 python/gem/gembinaries/
 downloads/
+setuptools-*.egg
