@@ -4,6 +4,7 @@ from __future__ import print_function
 import sys
 import re
 import gem
+import math
 
 class BasicStats(object):
     """Basic statistic computation for the reads that
