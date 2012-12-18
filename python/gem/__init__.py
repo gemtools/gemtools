@@ -380,7 +380,7 @@ def mapper(input, index, output=None,
            quality=33,
            quality_threshold=26,
            max_decoded_matches=20,
-           min_decoded_strata=2,
+           min_decoded_strata=1,
            min_matched_bases=0.80,
            max_big_indel_length=15,
            max_edit_distance=0.20,
@@ -409,7 +409,7 @@ def mapper(input, index, output=None,
     quality_threshold <number> -- (default=26, that is e<=2e-3)
     max_edit_distance -- max edit distance, 0.20 per default
     max_decoded_matches -- maximum decoded matches, defaults to 20
-    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 2 2
+    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 1
     min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
     trim -- tuple or list that specifies left and right trimmings
     extra -- list of additional parameters added to gem mapper call
@@ -421,6 +421,11 @@ def mapper(input, index, output=None,
     if quality is None and isinstance(input, files.ReadIterator):
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
+
+    if delta >= min_decoded_strata:
+        logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
+            str(min_decoded_strata), str(delta + 1), str(delta)))
+        min_decoded_strata = delta + 1
 
     ## prepare the input
     pa = [executables['gem-mapper'], '-I', index,
