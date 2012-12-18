@@ -39,7 +39,7 @@ default_filter = "same-chromosome,same-strand"
 use_bundled_executables = True
 ## max mappings to replace mapping counts for + and ! summaries
 _max_mappings = 999999999
-## filter to work around GT-32 and #006 in gem-map-2-map 
+## filter to work around GT-32 and #006 in gem-map-2-map
 __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(_max_mappings)+'\t"$5}else{print}}}']
 
 class execs_dict(dict):
@@ -135,6 +135,10 @@ class Read(object):
                 break
         return mismatches
 
+    def length():
+        """Return read sequence length"""
+        seq = self.sequence.split(" ")
+        return len(s)
 
     def get_maps(self):
         if self.summary == None or self.summary in ['-', '*']:
@@ -482,7 +486,7 @@ def splitmapper(input,
                 trim=None,
                 filter_splitmaps=True,
                 post_validate=True,
-                mismatch_alphabet="ACGT",                
+                mismatch_alphabet="ACGT",
                 threads=1,
                 extra=None):
     """Start the GEM split mapper on the given input.

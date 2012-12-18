@@ -11,13 +11,13 @@ class BasicStats(object):
     Statistics are gathered by calling to basic_stats, and they
     are printed when a print_stats call is done at the end.
     """
-    
+
     def __init__(self, output=None):
         """Initialize the statistics fields"""
         self.mapped     = 0
         self.unmapped   = 0
         self.outputFile = output
-        
+
     def basic_stats(self, reads):
         """Yield all the reads and count how many
         are mapped and how many are unmapped.
@@ -25,7 +25,7 @@ class BasicStats(object):
         """
         for read in reads:
             if read.mappings is None or len(read.mappings) == 0:
-                # This check gets rid of reads coming from not mapped input line fasta files 
+                # This check gets rid of reads coming from not mapped input line fasta files
                 self.unmapped += 1
             else:
                 # Here we have an alignment try, which can work or not
@@ -33,7 +33,7 @@ class BasicStats(object):
                     self.unmapped += 1
                 else:
                     self.mapped += 1
-    
+
             yield read
 
     def print_stats(self):
@@ -42,7 +42,7 @@ class BasicStats(object):
         total        = self.mapped   + self.unmapped
         pct_mapped   = self.mapped   * 100.0 / total
         pct_unmapped = self.unmapped * 100.0 / total
-        
+
         # Open output file
         if self.outputFile == None or self.outputFile == sys.stdout:
             output = None
@@ -62,15 +62,19 @@ class BasicStats(object):
 def unmapped(reads, exclude=-1):
     """Yield only unmapped reads and reads
     that have only mappings with mismatches >= exclude
+    if exclude is a nubmer between 0 and 1 we use it as a percentage of mismatches
     """
     for read in reads:
         if read.mappings is None or len(read.mappings) == 0:
             yield read
         else:
             mis = read.min_mismatches()
+            excl = exclude
+            if excl > 0 and excl < 1:
+                excl = math.floor(read.length() * exclude)
             if mis < 0:
                 yield read
-            elif exclude > 0 and mis >= exclude:
+            elif excl > 0 and mis >= excl:
                 yield read
 
 
