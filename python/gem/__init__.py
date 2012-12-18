@@ -581,7 +581,7 @@ def extract_junctions(input,
                       merge_with=None,
                       min_split=4,
                       max_split=2500000,
-                      coverage=0
+                      coverage=0,
                       keep_short_indels=True,
                       tmpdir=None,
                       extra=None):
