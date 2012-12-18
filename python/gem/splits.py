@@ -11,11 +11,20 @@ import logging
 from . import filter as gemfilters
 from threading import Thread
 import gem
-
 from gem.junctions import Exon, JunctionSite
 
 
-def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None):
+def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None, coverage=0):
+    """Extract denovo junctions from a split map run.
+
+    gemoutput - a read iterator over gem splitmapper Output
+    minsplit  - minimum length of a split to be considered, default is 4
+    maxsplit  - maximum length of a split to be considered, defauilt is 2500000
+    sites     - target set where the found junctions will be
+                merged into, default is None
+    coverage  - if > 0, a junction must be found > coverage times
+                to be considered, default is 0 and therefore disabled
+    """
     splits2junctions_p = [
         gem.executables['splits-2-junctions'],
         str(minsplit),
@@ -31,8 +40,21 @@ def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None
     if sites is None:
         sites = set([])
     initial_size = len(sites)
+    local_sites = {}
     for line in p.stdout:
-        sites.add(JunctionSite(line = line))
+        js = JunctionSite(line=line)
+        if coverage > 0:
+            if js.hash not in local_sites:
+                local_sites[js.hash] = js
+            else:
+                local_sites[js.hash].coverage += 1
+        else:
+            sites.add(js)
+
+    if coverage > 0:
+        for i, e in local_sites.items():
+            if e.coverage > coverage:
+                sites.add(e)
 
     exit_value = p.wait()
     if exit_value != 0:

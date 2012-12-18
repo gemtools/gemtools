@@ -926,9 +926,12 @@ class merger(object):
     target -- either an open file descriptor or a file name.
     source -- an open file descriptor to a single source file, a file name or a
               list of file names
+    exclusive - if set the True, the next mappings are take
+                exlusively if the reads is not mapped at all. The default
+                is False, where all mappings are merged
     """
 
-    def __init__(self, target, source):
+    def __init__(self, target, source, exclusive=False):
         if target is None:
             raise ValueError("No target file specified")
         if source is None:
@@ -938,6 +941,7 @@ class merger(object):
         self.source = source
         self.reads = []
         self.result_read = Read()
+        self.exclusive = exclusive
         for x in self.source:
             self.reads.append(None)
 
@@ -971,9 +975,12 @@ class merger(object):
                 if t_mis < 0:
                     self.result_read.fill(source_read)
                 else:
-                    if mis >= 0 and mis < _max_mappings:
-                        #self.result_read.fill(source_read)
-                        self.result_read.merge(source_read)
+                    if not self.exclusive:
+                        if mis >= 0 and mis < _max_mappings:
+                            self.result_read.merge(source_read)
+                    else:
+                        if mis >= 0 and mis < _max_mappings:
+                            self.result_read.fill(source_read)
 
                 ## read next into cache
                 self.reads[i] = self.__get_next_read(h)
