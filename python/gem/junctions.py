@@ -69,7 +69,7 @@ class JunctionSite(object):
     and junction sites are comparable with == and !=
     """
 
-    def __init__(self, start_exon=None, stop_exon=None, line=None):
+    def __init__(self, start_exon=None, stop_exon=None, line=None, coverage=0):
         """Create a junction site from the start and stop exon"""
         if start_exon is not None:
             self.descriptor = self.__descriptor(start_exon, stop_exon)
@@ -77,8 +77,8 @@ class JunctionSite(object):
             ## parse from line
             self.descriptor = self.__descriptor_from_line(line)
 
+        self.coverage = coverage
         self.hash = hash(str(self))
-
 
     def __descriptor_from_line(self, line):
         s = line.split("\t")

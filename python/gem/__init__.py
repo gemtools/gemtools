@@ -39,7 +39,7 @@ default_filter = "same-chromosome,same-strand"
 use_bundled_executables = True
 ## max mappings to replace mapping counts for + and ! summaries
 _max_mappings = 999999999
-## filter to work around GT-32 and #006 in gem-map-2-map 
+## filter to work around GT-32 and #006 in gem-map-2-map
 __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(_max_mappings)+'\t"$5}else{print}}}']
 
 class execs_dict(dict):
@@ -135,6 +135,10 @@ class Read(object):
                 break
         return mismatches
 
+    def length():
+        """Return read sequence length"""
+        seq = self.sequence.split(" ")
+        return len(s)
 
     def get_maps(self):
         if self.summary == None or self.summary in ['-', '*']:
@@ -380,7 +384,7 @@ def mapper(input, index, output=None,
            quality=33,
            quality_threshold=26,
            max_decoded_matches=20,
-           min_decoded_strata=2,
+           min_decoded_strata=1,
            min_matched_bases=0.80,
            max_big_indel_length=15,
            max_edit_distance=0.20,
@@ -409,7 +413,7 @@ def mapper(input, index, output=None,
     quality_threshold <number> -- (default=26, that is e<=2e-3)
     max_edit_distance -- max edit distance, 0.20 per default
     max_decoded_matches -- maximum decoded matches, defaults to 20
-    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 2 2
+    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 1
     min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
     trim -- tuple or list that specifies left and right trimmings
     extra -- list of additional parameters added to gem mapper call
@@ -421,6 +425,11 @@ def mapper(input, index, output=None,
     if quality is None and isinstance(input, files.ReadIterator):
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
+
+    if delta >= min_decoded_strata:
+        logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
+            str(min_decoded_strata), str(delta + 1), str(delta)))
+        min_decoded_strata = delta + 1
 
     ## prepare the input
     pa = [executables['gem-mapper'], '-I', index,
@@ -482,7 +491,7 @@ def splitmapper(input,
                 trim=None,
                 filter_splitmaps=True,
                 post_validate=True,
-                mismatch_alphabet="ACGT",                
+                mismatch_alphabet="ACGT",
                 threads=1,
                 extra=None):
     """Start the GEM split mapper on the given input.
@@ -581,6 +590,7 @@ def extract_junctions(input,
                       merge_with=None,
                       min_split=4,
                       max_split=2500000,
+                      coverage=0,
                       keep_short_indels=True,
                       tmpdir=None,
                       extra=None):
@@ -624,6 +634,7 @@ def extract_junctions(input,
         write_helper(splitmap),
         minsplit=min_split,
         maxsplit=max_split,
+        coverage=coverage,
         sites=merge_with)
 
     if output is None:
@@ -926,9 +937,12 @@ class merger(object):
     target -- either an open file descriptor or a file name.
     source -- an open file descriptor to a single source file, a file name or a
               list of file names
+    exclusive - if set the True, the next mappings are take
+                exlusively if the reads is not mapped at all. The default
+                is False, where all mappings are merged
     """
 
-    def __init__(self, target, source):
+    def __init__(self, target, source, exclusive=False):
         if target is None:
             raise ValueError("No target file specified")
         if source is None:
@@ -938,6 +952,7 @@ class merger(object):
         self.source = source
         self.reads = []
         self.result_read = Read()
+        self.exclusive = exclusive
         for x in self.source:
             self.reads.append(None)
 
@@ -971,9 +986,12 @@ class merger(object):
                 if t_mis < 0:
                     self.result_read.fill(source_read)
                 else:
-                    if mis >= 0 and mis < _max_mappings:
-                        #self.result_read.fill(source_read)
-                        self.result_read.merge(source_read)
+                    if not self.exclusive:
+                        if mis >= 0 and mis < _max_mappings:
+                            self.result_read.merge(source_read)
+                    else:
+                        if mis >= 0 and mis < _max_mappings:
+                            self.result_read.fill(source_read)
 
                 ## read next into cache
                 self.reads[i] = self.__get_next_read(h)
