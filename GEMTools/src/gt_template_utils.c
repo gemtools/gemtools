@@ -194,6 +194,14 @@ GT_INLINE bool gt_template_is_mmap_contained_fx(
       &found_mmap_pos,&found_mmap,NULL);
 }
 
+GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap) {
+  if (gt_map_get_position(mmap[1])>gt_map_get_position(mmap[0])) {
+    return ((int64_t)gt_map_get_position(mmap[1])-(int64_t)(gt_map_get_position(mmap[0])+gt_map_get_length(mmap[0])));
+  } else {
+    return ((int64_t)gt_map_get_position(mmap[0])-(int64_t)(gt_map_get_position(mmap[1])+gt_map_get_length(mmap[1])));
+  }
+}
+
 /*
  * Template's Counters operators
  */

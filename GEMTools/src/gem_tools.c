@@ -43,7 +43,10 @@ GT_INLINE gt_status gt_input_generic_parser_get_template(
       break;
     case SAM:
       if (paired_read) {
-        return gt_input_sam_parser_get_template(buffered_input,template);
+        error_code = gt_input_sam_parser_get_template(buffered_input,template);
+        gt_template_get_block_dyn(template,0);
+        gt_template_get_block_dyn(template,1); // Make sure is a template
+        return error_code;
       } else {
         return gt_input_sam_parser_get_alignment(buffered_input,gt_template_get_block_dyn(template,0));
       }

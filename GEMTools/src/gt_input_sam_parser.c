@@ -792,7 +792,6 @@ GT_INLINE gt_status gt_input_sam_parser_get_template_(
     gt_input_sam_parser_next_record(buffered_sam_input);
     return GT_ISP_FAIL;
   }
-  //gt_input_sam_parser_next_record(buffered_sam_input);
   return GT_ISP_OK;
 }
 GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
@@ -832,6 +831,5 @@ GT_INLINE gt_status gt_input_sam_parser_get_alignment(
     gt_input_sam_parser_next_record(buffered_sam_input);
     return GT_ISP_FAIL;
   }
-  //gt_input_sam_parser_next_record(buffered_sam_input);
   return GT_ISP_OK;
 }

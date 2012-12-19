@@ -25,22 +25,23 @@
 #define MMAP_RANGE_BEHOND 7
 #define MMAP_RANGE 8
 
-#define INSS_RANGE_0   0
-#define INSS_RANGE_100 1
-#define INSS_RANGE_200 2
-#define INSS_RANGE_300 3
-#define INSS_RANGE_400 4
-#define INSS_RANGE_500 5
-#define INSS_RANGE_600 6
-#define INSS_RANGE_700 7
-#define INSS_RANGE_800 8
-#define INSS_RANGE_900 9
-#define INSS_RANGE_1000 10
-#define INSS_RANGE_2000 11
-#define INSS_RANGE_5000 12
-#define INSS_RANGE_10000 13
-#define INSS_RANGE_BEHOND 14
-#define INSS_RANGE 15
+#define INSS_RANGE_NEG  0
+#define INSS_RANGE_OVER 1
+#define INSS_RANGE_100  2
+#define INSS_RANGE_200  3
+#define INSS_RANGE_300  4
+#define INSS_RANGE_400  5
+#define INSS_RANGE_500  6
+#define INSS_RANGE_600  7
+#define INSS_RANGE_700  8
+#define INSS_RANGE_800  9
+#define INSS_RANGE_900  10
+#define INSS_RANGE_1000 11
+#define INSS_RANGE_2000 12
+#define INSS_RANGE_5000 13
+#define INSS_RANGE_10000 14
+#define INSS_RANGE_BEHOND 15
+#define INSS_RANGE 16
 
 #define MISMS_RANGE_0 0
 #define MISMS_RANGE_1 1
@@ -135,6 +136,7 @@ typedef struct {
   uint64_t min_length;
   uint64_t max_length;
   uint64_t total_bases;
+  uint64_t total_bases_unaligned;
   // Mapped/Maps
   uint64_t num_blocks;
   uint64_t num_alignments;
@@ -145,10 +147,9 @@ typedef struct {
   // Uniq Distribution
   uint64_t *uniq; /* UNIQ_RANGE */
   // Error Profile
-  gt_maps_error_profile *best_map_ep; // Best map
-  gt_maps_error_profile *all_maps_ep; // All maps
+  gt_maps_error_profile *maps_error_profile; // All maps
   // Split maps info
-  gt_splitmaps_profile* splitmap_stats;
+  gt_splitmaps_profile* splitmaps_profile;
 } gt_stats;
 
 /*
@@ -166,6 +167,6 @@ void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_size);
 /*
  * Calculate stats
  */
-GT_INLINE void gt_stats_calculate_template_stats(gt_stats* const stats,gt_template* const template,const bool paired_map);
+GT_INLINE void gt_stats_calculate_template_stats(gt_stats* const stats,gt_template* const template,const bool best_map);
 
 #endif /* GT_STATS_H_ */
