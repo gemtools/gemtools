@@ -171,7 +171,7 @@ void gt_stats_print_junction_position_distribution(uint64_t* const junction_posi
 }
 
 void gt_stats_print_qualities_error_distribution(uint64_t* const qualities_error,uint64_t const total_error,const char* const header) {
-  register uint64_t i, j, qual=0;
+  register uint64_t i;
   if(!total_error) return;
   fprintf(stderr,"%s\n",header);
 //  // Print Header
@@ -296,9 +296,9 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
     if (splitmap_stats->total_splitmaps==0) {
       fprintf(stderr,"SM.Total \t 0\n");
     } else {
-      fprintf(stderr,"SM.Num.mapped.withSM \t %" PRIu64 "\n",splitmap_stats->num_mapped_with_splitmaps,
+      fprintf(stderr,"SM.Num.mapped.withSM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_with_splitmaps,
 	      stats->num_mapped?100.0*(float)splitmap_stats->num_mapped_with_splitmaps/(float)stats->num_mapped:0.0);
-      fprintf(stderr,"SM.Num.mapped.onlyBySM \t %" PRIu64 "\n",splitmap_stats->num_mapped_only_splitmaps,
+      fprintf(stderr,"SM.Num.mapped.onlyBySM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_only_splitmaps,
 	      stats->num_mapped?100.0*(float)splitmap_stats->num_mapped_only_splitmaps/(float)stats->num_mapped:0.0);
 
       register const uint64_t num_single_maps = stats->num_maps*(paired_end?2:1);
