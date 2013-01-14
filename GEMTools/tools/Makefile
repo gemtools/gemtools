@@ -13,7 +13,7 @@ GEM_TOOLS=gt.stats gt.filter gt.mapset gt.construct
 
 GEM_TOOLS_SRC=$(addsuffix .c, $(GEM_TOOLS))
 GEM_TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(GEM_TOOLS))
-LIBS=-lgemtools -lpthread -fopenmp
+LIBS=-lgemtools -lpthread -fopenmp -lz -lbz2
 
 all: GEM_TOOLS_FLAGS=-O4 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
 all: $(GEM_TOOLS_BIN)

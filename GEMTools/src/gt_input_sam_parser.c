@@ -777,7 +777,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_template_(
   // Check file format
   register gt_input_file* input_file = buffered_sam_input->input_file;
   if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
-    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,0ul);
+    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,(uint64_t)0);
     return GT_ISP_FAIL;
   }
   // Prepare the template
@@ -821,7 +821,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_alignment(
   // Check file format
   register gt_input_file* input_file = buffered_sam_input->input_file;
   if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
-    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,0ul);
+    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,(uint64_t)0);
     return GT_ISP_FAIL;
   }
   // Allocate memory for the alignment

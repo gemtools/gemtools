@@ -84,8 +84,8 @@ GT_INLINE gt_map** gt_template_put_mmap(
   GT_NULL_CHECK(mmap_attr);
   // Check mmap duplicates
   gt_map** found_mmap;
-  gt_mmap_attributes found_mmap_attr;
-  uint64_t found_mmap_pos;
+  gt_mmap_attributes found_mmap_attr={0,0};
+  uint64_t found_mmap_pos=0;
   register bool is_duplicated = gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp_fx,
       template,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr));
   register gt_map** template_mmap;
