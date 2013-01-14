@@ -153,8 +153,8 @@ gemtools = Extension('gem.gemtools',
                     libraries=['z','bz2', 'gemtools'],
                     sources=['python/src/py_iterator.c', 'python/src/py_template_iterator.c',
                                'python/src/py_mismatch.c', 'python/src/py_map.c', 'python/src/py_alignment.c',
-                               'python/src/py_template.c', 'python/src/gemtoolsmodule.c', 'python/src/py_mappings_iterator.c',
-                               'python/src/py_stats.c'])
+                               'python/src/py_template.c', 'python/src/gemtoolsmodule.c', 'python/src/py_mappings_iterator.c'])
+                               #'python/src/py_stats.c'])
 
 setup(
         cmdclass=_commands,
