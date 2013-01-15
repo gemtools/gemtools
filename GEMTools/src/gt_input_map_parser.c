@@ -1360,3 +1360,24 @@ GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
   gt_string_cast_static(src_text);
   return gt_imp_get_alignment(buffered_map_input,src_text,alignment,PARSE_ALL);
 }
+GT_INLINE gt_status gt_input_map_parser_synch_blocks(
+    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
+    pthread_mutex_t* const input_mutex) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
+  register gt_input_file* const input_file = buffered_map_input1->input_file;
+  register gt_status error_code;
+  // Check the end_of_block. Reload buffer if needed (synch)
+  if (gt_buffered_input_file_eob(buffered_map_input1)) {
+    GT_BEGIN_MUTEX_SECTION(*input_mutex) {
+      if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input1,true))!=GT_IMP_OK) {
+        GT_END_MUTEX_SECTION(*input_mutex);
+        return error_code;
+      }
+      if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input2,true))!=GT_IMP_OK) {
+        GT_END_MUTEX_SECTION(*input_mutex);
+        return error_code;
+      }
+    } GT_END_MUTEX_SECTION(*input_mutex);
+  }
+  return GT_IMP_OK;
+}
