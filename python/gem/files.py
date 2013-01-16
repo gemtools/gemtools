@@ -154,7 +154,7 @@ class ReadIterator(object):
         """
         Create a ReadIterator from a stream with a given parser.
         If the filename is given, the iterator can be cloned to re-read
-        the file. Cloning the iterator will not change the curent state
+        the file. Cloning the iterator will not change the current state
         of this instance. The returned clone will start again from the
         beginning of the file.
 
