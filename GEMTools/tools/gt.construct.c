@@ -516,7 +516,8 @@ void gt_remove_maps_with_n_or_more_mismatches() {
     gt_status error_code;
     gt_alignment *alignment_src = gt_alignment_new();
     gt_alignment *alignment_dst;
-    while ((error_code = gt_input_generic_parser_get_alignment(buffered_input,alignment_src))) {
+    gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(false);
+    while ((error_code = gt_input_generic_parser_get_alignment(buffered_input,alignment_src,&generic_parser_attr))) {
       if (error_code != GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file \n");
       }

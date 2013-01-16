@@ -109,7 +109,7 @@ typedef int32_t gt_status;
 /*
  * Is functions
  */
-#define gt_is_valid_quality(character) (33 <= (character) && (character) <= 127)
+#define gt_is_valid_quality(character) (33 <= (character))
 #define gt_is_number(character) ('0' <= (character) && (character) <= '9')
 #define gt_get_cipher(character) ((character) - '0')
 

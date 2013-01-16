@@ -89,7 +89,7 @@ GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,
   GT_NULL_CHECK(gprinter); GT_MAP_CHECK(map);
   // FORMAT => chr11:-:51590050:(5)43T46A9>24*
   // Print sequence name
-  gt_gprintf(gprinter,"%s",gt_map_get_seq_name(map));
+  gt_gprintf(gprinter,PRIgts,PRIgts_content(map->seq_name));
   // Print strand
   gt_gprintf(gprinter,GT_MAP_SEP_S"%c",gt_map_get_strand(map)==FORWARD?GT_MAP_STRAND_FORWARD_SYMBOL:GT_MAP_STRAND_REVERSE_SYMBOL);
   // Print position
@@ -129,7 +129,7 @@ GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,
   }
   // Print attributes (scores)
   if (print_scores && gt_map_get_global_score(map)!=GT_MAP_NO_SCORE) {
-    gt_gprintf(gprinter,GT_MAP_SEP_S"%"PRIu64,gt_map_get_global_score(map));
+    gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_global_score(map));
   }
   // Print possible next blocks (out of the current sequence => split-maps across chromosomes)
   if (gt_map_has_next_block(map_it)) {
@@ -196,7 +196,8 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template_maps_sorted,gt_te
 GT_INLINE gt_status gt_output_map_gprint_template_maps_sorted(
     gt_generic_printer* const gprinter,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores) {
   GT_NULL_CHECK(gprinter); GT_TEMPLATE_CHECK(template);
-  if (gt_expect_false(gt_template_get_num_mmaps(template)==0)) {
+  register gt_status error_code = 0;
+  if (gt_expect_false(gt_template_get_num_mmaps(template)==0 || max_printable_maps==0)) {
     gt_gprintf(gprinter,"-");
   } else {
     register const uint64_t num_maps = gt_template_get_num_mmaps(template);
@@ -209,19 +210,22 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_sorted(
         if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
         GT_MULTIMAP_ITERATE(map_array,map,end_position) {
           if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-          gt_output_map_gprint_map(gprinter,map,false/*FIXME:print_scores*/);
+          gt_output_map_gprint_map(gprinter,map,false);
         }
         if (print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
           gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
         }
-        if (total_maps_printed>=max_printable_maps || total_maps_printed>=num_maps) break;
+        if (total_maps_printed>=max_printable_maps || total_maps_printed>=num_maps) return 0;
         if (pending_maps==0) break;
       }
-      gt_cond_fatal_error(pending_maps>0,TEMPLATE_INCONSISTENT_COUNTERS);
+      if (pending_maps>0) {
+        error_code = GT_MOE_INCONSISTENT_COUNTERS;
+        gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
+      }
       ++strata;
     }
   }
-  return 0;
+  return error_code;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,max_printable_maps,print_scores
@@ -229,7 +233,8 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment_maps_sorted,gt_a
 GT_INLINE gt_status gt_output_map_gprint_alignment_maps_sorted(
     gt_generic_printer* const gprinter,gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores) {
   GT_NULL_CHECK(gprinter); GT_ALIGNMENT_CHECK(alignment);
-  if (gt_expect_false(gt_alignment_get_num_maps(alignment)==0)) {
+  register gt_status error_code = 0;
+  if (gt_expect_false(gt_alignment_get_num_maps(alignment)==0 || max_printable_maps==0)) {
     gt_gprintf(gprinter,"-");
   } else {
     register const uint64_t num_maps = gt_alignment_get_num_maps(alignment);
@@ -244,11 +249,14 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps_sorted(
         if (total_maps_printed>=max_printable_maps || total_maps_printed>=num_maps) return 0;
         if (pending_maps==0) break;
       }
-      gt_cond_fatal_error(pending_maps>0,ALIGNMENT_INCONSISTENT_COUNTERS);
+      if (pending_maps>0) {
+        error_code = GT_MOE_INCONSISTENT_COUNTERS;
+        gt_error(ALIGNMENT_INCONSISTENT_COUNTERS);
+      }
       ++strata;
     }
   }
-  return 0;
+  return error_code;
 }
 
 /*
@@ -261,6 +269,7 @@ GT_INLINE gt_status gt_output_map_gprint_template(
     gt_generic_printer* const gprinter,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
+  register gt_status error_code;
   // Print TAG
   gt_gprintf(gprinter,"%s",gt_template_get_tag(template));
   // Print READ(s)
@@ -288,13 +297,13 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   // Print MAPS
   gt_gprintf(gprinter,"\t");
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-    gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,max_printable_maps,print_scores); // _sorted
+    error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,max_printable_maps,print_scores); // _sorted
     gt_gprintf(gprinter,"\n");
-    return 0;
+    return error_code;
   } GT_TEMPLATE_END_REDUCTION;
-  gt_output_map_gprint_template_maps_sorted(gprinter,template,max_printable_maps,print_scores); // _sorted
+  error_code = gt_output_map_gprint_template_maps_sorted(gprinter,template,max_printable_maps,print_scores); // _sorted
   gt_gprintf(gprinter,"\n");
-  return 0;
+  return error_code;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,max_printable_maps,print_scores
@@ -303,6 +312,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
     gt_generic_printer* const gprinter,gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_ALIGNMENT_CHECK(alignment);
+  register gt_status error_code;
   // Print TAG
   gt_gprintf(gprinter,"%s",gt_alignment_get_tag(alignment));
   // Print READ(s)
@@ -320,9 +330,9 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   }
   // Print MAPS
   gt_gprintf(gprinter,"\t");
-  gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,max_printable_maps,print_scores); // _sorted
+  error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,max_printable_maps,print_scores); // _sorted
   gt_gprintf(gprinter,"\n");
-  return 0;
+  return error_code;
 }
 
 
@@ -341,7 +351,7 @@ GT_INLINE gt_status gt_output_map_gprint_gem_template(
   } else {
     register gt_status error_code = 0;
     GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
-       if ((error_code=gt_output_map_gprint_alignment(gprinter,alignment,max_printable_maps,print_scores))) return error_code;
+      if ((error_code=gt_output_map_gprint_alignment(gprinter,alignment,max_printable_maps,print_scores))) return error_code;
     }
     return error_code;
   }

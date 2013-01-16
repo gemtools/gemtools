@@ -309,6 +309,23 @@ GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   return gt_map_range_cmp(map_1,map_2,0);
 }
+GT_INLINE int64_t gt_map_cmp_strict(gt_map* const map_1,gt_map* const map_2) {
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  if (!(map_1->position==map_2->position && gt_map_get_distance(map_1)==gt_map_get_distance(map_2))) {
+    return 1;
+  } else {
+    if (map_1->next_block==NULL || map_2->next_block==NULL) return 1;
+    return gt_map_cmp_strict(map_1->next_block->map,map_2->next_block->map);
+  }
+}
+GT_INLINE int64_t gt_map_cmp_false(gt_map* const map_1,gt_map* const map_2) {
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  return 1;
+}
+GT_INLINE int64_t gt_map_cmp_true(gt_map* const map_1,gt_map* const map_2) {
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  return 0;
+}
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   if (gt_string_equals(map_1->seq_name,map_2->seq_name) && map_1->strand==map_2->strand) {

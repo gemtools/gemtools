@@ -158,6 +158,9 @@ GT_INLINE uint64_t gt_map_get_levenshtein_distance(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_global_levenshtein_distance(gt_map* const map);
 // Map compare
 GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2);
+GT_INLINE int64_t gt_map_cmp_strict(gt_map* const map_1,gt_map* const map_2);
+GT_INLINE int64_t gt_map_cmp_false(gt_map* const map_1,gt_map* const map_2);
+GT_INLINE int64_t gt_map_cmp_true(gt_map* const map_1,gt_map* const map_2);
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated);
 GT_INLINE int64_t gt_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps);
 GT_INLINE int64_t gt_mmap_range_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps,const uint64_t range_tolerated);

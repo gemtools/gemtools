@@ -356,7 +356,8 @@ void gt_stats_parallel_generate_stats() {
     gt_status error_code;
     gt_template *template = gt_template_new();
     stats[tid] = gt_stats_new();
-    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,parameters.paired_end))) {
+    gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
+    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file '%s'\n",parameters.name_input_file);
       }

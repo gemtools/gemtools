@@ -42,17 +42,20 @@
 #define GT_IGP_FAIL -1
 #define GT_IGP_EOF 0
 #define GT_IGP_OK 1
+
+typedef struct {
+  /* General attributes*/
+  bool paired_read;
+  /* Format specific features */
+  bool sam_soap_style;
+  uint64_t max_matches;
+} gt_generic_parser_attr;
+
+#define GENERIC_PARSER_ATTR_DEFAULT(parse_paired) { .sam_soap_style=false, .max_matches=GT_ALL, .paired_read=parse_paired }
+
 GT_INLINE gt_status gt_input_generic_parser_get_alignment(
-    gt_buffered_input_file* const buffered_input,gt_alignment* const alignment);
+    gt_buffered_input_file* const buffered_input,gt_alignment* const alignment,gt_generic_parser_attr* const attributes);
 GT_INLINE gt_status gt_input_generic_parser_get_template(
-    gt_buffered_input_file* const buffered_input,gt_template* const template,const bool paired_read);
-
-/*
- * Counters Helpers
- */
-GT_INLINE uint64_t gt_calculate_num_maps(  // FIXME
-    const uint64_t num_decoded_strata,const uint64_t num_decoded_matches,
-    const uint64_t first_stratum_threshold);
-
+    gt_buffered_input_file* const buffered_input,gt_template* const template,gt_generic_parser_attr* const attributes);
 
 #endif /* GEM_TOOLS_H_ */

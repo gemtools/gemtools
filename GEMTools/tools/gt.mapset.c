@@ -51,13 +51,14 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
   register bool synch = false, slave_read = false;
   // Read master
   register gt_status error_code_master, error_code_slave;
+  gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
   if ((error_code_master=gt_input_generic_parser_get_template(
-      buffered_input_master,template_master,parameters.paired_end))==GT_IMP_FAIL) {
+      buffered_input_master,template_master,&generic_parser_attr))==GT_IMP_FAIL) {
     gt_fatal_error_msg("Fatal error parsing file <<Master>>");
   }
   // Read slave
   if ((error_code_slave=gt_input_generic_parser_get_template(
-      buffered_input_slave,template_slave,parameters.paired_end))==GT_IMP_FAIL) {
+      buffered_input_slave,template_slave,&generic_parser_attr))==GT_IMP_FAIL) {
     gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
   }
   // Check EOF conditions
@@ -73,7 +74,7 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
         gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
       }
     } while ((error_code_master=gt_input_generic_parser_get_template(
-                buffered_input_master,template_master,parameters.paired_end)));
+                buffered_input_master,template_master,&generic_parser_attr)));
     return GT_IMP_EOF;
   }
   // Synch loop
@@ -84,7 +85,7 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
     }
     // Fetch next master's template
     if ((error_code_master=gt_input_generic_parser_get_template(
-        buffered_input_master,template_master,parameters.paired_end))!=GT_IMP_OK) {
+        buffered_input_master,template_master,&generic_parser_attr))!=GT_IMP_OK) {
       gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
     }
   }
