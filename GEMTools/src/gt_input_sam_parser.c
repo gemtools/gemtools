@@ -622,7 +622,7 @@ GT_INLINE bool gt_isp_check_pending_record__add_mmap(
       gt_string_equals(&pending->next_seq_name,seq_name) &&
       pending->next_position==position) { // Found!
     // BWA_Compact. MMAPs paired against MMaps need to have the same cardinality (otherwise it's unpaired)
-    if (pending->num_maps!=1 && num_maps!=1 && pending->num_maps!=num_maps) return false; //FIXME return true;
+    if (pending->num_maps!=1 && num_maps!=1 && pending->num_maps!=num_maps) return false; // FIXME return true;
     // Insert mmap(s)
     if (pending->end_position==1) {
       gt_isp_add_mmap(template,map_displacement,pending->map_displacement,num_maps,pending->num_maps);
@@ -647,20 +647,31 @@ GT_INLINE void gt_isp_solve_pending_maps(
       break;
     }
   }
-//  // Look into alignment maps // FIXME: BWA-Based
-//  if (!found_match) {
-//    register const uint64_t map_end = (pending->end_position+1)%2;
-//    register uint64_t pos = 0;
-//    GT_ALIGNMENT_ITERATE(gt_template_get_block_dyn(template,map_end),map) {
-//      if ((found_match=gt_isp_check_pending_record__add_mmap(template,
-//          pending,map_end,map->seq_name,map->position,pos,1))) {
-//        break;
-//      }
-//      ++pos;
-//    }
-//  }
   // Queue if not found
   if (!found_match) gt_vector_insert(pending_v,*pending,gt_sam_pending_end);
+}
+
+GT_INLINE gt_status gt_isp_solve_remaining_maps(gt_vector* pending_v,gt_template* const template) {
+  register gt_status error_code = 0;
+  GT_VECTOR_ITERATE(pending_v,pending_elm,pending_counter,gt_sam_pending_end) {
+    if (!gt_string_is_null(&pending_elm->next_seq_name)) {
+      // Look the pending map in the already stored maps (BWA-Based)
+      register const uint64_t map_end = (pending_elm->end_position+1)%2;
+      register uint64_t pos = 0;
+      register bool found = false;
+      GT_ALIGNMENT_ITERATE(gt_template_get_block_dyn(template,map_end),map) {
+        if ((found=gt_isp_check_pending_record__add_mmap(
+            template,pending_elm,map_end,map->seq_name,map->position,pos,1))) break;
+        ++pos;
+      }
+      // Check solved
+      if (!found) {
+        error_code = GT_ISP_PE_UNSOLVED_PENDING_MAPS;
+        break;
+      }
+    }
+  }
+  return error_code;
 }
 
 /* SAM general */
@@ -688,14 +699,8 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
     // Solve pending ends
     if (!gt_string_is_null(&pending.next_seq_name)) gt_isp_solve_pending_maps(pending_v,&pending,template);
   } while (gt_isp_fetch_next_line(buffered_sam_input,template->tag,true));
-  // Check for unsolved pending maps
-  error_code = 0;
-  GT_VECTOR_ITERATE(pending_v,pending_elm,pending_counter,gt_sam_pending_end) {
-    if (!gt_string_is_null(&pending_elm->next_seq_name)) {
-      error_code = GT_ISP_PE_UNSOLVED_PENDING_MAPS;
-      break;
-    }
-  }
+  // Check for unsolved pending maps (try to solve them)
+  error_code = gt_isp_solve_remaining_maps(pending_v,template);
   gt_vector_delete(pending_v);
   return error_code;
 }
@@ -772,7 +777,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_template_(
   // Check file format
   register gt_input_file* input_file = buffered_sam_input->input_file;
   if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
-    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,0ul);
+    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,(uint64_t)0);
     return GT_ISP_FAIL;
   }
   // Prepare the template
@@ -816,7 +821,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_alignment(
   // Check file format
   register gt_input_file* input_file = buffered_sam_input->input_file;
   if (gt_input_sam_parser_check_sam_file_format(buffered_sam_input)) {
-    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,0ul);
+    gt_error(PARSE_SAM_BAD_FILE_FORMAT,input_file->file_name,buffered_sam_input->current_line_num,(uint64_t)0);
     return GT_ISP_FAIL;
   }
   // Allocate memory for the alignment

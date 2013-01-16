@@ -143,7 +143,7 @@ void gt_dummy_example() {
       "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20):::1984,"
       "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20):::1984",alignment);
 
-  fprintf(stdout, "[%d] the alignment has %lu maps\n", error_code, gt_alignment_get_num_maps(alignment));
+  fprintf(stdout, "[%d] the alignment has %" PRIu64 " maps\n", error_code, gt_alignment_get_num_maps(alignment));
 }
 
 
@@ -228,7 +228,7 @@ void gt_example_map_string_parsing() {
       "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20),"
       "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20),"
       "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20)",template);
-  printf("MCD = %lu\n",gt_template_get_mcs(template));
+  printf("MCD = %" PRIu64 "\n",gt_template_get_mcs(template));
 
   printf("Test %s\n",error_code==0?"Passed":"Failed");
 }
@@ -241,8 +241,6 @@ void gt_example_sam_parsing() {
 
   // Buffered reading of the file
   gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
-  gt_template* template = gt_template_new();
-  gt_status error_code;
 //  while ((error_code=gt_buffered_sam_input_get_template(input_file,template))) {
 //    if (error_code==GT_BMI_FAIL) continue;
 //
@@ -325,8 +323,6 @@ void usage() {
 }
 
 void gt_constructor_copy_template() {
-  gt_status error_code;
-  gt_alignment* alignment = gt_alignment_new();
   gt_template* source = gt_template_new();
 
   // test no maps no mmaps

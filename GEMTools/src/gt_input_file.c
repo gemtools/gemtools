@@ -5,6 +5,8 @@
  * DESCRIPTION: // TODO
  */
 
+#include <zlib.h>
+#include <bzlib.h>
 #include "gt_input_file.h"
 
 // Internal constants
@@ -48,6 +50,8 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
   gt_cond_fatal_error(!input_file,MEM_HANDLER);
   // Input file
   struct stat stat_info;
+  unsigned char tbuf[4];
+  int i;
   gt_cond_fatal_error(stat(file_name,&stat_info)==-1,FILE_STAT,file_name);
   input_file->file_name = file_name;
   input_file->file_size = stat_info.st_size;
@@ -66,6 +70,24 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
     input_file->fildes = -1;
     gt_cond_fatal_error(!(input_file->file=fopen(file_name,"r")),FILE_OPEN,file_name);
     input_file->file_type = REGULAR_FILE;
+    if(S_ISREG(stat_info.st_mode)) {
+      // Regular file - check if gzip or bzip compressed
+      i=(int)fread(tbuf,(size_t)1,(size_t)4,input_file->file);
+      if(tbuf[0]==0x1f && tbuf[1]==0x8b && tbuf[2]==0x08) {
+	input_file->file_type=GZIPPED_FILE;
+	fclose(input_file->file);
+	gt_cond_fatal_error(!(input_file->file=gzopen(file_name,"r")),FILE_GZIP_OPEN,file_name);
+      } else if(tbuf[0]=='B' && tbuf[1]=='Z' && tbuf[2]=='h' && tbuf[3]>='0' && tbuf[3]<='9') {
+	fseek(input_file->file,0L,SEEK_SET);
+	input_file->file_type=BZIPPED_FILE;
+	input_file->file=BZ2_bzReadOpen(&i,input_file->file,0,0,NULL,0);
+	gt_cond_fatal_error(i!=BZ_OK,FILE_BZIP_OPEN,file_name);
+      } else {
+	fseek(input_file->file,0L,SEEK_SET);
+      }
+    } else {
+      input_file->eof=0;
+    }
     input_file->file_buffer = malloc(GT_INPUT_BUFFER_SIZE);
     gt_cond_fatal_error(!input_file->file_buffer,MEM_ALLOC);
   }
@@ -88,10 +110,20 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
 gt_status gt_input_file_close(gt_input_file* const input_file) {
   GT_INPUT_FILE_CHECK(input_file);
   gt_status status = GT_INPUT_FILE_OK;
+  int bzerr;
   switch (input_file->file_type) {
     case REGULAR_FILE:
       free(input_file->file_buffer);
       if (fclose(input_file->file)) status = GT_INPUT_FILE_CLOSE_ERR;
+      break;
+    case GZIPPED_FILE:
+      free(input_file->file_buffer);
+      if (gzclose(input_file->file)) status = GT_INPUT_FILE_CLOSE_ERR;
+      break;
+    case BZIPPED_FILE:
+      free(input_file->file_buffer);
+      BZ2_bzReadClose(&bzerr,input_file->file);
+      if (bzerr!=BZ_OK) status = GT_INPUT_FILE_CLOSE_ERR;
       break;
     case MAPPED_FILE:
       gt_cond_error(munmap(input_file->file,input_file->file_size)==-1,SYS_UNMAP);
@@ -155,13 +187,14 @@ GT_INLINE size_t gt_input_file_dump_to_buffer(gt_input_file* const input_file,gt
   return chunk_size;
 }
 GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
+  int bzerr;
   GT_INPUT_FILE_CHECK(input_file);
   input_file->global_pos += input_file->buffer_size;
   input_file->buffer_pos = 0;
   input_file->buffer_begin = 0;
   if (gt_expect_true(
       (input_file->file_type==STREAM && !feof(input_file->file)) ||
-      (input_file->file_type==REGULAR_FILE && input_file->global_pos < input_file->file_size))) {
+      (input_file->file_type==REGULAR_FILE && !feof(input_file->file)))) {
     input_file->buffer_size =
         fread(input_file->file_buffer,sizeof(uint8_t),GT_INPUT_BUFFER_SIZE,input_file->file);
     if (input_file->buffer_size==0) {
@@ -170,6 +203,18 @@ GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
     return input_file->buffer_size;
   } else if (input_file->file_type==MAPPED_FILE && input_file->global_pos < input_file->file_size) {
     input_file->buffer_size = input_file->file_size-input_file->global_pos;
+    return input_file->buffer_size;
+  } else if (input_file->file_type==GZIPPED_FILE && !gzeof(input_file->file)) {
+    input_file->buffer_size = gzread(input_file->file,input_file->file_buffer,GT_INPUT_BUFFER_SIZE);
+    if (input_file->buffer_size==0) {
+      input_file->eof = true;
+    }
+    return input_file->buffer_size;
+  } else if (input_file->file_type==BZIPPED_FILE) {
+    input_file->buffer_size = BZ2_bzRead(&bzerr,input_file->file,input_file->file_buffer,GT_INPUT_BUFFER_SIZE);
+    if(input_file->buffer_size==0) {
+      input_file->eof=true;
+    }
     return input_file->buffer_size;
   } else {
     input_file->eof = true;

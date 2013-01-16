@@ -19,7 +19,7 @@ typedef struct {
   gt_operation operation;
   bool mmap_input;
   bool paired_end;
-  uint64_t eq_threshold;
+  double eq_threshold;
   bool verbose;
 } gt_stats_args;
 
@@ -29,21 +29,25 @@ gt_stats_args parameters = {
     .name_output_file=NULL,
     .mmap_input=false,
     .paired_end=false,
-    .eq_threshold=50,
+    .eq_threshold=0.5,
     .verbose=false,
 };
+uint64_t current_read_length;
 
 int64_t gt_mapset_map_cmp(gt_map* const map_1,gt_map* const map_2) {
-  return gt_map_range_cmp(map_1,map_2,parameters.eq_threshold);
+  register const uint64_t eq_threshold = (parameters.eq_threshold <= 1.0) ?
+      parameters.eq_threshold*current_read_length: parameters.eq_threshold;
+  return gt_map_range_cmp(map_1,map_2,eq_threshold);
 }
 int64_t gt_mapset_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps) {
-  return gt_mmap_range_cmp(map_1,map_2,num_maps,parameters.eq_threshold);
+  register const uint64_t eq_threshold = (parameters.eq_threshold <= 1.0) ?
+      parameters.eq_threshold*current_read_length: parameters.eq_threshold;
+  return gt_mmap_range_cmp(map_1,map_2,num_maps,eq_threshold);
 }
 
 GT_INLINE gt_status gt_mapset_read_template_sync(
     gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
     gt_template* const template_master,gt_template* const template_slave,const gt_operation operation) {
-  register bool synch = false, slave_read = false;
   // Read master
   register gt_status error_code_master, error_code_slave;
   if ((error_code_master=gt_input_generic_parser_get_template(
@@ -99,10 +103,11 @@ void gt_mapset_read__write() {
   gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
   gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
 
-  gt_status error_code;
   gt_template *template_1 = gt_template_new();
   gt_template *template_2 = gt_template_new();
   while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,parameters.operation)) {
+    // Record current read length
+    current_read_length = gt_template_get_total_length(template_1);
     // Apply operation
     register gt_template *ptemplate;
     switch (parameters.operation) {
@@ -183,7 +188,7 @@ void parse_arguments(int argc,char** argv) {
     { "mmap-input", no_argument, 0, 3 },
     { "output", required_argument, 0, 'o' },
     { "paired-end", no_argument, 0, 'p' },
-    { "eq-th", no_argument, 0, 4 },
+    { "eq-th", required_argument, 0, 4 },
     { "verbose", no_argument, 0, 'v' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 } };
@@ -208,7 +213,7 @@ void parse_arguments(int argc,char** argv) {
       parameters.paired_end = true;
       break;
     case 4:
-      parameters.eq_threshold = atol(optarg);
+      parameters.eq_threshold = atof(optarg);
       break;
     case 'v':
       parameters.verbose = true;
