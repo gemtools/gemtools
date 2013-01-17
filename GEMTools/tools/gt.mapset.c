@@ -48,7 +48,6 @@ int64_t gt_mapset_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint6
 GT_INLINE gt_status gt_mapset_read_template_sync(
     gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
     gt_template* const template_master,gt_template* const template_slave,const gt_operation operation) {
-  register bool synch = false, slave_read = false;
   // Read master
   register gt_status error_code_master, error_code_slave;
   gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
@@ -105,7 +104,6 @@ void gt_mapset_read__write() {
   gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
   gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
 
-  gt_status error_code;
   gt_template *template_1 = gt_template_new();
   gt_template *template_2 = gt_template_new();
   while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,parameters.operation)) {

@@ -50,8 +50,9 @@ gt_stats_args parameters = {
  * STATS Print results
  */
 void gt_stats_print_mmap_distribution(uint64_t* const mmap,const uint64_t num_alignments,const uint64_t num_mapped) {
-#define GT_STATS_PRINT_MMAP_FORMAT "%6lu \t %1.3f%%\n"
+#define GT_STATS_PRINT_MMAP_FORMAT "%6" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_MMAP(RANGE) mmap[RANGE],100.0*(float)mmap[RANGE]/(float)num_alignments
+  if(!num_alignments) return;
   fprintf(stderr,"MMap.ranges\n");
   fprintf(stderr,"  -->        [0] \t=> "GT_STATS_PRINT_MMAP_FORMAT,(num_alignments-num_mapped),100.0*(float)(num_alignments-num_mapped)/(float)num_alignments);
   fprintf(stderr,"  -->        [1] \t=> "GT_STATS_PRINT_MMAP_FORMAT,GT_STATS_PRINT_MMAP(MMAP_RANGE_1));
@@ -64,8 +65,9 @@ void gt_stats_print_mmap_distribution(uint64_t* const mmap,const uint64_t num_al
   fprintf(stderr,"  --> (1000,inf) \t=> "GT_STATS_PRINT_MMAP_FORMAT,GT_STATS_PRINT_MMAP(MMAP_RANGE_BEHOND));
 }
 void gt_stats_print_uniq_distribution(uint64_t* const uniq,const uint64_t num_alignments) {
-#define GT_STATS_PRINT_UNIQ_FORMAT "%8lu \t %1.3f%%\n"
+#define GT_STATS_PRINT_UNIQ_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_UNIQ(RANGE) uniq[RANGE],100.0*(float)uniq[RANGE]/(float)num_alignments
+  if(!num_alignments) return;
   fprintf(stderr,"Uniq.ranges\n");
   fprintf(stderr,"  -->        [X] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(UNIQ_RANGE_X));
   fprintf(stderr,"  -->        [0] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(UNIQ_RANGE_0));
@@ -78,8 +80,9 @@ void gt_stats_print_uniq_distribution(uint64_t* const uniq,const uint64_t num_al
   fprintf(stderr,"  -->   (50,inf) \t=> "GT_STATS_PRINT_UNIQ_FORMAT,accum,100.0*(float)(accum)/(float)num_alignments);
 }
 void gt_stats_print_inss_distribution(uint64_t* const inss,const uint64_t num_maps) {
-#define GT_STATS_PRINT_INSS_FORMAT "%8lu \t %1.3f%%\n"
+#define GT_STATS_PRINT_INSS_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_INSS(RANGE) inss[RANGE],100.0*(float)inss[RANGE]/(float)num_maps
+  if(!num_maps) return;
   fprintf(stderr,"InsS.ranges\n");
   fprintf(stderr,"  -->   (-inf,-100] \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(INSS_RANGE_NEG));
   fprintf(stderr,"  -->      (-100,0] \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(INSS_RANGE_OVER));
@@ -98,9 +101,10 @@ void gt_stats_print_inss_distribution(uint64_t* const inss,const uint64_t num_ma
   fprintf(stderr,"  -->    (5000,inf) \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(INSS_RANGE_BEHOND));
 }
 void gt_stats_print_misms_distribution(uint64_t* const misms,const uint64_t num_maps,const char* const header) {
-#define GT_STATS_PRINT_MISMS_FORMAT "%8lu \t %1.3f%%\n"
+#define GT_STATS_PRINT_MISMS_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_MISMS(RANGE) misms[RANGE],100.0*(float)misms[RANGE]/(float)num_maps
 #define GT_STATS_PRINT_MISMS_VAL(misms_val) misms_val,100.0*(float)misms_val/(float)num_maps
+  if(!num_maps) return;
   fprintf(stderr,"%s\n",header);
   fprintf(stderr,"  -->         [0]%% \t=> "GT_STATS_PRINT_MISMS_FORMAT,GT_STATS_PRINT_MISMS(MISMS_RANGE_0));
   fprintf(stderr,"  -->         [1]%% \t=> "GT_STATS_PRINT_MISMS_FORMAT,GT_STATS_PRINT_MISMS(MISMS_RANGE_1));
@@ -125,16 +129,17 @@ void gt_stats_print_read_event_positions(
   register const uint64_t max_length_stats = GT_MIN(max_length,LARGE_READ_POS_RANGE);
   register const uint64_t ten_per_cent = max_length_stats/10;
   register uint64_t i, centinel, error_sum;
-  fprintf(stderr,"Error.position [0,%lu]nt\n",max_length_stats);
+  if(!num_errors) return;
+  fprintf(stderr,"Error.position [0,%" PRIu64 "]nt\n",max_length_stats);
   for (i=0,centinel=0;i<100;i+=10,centinel+=ten_per_cent) {
     register const uint64_t top = (i==90)?max_length_stats:centinel+ten_per_cent;
     error_sum = gt_stats_sum_misms_pos(pos_error,centinel,top);
-    fprintf(stderr,"  -->   [%3lu - %3lu)nt \t=> %1.3f%%\n",
+    fprintf(stderr,"  -->   [%3" PRIu64 " - %3" PRIu64 ")nt \t=> %1.3f%%\n",
         centinel,top,100.0*(float)error_sum/(float)num_errors);
   }
 }
 void gt_stats_print_num_junctions_distribution(uint64_t* const num_junctions,uint64_t const total) {
-#define GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT "%8lu \t %1.3f%%\n"
+#define GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_NUM_JUNCTIONS(RANGE) num_junctions[RANGE],100.0*(float)num_junctions[RANGE]/(float)total
   fprintf(stderr,"  -->           [1]%% \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_1));
   fprintf(stderr,"  -->           [2]%% \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_2));
@@ -142,7 +147,7 @@ void gt_stats_print_num_junctions_distribution(uint64_t* const num_junctions,uin
   fprintf(stderr,"  -->       (3,inf)%% \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_BEHOND));
 }
 void gt_stats_print_length_junctions_distribution(uint64_t* const length_junctions,uint64_t const total_junctions) {
-#define GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT "%8lu \t %1.3f%%\n"
+#define GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_LENGTH_JUNCTION(RANGE) length_junctions[RANGE],100.0*(float)length_junctions[RANGE]/(float)total_junctions
   fprintf(stderr,"SM.Length.Junctions\n");
   fprintf(stderr,"  -->       [0,100]%% \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_100));
@@ -156,16 +161,18 @@ void gt_stats_print_junction_position_distribution(uint64_t* const junction_posi
   register const uint64_t max_length_stats = GT_MIN(max_length,SHORT_READ_POS_RANGE);
   register const uint64_t ten_per_cent = max_length_stats/10;
   register uint64_t i, centinel;
-  fprintf(stderr,"Juntion.position [0,%lu]nt\n",max_length_stats);
+  if(!total_junctions) return;
+  fprintf(stderr,"Juntion.position [0,%" PRIu64 "]nt\n",max_length_stats);
   for (i=0,centinel=0;i<100;i+=10,centinel+=ten_per_cent) {
     register const uint64_t top = (i==90)?max_length_stats:centinel+ten_per_cent;
     register const uint64_t num_junctions = gt_stats_sum_misms_pos(junction_position,centinel,top);
-    fprintf(stderr,"  -->   [%3lu-%3lu)nt \t=> %1.3f%%\n",centinel,top,100.0*(float)num_junctions/(float)total_junctions);
+    fprintf(stderr,"  -->   [%3" PRIu64 " - %3" PRIu64")nt \t=> %1.3f%%\n",centinel,top,100.0*(float)num_junctions/(float)total_junctions);
   }
 }
 
 void gt_stats_print_qualities_error_distribution(uint64_t* const qualities_error,uint64_t const total_error,const char* const header) {
-  register uint64_t i, j, qual=0;
+  register uint64_t i;
+  if(!total_error) return;
   fprintf(stderr,"%s\n",header);
 //  // Print Header
 //  fprintf(stderr,"    ");
@@ -187,6 +194,7 @@ void gt_stats_print_qualities_error_distribution(uint64_t* const qualities_error
 }
 void gt_stats_print_misms_transition_table(uint64_t* const misms_trans,uint64_t const total_misms,const char* const header) {
   register uint64_t i, pos=0;
+  if(!total_misms) return;
   fprintf(stderr,"%s\n",header);
   // Print Header
   fprintf(stderr,"    [  A  ][  C  ][  G  ][  T  ][  N  ]\n");
@@ -222,30 +230,31 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
    * Reads
    */
   register const uint64_t eff_num_reads = paired_end?num_reads>>1:num_reads;
-  fprintf(stderr,"Num.reads %lu\n",num_reads);
-  fprintf(stderr,"  --> Length.(min,avg,max) (%lu,%lu,%lu)\n",
-      stats->min_length,stats->total_bases/stats->num_blocks,stats->max_length);
-  fprintf(stderr,"  --> Num.mapped %lu (%2.3f%%)\n",stats->num_mapped,
-      100.0*(float)stats->num_mapped/(float)eff_num_reads);
-  fprintf(stderr,"Num.alignments %lu\n",stats->num_alignments);
+  if(stats->min_length>stats->max_length) stats->min_length=0; // For the case of zero input lines
+  fprintf(stderr,"Num.reads %" PRIu64 "\n",num_reads);
+  fprintf(stderr,"  --> Length.(min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
+	  stats->min_length,stats->num_blocks?stats->total_bases/stats->num_blocks:(uint64_t)0,stats->max_length);
+  fprintf(stderr,"  --> Num.mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
+	  eff_num_reads?100.0*(float)stats->num_mapped/(float)eff_num_reads:0.0);
+  fprintf(stderr,"Num.alignments %" PRIu64 "\n",stats->num_alignments);
   /*
    * Total bases (aligned/trimmed/unaligned)
    */
   register const uint64_t total_bases_mmaps =
       stats->maps_error_profile->total_bases_aligned+stats->maps_error_profile->total_bases_trimmed;
-  fprintf(stderr,"  --> Num.bases %lu\n",stats->total_bases);
-  fprintf(stderr,"    --> Num.bases.unaligned %lu (%2.3f%%)\n",
-      stats->total_bases_unaligned,100.0*(float)stats->total_bases_unaligned/(float)stats->total_bases);
-  fprintf(stderr,"    --> Num.bases.allMaps.aligned %lu (%2.3f%%)\n",
+  fprintf(stderr,"  --> Num.bases %" PRIu64 "\n",stats->total_bases);
+  fprintf(stderr,"    --> Num.bases.unaligned %" PRIu64 " (%2.3f%%)\n",
+	  stats->total_bases_unaligned,stats->total_bases?100.0*(float)stats->total_bases_unaligned/(float)stats->total_bases:0.0);
+  fprintf(stderr,"    --> Num.bases.allMaps.aligned %" PRIu64 " (%2.3f%%)\n",
       stats->maps_error_profile->total_bases_aligned,
-      100.0*(float)stats->maps_error_profile->total_bases_aligned/(float)total_bases_mmaps);
-  fprintf(stderr,"    --> Num.bases.allMaps.trimmed %lu (%2.3f%%)\n",
+	  total_bases_mmaps?100.0*(float)stats->maps_error_profile->total_bases_aligned/(float)total_bases_mmaps:0.0);
+  fprintf(stderr,"    --> Num.bases.allMaps.trimmed %" PRIu64 " (%2.3f%%)\n",
       stats->maps_error_profile->total_bases_trimmed,
-      100.0*(float)stats->maps_error_profile->total_bases_trimmed/(float)total_bases_mmaps);
+	  total_bases_mmaps?100.0*(float)stats->maps_error_profile->total_bases_trimmed/(float)total_bases_mmaps:0.0);
   /*
    * Maps
    */
-  fprintf(stderr,"  --> Num.maps %lu (%2.3f map/alg)\n",stats->num_maps,(float)stats->num_maps/(float)stats->num_mapped);
+  fprintf(stderr,"  --> Num.maps %" PRIu64 " (%2.3f map/alg)\n",stats->num_maps,stats->num_mapped?(float)stats->num_maps/(float)stats->num_mapped:0.0);
   gt_stats_print_mmap_distribution(stats->mmap,eff_num_reads,stats->num_mapped);
   if (paired_end) {
     gt_stats_print_inss_distribution(stats->maps_error_profile->inss,stats->num_maps);
@@ -287,25 +296,25 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
     if (splitmap_stats->total_splitmaps==0) {
       fprintf(stderr,"SM.Total \t 0\n");
     } else {
-      fprintf(stderr,"SM.Num.mapped.withSM \t %lu\n",splitmap_stats->num_mapped_with_splitmaps,
-          100.0*(float)splitmap_stats->num_mapped_with_splitmaps/(float)stats->num_mapped);
-      fprintf(stderr,"SM.Num.mapped.onlyBySM \t %lu\n",splitmap_stats->num_mapped_only_splitmaps,
-          100.0*(float)splitmap_stats->num_mapped_only_splitmaps/(float)stats->num_mapped);
+      fprintf(stderr,"SM.Num.mapped.withSM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_with_splitmaps,
+	      stats->num_mapped?100.0*(float)splitmap_stats->num_mapped_with_splitmaps/(float)stats->num_mapped:0.0);
+      fprintf(stderr,"SM.Num.mapped.onlyBySM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_only_splitmaps,
+	      stats->num_mapped?100.0*(float)splitmap_stats->num_mapped_only_splitmaps/(float)stats->num_mapped:0.0);
 
       register const uint64_t num_single_maps = stats->num_maps*(paired_end?2:1);
-      fprintf(stderr,"SM.Num.Splitted.Segments \t %lu (%2.3f%% SplitMaps/Maps)\n",splitmap_stats->total_splitmaps,
-          100.0*(float)splitmap_stats->total_splitmaps/(float)num_single_maps);
-      fprintf(stderr,"SM.Num.Junctions \t %lu (%2.3f Juntions/SplitMaps)\n",splitmap_stats->total_junctions,
-          (float)splitmap_stats->total_junctions/(float)splitmap_stats->total_splitmaps);
+      fprintf(stderr,"SM.Num.Splitted.Segments \t %" PRIu64 " (%2.3f%% SplitMaps/Maps)\n",splitmap_stats->total_splitmaps,
+	      num_single_maps?100.0*(float)splitmap_stats->total_splitmaps/(float)num_single_maps:0.0);
+      fprintf(stderr,"SM.Num.Junctions \t %" PRIu64 " (%2.3f Juntions/SplitMaps)\n",splitmap_stats->total_junctions,
+	      splitmap_stats->total_splitmaps?(float)splitmap_stats->total_junctions/(float)splitmap_stats->total_splitmaps:0.0);
 
       gt_stats_print_num_junctions_distribution(splitmap_stats->num_junctions,splitmap_stats->total_splitmaps);
       gt_stats_print_length_junctions_distribution(splitmap_stats->length_junctions,splitmap_stats->total_junctions);
       gt_stats_print_junction_position_distribution(splitmap_stats->junction_position,splitmap_stats->total_junctions,stats->max_length);
       if (parameters.paired_end) {
         fprintf(stderr,"SM.PE.Combinations\n");
-        fprintf(stderr,"  --> SM+SM %lu (%2.3f)\n",splitmap_stats->pe_sm_sm,100.0*(float)splitmap_stats->pe_sm_sm/(float)stats->num_maps);
-        fprintf(stderr,"  --> SM+RM %lu (%2.3f)\n",splitmap_stats->pe_sm_rm,100.0*(float)splitmap_stats->pe_sm_rm/(float)stats->num_maps);
-        fprintf(stderr,"  --> RM+RM %lu (%2.3f)\n",splitmap_stats->pe_rm_rm,100.0*(float)splitmap_stats->pe_rm_rm/(float)stats->num_maps);
+        fprintf(stderr,"  --> SM+SM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_sm_sm,100.0*(float)splitmap_stats->pe_sm_sm/(float)stats->num_maps);
+        fprintf(stderr,"  --> SM+RM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_sm_rm,100.0*(float)splitmap_stats->pe_sm_rm/(float)stats->num_maps);
+        fprintf(stderr,"  --> RM+RM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_rm_rm,100.0*(float)splitmap_stats->pe_rm_rm/(float)stats->num_maps);
       }
     }
   }
@@ -317,23 +326,23 @@ void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const
    */
   // #mapped, %mapped
   register const uint64_t eff_num_reads = paired_end?num_reads>>1:num_reads;
-  fprintf(stderr,"%lu,",stats->num_mapped);
-  fprintf(stderr,"%2.3f,",100.0*(float)stats->num_mapped/(float)eff_num_reads);
+  fprintf(stderr,"%" PRIu64 ",",stats->num_mapped);
+  fprintf(stderr,"%2.3f,",eff_num_reads?100.0*(float)stats->num_mapped/(float)eff_num_reads:0.0);
   // #unmapped, %unmapped
   register const uint64_t unmapped = eff_num_reads-stats->num_mapped;
-  fprintf(stderr,"%lu,",unmapped);
-  fprintf(stderr,"%2.3f,",100.0*(float)unmapped/(float)eff_num_reads);
+  fprintf(stderr,"%" PRIu64 ",",unmapped);
+  fprintf(stderr,"%2.3f,",eff_num_reads?100.0*(float)unmapped/(float)eff_num_reads:0.0);
   // MMap(maps/alg)
-  fprintf(stderr,"%2.3f,",(float)stats->num_maps/(float)stats->num_mapped);
+  fprintf(stderr,"%2.3f,",stats->num_mapped?(float)stats->num_maps/(float)stats->num_mapped:0.0);
   // Bases.aligned(%)
   register const uint64_t total_bases_mmaps =
       stats->maps_error_profile->total_bases_aligned+stats->maps_error_profile->total_bases_trimmed;
-  fprintf(stderr,"%2.3f,",100.0*(float)stats->maps_error_profile->total_bases_aligned/(float)total_bases_mmaps);
+  fprintf(stderr,"%2.3f,",total_bases_mmaps?100.0*(float)stats->maps_error_profile->total_bases_aligned/(float)total_bases_mmaps:0.0);
   // Bases.trimmed(%)
-  fprintf(stderr,"%2.3f,",100.0*(float)stats->maps_error_profile->total_bases_trimmed/(float)total_bases_mmaps);
+  fprintf(stderr,"%2.3f,",total_bases_mmaps?100.0*(float)stats->maps_error_profile->total_bases_trimmed/(float)total_bases_mmaps:0.0);
   // #Uniq-0, %Uniq-0
-  fprintf(stderr,"%lu,",stats->uniq[UNIQ_RANGE_0]);
-  fprintf(stderr,"%2.3f\n",100.0*(float)stats->uniq[UNIQ_RANGE_0]/(float)eff_num_reads);
+  fprintf(stderr,"%" PRIu64 ",",stats->uniq[UNIQ_RANGE_0]);
+  fprintf(stderr,"%2.3f\n",eff_num_reads?100.0*(float)stats->uniq[UNIQ_RANGE_0]/(float)eff_num_reads:0.0);
 }
 
 /*

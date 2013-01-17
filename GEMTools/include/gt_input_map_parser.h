@@ -147,6 +147,9 @@ GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_string* const src_text);
 GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_string* const src_text);
+GT_INLINE gt_status gt_input_map_parser_synch_blocks(
+    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
+    pthread_mutex_t* const input_mutex);
 
 GT_INLINE gt_status gt_input_map_parser_get_template_limited(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,const uint64_t num_mmaps);

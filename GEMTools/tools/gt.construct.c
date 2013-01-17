@@ -241,8 +241,6 @@ void gt_example_sam_parsing() {
 
   // Buffered reading of the file
   gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
-  gt_template* template = gt_template_new();
-  gt_status error_code;
 //  while ((error_code=gt_buffered_sam_input_get_template(input_file,template))) {
 //    if (error_code==GT_BMI_FAIL) continue;
 //
@@ -325,8 +323,6 @@ void usage() {
 }
 
 void gt_constructor_copy_template() {
-  gt_status error_code;
-  gt_alignment* alignment = gt_alignment_new();
   gt_template* source = gt_template_new();
 
   // test no maps no mmaps
