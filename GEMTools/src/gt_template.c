@@ -116,7 +116,7 @@ GT_INLINE gt_alignment* gt_template_get_block_dyn(gt_template* const template,co
     gt_template_add_block(template,dynamic_allocated_alignment);
     return dynamic_allocated_alignment;
   } else {
-    gt_fatal_error(POSITION_OUT_OF_RANGE_INFO,(uint64_t)position,0ul,num_blocks-1);
+    gt_fatal_error(POSITION_OUT_OF_RANGE_INFO,(uint64_t)position,(uint64_t)0,num_blocks-1);
   }
 }
 GT_INLINE void gt_template_clear_blocks(gt_template* const template) {

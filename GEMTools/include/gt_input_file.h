@@ -48,12 +48,12 @@ typedef struct {
 /*
  * GT Input file
  */
-typedef enum { STREAM, REGULAR_FILE, MAPPED_FILE } gt_file_type;
+typedef enum { STREAM, REGULAR_FILE, MAPPED_FILE, GZIPPED_FILE, BZIPPED_FILE } gt_file_type;
 typedef struct {
   /* Input file */
   char* file_name;
   gt_file_type file_type;
-  FILE* file;
+  void* file;
   int fildes;
   bool eof;
   uint64_t file_size;

@@ -160,6 +160,8 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_FILE_WRITE "Could not write to file '%s'"
 #define GT_ERROR_FILE_CLOSE "Could not close file '%s'"
 #define GT_ERROR_FILE_FORMAT "Could not determine file format"
+#define GT_ERROR_FILE_GZIP_OPEN "Could not open GZIPPED file '%s'"
+#define GT_ERROR_FILE_BZIP_OPEN "Could not open BZIPPED file '%s'"
 
 // Output errors
 #define GT_ERROR_FPRINTF "Printing output. 'fprintf' call failed"
