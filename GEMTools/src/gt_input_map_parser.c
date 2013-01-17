@@ -1387,7 +1387,6 @@ GT_INLINE gt_status gt_input_map_parser_get_template_limited(
   GT_TEMPLATE_CHECK(template);
   return gt_imp_get_template(buffered_map_input,NULL,template,PARSE_ALL,num_mmaps);
 }
-<<<<<<< HEAD
 GT_INLINE gt_status gt_input_map_parser_get_alignment_limited(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,const uint64_t num_maps) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
@@ -1400,13 +1399,6 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks(
     pthread_mutex_t* const input_mutex) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input1);
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input2);
-=======
-GT_INLINE gt_status gt_input_map_parser_synch_blocks(
-    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
-    pthread_mutex_t* const input_mutex) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
-  register gt_input_file* const input_file = buffered_map_input1->input_file;
->>>>>>> 60c51ed2cd31730ca9158df97e0d9cb01f5d0aa9
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed (synch)
   if (gt_buffered_input_file_eob(buffered_map_input1)) {
@@ -1423,7 +1415,3 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks(
   }
   return GT_IMP_OK;
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> 60c51ed2cd31730ca9158df97e0d9cb01f5d0aa9
