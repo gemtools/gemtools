@@ -234,7 +234,7 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
     gt_misms misms;
     register const char cigar_op = **text_line;
     GT_NEXT_CHAR(text_line);
-    switch (cigar_op) { // TODO: Insert mismatches
+    switch (cigar_op) {
       case 'M':
       case '=':
       case 'X':
@@ -243,13 +243,14 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
         break;
       case 'P': // Padding. Nothing specific implemented
       case 'S': // Soft clipping. Nothing specific implemented
-      case 'H': // Hard clipping. Nothing specific implemented
       case 'I': // Insertion to the reference
         misms.misms_type = DEL;
         misms.position = position;
         misms.size = length;
         position += length;
         gt_map_add_misms(map,&misms);
+        break;
+      case 'H': // Hard clipping. Nothing specific implemented (we don't even store this)
         break;
       case 'D': // Deletion from the reference
         misms.misms_type = INS;
@@ -491,21 +492,8 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
     register const uint64_t read_length = *text_line-seq_read;
     GT_NEXT_CHAR(text_line);
-//    // FIXME: Check disabled due to wrong SAM outputs produced some mappers when trimming
-//    if (!gt_string_is_null(alignment->read)) {
-//      register gt_string* const check_read = gt_string_new(0); // Writing to buffer's info
-//      gt_string_set_nstring(check_read,seq_read,read_length);
-//      if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
-//        gt_dna_string_reverse_complement(check_read);
-//      }
-//      register const bool equals = gt_string_equals(alignment->read,check_read);
-//      gt_string_delete(check_read);
-//
-//      if (!equals) {
-//        gt_map_delete(map);
-//        return GT_ISP_PE_WRONG_READ_CONTENT;
-//      }
-//    }
+    // Here we should check that the read if the same as previous occurrences
+    // Was disabled due to wrong SAM outputs produced some mappers when trimming
     if (gt_string_is_null(alignment->read)) {
       gt_string_set_nstring(alignment->read,seq_read,read_length);
       if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
@@ -608,7 +596,6 @@ GT_INLINE void gt_isp_add_mmap(
     map_end[1] = (pending_maps_end2>1) ? mmap_end2[i] : mmap_end2[0];
     attr.distance = gt_map_get_global_distance(map_end[0])+gt_map_get_global_distance(map_end[1]);
     attr.score = GT_MAP_NO_SCORE;
-    // gt_template_put_mmap(gt_mmap_cmp,gt_map_cmp,template,map_end,&attr,); //FIXME
     gt_template_inc_counter(template,attr.distance+1);
     gt_template_add_mmap_va(template,&attr,map_end[0],map_end[1]);
   }
@@ -622,7 +609,7 @@ GT_INLINE bool gt_isp_check_pending_record__add_mmap(
       gt_string_equals(&pending->next_seq_name,seq_name) &&
       pending->next_position==position) { // Found!
     // BWA_Compact. MMAPs paired against MMaps need to have the same cardinality (otherwise it's unpaired)
-    if (pending->num_maps!=1 && num_maps!=1 && pending->num_maps!=num_maps) return false; // FIXME return true;
+    if (pending->num_maps!=1 && num_maps!=1 && pending->num_maps!=num_maps) return false;
     // Insert mmap(s)
     if (pending->end_position==1) {
       gt_isp_add_mmap(template,map_displacement,pending->map_displacement,num_maps,pending->num_maps);
@@ -674,10 +661,11 @@ GT_INLINE gt_status gt_isp_solve_remaining_maps(gt_vector* pending_v,gt_template
   return error_code;
 }
 
+#define gt_isp_skip_remaining_records(buffered_sam_input,tag) while (gt_isp_fetch_next_line(buffered_sam_input,tag,false))
+
 /* SAM general */
 GT_INLINE gt_status gt_input_sam_parser_parse_template(
     gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
-  // FIXME: On error read the rest of the tag SAM records
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
   register gt_status error_code;
@@ -694,6 +682,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
     if (gt_expect_false(error_code=gt_isp_parse_sam_alignment(
           text_line,template,NULL,&alignment_flag,&pending,false))) {
       gt_vector_delete(pending_v);
+      gt_isp_skip_remaining_records(buffered_sam_input,template->tag);
       return error_code;
     }
     // Solve pending ends
@@ -702,6 +691,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   // Check for unsolved pending maps (try to solve them)
   error_code = gt_isp_solve_remaining_maps(pending_v,template);
   gt_vector_delete(pending_v);
+  if (error_code) gt_isp_skip_remaining_records(buffered_sam_input,template->tag);
   return error_code;
 }
 /* SOAP2-SAM */
@@ -712,7 +702,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
   register char** text_line = &(buffered_sam_input->cursor);
   register gt_status error_code;
   // Read initial TAG (QNAME := Query template)
-  if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code; // TODO: Alignment tag builds
+  if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
   gt_fastq_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   do {
@@ -721,6 +711,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
     uint64_t alignment_flag;
     if (gt_expect_false(error_code=gt_isp_parse_sam_alignment(
           text_line,template,NULL,&alignment_flag,&pending,false))) {
+      gt_isp_skip_remaining_records(buffered_sam_input,template->tag);
       return error_code;
     }
   } while (gt_isp_fetch_next_line(buffered_sam_input,template->tag,true));
