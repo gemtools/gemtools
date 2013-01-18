@@ -48,9 +48,9 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
   va_list v_args_cpy;
   va_copy(v_args_cpy,v_args);
   // Calculate memory required to print the template{v_args}
-  register uint64_t mem_required = 0;
+  register uint64_t mem_required = 0, precision=0;
   register const char* centinel;
-  for (centinel=template;*centinel!=EOS;++centinel,++mem_required) {
+  for (centinel=template;*centinel!=EOS;++centinel,precision=0) {
     if (*centinel==FORMAT) {
       ++centinel;
       // Read modifiers
@@ -59,6 +59,7 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
         ++centinel;
         if (*centinel==STAR) {
           ++centinel;
+          precision = va_arg(v_args_cpy,int);
         } else {
           while (gt_is_number(*centinel)) ++centinel;
         }
@@ -68,7 +69,7 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
       switch (*centinel) {
         case 's': { // String requires fetching the argument length // FIXME: %.*s
           register char* const string = va_arg(v_args_cpy,char*);
-          mem_required+=strlen(string);
+          mem_required += (precision>0) ? precision : strlen(string);
           break;
         }
         default:
@@ -78,6 +79,8 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
           mem_required+=20;
           break;
       }
+    } else {
+      ++mem_required;
     }
   }
   return mem_required;

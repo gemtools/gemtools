@@ -16,6 +16,11 @@
 #include "gt_input_map_parser.h"
 
 /*
+ * Error/state codes (Map Output Error)
+ */
+#define GT_MOE_INCONSISTENT_COUNTERS 10
+
+/*
  * MAP building block printers
  */
 // NOTE: Macro based definition for all printers

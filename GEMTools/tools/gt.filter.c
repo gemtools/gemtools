@@ -19,6 +19,8 @@ typedef struct {
   /* Filter */
   bool no_split_maps;
   bool best_map;
+  uint64_t max_matches;
+  bool make_counters;
   /* Misc */
   uint64_t num_threads;
   bool verbose;
@@ -32,6 +34,8 @@ gt_stats_args parameters = {
     /* Filter */
     .no_split_maps=false,
     .best_map=false,
+    .max_matches=GT_ALL,
+    .make_counters=false,
     /* Misc */
     .num_threads=1,
     .verbose=false,
@@ -62,23 +66,29 @@ void gt_filter_read__write() {
     gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
 
     gt_status error_code;
-    gt_alignment *alignment = gt_alignment_new();
-    while ((error_code=gt_input_generic_parser_get_alignment(buffered_input,alignment))) {
+    gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
+    generic_parser_attr.max_matches = parameters.max_matches;
+    gt_template* template = gt_template_new();
+    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {
-        gt_error_msg("Fatal error parsing file '%s'\n",parameters.name_input_file);
+        gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       }
 
-      // DO STH
-      gt_alignment *alignment_best = gt_alignment_copy(alignment,false);
-      gt_alignment_filter(alignment_best,alignment);
+      if (parameters.make_counters) gt_template_recalculate_counters(template);
+
+//      // DO STH
+//      gt_alignment *alignment_best = gt_alignment_copy(alignment,false);
+//      gt_alignment_filter(alignment_best,alignment);
 
       // Print template
-      gt_output_map_bofprint_alignment(buffered_output,alignment_best,GT_ALL,false);
-      gt_alignment_delete(alignment_best);
+      error_code=gt_output_map_bofprint_template(buffered_output,template,GT_ALL,true);
+      if (error_code) {
+        gt_error_msg("Fatal error dumping results. '%s':%"PRIu64"\n",gt_template_get_tag(template),buffered_input->current_line_num-1);
+      }
     }
 
     // Clean
-    gt_alignment_delete(alignment);
+    gt_template_delete(template);
     gt_buffered_input_file_close(buffered_input);
     gt_buffered_output_file_close(buffered_output);
   }
@@ -98,6 +108,8 @@ void usage() {
                   "         [Filter]\n"
                   "           --no-split-maps\n"
                   "           --best-map\n"
+                  "           --max-matches <number>\n"
+                  "           --make-counters <number>\n"
                   "         [Misc]\n"
                   "           --threads|t\n"
                   "           --verbose|v\n"
@@ -114,6 +126,8 @@ void parse_arguments(int argc,char** argv) {
     /* Filter */
     { "no-split-maps", no_argument, 0, 2 },
     { "best-map", no_argument, 0, 3 },
+    { "max-matches", required_argument, 0, 4 },
+    { "make-counters", no_argument, 0, 5 },
     /* Misc */
     { "threads", no_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
@@ -121,7 +135,7 @@ void parse_arguments(int argc,char** argv) {
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:o:t:phv",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:o:d:D:t:phv",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     /* I/O */
@@ -143,6 +157,12 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 3:
       parameters.best_map = true;
+      break;
+    case 4:
+      parameters.max_matches = atoll(optarg);
+      break;
+    case 5:
+      parameters.make_counters = true;
       break;
     /* Misc */
     case 't':

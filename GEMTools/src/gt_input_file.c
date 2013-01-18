@@ -172,7 +172,7 @@ GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file) {
 /*
  * Basic line functions
  */
-GT_INLINE size_t gt_input_file_dump_to_buffer(gt_input_file* const input_file,gt_vector* const buffer_dst) {
+GT_INLINE size_t gt_input_file_dump_to_buffer(gt_input_file* const input_file,gt_vector* const buffer_dst) { // FIXME: If mmap file, internal buffer is just pointers to mem
   GT_INPUT_FILE_CHECK(input_file);
   // Copy internal file buffer to buffer_dst
   register const uint64_t chunk_size = input_file->buffer_pos-input_file->buffer_begin;

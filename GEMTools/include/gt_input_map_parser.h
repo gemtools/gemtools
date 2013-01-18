@@ -151,4 +151,13 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks(
     gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
     pthread_mutex_t* const input_mutex);
 
+GT_INLINE gt_status gt_input_map_parser_get_template_limited(
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,const uint64_t num_mmaps);
+GT_INLINE gt_status gt_input_map_parser_get_alignment_limited(
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,const uint64_t num_maps);
+
+GT_INLINE gt_status gt_input_map_parser_synch_blocks(
+    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
+    pthread_mutex_t* const input_mutex);
+
 #endif /* GT_INPUT_MAP_PARSER_H_ */

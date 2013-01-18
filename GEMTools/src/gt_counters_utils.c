@@ -46,3 +46,21 @@ GT_INLINE int64_t gt_counters_get_min_matching_strata(gt_vector* const counters)
   }
   return GT_NO_STRATA;
 }
+GT_INLINE void gt_counters_calculate_num_maps(
+    gt_vector* const counters,const uint64_t min_decoded_strata,const uint64_t max_decoded_matches,
+    uint64_t* num_strata,uint64_t* num_matches) {
+  GT_VECTOR_CHECK(counters);
+  register const uint64_t num_counters = gt_vector_get_used(counters);
+  register uint64_t i, acc;
+  for (i=0,acc=0;i<num_counters;++i) {
+    register const uint64_t current_matches = *gt_vector_get_elm(counters,i,uint64_t);
+    if (acc+current_matches > max_decoded_matches) {
+      if (num_strata) *num_strata = GT_MAX(min_decoded_strata,i);
+      if (num_matches) *num_matches = acc;
+      return;
+    }
+    acc += current_matches;
+  }
+  if (num_strata) *num_strata = num_counters;
+  if (num_matches) *num_matches = acc;
+}
