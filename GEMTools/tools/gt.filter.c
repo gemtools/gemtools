@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt.filter.c
  * DATE: 02/08/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: Application to filter {MAP,SAM} files and output the filtered result
  */
 

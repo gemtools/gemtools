@@ -2,6 +2,7 @@
 # PROJECT: GEM-Tools library
 # FILE: Makefile
 # DATE: 02/10/2012
+# AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
 # DESCRIPTION: Builds all the sources of the GT-library, and the library itself (.a)
 #==================================================================================================
 

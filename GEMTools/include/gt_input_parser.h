@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_input_parser.h
  * DATE: 01/06/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 

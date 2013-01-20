@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_shash.h
  * DATE: 10/07/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 

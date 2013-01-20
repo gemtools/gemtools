@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_commons.c
  * DATE: 01/06/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: Base module containing general purpose functions
  */
 

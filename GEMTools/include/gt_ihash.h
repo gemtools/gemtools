@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_ihash.h
  * DATE: 2/09/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 

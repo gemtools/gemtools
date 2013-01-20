@@ -2,7 +2,8 @@
  * PROJECT: GEM-Tools library
  * FILE: gt.mapset.c
  * DATE: 08/11/2012
- * DESCRIPTION: Application to perform set operations {UNION,INTERSECTION,DIFFERENCE} over alignment files {MAP,SAM}
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
+ * DESCRIPTION: Utility to perform set operations {UNION,INTERSECTION,DIFFERENCE} over alignment files {MAP,SAM}
  */
 
 #include <getopt.h>
