@@ -211,7 +211,7 @@ GT_INLINE bool gt_template_is_mmap_contained_fx(
  */
 GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,uint64_t *gt_error) {
   // Get last block of each map
-  gt_map *block[2];
+  gt_map *block[2]={0,0};
   uint64_t length[2]={0,0};
   int64_t x=0;
   *gt_error=GT_TEMPLATE_INSERT_SIZE_OK;
