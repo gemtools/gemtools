@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_alignment_utils.c
  * DATE: 19/07/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 

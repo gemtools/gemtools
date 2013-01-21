@@ -2,7 +2,8 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_input_sam_parser.c
  * DATE: 17/07/2012
- * DESCRIPTION: // TODO
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
+ * DESCRIPTION: Input parser for SAM format
  */
 
 #include "gt_input_sam_parser.h"
@@ -50,7 +51,7 @@ GT_INLINE bool gt_input_file_test_sam(
     while (!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==GT_SAM_HEADER_BEGIN) {
 
       // TODO => sam_headers
-      while (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL)) { // FIXM: DOS_EOL
+      while (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL)) { // FIXME: DOS_EOL
         GT_INPUT_FILE_NEXT_CHAR(input_file,NULL);
         GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,NULL);
       }
@@ -303,7 +304,6 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
 GT_INLINE gt_status gt_isp_parse_sam_opt_xa_bwa(
     char** const text_line,gt_alignment* const alignment,
     gt_vector* const maps_vector,gt_sam_pending_end* const pending) {
-  // TODO if (!is_mapped) return GT_ISP_PE_SAM_UNMAPPED_XA;
   *text_line+=5;
   while (**text_line!=TAB && **text_line!=EOL) { // Read new attached maps
     gt_map* map = gt_map_new();
@@ -353,17 +353,20 @@ GT_INLINE gt_status gt_isp_parse_sam_optional_field(
    * XA:Z:chr17,-34553512,125M,0;chr17,-34655077,125M,0;
    */
   GT_ISP_IF_OPT_FIELD(text_line,'X','A','Z') {
+    if (!is_mapped) return GT_ISP_PE_SAM_UNMAPPED_XA;
     if (gt_isp_parse_sam_opt_xa_bwa(text_line,alignment,maps_vector,pending)) {
       *text_line = init_opt_field;
     }
   } GT_ISP_END_OPT_FIELD;
 
-  // TODO: MD field, and more ....
-
   /*
    * Unknown field (store it as attribute and skip)
    */
   GT_READ_UNTIL(text_line,**text_line==TAB);
+
+  // TODO: MD field, and more ....
+
+
   return 0;
 }
 

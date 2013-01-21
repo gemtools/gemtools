@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_template.h
  * DATE: 01/06/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: Data structure modeling sequences' templates.
  *   That is, set of alignments and relationships between their maps.
  */

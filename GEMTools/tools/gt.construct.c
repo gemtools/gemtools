@@ -2,7 +2,8 @@
  * PROJECT: GEM-Tools library
  * FILE: gt.construct.c
  * DATE: 01/06/2012
- * DESCRIPTION: Construct. Used to load examples/debug/testing/deploy/develop/...
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
+ * DESCRIPTION: Constructor. Used to load examples/debug/testing/deploy/develop/...
  */
 
 #include <getopt.h>

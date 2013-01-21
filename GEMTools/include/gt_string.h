@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_string.h
  * DATE: 20/08/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: Simple string implementation.
  *   Static stings gt_string_new(0), which share memory across instances (stores mem ptr)
  *   Dynamic strings gt_string_new(n>0), which handle their own memory and hold copy of the string

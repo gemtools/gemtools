@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_stats.c
  * DATE: 10/12/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 

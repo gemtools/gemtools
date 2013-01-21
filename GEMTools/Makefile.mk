@@ -2,6 +2,7 @@
 # PROJECT: GEM-Tools library
 # FILE: Makefile.mk
 # DATE: 02/10/2012
+# AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
 # DESCRIPTION: Makefile definitions' file
 #==================================================================================================
 

@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: ggt_compact_dna_string.c
  * DATE: 20/08/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 
@@ -110,7 +111,7 @@ GT_INLINE gt_compact_dna_string* gt_cdna_string_new(const uint64_t initial_chars
   gt_cond_fatal_error(!cdna_string->bitmaps,MEM_ALLOC);
   cdna_string->allocated = GT_CDNA_GET_NUM_CHARS(initial_blocks);
   cdna_string->length = 0;
-  GT_CDNA_INIT_BLOCK(cdna_string->bitmaps); // Init 0-block
+  GT_CDNA_INIT_BLOCK(cdna_string->bitmaps); // Init 0-block // FIXME: Block not zero
   return cdna_string;
 }
 GT_INLINE void gt_cdna_string_resize(gt_compact_dna_string* const cdna_string,const uint64_t num_chars) {
@@ -125,7 +126,7 @@ GT_INLINE void gt_cdna_string_resize(gt_compact_dna_string* const cdna_string,co
 GT_INLINE void gt_cdna_string_clear(gt_compact_dna_string* const cdna_string) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
   cdna_string->length = 0;
-  GT_CDNA_INIT_BLOCK(cdna_string->bitmaps); // Init 0-block
+  GT_CDNA_INIT_BLOCK(cdna_string->bitmaps); // Init 0-block // FIXME: Block not zero
 }
 GT_INLINE void gt_cdna_string_delete(gt_compact_dna_string* const cdna_string) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
