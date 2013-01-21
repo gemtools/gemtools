@@ -52,7 +52,11 @@ GT_INLINE bool gt_template_is_mmap_contained_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
     gt_template* const template,gt_map** const mmap);
 
-GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap);
+#define GT_TEMPLATE_INSERT_SIZE_OK 0
+#define GT_TEMPLATE_INSERT_SIZE_DIFFERENT_CONTIGS 1
+#define GT_TEMPLATE_INSERT_SIZE_SAME_STRAND 2
+
+GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,uint64_t* gt_error);
 
 /*
  * Template's Counters operators
