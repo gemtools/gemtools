@@ -492,7 +492,6 @@ def splitmapper(input,
                 trim=None,
                 filter_splitmaps=True,
                 post_validate=True,
-                mismatch_alphabet="ACGT",
                 threads=1,
                 extra=None):
     """Start the GEM split mapper on the given input.
