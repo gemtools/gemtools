@@ -198,12 +198,12 @@ GT_INLINE bool gt_template_is_mmap_contained_fx(
 /* Insert size should be and estimate of the original fragment size that was sequenced.  We can get this from the following:
  *
  * position of rightmost read + no. bases in rightmost read - position of leftmost read
- * 
+ *
  * If the read has been trimmed from the start of the read then we can't get the original size, but this is a relatively
  * rare event.  Trimming from the end of the read does not effect the calculation as the rightmost read will be on the
  * negative strand so trimming x bases from the end of the read will shift the mapped position of the read by x.
  *
- * Split mappings require special handling in that we need to consider the number of bases read + the distance between the 
+ * Split mappings require special handling in that we need to consider the number of bases read + the distance between the
  * last block in each mapping as follows:
  *
  * Position of last block of rightmost read + no. bases in rightmost read - (position of last block of leftmost read + no. bases)
@@ -330,6 +330,7 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
     gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,false);
     free(mmap_copy); // Free array handler
   }
+  gt_template_set_mcs(template_dst,GT_MIN(gt_template_get_mcs(template_dst), gt_template_get_mcs(template_src)));
 }
 
 //// TODO: Scheduled for v2.0
