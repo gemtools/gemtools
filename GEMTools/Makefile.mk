@@ -2,6 +2,7 @@
 # PROJECT: GEM-Tools library
 # FILE: Makefile.mk
 # DATE: 02/10/2012
+# AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
 # DESCRIPTION: Makefile definitions' file
 #==================================================================================================
 
@@ -23,7 +24,7 @@ FOLDER_TEST=$(ROOT_PATH)/test
 FOLDER_TOOLS=$(ROOT_PATH)/tools
 
 # Flags
-GENERAL_FLAGS=-fPIC
+GENERAL_FLAGS=-fPIC -Wall
 ARCH_FLAGS=-D__LINUX__
 
 OPTIMIZTION_FLAGS=-O4 # -fomit-frame-pointer -ftree-vectorize

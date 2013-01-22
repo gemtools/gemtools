@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_output_sam.h
  * DATE: 01/08/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 

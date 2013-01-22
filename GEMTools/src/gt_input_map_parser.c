@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_input_map_parser.c
  * DATE: 01/06/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 
@@ -443,7 +444,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(char** const text_line,gt_ma
         gt_map_set_base_length(map,position-last_cut_point);
         last_cut_point = position;
         // Create a new map block
-        gt_map* next_map = gt_map_new_(true);
+        gt_map* next_map = gt_map_new();
         gt_map_set_next_block(map,next_map,SPLICE);
         gt_map_set_seq_name(next_map,gt_string_get_string(map->seq_name),gt_string_get_length(map->seq_name));
         gt_map_set_position(next_map,gt_map_get_position(map)+gt_map_get_base_length(map)+size);
@@ -525,7 +526,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(char** const text_line,gt_ma
         }
         GT_NEXT_CHAR(text_line);
         // Create a new map block
-        gt_map* next_map = gt_map_new_(true);
+        gt_map* next_map = gt_map_new();
         gt_map_set_seq_name(next_map,gt_string_get_string(map->seq_name),gt_string_get_length(map->seq_name));
         gt_map_set_position(next_map,gt_map_get_position(map)+length+size);
         gt_map_set_strand(next_map,gt_map_get_strand(map));
@@ -544,9 +545,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(char** const text_line,gt_ma
   return 0;
 }
 #define GT_IMP_PARSE_SPLITMAP_IS_SEP(text_line) ((**text_line)==GT_MAP_SPLITMAP_NEXT_GEMv0_0 || (**text_line)==GT_MAP_SPLITMAP_NEXT_GEMv0_1)
-GT_INLINE gt_status gt_imp_parse_split_map_v0(
-    char** text_line,gt_vector* const split_maps,
-    const bool use_static_string,const uint64_t read_base_length) {
+GT_INLINE gt_status gt_imp_parse_split_map_v0(char** text_line,gt_vector* const split_maps,const uint64_t read_base_length) {
   GT_NULL_CHECK(text_line);
   GT_VECTOR_CHECK(split_maps);
   //
@@ -564,18 +563,21 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(
    * Parse split-points
    */
   if (gt_expect_false((**text_line)!=GT_MAP_SPLITMAP_OPEN_GEMv0)) return GT_IMP_PE_SPLIT_MAP_BAD_CHARACTER;
+  // Create and add the sm
+  register gt_map* const donor_map = gt_map_new();
+  gt_vector_insert(split_maps,donor_map,gt_map*);
   // Read split-points
-  register const uint64_t initial_split_maps = gt_vector_get_used(split_maps);
-  register uint64_t num_split_points = 0, num_donors, num_acceptors;
+  register uint64_t sm_position;
+  register bool sm_elm_parsed = false;
   do {
     GT_NEXT_CHAR(text_line);
-    register gt_map* const donnor_map = gt_map_new_(use_static_string);
     if (!gt_is_number((**text_line))) return GT_IMP_PE_SPLIT_MAP_BAD_CHARACTER;
-    GT_PARSE_NUMBER(text_line,donnor_map->base_length);
-    gt_vector_insert(split_maps,donnor_map,gt_map*);
-    ++num_split_points;
+    GT_PARSE_NUMBER(text_line,sm_position);
+    if (!sm_elm_parsed) {
+      gt_map_set_base_length(donor_map,sm_position);
+      sm_elm_parsed=true;
+    }
   } while (GT_IMP_PARSE_SPLITMAP_IS_SEP(text_line));
-  register const uint64_t total_split_maps = gt_vector_get_used(split_maps);
   // Read closing split-points and definition symbol
   if (gt_expect_false((**text_line)!=GT_MAP_SPLITMAP_CLOSE_GEMv0)) return GT_IMP_PE_SPLIT_MAP_BAD_CHARACTER;
   GT_NEXT_CHAR(text_line);
@@ -588,44 +590,35 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(
   register char* const donor_name = *text_line;
   GT_READ_UNTIL(text_line,(**text_line)==GT_MAP_SEP);
   if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
-  register const uint64_t donor_name_length = (*text_line-donor_name);
+  gt_map_set_seq_name(donor_map,donor_name,(*text_line-donor_name));
   GT_NEXT_CHAR(text_line);
   // Read Strand
   register gt_status error_code;
-  gt_strand donor_strand;
-  if ((error_code=gt_imp_parse_strand(text_line,&donor_strand))) return error_code;
+  if ((error_code=gt_imp_parse_strand(text_line,&(donor_map->strand)))) return error_code;
   GT_NEXT_CHAR(text_line);
+  // Detect multiple donor position
+  register bool multiple_sm;
+  if ((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0) {
+    GT_NEXT_CHAR(text_line); // [31;35]=chr16:R[2503415;2503411]~chr16:R2503271
+    multiple_sm = true;
+  } else {
+    multiple_sm = false;
+  }
   // Read Position
-  register uint64_t donor_position;
-  if ((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0) { // [31;35]=chr16:R[2503415;2503411]~chr16:R2503271
-    num_donors = 0;
-    do {
-      GT_NEXT_CHAR(text_line);
-      if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-      GT_PARSE_NUMBER(text_line,donor_position);
-      // Set donnor
-      if (initial_split_maps+num_donors >= total_split_maps) return GT_IMP_PE_SPLIT_MAP_BAD_NUM_DONORS;
-      register gt_map* const donor_map = *gt_vector_get_elm(split_maps,initial_split_maps+num_donors,gt_map*);
-      gt_map_set_seq_name(donor_map,donor_name,donor_name_length);
-      gt_map_set_strand(donor_map,donor_strand);
-      gt_map_set_position(donor_map,donor_position);
-      ++num_donors;
-    } while (GT_IMP_PARSE_SPLITMAP_IS_SEP(text_line));
-    if (num_donors != num_split_points) return GT_IMP_PE_SPLIT_MAP_BAD_NUM_DONORS;
+  sm_elm_parsed = false;
+  do {
+    if (sm_elm_parsed) GT_NEXT_CHAR(text_line);
+    if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
+    GT_PARSE_NUMBER(text_line,sm_position);
+    if (!sm_elm_parsed) { // Set donor
+      gt_map_set_position(donor_map,sm_position);
+      sm_elm_parsed=true;
+    }
+  } while (GT_IMP_PARSE_SPLITMAP_IS_SEP(text_line));
+  // Close multiple donor syntax
+  if (multiple_sm) {
     if (gt_expect_false((**text_line)!=GT_MAP_SPLITMAP_CLOSE_GEMv0)) return GT_IMP_PE_MAP_BAD_CHARACTER;
     GT_NEXT_CHAR(text_line);
-  } else {
-    num_donors = 1;
-    if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-    GT_PARSE_NUMBER(text_line,donor_position);
-    // Set {Tag,Position,Strand} of all donors
-    register uint64_t i;
-    for (i=initial_split_maps;i<total_split_maps;++i) {
-      register gt_map* const donor_map = *gt_vector_get_elm(split_maps,i,gt_map*);
-      gt_map_set_seq_name(donor_map,donor_name,donor_name_length);
-      gt_map_set_strand(donor_map,donor_strand);
-      gt_map_set_position(donor_map,donor_position);
-    }
   }
   // Read separator (~)
   if (gt_expect_false(**text_line!=GT_MAP_SPLITMAP_SEP_GEMv0)) return GT_IMP_PE_MAP_BAD_CHARACTER;
@@ -634,56 +627,41 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(
    * Parse acceptor(s)
    */
   // Read acceptor's TAG
+  register gt_map* const acceptor_map = gt_map_new();
   register char* const acceptor_name = *text_line;
   GT_READ_UNTIL(text_line,(**text_line)==GT_MAP_SEP);
   if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
-  register const uint64_t acceptor_name_length = (*text_line-acceptor_name);
+  gt_map_set_seq_name(acceptor_map,acceptor_name,(*text_line-acceptor_name));
   GT_NEXT_CHAR(text_line);
   // Read acceptor's Strand
-  gt_strand acceptor_strand;
-  if ((error_code=gt_imp_parse_strand(text_line,&acceptor_strand))) return error_code;
+  if ((error_code=gt_imp_parse_strand(text_line,&(acceptor_map->strand)))) return error_code;
   GT_NEXT_CHAR(text_line);
-  // Read acceptors' positions.
+  // Link both donor & acceptor
+  gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
+  gt_map_set_next_block(donor_map,acceptor_map,SPLICE);
+  // Detect multiple donor position
   if (gt_expect_false((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0)) { // [30;34]=chr10:F74776624~chr10:F[74790025;74790029]
-    num_acceptors = 0;
-    do {
-      GT_NEXT_CHAR(text_line);
-      if (initial_split_maps+num_acceptors >= total_split_maps) return GT_IMP_PE_SPLIT_MAP_BAD_NUM_ACCEPTORS;
-      register gt_map* const donor_map = *gt_vector_get_elm(split_maps,initial_split_maps+num_acceptors,gt_map*);
-      register gt_map* const acceptor_map = gt_map_new_(use_static_string);
-      // Parse acceptor position
-      if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-      GT_PARSE_NUMBER(text_line,acceptor_map->position);
-      // Store split-maps
-      gt_map_set_seq_name(acceptor_map,acceptor_name,acceptor_name_length);
-      gt_map_set_strand(acceptor_map,acceptor_strand);
-      gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
-      // Link both donor & acceptor
-      gt_map_set_next_block(donor_map,acceptor_map,SPLICE);
-      // Next!
-      ++num_acceptors;
-    } while (GT_IMP_PARSE_SPLITMAP_IS_SEP(text_line));
-    if (num_acceptors != num_split_points) return GT_IMP_PE_SPLIT_MAP_BAD_NUM_ACCEPTORS;
+    GT_NEXT_CHAR(text_line);
+    multiple_sm = true;
+  } else {
+    multiple_sm = false;
+  }
+  // Parse acceptor position
+  sm_elm_parsed = false;
+  do {
+    // Parse acceptor position
+    if (sm_elm_parsed) GT_NEXT_CHAR(text_line);
+    if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
+    GT_PARSE_NUMBER(text_line,sm_position);
+    if (!sm_elm_parsed) { // Store split-map's position
+      gt_map_set_position(acceptor_map,sm_position);
+      sm_elm_parsed=true;
+    }
+  } while (GT_IMP_PARSE_SPLITMAP_IS_SEP(text_line));
+  // Close multiple acceptor syntax
+  if (multiple_sm) {
     if (gt_expect_false((**text_line)!=GT_MAP_SPLITMAP_CLOSE_GEMv0)) return GT_IMP_PE_MAP_BAD_CHARACTER;
     GT_NEXT_CHAR(text_line);
-  } else {
-    register uint64_t acceptor_position;
-    num_acceptors = 1;
-    // Parse acceptor position
-    if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-    GT_PARSE_NUMBER(text_line,acceptor_position);
-    // Store split-maps
-    register uint64_t i;
-    for (i=initial_split_maps;i<total_split_maps;++i) {
-      register gt_map* const donor_map = *gt_vector_get_elm(split_maps,i,gt_map*);
-      register gt_map* const acceptor_map = gt_map_new_(use_static_string);
-      gt_map_set_position(acceptor_map,acceptor_position);
-      gt_map_set_seq_name(acceptor_map,acceptor_name,acceptor_name_length);
-      gt_map_set_strand(acceptor_map,acceptor_strand);
-      gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
-      // Link both donor & acceptor
-      gt_map_set_next_block(donor_map,acceptor_map,SPLICE);
-    }
   }
   // Return
   switch (**text_line) {
@@ -896,7 +874,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
     while (error_code==GT_IMP_PE_PENDING_BLOCKS) {
       register gt_alignment* const alignment = gt_template_get_block(template,num_blocks_parsed);
       // Allocate new map
-      gt_map* map = gt_map_new_(true);
+      gt_map* map = gt_map_new();
       gt_map_set_base_length(map,gt_alignment_get_read_length(alignment)); // Set base length
       // Parse current MAP
       error_code = gt_imp_parse_map(text_line,map,parse_mode);
@@ -964,7 +942,7 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(
     // Parse current MAP
     if (gt_expect_false((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0)) { // Old split-maps switch
       if (gt_expect_true(split_maps==NULL)) split_maps = gt_vector_new(2,sizeof(gt_map*));
-      error_code = gt_imp_parse_split_map_v0(text_line,split_maps,true,alignment_base_length);
+      error_code = gt_imp_parse_split_map_v0(text_line,split_maps,alignment_base_length);
       if (error_code!=GT_IMP_PE_MAP_PENDING_MAPS && error_code!=GT_IMP_PE_EOB) {
         gt_vector_delete(split_maps);
         return error_code;
@@ -973,7 +951,7 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(
       num_maps_parsed+=gt_vector_get_used(split_maps);
       gt_vector_clean(split_maps);
     } else {
-      register gt_map* map = gt_map_new_(true);
+      register gt_map* map = gt_map_new();
       // Set base length (needed to calculate the alignment's length in GEMv0)
       gt_map_set_base_length(map,alignment_base_length);
       error_code = gt_imp_parse_map(text_line,map,parse_mode);
@@ -1204,7 +1182,7 @@ GT_INLINE gt_status gt_input_map_parse_map_list(char* const string,gt_vector* co
   do {
     // Parse map list
     if (gt_expect_false((*_string)==GT_MAP_SPLITMAP_OPEN_GEMv0)) { // Old split-maps switch
-      error_code = gt_imp_parse_split_map_v0(&_string,maps,false,UINT64_MAX);
+      error_code = gt_imp_parse_split_map_v0(&_string,maps,UINT64_MAX);
       if (error_code!=GT_IMP_PE_MAP_PENDING_MAPS && error_code!=GT_IMP_PE_EOB) return error_code;
     } else {
       register gt_map* map = gt_map_new();

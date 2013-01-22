@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_error.h
  * DATE: 01/06/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 
@@ -126,7 +127,7 @@ extern FILE* gt_error_stream;
 // Library/Program errors
 #define GT_ERROR_NOT_ZERO "Value Zero. Variable %s must be non-zero"
 #define GT_ERROR_POSITION_OUT_OF_RANGE "Requested position out of range"
-#define GT_ERROR_POSITION_OUT_OF_RANGE_INFO "Requested position (%"PRIu64") out of range [%"PRId64",%"PRId64"]"
+#define GT_ERROR_POSITION_OUT_OF_RANGE_INFO "Requested position (%"PRIu64") out of range [%"PRIu64",%"PRId64"]"
 #define GT_ERROR_SELECTION_NOT_IMPLEMENTED "Library error. Selection not implemented or corrupted value"
 #define GT_ERROR_SELECTION_NOT_VALID "Library error. Selection not valid"
 #define GT_ERROR_ALG_INCONSISNTENCY "Library error. Algorithmic inconsistency, check your program"

@@ -2,6 +2,7 @@
  * PROJECT: GEM-Tools library
  * FILE: gt_alignment_utils.c
  * DATE: 19/07/2012
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
  */
 
@@ -174,6 +175,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps_fx(
     register gt_map* const map_src_cp = gt_map_copy(map_src);
     gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,false);
   }
+  gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst), gt_alignment_get_mcs(alignment_src)));
 }
 
 GT_INLINE void gt_alignment_remove_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {

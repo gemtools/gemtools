@@ -2,7 +2,8 @@
  * PROJECT: GEM-Tools library
  * FILE: gt.stats.c
  * DATE: 02/08/2012
- * DESCRIPTION: Application to retrieve very naive stats from {MAP,SAM,FASTQ} files
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
+ * DESCRIPTION: Utility to retrieve very naive stats from {MAP,SAM,FASTQ} files
  */
 
 #include <getopt.h>

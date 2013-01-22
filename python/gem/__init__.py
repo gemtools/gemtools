@@ -781,7 +781,10 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, max(threads / 2, 1))
 
 
-def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True, append_nh=False, append_xs=None):
+def gem2sam(input, index=None, output=None,
+    single_end=False, compact=False, threads=1,
+    quality=None, check_ids=True,
+    append_nh=False, append_xs=None):
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
     gem_2_sam_p = [executables['gem-2-sam'],
