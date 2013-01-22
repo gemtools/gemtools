@@ -179,7 +179,7 @@ The code for this project can be found on github:
 https://github.com/gemtools/gemtools
 ''',
         package_dir={'':'python'},
-        packages=['gem'],
+        packages=['gem', 'gem.production'],
 #        package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("python/gem/gembinaries")]},
         package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in ["gem-2-sam",
                                                                      "gem-indexer_bwt-dna",
@@ -209,4 +209,9 @@ https://github.com/gemtools/gemtools
           'Programming Language :: C',
           'Topic :: Scientific/Engineering :: Bio-Informatics',
         ],
+        entry_points = {
+            'console_scripts': [
+                'gem-rnaseq-pipeline = gem.production.gtex_rnaseq_pipeline:main'
+            ]
+        },
 )
