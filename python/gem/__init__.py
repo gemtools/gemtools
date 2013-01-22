@@ -783,7 +783,7 @@ def validate_and_score(input,
 def gem2sam(input, index=None, output=None,
     single_end=False, compact=False, threads=1,
     quality=None, check_ids=True,
-    append_nh=False, append_xs=None):
+    append_xs=None):
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
     gem_2_sam_p = [executables['gem-2-sam'],
@@ -806,10 +806,7 @@ def gem2sam(input, index=None, output=None,
 
     # GT-25 transform id's
     transform = utils.read_to_map
-    nh_queue = None
-    if append_nh:
-        nh_queue = Queue()
-    if check_ids and not single_end or append_nh:
+    if check_ids and not single_end:
         def t(read):
             if check_ids and not single_end:
                 split = read.id.split()
@@ -818,40 +815,22 @@ def gem2sam(input, index=None, output=None,
                         read.id = "%s/%s" % (split[0], split[1][0])
                     else:
                         raise ValueError("Unable to identify read id pair counter from %s" % read.id)
-            if append_nh:
-                nh = sum(read.get_maps()[0])
-                if _max_mappings == nh: nh = 0
-                nh_queue.put(nh)
             return utils.read_to_map(read)
         transform = t
 
-
-    post_transform = []
-    if append_nh:
-        class nh_filter(object):
-            def __init__(self, _queue):
-                self.queue = _queue
-                self.last_id = None
-                self.nh = 0
-
-            def add_nh(self, e):
-                if e[0] == "@": return e
-
-                current_id = e.split("\t")[0]
-                if self.last_id is None or self.last_id != current_id:
-                    self.nh = self.queue.get(timeout=5)
-                    self.last_id = current_id
-                return "%s\tNH:i:%d\n" % (e.strip(), self.nh)
-        post_transform.append(nh_filter(nh_queue).add_nh)
-
-    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform, post_transform=post_transform)
+    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform)
     return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
 
 
-def sam2bam(input, output=None, sorted=False, tmpdir=None):
+def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
     if isinstance(input, files.ReadIterator):
         input.raw = True
-    sam2bam_p = ['samtools', 'view', '-S', '-b', '-']
+    sam2bam_p = ['samtools', 'view', '-S', '-b']
+    if mapq is not None:
+        sam2bam_p.append("-q")
+        sam2bam_p.append(str(mapq))
+    sam2bam_p.append('-')
+
     tools = [sam2bam_p]
     out_name = output
     if sorted:
@@ -895,7 +874,7 @@ def index(input, output, content="dna", threads=1):
             raise ValueError("Indexer input file %s not found" % input)
         indexer_p.extend(["-i", input])
     else:
-        raise ValueError("The indexer wrapper can not handle the input %s, pass a file or a list of files" % input )
+        raise ValueError("The indexer wrapper can not handle the input %s, pass a file or a list of files" % input)
 
     existing = output
     if existing[-4:] != ".gem": existing = "%s.gem" % existing
