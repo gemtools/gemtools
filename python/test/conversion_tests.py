@@ -81,20 +81,10 @@ def test_read_paired_to_sequence_w_qualities_trimmed():
     gem._trim_qualities=False
 
 
-def test_without_NH_sam_field():
+def test_sam_fields_number():
     p = gem.files.parse_map()
     read = p.line2read("ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1")
-    sam = gem.gem2sam([read], compact=True, quality=33, append_nh=False)
-    assert sam is not None
-    for r in sam:
-        f = r.line.split("\t")
-        assert len(f) == 16
-
-
-def test_NH_sam_field():
-    p = gem.files.parse_map()
-    read = p.line2read("ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1")
-    sam = gem.gem2sam([read], compact=True, quality=33, append_nh=True)
+    sam = gem.gem2sam([read], compact=True, quality=33)
     assert sam is not None
     for r in sam:
         f = r.line.split("\t")
@@ -105,7 +95,7 @@ def test_NH_sam_field():
 def test_gem2sam_execution():
     input = gem.files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
-    sam = gem.gem2sam(mappings, index, compact=True, append_nh=True)
+    sam = gem.gem2sam(mappings, index, compact=True)
     assert sam is not None
     assert sam.process is not None
     assert sam.filename is None
@@ -120,7 +110,7 @@ def test_gem2sam_execution_to_file():
     input = gem.files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
     result = results_dir+"/test_sam.sam"
-    sam = gem.gem2sam(mappings, index, output=result, compact=True, append_nh=True)
+    sam = gem.gem2sam(mappings, index, output=result, compact=True)
     assert sam is not None
     assert sam.process is not None
     assert sam.filename == result
@@ -132,10 +122,10 @@ def test_gem2sam_execution_to_file():
     assert count == 10000, "Count 10000!=%d" % count
 
 @with_setup(setup_func, cleanup)
-def test_gem2sam_sam2bam_with_nh():
+def test_gem2sam_sam2bam():
     input = gem.files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
-    sam = gem.gem2sam(mappings, index, compact=True, append_nh=True)
+    sam = gem.gem2sam(mappings, index, compact=True)
     result = results_dir+"/test_sam.bam"
     bam = gem.sam2bam(sam, output=result)
     assert os.path.exists(result)
