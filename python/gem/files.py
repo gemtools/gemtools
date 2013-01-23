@@ -296,7 +296,7 @@ def _guess_type(name):
         name = name[:-3]
     if name.endswith(".FASTA") or name.endswith("FA"):
         return "fasta"
-    elif name.endswith(".FASTQ") or name.endswith("FQ"):
+    elif name.endswith(".FASTQ") or name.endswith("FQ"): ## fixes issue #5
         return "fastq"
     elif name.endswith(".MAP"):
         return "map"
