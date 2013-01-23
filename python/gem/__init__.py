@@ -394,6 +394,7 @@ def mapper(input, index, output=None,
            trim=None,
            threads=1,
            extra=None,
+           key_file=None,
            ):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
@@ -466,6 +467,11 @@ def mapper(input, index, output=None,
     tools = [pa, __awk_filter]
     if trim is not None:
         tools.append(trim_c)
+
+    # convert to genome coordinates if mapping to transcriptome
+    if key_file is not None:
+        convert_to_genome = [executables['transcriptome-2-genome'], index, key_file, str(threads)]
+        tools.append(convert_to_genome)
 
     ## run the mapper
     process = None
