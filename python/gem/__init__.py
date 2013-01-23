@@ -851,6 +851,23 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
 
     return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None), quality=quality)
 
+def compute_transcriptome(max_read_length, input, *output):
+    transcriptome_p = [
+        executables['compute-transcriptome'],
+        max_read_length,
+        input,
+        " ".join(output)
+    ]
+
+    process = utils.run_tools([transcriptome_p], input=None, output=None, name="compute-transcriptome", raw_stream=True, path=path)
+    if process.wait() != 0:
+        raise ValueError("Error while computing transcriptome")
+
+    output_files = []
+    for x in output:
+        output_files.append(os.path.abspath("%s.fa" % x)
+
+    return output_files
 
 def index(input, output, content="dna", threads=1):
     """Run the gem-indexer on the given input. Input has to be the path
