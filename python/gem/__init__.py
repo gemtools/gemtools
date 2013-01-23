@@ -61,6 +61,8 @@ executables = execs_dict({
     "gem-info": "gem-info",
     "splits-2-junctions": "splits-2-junctions",
     "gem-retriever": "gem-retriever",
+    "compute-transcriptome": "compute-transcriptome",
+    "transcriptome-2-genome": "transcriptome-2-genome",
     })
 
 
