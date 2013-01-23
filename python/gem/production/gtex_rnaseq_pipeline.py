@@ -99,7 +99,7 @@ def main():
     start_time = time.time()
 
     ## create initial mapping
-    if not os.path.exists(denovo_out):
+    if not os.path.exists(initial_out):
         main_input = gem.files.open(input_file)
         main_input2 = gem.files.open(input_file2)
         print "Running initial mapping"
@@ -112,7 +112,7 @@ def main():
 
     ## get junctions from the annotation
 
-    if not os.path.exists(initial_split_out):
+    if not os.path.exists(denovo_out):
         print "Loading GTF junctions from %s" % annotation
         junctions = set(gem.junctions.from_gtf(annotation))
         print "%d Junctions from GTF" % (len(junctions))
@@ -135,7 +135,7 @@ def main():
         denovo_mapping = gem.files.open(denovo_out)
 
     ## create initial split-map
-    if not os.path.exists(trim_20_out):
+    if not os.path.exists(initial_split_out):
         print "Running initial split-map"
         initial_split_mapping = gem.splitmapper(
             gem.filter.unmapped(denovo_mapping),
@@ -148,7 +148,7 @@ def main():
         initial_split_mapping = gem.files.open(initial_split_out)
 
     ## create trim-20 mapping
-    if not os.path.exists(trim_20_split_out):
+    if not os.path.exists(trim_20_out):
         print "Running trim 20 mapping"
         trim_20_mapping = gem.mapper(
             gem.filter.unmapped(initial_split_mapping),
@@ -162,7 +162,7 @@ def main():
         trim_20_mapping = gem.files.open(trim_20_out)
 
     ## create trim-20 split-map
-    if not os.path.exists(trim_5_out):
+    if not os.path.exists(trim_20_split_out):
         print "Running trim 20 split-map"
         trim_20_split_mapping = gem.splitmapper(
             gem.filter.unmapped(trim_20_mapping),
@@ -175,7 +175,7 @@ def main():
     else:
         trim_20_split_mapping = gem.files.open(trim_20_split_out)
 
-    if not os.path.exists(trim_5_split_out):
+    if not os.path.exists(trim_5_out):
         print "Running trim 5 mapping"
         trim_5_mapping = gem.mapper(
             gem.filter.unmapped(trim_20_split_mapping),
@@ -189,7 +189,7 @@ def main():
         trim_5_mapping = gem.files.open(trim_5_out)
 
     ## create trim-20 split-map
-    if not os.path.exists(final_out):
+    if not os.path.exists(trim_5_split_out):
         print "Running trim 5 split-map"
         trim_5_split_mapping = gem.splitmapper(
             gem.filter.unmapped(trim_5_mapping),
@@ -211,7 +211,7 @@ def main():
          trim_20_mapping.clone(),
          trim_20_split_mapping.clone(),
          trim_5_mapping.clone(),
-         trim_5_split_mapping],
+         trim_5_split_mapping.clone()],
          exclusive=exclusive
     ).merge(final_out)
 
