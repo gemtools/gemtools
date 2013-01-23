@@ -47,13 +47,11 @@ def main():
         gem.loglevel(args.loglevel)
 
     input_file = os.path.abspath(args.file)
-    name = "mapping"
-    if input_file.endswith(".gz"):
-        input_file2 = input_file[:-11] + ".1.fastq.gz"
-        name = os.path.basename(input_file)[:-11]  # cut away _x.fastq.gz hardcoded
-    else:
-        input_file2 = input_file[:-8] + ".1.fastq"
-        name = os.path.basename(input_file)[:-8]  # cut away _x.fastq.gz hardcoded
+    name = os.path.splitext(os.path.basename(input_file))[0].replace(".0","")
+
+    print name
+
+    input_file2 = input_file.replace("0.f","1.f")
 
     if args.extendname:
         name = "%s_%d_%.2f_%d" % (name, delta, unmappedthreshold, junctioncoverage)
@@ -68,7 +66,7 @@ def main():
     print "Loading %s with data set name %s" % (input_file, name)
     print ""
     print "Index file", index
-    print "Annotation file", gtf_annotation
+    print "Annotation file", annotation
     print "Output folder", output_dir
     print ""
     print "****** Parameters ******"
@@ -243,7 +241,7 @@ def main():
     ## create a sorted bamfile
     if not nosam:
         print "Converting to sam"
-        sam = gem.gem2sam(scored, index, threads=max(1, int(THREADS / 2)), append_nh=False)
+        sam = gem.gem2sam(scored, index, threads=max(1, int(THREADS / 2)))
         bam = gem.sam2bam(sam, sam_out, sorted=True)
 
     ## create a gzipped map file
