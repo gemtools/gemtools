@@ -87,6 +87,36 @@ def length(input, min=-1, max=65536):
             yield read
 
 
+class filter(object):
+    """General clonable filter. Pass a read iterator and a filter function
+    with arguments. This filter is clonable and can be used if you want
+    to iterate ofer a base iterator more than once with the same filter.
+
+    read_iterator   -- the read itereator
+    filter_function -- the filter function
+    args            -- filter function arguments
+    kwargs          -- filter functions kw arguments
+    """
+    def __init__(self, read_iterator, filter_function, *args, **kwargs):
+        """Clones the read iterator and fields output from the filter"""
+        self.itereator = read_iterator.clone()
+        self.filter_function = filter_function
+        self.args = args
+        self.kwargs = kwargs
+        self.fun = filter_function(self.itereator, *args, **kwargs)
+
+    def clone(self):
+        self.itereator = self.itereator.clone()
+        self.fun = self.filter_function(self.itereator, *self.args, **self.kwargs)
+        return self
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return self.fun.next()
+
+
 class interleave(object):
     """Interleaving iterator that takes a sequence
     of Reads and interleaves them. By default the read

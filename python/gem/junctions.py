@@ -35,6 +35,7 @@ class Exon(object):
         assert self.strand in ["+", "-"]
 
         if self.start > self.stop:
+            print "Flipping..."
             self.start, self.stop = self.stop, self.start
             if self.strand == "+": self.strand = "-"
             else: self.strand = "+"
@@ -59,7 +60,10 @@ class Junction(object):
         last_exon = None
         for i, exon in enumerate(self.exons):
             if i != 0:
-                yield JunctionSite(last_exon, exon)
+                if exon.strand == "-":
+                    yield JunctionSite(exon, last_exon)
+                else:
+                    yield JunctionSite(last_exon, exon)
             last_exon = exon
 
 
@@ -268,8 +272,11 @@ def from_gtf(annotation):
         if split[2] != "exon":
             continue
         id = trans_re.match(split[8]).group(1) + split[0]
-        exon = Exon(split[0], id, int(split[3]), int(split[4]), split[6])
-        junctions.setdefault(id, Junction()).append(exon)
+        start = int(split[3])
+        end = int(split[4])
+        if start != end:
+            exon = Exon(split[0], id, start, end, split[6])
+            junctions.setdefault(id, Junction()).append(exon)
 
     for j in sorted(set((
         site for sites in
