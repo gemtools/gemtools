@@ -40,7 +40,7 @@
 #define GT_VECTOR_RANGE_CHECK(vector,position) \
   GT_VECTOR_CHECK(vector); \
   gt_fatal_check(position>=(vector)->used||position<0,POSITION_OUT_OF_RANGE_INFO, \
-      (int64_t)position,0ul,((int64_t)(vector)->used)-1);
+      (uint64_t)position,(uint64_t)0,((int64_t)(vector)->used)-1);
 
 // Simple linear vector for generic type elements
 typedef struct {

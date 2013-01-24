@@ -146,6 +146,9 @@ GT_INLINE void gt_map_set_misms_string(gt_map* const map,char* misms_string,cons
 // Trim helpers
 GT_INLINE uint64_t gt_map_get_left_trim_length(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_right_trim_length(gt_map* const map);
+// Bases aligned
+GT_INLINE uint64_t gt_map_get_bases_aligned(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_global_bases_aligned(gt_map* const map);
 // Global metrics (over all blocks)
 GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map);

@@ -112,7 +112,7 @@ GT_INLINE void gt_string_set_length(gt_string* const string,const uint64_t lengt
 
 GT_INLINE char* gt_string_char_at(gt_string* const string,const uint64_t pos) {
   GT_STRING_CHECK_BUFFER(string);
-  gt_fatal_check(pos>string->length,POSITION_OUT_OF_RANGE_INFO,pos,0ul,string->length);
+  gt_fatal_check(pos>string->length,POSITION_OUT_OF_RANGE_INFO,pos,(uint64_t)0,string->length);
   return string->buffer+pos;
 }
 

@@ -24,7 +24,7 @@ FOLDER_TEST=$(ROOT_PATH)/test
 FOLDER_TOOLS=$(ROOT_PATH)/tools
 
 # Flags
-GENERAL_FLAGS=-fPIC
+GENERAL_FLAGS=-fPIC -Wall
 ARCH_FLAGS=-D__LINUX__
 
 OPTIMIZTION_FLAGS=-O4 # -fomit-frame-pointer -ftree-vectorize

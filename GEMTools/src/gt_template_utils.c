@@ -90,7 +90,7 @@ GT_INLINE gt_map** gt_template_put_mmap(
   register bool is_duplicated = gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp_fx,
       template,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr));
   register gt_map** template_mmap;
-  if (!is_duplicated || replace_duplicated) {
+  if (!is_duplicated || replace_duplicated) { // FIXME: Chose which to replace (like alignment)
     // Resolve mmap aliasing/insertion
     register gt_map** uniq_mmaps = malloc(gt_template_get_num_blocks(template)*sizeof(gt_map*));
     gt_template_alias_dup_mmap_members(gt_map_cmp_fx,template,mmap,uniq_mmaps);
@@ -195,12 +195,50 @@ GT_INLINE bool gt_template_is_mmap_contained_fx(
       &found_mmap_pos,&found_mmap,NULL);
 }
 
-GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap) {
-  if (gt_map_get_position(mmap[1])>gt_map_get_position(mmap[0])) {
+/* Insert size should be and estimate of the original fragment size that was sequenced.  We can get this from the following:
+ *
+ * position of rightmost read + no. bases in rightmost read - position of leftmost read
+ *
+ * If the read has been trimmed from the start of the read then we can't get the original size, but this is a relatively
+ * rare event.  Trimming from the end of the read does not effect the calculation as the rightmost read will be on the
+ * negative strand so trimming x bases from the end of the read will shift the mapped position of the read by x.
+ *
+ * Split mappings require special handling in that we need to consider the number of bases read + the distance between the
+ * last block in each mapping as follows:
+ *
+ * Position of last block of rightmost read + no. bases in rightmost read - (position of last block of leftmost read + no. bases)
+ * in all other blocks of leftmost read
+ */
+GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,uint64_t *gt_error) {
+  // Get last block of each map
+  gt_map *block[2]={0,0};
+  uint64_t length[2]={0,0};
+  int64_t x=0;
+  *gt_error=GT_TEMPLATE_INSERT_SIZE_OK;
+  GT_BEGIN_MAP_BLOCKS_ITERATOR(mmap[0],map_it) {
+    block[0]=map_it;
+    length[0]+=gt_map_get_base_length(block[0]);
+  } GT_END_MAP_BLOCKS_ITERATOR;
+  GT_BEGIN_MAP_BLOCKS_ITERATOR(mmap[1],map_it) {
+    block[1]=map_it;
+    length[1]+=gt_map_get_base_length(block[1]);
+  } GT_END_MAP_BLOCKS_ITERATOR;
+  if(gt_string_equals(block[0]->seq_name,block[1]->seq_name)) {
+    if(block[0]->strand!=block[1]->strand) {
+      if(block[0]->strand==FORWARD) x=1+block[1]->position+length[1]-(block[0]->position+length[0]-gt_map_get_base_length(block[0]));
+      else x=1+block[0]->position+length[0]-(block[1]->position+length[1]-gt_map_get_base_length(block[1]));
+    } else {
+      *gt_error=GT_TEMPLATE_INSERT_SIZE_SAME_STRAND;
+    }
+  } else {
+    *gt_error=GT_TEMPLATE_INSERT_SIZE_DIFFERENT_CONTIGS;
+  }
+  /*  if (gt_map_get_position(mmap[1])>gt_map_get_position(mmap[0])) {
     return ((int64_t)gt_map_get_position(mmap[1])-(int64_t)(gt_map_get_position(mmap[0])+gt_map_get_length(mmap[0])));
   } else {
     return ((int64_t)gt_map_get_position(mmap[0])-(int64_t)(gt_map_get_position(mmap[1])+gt_map_get_length(mmap[1])));
-  }
+    } */
+  return x;
 }
 
 /*
@@ -289,9 +327,10 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
     register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
-    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,false);
+    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,true);
     free(mmap_copy); // Free array handler
   }
+  gt_template_set_mcs(template_dst,GT_MIN(gt_template_get_mcs(template_dst), gt_template_get_mcs(template_src)));
 }
 
 //// TODO: Scheduled for v2.0
