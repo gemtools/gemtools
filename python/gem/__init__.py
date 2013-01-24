@@ -132,9 +132,13 @@ class Read(object):
             return -1
 
         for idx, s in enumerate(utils.multisplit(self.summary, [':', '+'])):
-            if int(s) > 0:
-                mismatches = idx
-                break
+            try:
+                if int(s) > 0:
+                    mismatches = idx
+                    break
+            except Exception, e:
+                print "Error unable to parse from line\n%s" % (self.line)
+                raise e
         return mismatches
 
     def length():
@@ -358,7 +362,7 @@ def _prepare_output(process, output=None, type="map", name="GEM", remove_after_i
     if output is not None:
         # we are writing to a file
         # wait for the process to finish
-        if process.wait() != 0:
+        if process is not None and process.wait() != 0:
             raise ValueError("%s execution failed!" % name)
         return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
     else:
@@ -470,7 +474,7 @@ def mapper(input, index, output=None,
 
     # convert to genome coordinates if mapping to transcriptome
     if key_file is not None:
-        convert_to_genome = [executables['transcriptome-2-genome'], index, key_file, str(threads)]
+        convert_to_genome = [executables['transcriptome-2-genome'], key_file, str(threads)]
         tools.append(convert_to_genome)
 
     ## run the mapper
@@ -481,6 +485,79 @@ def mapper(input, index, output=None,
         process = utils.run_tools(tools, input, output, "GEM-Mapper", utils.read_to_sequence)
 
     return _prepare_output(process, output, type="map", name="GEM-Mapper", quality=quality)
+
+
+def transcript_mapper(input, indices, key_files, output=None,
+           mismatches=0.04,
+           delta=0,
+           quality=33,
+           quality_threshold=26,
+           max_decoded_matches=20,
+           min_decoded_strata=1,
+           min_matched_bases=0.80,
+           max_big_indel_length=15,
+           max_edit_distance=0.20,
+           mismatch_alphabet="ACGT",
+           trim=None,
+           threads=1,
+           extra=None,
+           ):
+    """Start the GEM mapper on the given input.
+    If input is a file handle, it is assumed to
+    provide fastq entries. If input is a string,
+    it is checked for its extension. In case of a
+    .map file, the input is converted from gem format
+    to fastq and passed to the mapper.
+
+    Output can be a string, which will be translated to
+    the output file. In case output is a file handle,
+    the GEM output is written there.
+
+    input -- A ReadIterator with the input
+    output -- output file name
+    index -- valid GEM2 index
+    mismatches - number or % mismatches, default=0.04
+    delta -- strata after best <number> (default=0)
+    quality -- one of 'ignore'|'offset-33'|'offset-64' defaults to offset-33
+    quality_threshold <number> -- (default=26, that is e<=2e-3)
+    max_edit_distance -- max edit distance, 0.20 per default
+    max_decoded_matches -- maximum decoded matches, defaults to 20
+    min_decoded_strata -- strata that are decoded fully (ignoring max decoded matches), defaults to 1
+    min_matched_bases -- minimum number (or %) of matched bases, defaults to 0.80
+    trim -- tuple or list that specifies left and right trimmings
+    extra -- list of additional parameters added to gem mapper call
+    """
+
+    outputs = []
+    output_files = []
+    for i, index in enumerate(indices):
+        (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="transcript_mapping_output", dir=".")
+        output_files.append(output_file)
+        outputs.append(mapper(input.clone(), index,
+           key_file=key_files[i],
+           output=output_file,
+           mismatches=mismatches,
+           delta=delta,
+           quality=quality,
+           quality_threshold=quality_threshold,
+           max_decoded_matches=max_decoded_matches,
+           min_decoded_strata=min_decoded_strata,
+           min_matched_bases=min_matched_bases,
+           max_big_indel_length=max_big_indel_length,
+           max_edit_distance=max_edit_distance,
+           mismatch_alphabet=mismatch_alphabet,
+           trim=trim,
+           threads=threads,
+           extra=extra,
+           )
+        )
+    merged = merger(outputs[0], outputs[1:])
+    if(output is not None):
+        merged.merge(output)
+        for f in output_files:
+            os.remove(f)
+        return _prepare_output(None, output, type="map", name="GEM-Mapper", quality=quality)
+    return merged
 
 
 def splitmapper(input,
@@ -494,7 +571,7 @@ def splitmapper(input,
                 refinement_step_size=2,
                 min_split_size=15,
                 matches_threshold=100,
-                mismatch_strata_delta=1,
+                strata_after_first=1,
                 mismatch_alphabet="ACGT",
                 quality=33,
                 trim=None,
@@ -532,7 +609,7 @@ def splitmapper(input,
           '--min-split-size', str(min_split_size),
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
-          '--strata-after-first', str(mismatch_strata_delta),
+          '--strata-after-first', str(strata_after_first),
           '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
@@ -593,6 +670,7 @@ def extract_junctions(input,
                       min_split_size=15,
                       matches_threshold=200,
                       splice_consensus=extended_splice_consensus,
+                      strata_after_first=1,
                       quality=33,
                       threads=1,
                       merge_with=None,
@@ -614,6 +692,7 @@ def extract_junctions(input,
         matches_threshold=matches_threshold,
         splice_consensus=splice_consensus,
         quality=quality,
+        strata_after_first=strata_after_first,
         filter_splitmaps=False,
         post_validate=False,
         threads=threads,
@@ -763,6 +842,7 @@ def score(input,
           index,
           output=None,
           scoring="+U,+u,-t,-s,-i,-a",
+          filter=None,  # "2,25"
           threads=1):
     index = _prepare_index_parameter(index, gem_suffix=True)
     score_p = [executables['gem-map-2-map'],
@@ -770,6 +850,10 @@ def score(input,
                '-s', scoring,
                '-T', str(threads)
     ]
+    if filter is not None:
+        score_p.append("-f")
+        score_p.append(filter)
+
     quality = None
     if isinstance(input, files.ReadIterator):
         quality = input.quality
@@ -857,23 +941,34 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
 
     return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None), quality=quality)
 
-def compute_transcriptome(max_read_length, input, output):
+
+def compute_transcriptome(max_read_length, index, junctions, substract=None):
+    """Compute the transcriptome based on a set of junctions. You can optionally specify
+    a *substract* junction set. In that case only junctions not in substract are passed
+    to compute the transcriptome.
+    The function returns a tuple of a .fa file with the transcriptome genome and a
+    .keys file with the translation table.
+
+    max_read_length -- the maximum read length
+    index -- path to the gem index
+    junctions -- path to the junctions file
+    substract -- additional juntions that are not taken into account and substracted from the main junctions
+    """
     transcriptome_p = [
         executables['compute-transcriptome'],
         max_read_length,
-        input,
-        " ".join(output)
+        index,
+        junctions
     ]
+    if substract is not None:
+        transcriptome_p.append(substract)
 
-    process = utils.run_tools([transcriptome_p], input=None, output=None, name="compute-transcriptome", raw_stream=True, path=path)
+    process = utils.run_tools([transcriptome_p], input=None, output=None, name="compute-transcriptome")
     if process.wait() != 0:
         raise ValueError("Error while computing transcriptome")
 
-    output_files = {}
-    for x in output:
-        output_files[x] = [ os.path.abspath("%s.fa" % x), os.path.abspath("%s.keys" % x) ]
+    return (os.path.abspath("%s.fa" % junctions), os.path.abspath("%s.keys" % junctions))
 
-    return output_files
 
 def index(input, output, content="dna", threads=1):
     """Run the gem-indexer on the given input. Input has to be the path
@@ -889,7 +984,7 @@ def index(input, output, content="dna", threads=1):
     """
     indexer_p = [
         executables['gem-indexer'],
-        '-t', str(threads),
+        '-T', str(threads),
         '--content-type', content.lower()
     ]
 
