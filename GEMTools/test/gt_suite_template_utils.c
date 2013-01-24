@@ -110,15 +110,15 @@ START_TEST(gt_test_template_merge_inconsistent)
   gt_string* string = gt_string_new(1024);
   gt_output_map_sprint_template(string, source, GT_ALL, true);
   // convert to string
-  char * line = gt_string_get_string(string);
+  char* line = gt_string_get_string(string);
   fail_unless(gt_streq(line,
-      "ID/1\t"
+      "ID/1\t"	
       "GAGAGAACAGGCCTCTGAGCCCAAGCCAAGCCATCGCATCCCCTGTGACTTGCCCGTATATATGCCCAGATGGCCTGAAGTAACTGAAGAATCACAAAAGA\t"
       "BPYcceeegegggiiiiiiiiiiiiiiighhhfgghhiiihhhifhfhhhfhhdghhiiihfbggedddeabbcdcccb`ZaW[^^abbcGW[`^`R]`BB\t"
-      "0:1:0:0:1:4+1:3\t"
+      "0:1:0:0:1:4+0:3\t"
       "chr2:+:64479108:10>436*91,chr7:+:24435865:1T>5-46A8C38,chr2:+:64479547:(1)1T>1-1T>1-94,"
       "chr4:+:16999371:1T>5-35>2-9A8C38,chr9:+:90025610:1T>5-28A17A8C38,chr11:-:130623749:2>1-1T1T46A2>2-43,"
-      "chr2:+:64479544:TTC1TGT94,chr13:+:91496959:1GA1TGT27T18A47,chr2:+:216792393:1GA1TGT46A8C38,chr2:+:64478959:AG1T1G1TT1>585*91\n"));
+      "chr13:+:91496959:1GA1TGT27T18A47,chr2:+:216792393:1GA1TGT46A8C38,chr2:+:64478959:AG1T1G1TT1>585*91\n"));
 }
 END_TEST
 
