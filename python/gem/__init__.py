@@ -857,7 +857,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
 
     return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None), quality=quality)
 
-def compute_transcriptome(max_read_length, input, *output):
+def compute_transcriptome(max_read_length, input, output):
     transcriptome_p = [
         executables['compute-transcriptome'],
         max_read_length,
@@ -869,9 +869,9 @@ def compute_transcriptome(max_read_length, input, *output):
     if process.wait() != 0:
         raise ValueError("Error while computing transcriptome")
 
-    output_files = []
+    output_files = {}
     for x in output:
-        output_files.append(os.path.abspath("%s.fa" % x)
+        output_files[x] = [ os.path.abspath("%s.fa" % x), os.path.abspath("%s.keys" % x) ]
 
     return output_files
 
