@@ -21,7 +21,7 @@ __VERSION_MAJOR="1"
 __VERSION_MINOR="6"
 __VERSION__="%s.%s" %(__VERSION_MAJOR, __VERSION_MINOR)
 __DOWNLOAD_FILE_TEMPLATE__="GEM-gemtools-%s-%s.tar.gz"
-__DOWNLOAD_URL__="https://github.com/downloads/gemtools/gemtools"
+__DOWNLOAD_URL__="http://barnaserver.com/gemtools/"
 
 
 def _is_i3_compliant():
@@ -68,15 +68,20 @@ def _install_bundle(install_dir, base=None):
         dirpath = tempfile.mkdtemp()
 
     target = "%s/%s" %(dirpath, file_name)
-    if not os.path.exists(target):
-        print "Downloading %s bundle from %s to %s" % (type, base_url, target)
-        urllib.urlretrieve (base_url, target)
+    keep = False
+    if os.path.exists(file_name):
+        target = file_name
+        keep = True
+    else:
+        if not os.path.exists(target):
+            print "Downloading %s bundle from %s to %s" % (type, base_url, target)
+            urllib.urlretrieve (base_url, target)
 
-    tar = subprocess.Popen("tar xzvf %s --exclude \"._*\"" % (target), shell=True, cwd=dirpath)
+    tar = subprocess.Popen("tar xzvf %s --exclude \"._*\"" % (os.path.abspath(target)), shell=True, cwd=dirpath)
     if tar.wait() != 0:
         print "Error while extracting gem bundle"
         exit(1)
-    if base is None:
+    if base is None and not keep:
         os.remove(target)
 
     bins=[x for x in os.listdir(dirpath)]
@@ -179,7 +184,7 @@ The code for this project can be found on github:
 https://github.com/gemtools/gemtools
 ''',
         package_dir={'':'python'},
-        packages=['gem'],
+        packages=['gem', 'gem.production'],
 #        package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("python/gem/gembinaries")]},
         package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in ["gem-2-sam",
                                                                      "gem-indexer_bwt-dna",
@@ -209,4 +214,10 @@ https://github.com/gemtools/gemtools
           'Programming Language :: C',
           'Topic :: Scientific/Engineering :: Bio-Informatics',
         ],
+        install_requires = ["argparse"],
+        entry_points = {
+            'console_scripts': [
+                'gem-rnaseq-pipeline = gem.production.gtex_rnaseq_pipeline:main'
+            ]
+        },
 )

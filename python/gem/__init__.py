@@ -61,6 +61,8 @@ executables = execs_dict({
     "gem-info": "gem-info",
     "splits-2-junctions": "splits-2-junctions",
     "gem-retriever": "gem-retriever",
+    "compute-transcriptome": "compute-transcriptome",
+    "transcriptome-2-genome": "transcriptome-2-genome",
     })
 
 
@@ -392,6 +394,7 @@ def mapper(input, index, output=None,
            trim=None,
            threads=1,
            extra=None,
+           key_file=None,
            ):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
@@ -465,6 +468,11 @@ def mapper(input, index, output=None,
     if trim is not None:
         tools.append(trim_c)
 
+    # convert to genome coordinates if mapping to transcriptome
+    if key_file is not None:
+        convert_to_genome = [executables['transcriptome-2-genome'], index, key_file, str(threads)]
+        tools.append(convert_to_genome)
+
     ## run the mapper
     process = None
     if len(tools) == 1:
@@ -487,11 +495,11 @@ def splitmapper(input,
                 min_split_size=15,
                 matches_threshold=100,
                 mismatch_strata_delta=1,
+                mismatch_alphabet="ACGT",
                 quality=33,
                 trim=None,
                 filter_splitmaps=True,
                 post_validate=True,
-                mismatch_alphabet="ACGT",
                 threads=1,
                 extra=None):
     """Start the GEM split mapper on the given input.
@@ -780,7 +788,9 @@ def validate_and_score(input,
     return score(validator, index, output, scoring, max(threads / 2, 1))
 
 
-def gem2sam(input, index=None, output=None, single_end=False, compact=False, threads=1, quality=None, check_ids=True, append_nh=False, append_xs=None):
+def gem2sam(input, index=None, output=None,
+    single_end=False, compact=False, threads=1,
+    quality=None, check_ids=True):
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
     gem_2_sam_p = [executables['gem-2-sam'],
@@ -803,10 +813,7 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
 
     # GT-25 transform id's
     transform = utils.read_to_map
-    nh_queue = None
-    if append_nh:
-        nh_queue = Queue()
-    if check_ids and not single_end or append_nh:
+    if check_ids and not single_end:
         def t(read):
             if check_ids and not single_end:
                 split = read.id.split()
@@ -815,40 +822,22 @@ def gem2sam(input, index=None, output=None, single_end=False, compact=False, thr
                         read.id = "%s/%s" % (split[0], split[1][0])
                     else:
                         raise ValueError("Unable to identify read id pair counter from %s" % read.id)
-            if append_nh:
-                nh = sum(read.get_maps()[0])
-                if _max_mappings == nh: nh = 0
-                nh_queue.put(nh)
             return utils.read_to_map(read)
         transform = t
 
-
-    post_transform = []
-    if append_nh:
-        class nh_filter(object):
-            def __init__(self, _queue):
-                self.queue = _queue
-                self.last_id = None
-                self.nh = 0
-
-            def add_nh(self, e):
-                if e[0] == "@": return e
-
-                current_id = e.split("\t")[0]
-                if self.last_id is None or self.last_id != current_id:
-                    self.nh = self.queue.get(timeout=5)
-                    self.last_id = current_id
-                return "%s\tNH:i:%d\n" % (e.strip(), self.nh)
-        post_transform.append(nh_filter(nh_queue).add_nh)
-
-    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform, post_transform=post_transform)
+    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform)
     return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
 
 
-def sam2bam(input, output=None, sorted=False, tmpdir=None):
+def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
     if isinstance(input, files.ReadIterator):
         input.raw = True
-    sam2bam_p = ['samtools', 'view', '-S', '-b', '-']
+    sam2bam_p = ['samtools', 'view', '-S', '-b']
+    if mapq is not None:
+        sam2bam_p.append("-q")
+        sam2bam_p.append(str(mapq))
+    sam2bam_p.append('-')
+
     tools = [sam2bam_p]
     out_name = output
     if sorted:
@@ -868,6 +857,23 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None):
 
     return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None), quality=quality)
 
+def compute_transcriptome(max_read_length, input, output):
+    transcriptome_p = [
+        executables['compute-transcriptome'],
+        max_read_length,
+        input,
+        " ".join(output)
+    ]
+
+    process = utils.run_tools([transcriptome_p], input=None, output=None, name="compute-transcriptome", raw_stream=True, path=path)
+    if process.wait() != 0:
+        raise ValueError("Error while computing transcriptome")
+
+    output_files = {}
+    for x in output:
+        output_files[x] = [ os.path.abspath("%s.fa" % x), os.path.abspath("%s.keys" % x) ]
+
+    return output_files
 
 def index(input, output, content="dna", threads=1):
     """Run the gem-indexer on the given input. Input has to be the path
@@ -892,7 +898,7 @@ def index(input, output, content="dna", threads=1):
             raise ValueError("Indexer input file %s not found" % input)
         indexer_p.extend(["-i", input])
     else:
-        raise ValueError("The indexer wrapper can not handle the input %s, pass a file or a list of files" % input )
+        raise ValueError("The indexer wrapper can not handle the input %s, pass a file or a list of files" % input)
 
     existing = output
     if existing[-4:] != ".gem": existing = "%s.gem" % existing

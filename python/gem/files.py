@@ -154,7 +154,7 @@ class ReadIterator(object):
         """
         Create a ReadIterator from a stream with a given parser.
         If the filename is given, the iterator can be cloned to re-read
-        the file. Cloning the iterator will not change the curent state
+        the file. Cloning the iterator will not change the current state
         of this instance. The returned clone will start again from the
         beginning of the file.
 
@@ -296,7 +296,7 @@ def _guess_type(name):
         name = name[:-3]
     if name.endswith(".FASTA") or name.endswith("FA"):
         return "fasta"
-    elif name.endswith(".FASTQ"):
+    elif name.endswith(".FASTQ") or name.endswith("FQ"): ## fixes issue #5
         return "fastq"
     elif name.endswith(".MAP"):
         return "map"
