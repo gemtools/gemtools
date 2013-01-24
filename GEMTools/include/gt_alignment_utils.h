@@ -14,6 +14,8 @@
 #include "gt_alignment.h"
 #include "gt_counters_utils.h"
 
+#include "gt_output_map.h"
+
 /*
  * Alignment's Maps operators (Update global state: counters, ...)
  */

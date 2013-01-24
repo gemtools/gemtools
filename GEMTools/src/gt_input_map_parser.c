@@ -493,7 +493,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(char** const text_line,gt_ma
       if (gt_expect_false((**text_line)!=')')) return GT_IMP_PE_MISMS_BAD_CHARACTER;
       GT_NEXT_CHAR(text_line);
       // Add Trim
-      gt_map_add_misms(map,&misms);
+      if (misms.size>0) gt_map_add_misms(map,&misms);
     } else if ((**text_line)=='>') { // Indel/Skip
       GT_NEXT_CHAR(text_line);
       // Parse size

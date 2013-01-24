@@ -90,7 +90,7 @@ GT_INLINE gt_map** gt_template_put_mmap(
   register bool is_duplicated = gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp_fx,
       template,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr));
   register gt_map** template_mmap;
-  if (!is_duplicated || replace_duplicated) {
+  if (!is_duplicated || replace_duplicated) { // FIXME: Chose which to replace (like alignment)
     // Resolve mmap aliasing/insertion
     register gt_map** uniq_mmaps = malloc(gt_template_get_num_blocks(template)*sizeof(gt_map*));
     gt_template_alias_dup_mmap_members(gt_map_cmp_fx,template,mmap,uniq_mmaps);
@@ -327,7 +327,7 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
     register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
-    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,false);
+    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,true);
     free(mmap_copy); // Free array handler
   }
   gt_template_set_mcs(template_dst,GT_MIN(gt_template_get_mcs(template_dst), gt_template_get_mcs(template_src)));
