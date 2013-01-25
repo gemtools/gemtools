@@ -3,7 +3,9 @@
  * FILE: gt_sequence_archive.c
  * DATE: 3/09/2012
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
- * DESCRIPTION: // TODO
+ * DESCRIPTION:
+ *   Data structures needed to store a dictionary of DNA-sequences(chromosomes,contigs,etc) indexed by tag
+ *   Internal sequence representation is based on a memory-segmented DNA-string
  */
 
 #include "gt_sequence_archive.h"
@@ -22,11 +24,18 @@ GT_INLINE gt_sequence_archive* gt_sequence_archive_new(void) {
 }
 GT_INLINE void gt_sequence_archive_clear(gt_sequence_archive* const seq_archive) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-  gt_shash_clean(seq_archive);
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(seq_archive->sequences,sequence,gt_segmented_sequence) {
+    gt_segmented_sequence_delete(sequence);
+  } GT_SHASH_END_ITERATE;
+  gt_shash_clear(seq_archive->sequences,false);
 }
 GT_INLINE void gt_sequence_archive_delete(gt_sequence_archive* const seq_archive) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-  gt_shash_delete(seq_archive,true,true);
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(seq_archive->sequences,sequence,gt_segmented_sequence) {
+    gt_segmented_sequence_delete(sequence);
+  } GT_SHASH_END_ITERATE;
+  gt_shash_delete(seq_archive->sequences,false);
+  free(seq_archive);
 }
 
 /*
@@ -35,15 +44,15 @@ GT_INLINE void gt_sequence_archive_delete(gt_sequence_archive* const seq_archive
 GT_INLINE void gt_sequence_archive_add_sequence(gt_sequence_archive* const seq_archive,gt_segmented_sequence* const sequence) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
   GT_SEGMENTED_SEQ_CHECK(sequence);
-  gt_shash_insert(seq_archive->sequences,gt_string_get_string(sequence->seq_name),sequence,gt_segmented_sequence*);
+  gt_shash_insert(seq_archive->sequences,gt_string_get_string(sequence->seq_name),sequence,gt_segmented_sequence);
 }
 GT_INLINE void gt_sequence_archive_remove_sequence(gt_sequence_archive* const seq_archive,char* const seq_id) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
   gt_shash_remove_element(seq_archive->sequences,seq_id);
 }
-GT_INLINE void gt_sequence_archive_get_sequence(gt_sequence_archive* const seq_archive,char* const seq_id) {
+GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_sequence(gt_sequence_archive* const seq_archive,char* const seq_id) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-  return gt_shash_get(seq_archive->sequences,seq_id,gt_segmented_sequence*);
+  return gt_shash_get(seq_archive->sequences,seq_id,gt_segmented_sequence);
 }
 
 
@@ -77,17 +86,21 @@ int gt_sequence_archive_karyotypic_sort_fx(char *a,char *b) {
   // Other Chromosome
   return str_cmp_ab;
 }
+
+#define gt_cmp_string_wrapper(arg1,arg2) gt_cmp_string((char*)arg1,(char*)arg2)
+#define gt_sequence_archive_lexicographical_sort_fx_wrapper(arg1,arg2) gt_sequence_archive_lexicographical_sort_fx((char*)arg1,(char*)arg2)
+#define gt_sequence_archive_karyotypic_sort_fx_wrapper(arg1,arg2) gt_sequence_archive_karyotypic_sort_fx((char*)arg1,(char*)arg2)
 GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int (*gt_cmp_string)(char*,char*)) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-  HASH_SORT(seq_archive->sequences,gt_cmp_string);
+  HASH_SORT(seq_archive->sequences->shash_head,gt_cmp_string_wrapper);
 }
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-  HASH_SORT(seq_archive->sequences,gt_sequence_archive_lexicographical_sort_fx);
+  HASH_SORT(seq_archive->sequences->shash_head,gt_sequence_archive_lexicographical_sort_fx_wrapper);
 }
 GT_INLINE void gt_sequence_archive_karyotypic_sort(gt_sequence_archive* const seq_archive) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-  HASH_SORT(seq_archive->sequences,gt_sequence_archive_karyotypic_sort_fx);
+  HASH_SORT(seq_archive->sequences->shash_head,gt_sequence_archive_karyotypic_sort_fx_wrapper);
 }
 
 /*
@@ -95,30 +108,35 @@ GT_INLINE void gt_sequence_archive_karyotypic_sort(gt_sequence_archive* const se
  */
 GT_INLINE void gt_sequence_archive_new_iterator(
     gt_sequence_archive* const seq_archive,gt_sequence_archive_iterator* const seq_archive_iterator) {
-  // TODO
+  GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
+  GT_NULL_CHECK(seq_archive_iterator);
+  seq_archive_iterator->sequence_archive = seq_archive;
+  seq_archive_iterator->shash_it = seq_archive->sequences->shash_head;
 }
 GT_INLINE bool gt_sequence_archive_iterator_eos(gt_sequence_archive_iterator* const seq_archive_iterator) {
-  // TODO
+  GT_SEQUENCE_ARCHIVE_ITERATOR_CHECK(seq_archive_iterator);
+  return seq_archive_iterator->shash_it==NULL;
 }
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_next(gt_sequence_archive_iterator* const seq_archive_iterator) {
-  // TODO
+  GT_SEQUENCE_ARCHIVE_ITERATOR_CHECK(seq_archive_iterator);
+  if (seq_archive_iterator->shash_it) {
+    register gt_segmented_sequence* elm =  seq_archive_iterator->shash_it->element;
+    seq_archive_iterator->shash_it = seq_archive_iterator->shash_it->hh.next;
+    return elm;
+  } else {
+    return NULL;
+  }
 }
-GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_previous(gt_sequence_archive_iterator* const seq_archive_iterator) {
-  // TODO
-}
-
-
 
 /*
  * SegmentedSEQ Constructor
  */
-GT_INLINE gt_segmented_sequence* gt_segmented_sequence_new(char* const seq_name,const uint64_t seq_name_length) {
+GT_INLINE gt_segmented_sequence* gt_segmented_sequence_new(void) {
   gt_segmented_sequence* sequence = malloc(sizeof(gt_segmented_sequence));
   gt_cond_fatal_error(!sequence,MEM_HANDLER);
   sequence->blocks = gt_vector_new(GT_SEQ_ARCHIVE_NUM_BLOCKS,sizeof(gt_compact_dna_string*));
   sequence->sequence_total_length = 0;
   sequence->seq_name = gt_string_new(10);
-  gt_segmented_sequence_set_name(seq_name,seq_name_length);
   return sequence;
 }
 GT_INLINE void gt_segmented_sequence_clear(gt_segmented_sequence* const sequence) {
@@ -126,7 +144,7 @@ GT_INLINE void gt_segmented_sequence_clear(gt_segmented_sequence* const sequence
   GT_VECTOR_ITERATE(sequence->blocks,block,block_num,uint64_t*) {
     if (*block) free(*block);
   }
-  gt_vector_clean(sequence->blocks);
+  gt_vector_clear(sequence->blocks);
   gt_string_clear(sequence->seq_name);
 }
 GT_INLINE void gt_segmented_sequence_delete(gt_segmented_sequence* const sequence) {
@@ -141,17 +159,17 @@ GT_INLINE void gt_segmented_sequence_delete(gt_segmented_sequence* const sequenc
 /*
  * SegmentedSEQ handler
  */
-GT_INLINE void gt_segmented_sequence_set_name(char* const seq_name,const uint64_t seq_name_length) {
+GT_INLINE void gt_segmented_sequence_set_name(gt_segmented_sequence* const sequence,char* const seq_name,const uint64_t seq_name_length) {
   GT_SEGMENTED_SEQ_CHECK(sequence);
-  gt_string_set_nstring(sequence->seq_name,seq_name,seq_length);
+  gt_string_set_nstring(sequence->seq_name,seq_name,seq_name_length);
 }
 GT_INLINE char* gt_segmented_sequence_get_name(gt_segmented_sequence* const sequence) {
   GT_SEGMENTED_SEQ_CHECK(sequence);
   return gt_string_get_string(sequence->seq_name);
 }
 
-GT_INLINE gt_compact_dna_string* gt_segmented_sequence_get_block(gt_segmented_sequence* const sequence,const uint64_t pos) {
-  register const uint64_t num_block = pos/GT_SEQ_ARCHIVE_BLOCK_SIZE;
+GT_INLINE gt_compact_dna_string* gt_segmented_sequence_get_block(gt_segmented_sequence* const sequence,const uint64_t position) {
+  register const uint64_t num_block = position/GT_SEQ_ARCHIVE_BLOCK_SIZE;
   register const uint64_t blocks_used = gt_vector_get_used(sequence->blocks);
   // Allocate new blocks (if needed)
   if (num_block>=blocks_used) {
@@ -163,7 +181,7 @@ GT_INLINE gt_compact_dna_string* gt_segmented_sequence_get_block(gt_segmented_se
     gt_vector_insert(sequence->blocks,block,gt_compact_dna_string*);
     return block;
   } else {
-    register gt_compact_dna_string* const block = *gt_vector_get_elm(sequence->blocks,num_block,gt_compact_dna_string*);
+    register gt_compact_dna_string* block = *gt_vector_get_elm(sequence->blocks,num_block,gt_compact_dna_string*);
     if (!block) {
       block = gt_cdna_string_new(GT_SEQ_ARCHIVE_BLOCK_SIZE);
       gt_vector_set_elm(sequence->blocks,num_block,gt_compact_dna_string*,block);
@@ -171,53 +189,119 @@ GT_INLINE gt_compact_dna_string* gt_segmented_sequence_get_block(gt_segmented_se
     return block;
   }
 }
-GT_INLINE char gt_segmented_sequence_get_char_at(gt_segmented_sequence* const sequence,const uint64_t pos) {
+GT_INLINE char gt_segmented_sequence_get_char_at(gt_segmented_sequence* const sequence,const uint64_t position) {
   GT_SEGMENTED_SEQ_CHECK(sequence);
-  gt_fatal_check(pos>=sequence->sequence_total_length,SEGMENTED_SEQ_IDX_OUT_OF_RANGE,pos,sequence->sequence_total_length);
-  register const uint64_t pos_in_block = pos%GT_SEQ_ARCHIVE_BLOCK_SIZE;
-  return gt_cdna_string_get_char_at(gt_segmented_sequence_get_block(sequence,pos),pos_in_block);
+  GT_SEGMENTED_SEQ_POSITION_CHECK(sequence,position);
+  register const uint64_t pos_in_block = position%GT_SEQ_ARCHIVE_BLOCK_SIZE;
+  return gt_cdna_string_get_char_at(gt_segmented_sequence_get_block(sequence,position),pos_in_block);
 }
-GT_INLINE void gt_segmented_sequence_set_char_at(gt_segmented_sequence* const sequence,const uint64_t pos,const char character) {
+GT_INLINE void gt_segmented_sequence_set_char_at(gt_segmented_sequence* const sequence,const uint64_t position,const char character) {
   GT_SEGMENTED_SEQ_CHECK(sequence);
-  GT_SEGMENTED_SEQ_CHECK(sequence);
-  register const uint64_t pos_in_block = pos%GT_SEQ_ARCHIVE_BLOCK_SIZE;
+  register const uint64_t pos_in_block = position%GT_SEQ_ARCHIVE_BLOCK_SIZE;
   // Adjust sequence total length
-  if (pos>=sequence->sequence_total_length) sequence->sequence_total_length = pos+1;
+  if (position>=sequence->sequence_total_length) sequence->sequence_total_length = position+1;
   // Set character in compact dna string
-  gt_cdna_string_set_char_at(gt_segmented_sequence_get_block(sequence,pos),pos_in_block,character);
+  gt_cdna_string_set_char_at(gt_segmented_sequence_get_block(sequence,position),pos_in_block,character);
 }
 GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const sequence,char* const string,const uint64_t length) {
   GT_SEGMENTED_SEQ_CHECK(sequence);
   register uint64_t block_free_space = GT_SEQ_ARCHIVE_BLOCK_SIZE-(sequence->sequence_total_length%GT_SEQ_ARCHIVE_BLOCK_SIZE);
+  register uint64_t current_length = sequence->sequence_total_length;
   register uint64_t chars_written = 0;
   while (chars_written < length) {
     register const uint64_t chunk_size = ((length-chars_written)<block_free_space) ?
         length-chars_written : block_free_space;
     gt_cdna_string_append_string(
-        gt_segmented_sequence_get_block(sequence,sequence->sequence_total_length-1),string+chars_written,chunk_size);
+        gt_segmented_sequence_get_block(sequence,current_length),string+chars_written,chunk_size);
     chars_written += chunk_size;
+    current_length += chunk_size;
     block_free_space = GT_SEQ_ARCHIVE_BLOCK_SIZE;
   }
-  sequence->sequence_total_length += length;
+  sequence->sequence_total_length = current_length;
+}
+
+GT_INLINE void gt_segmented_sequence_get_sequence(
+    gt_segmented_sequence* const sequence,const uint64_t position,const uint64_t length,gt_string* const string) {
+  GT_SEGMENTED_SEQ_CHECK(sequence);
+  GT_SEGMENTED_SEQ_POSITION_CHECK(sequence,position);
+  GT_STRING_CHECK(string);
+  GT_ZERO_CHECK(length);
+  // Clear string
+  gt_string_clear(string);
+  // Retrieve String
+  register uint64_t i=0;
+  gt_segmented_sequence_iterator sequence_iterator;
+  gt_segmented_sequence_new_iterator(sequence,position,GT_ST_FORWARD,&sequence_iterator);
+  while (i<length && !gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
+    gt_string_append_char(string,gt_segmented_sequence_iterator_next(&sequence_iterator));
+    ++i;
+  }
+  gt_string_append_eos(string);
 }
 
 /*
  * SegmentedSEQ Iterator
  */
 GT_INLINE void gt_segmented_sequence_new_iterator(
-    gt_segmented_sequence* const sequence,const uint64_t pos,gt_strand const strand,
+    gt_segmented_sequence* const sequence,const uint64_t position,gt_string_traversal const direction,
     gt_segmented_sequence_iterator* const sequence_iterator) {
-  // TODO
+  GT_SEGMENTED_SEQ_CHECK(sequence);
+  GT_NULL_CHECK(sequence_iterator);
+  // Set iterator
+  sequence_iterator->sequence = sequence;
+  if (gt_expect_true(position<sequence->sequence_total_length)) {
+    gt_segmented_sequence_iterator_seek(sequence_iterator,position,direction);
+  } else {
+    sequence_iterator->global_pos = position;
+  }
 }
-GT_INLINE void gt_segmented_sequence_iterator_seek(gt_segmented_sequence_iterator* const sequence_iterator,const uint64_t pos) {
-  // TODO
+GT_INLINE void gt_segmented_sequence_iterator_seek(
+    gt_segmented_sequence_iterator* const sequence_iterator,const uint64_t position,gt_string_traversal const direction) {
+  GT_SEGMENTED_SEQ_ITERATOR_CHECK(sequence_iterator);
+  GT_SEGMENTED_SEQ_POSITION_CHECK(sequence_iterator->sequence,position);
+  // Set iterator direction
+  sequence_iterator->direction = direction;
+  // Set sequence location fields
+  sequence_iterator->global_pos = position;
+  sequence_iterator->local_pos = position%GT_SEQ_ARCHIVE_BLOCK_SIZE;
+  // Init sequence locator
+  register gt_compact_dna_string* const cdna_string = gt_segmented_sequence_get_block(sequence_iterator->sequence,position);
+  gt_cdna_string_new_iterator(cdna_string,sequence_iterator->local_pos,direction,&sequence_iterator->cdna_string_iterator);
 }
 GT_INLINE bool gt_segmented_sequence_iterator_eos(gt_segmented_sequence_iterator* const sequence_iterator) {
-  // TODO
+  GT_SEGMENTED_SEQ_ITERATOR_CHECK(sequence_iterator);
+  return (sequence_iterator->global_pos>=sequence_iterator->sequence->sequence_total_length);
 }
-GT_INLINE char gt_segmented_sequence_iterator_next(gt_segmented_sequence_iterator* const sequence_iterator) {
-  // TODO
+GT_INLINE char gt_segmented_sequence_iterator_following(gt_segmented_sequence_iterator* const sequence_iterator) {
+  GT_SEGMENTED_SEQ_ITERATOR_CHECK(sequence_iterator);
+  // Seek to proper position (load block if necessary)
+  if (sequence_iterator->local_pos==GT_SEQ_ARCHIVE_BLOCK_SIZE) {
+    gt_segmented_sequence_iterator_seek(sequence_iterator,sequence_iterator->global_pos,sequence_iterator->direction);
+    gt_check(sequence_iterator->local_pos%GT_SEQ_ARCHIVE_BLOCK_SIZE ==
+        sequence_iterator->global_pos%GT_SEQ_ARCHIVE_BLOCK_SIZE,ALG_INCONSISNTENCY);
+  }
+  // Update position
+  ++sequence_iterator->global_pos;
+  ++sequence_iterator->local_pos;
+  // Return next!
+  return gt_cdna_string_iterator_next(&sequence_iterator->cdna_string_iterator);
 }
 GT_INLINE char gt_segmented_sequence_iterator_previous(gt_segmented_sequence_iterator* const sequence_iterator) {
-  // TODO
+  GT_SEGMENTED_SEQ_ITERATOR_CHECK(sequence_iterator);
+  // Seek to proper position (load block if necessary)
+  if (sequence_iterator->local_pos==-1) {
+    gt_segmented_sequence_iterator_seek(sequence_iterator,sequence_iterator->global_pos,sequence_iterator->direction);
+    gt_check(sequence_iterator->local_pos%GT_SEQ_ARCHIVE_BLOCK_SIZE ==
+        sequence_iterator->global_pos%GT_SEQ_ARCHIVE_BLOCK_SIZE,ALG_INCONSISNTENCY);
+  }
+  // Update position
+  --sequence_iterator->global_pos;
+  --sequence_iterator->local_pos;
+  // Return next!
+  return gt_cdna_string_iterator_next(&sequence_iterator->cdna_string_iterator);
+}
+GT_INLINE char gt_segmented_sequence_iterator_next(gt_segmented_sequence_iterator* const sequence_iterator) {
+  return (sequence_iterator->direction==GT_ST_FORWARD) ?
+    gt_segmented_sequence_iterator_following(sequence_iterator) :
+    gt_segmented_sequence_iterator_previous(sequence_iterator);
 }

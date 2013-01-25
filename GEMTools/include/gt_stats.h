@@ -4,12 +4,22 @@
  * DATE: 10/12/2012
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: // TODO
+ *
+ * SCHEDULED TODO: min,avg,max length of mapped reads
+ *                 ACGT counting of reads
+ *                 INDEL TRANSITIONS => A --> AA
+ *                                      A --> AAA
+ *                                      A --> AAAA
+ *                                      A --> AAAAA..A
+ *                 CHECK Total bases aligned
+ *                 SELECTIVE TEST SWITCH
  */
 
 #ifndef GT_STATS_H_
 #define GT_STATS_H_
 
 #include "gt_commons.h"
+#include "gt_compact_dna_string.h"
 #include "gt_alignment_utils.h"
 #include "gt_template_utils.h"
 

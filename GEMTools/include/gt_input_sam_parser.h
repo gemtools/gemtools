@@ -18,12 +18,12 @@
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
 #include "gt_input_parser.h"
-#include "gt_input_fastq_parser.h"
+#include "gt_input_fasta_parser.h"
 
 // Codes gt_status
-#define GT_ISP_OK 1
-#define GT_ISP_FAIL -1
-#define GT_ISP_EOF 0
+#define GT_ISP_OK   GT_STATUS_OK
+#define GT_ISP_FAIL GT_STATUS_FAIL
+#define GT_ISP_EOF  0
 
 /*
  * Parsing error/state codes

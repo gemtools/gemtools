@@ -3,7 +3,7 @@
  * FILE: gt_stats.c
  * DATE: 10/12/2012
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
- * DESCRIPTION: // TODO
+ * DESCRIPTION: Simple utility to output statistics from {MAP,SAM,FASTQ} files
  */
 
 #include "gt_stats.h"
@@ -12,13 +12,6 @@
  * Handy Macros
  */
 #define GT_STATS_GET_PERCENTAGE_ERROR(percentage,one_per_cent) (uint64_t)((double)percentage*one_per_cent)
-
-// FIXME: Erase to cdna
-const uint8_t gt_cdna_encode[256] = {
-    [0 ... 255] = MISMS_BASE_N,
-    ['A'] = MISMS_BASE_A,['C'] = MISMS_BASE_C,['G'] = MISMS_BASE_G,['T'] = MISMS_BASE_T,
-    ['a'] = MISMS_BASE_A,['c'] = MISMS_BASE_C,['g'] = MISMS_BASE_G,['t'] = MISMS_BASE_T,
-};
 
 /*
  * MAPS Error Profile

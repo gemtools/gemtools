@@ -52,13 +52,13 @@ GT_INLINE bool gt_input_file_test_sam(
 
       // TODO => sam_headers
       while (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL)) { // FIXME: DOS_EOL
-        GT_INPUT_FILE_NEXT_CHAR(input_file,NULL);
-        GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,NULL);
+        GT_INPUT_FILE_NEXT_CHAR(input_file);
+        GT_INPUT_FILE_CHECK_BUFFER(input_file);
       }
       if (!input_file->eof) {
-        GT_INPUT_FILE_NEXT_CHAR(input_file,NULL); // Check DOS EOF
+        GT_INPUT_FILE_NEXT_CHAR(input_file); // Check DOS EOF
         if (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==DOS_EOL)) {
-          GT_INPUT_FILE_NEXT_CHAR(input_file,NULL);
+          GT_INPUT_FILE_NEXT_CHAR(input_file);
         }
       }
       ++lines_read;
@@ -143,7 +143,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_block(
   }
   buffered_sam_input->block_id = gt_input_file_next_id(input_file) % UINT32_MAX;
   buffered_sam_input->current_line_num = input_file->processed_lines+1;
-  gt_vector_clean(buffered_sam_input->block_buffer); // Clear dst buffer
+  gt_vector_clear(buffered_sam_input->block_buffer); // Clear dst buffer
   // Read lines & synch SAM records
   uint64_t lines_read = 0;
   while (lines_read<num_records &&
@@ -151,7 +151,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_block(
   if (lines_read==num_records) { // !EOF, Synch wrt to tag content
     register gt_string* const reference_tag = gt_string_new(30);
     if (gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,reference_tag)) {
-      gt_fastq_tag_chomp_end_info(reference_tag);
+      gt_fasta_tag_chomp_end_info(reference_tag);
       while (gt_input_file_cmp_next_sam_record(input_file,reference_tag)) {
         if (!gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,NULL)) break;
         ++lines_read;
@@ -554,7 +554,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
       gt_alignment_insert_map_gt_vector(alignment,maps_vector);
     } else {
       GT_VECTOR_ITERATE(maps_vector,map_elm,map_pos,gt_map*) {
-        gt_alignment_inc_counter(alignment,gt_map_get_global_distance(*map_elm)+1);
+        gt_alignment_inc_counter(alignment,gt_map_get_global_distance(*map_elm));
         gt_alignment_add_map(alignment,*map_elm);
       }
     }
@@ -574,7 +574,7 @@ GT_INLINE bool gt_isp_fetch_next_line(
   register gt_string* const next_tag = gt_string_new(0);
   char* ptext_line;
   if (gt_isp_read_tag(&(buffered_sam_input->cursor),&ptext_line,next_tag)) return false;
-  if (chomp_tag) gt_fastq_tag_chomp_end_info(next_tag);
+  if (chomp_tag) gt_fasta_tag_chomp_end_info(next_tag);
   register const bool same_tag = gt_string_equals(expected_tag,next_tag);
   gt_string_delete(next_tag);
   if (same_tag) {
@@ -599,7 +599,7 @@ GT_INLINE void gt_isp_add_mmap(
     map_end[1] = (pending_maps_end2>1) ? mmap_end2[i] : mmap_end2[0];
     attr.distance = gt_map_get_global_distance(map_end[0])+gt_map_get_global_distance(map_end[1]);
     attr.score = GT_MAP_NO_SCORE;
-    gt_template_inc_counter(template,attr.distance+1);
+    gt_template_inc_counter(template,attr.distance);
     gt_template_add_mmap_va(template,&attr,map_end[0],map_end[1]);
   }
 }
@@ -675,7 +675,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   register char** text_line = &(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
-  gt_fastq_tag_chomp_end_info(template->tag);
+  gt_fasta_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   gt_vector* pending_v = gt_vector_new(GT_ISP_NUM_INITIAL_MAPS,sizeof(gt_sam_pending_end));
   do {
@@ -706,7 +706,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
   register gt_status error_code;
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
-  gt_fastq_tag_chomp_end_info(template->tag);
+  gt_fasta_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   do {
     // Parse SAM Alignment

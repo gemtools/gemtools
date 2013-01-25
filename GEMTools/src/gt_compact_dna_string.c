@@ -1,9 +1,9 @@
 /*
  * PROJECT: GEM-Tools library
- * FILE: ggt_compact_dna_string.c
+ * FILE: gt_compact_dna_string.c
  * DATE: 20/08/2012
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
- * DESCRIPTION: // TODO
+ * DESCRIPTION: Bitmap (compact) representation of DNA-strings (using 8 characters alphabet)
  */
 
 #include "gt_compact_dna_string.h"
@@ -25,10 +25,13 @@
 #define GT_CDNA_ENC_CHAR_T 3
 #define GT_CDNA_ENC_CHAR_N 4
 
-#define GT_CDNA_ZERO_MASK 0xFFFFFFFFFFFFFFFEull
-#define GT_CDNA_ONE_MASK  0x0000000000000001ull
+#define GT_CDNA_ZERO_MASK       0xFFFFFFFFFFFFFFFEull
+#define GT_CDNA_ONE_MASK        0x0000000000000001ull
+#define GT_CDNA_ONE_LAST_MASK   0x8000000000000000ull
+#define GT_CDNA_ZERO_LAST_MASK  0x7FFFFFFFFFFFFFFFull
 
-#define GT_CDNA_EXTRACT_MASK GT_CDNA_ONE_MASK
+#define GT_CDNA_EXTRACT_MASK      GT_CDNA_ONE_MASK
+#define GT_CDNA_EXTRACT_LAST_MASK GT_CDNA_ONE_LAST_MASK
 
 #define GT_CDNA_ENCODED_CHAR_BM0 ((uint8_t)1)
 #define GT_CDNA_ENCODED_CHAR_BM1 ((uint8_t)2)
@@ -43,13 +46,16 @@ const uint8_t gt_cdna_encoded_char_bm[3] = {
  */
 const char gt_cdna_decode[8] = {
   GT_DNA_CHAR_A, GT_DNA_CHAR_C, GT_DNA_CHAR_G, GT_DNA_CHAR_T,
-  GT_DNA_CHAR_N, GT_DNA_CHAR_N, GT_DNA_CHAR_N
+  GT_DNA_CHAR_N, GT_DNA_CHAR_N, GT_DNA_CHAR_N, GT_DNA_CHAR_N
 };
 const uint8_t gt_cdna_encode[256] = {
     [0 ... 255] = GT_CDNA_ENC_CHAR_N,
     ['A'] = GT_CDNA_ENC_CHAR_A,['C'] = GT_CDNA_ENC_CHAR_C,['G'] = GT_CDNA_ENC_CHAR_G,['T'] = GT_CDNA_ENC_CHAR_T,
     ['a'] = GT_CDNA_ENC_CHAR_A,['c'] = GT_CDNA_ENC_CHAR_C,['g'] = GT_CDNA_ENC_CHAR_G,['t'] = GT_CDNA_ENC_CHAR_T,
 };
+
+#define gt_cdna_decode(enc_char)  gt_cdna_decode[enc_char]
+#define gt_cdna_encode(character) gt_cdna_encode[(uint8_t)character]
 
 /*
  * Block locator functions
@@ -61,7 +67,6 @@ const uint8_t gt_cdna_encode[256] = {
 /*
  * CDNA Internal Bitmap Handlers
  */
-
 #define GT_CDNA_GET_BLOCK_POS(global_pos,block_num,block_pos) \
   block_num = global_pos/GT_CDNA_BLOCK_CHARS; \
   block_pos = global_pos % GT_CDNA_BLOCK_CHARS
@@ -71,34 +76,48 @@ const uint8_t gt_cdna_encode[256] = {
   ((uint64_t*)block_mem)[1]=UINT64_ZEROS; \
   ((uint64_t*)block_mem)[2]=UINT64_ONES
 
-#define GT_CDNA_GET_BLOCKS(bitmaps_mem,block_num,bm_0,bm_1,bm_2) { \
-  register uint64_t* const block_mem = ((uint64_t*)bitmaps_mem)+((block_num)*GT_CDNA_BLOCK_BITMAPS); \
-  bm_0 = *block_mem; \
-  bm_1 = *block_mem+1; \
-  bm_2 = *block_mem+2; \
+#define GT_CDNA_GET_MEM_BLOCK(bitmaps_mem,block_num) ((uint64_t*)bitmaps_mem)+((block_num)*GT_CDNA_BLOCK_BITMAPS)
+
+#define GT_CDNA_LOAD_BLOCKS(block_mem,bm_0,bm_1,bm_2) { \
+  bm_0 = *(block_mem); \
+  bm_1 = *(block_mem+1); \
+  bm_2 = *(block_mem+2); \
 }
 
-#define GT_CDNA_SHIFT_CHARS(block_pos,bm_0,bm_1,bm_2) \
+#define GT_CDNA_GET_BLOCKS(bitmaps_mem,block_num,bm_0,bm_1,bm_2) { \
+  register uint64_t* const block_mem = GT_CDNA_GET_MEM_BLOCK(bitmaps_mem,block_num); \
+  GT_CDNA_LOAD_BLOCKS(block_mem,bm_0,bm_1,bm_2); \
+}
+
+#define GT_CDNA_SHIFT_FORWARD_CHARS(block_pos,bm_0,bm_1,bm_2) \
   bm_0 >>= block_pos; bm_1 >>= block_pos; bm_2 >>= block_pos
+
+#define GT_CDNA_SHIFT_BACKWARD_CHARS(block_pos,bm_0,bm_1,bm_2) \
+  bm_0 <<= block_pos; bm_1 <<= block_pos; bm_2 <<= block_pos
 
 #define GT_CDNA_EXTRACT_CHAR(bm_0,bm_1,bm_2) \
   (((bm_0&GT_CDNA_EXTRACT_MASK))    |        \
    ((bm_1&GT_CDNA_EXTRACT_MASK)<<1) |        \
    ((bm_2&GT_CDNA_EXTRACT_MASK)<<2))
 
-#define GT_CDNA_PROYECT_CHAR(block_mem,block_pos,enc_char,bm_pos) \
+#define GT_CDNA_EXTRACT_LAST_CHAR(bm_0,bm_1,bm_2) \
+  (((bm_0&GT_CDNA_EXTRACT_LAST_MASK))    |        \
+   ((bm_1&GT_CDNA_EXTRACT_LAST_MASK)<<1) |        \
+   ((bm_2&GT_CDNA_EXTRACT_LAST_MASK)<<2))
+
+#define GT_CDNA_PROYECT_CHAR(block_mem,enc_char,bm_pos,bm_one_mask,bm_zero_mask) \
   if ((enc_char) & gt_cdna_encoded_char_bm[bm_pos]) { \
-    register const uint64_t bm_mask = GT_CDNA_ONE_MASK<<(block_pos); \
-    block_mem[bm_pos] |= bm_mask; \
+    block_mem[bm_pos] |= bm_one_mask; \
   } else { \
-    register const uint64_t bm_mask = GT_CDNA_ZERO_MASK<<(block_pos); \
-    block_mem[bm_pos] &= bm_mask; \
+    block_mem[bm_pos] &= bm_zero_mask; \
   }
 
 #define GT_CDNA_SET_CHAR(block_mem,block_pos,enc_char)  \
-  GT_CDNA_PROYECT_CHAR(block_mem,block_pos,enc_char,0); \
-  GT_CDNA_PROYECT_CHAR(block_mem,block_pos,enc_char,1); \
-  GT_CDNA_PROYECT_CHAR(block_mem,block_pos,enc_char,2)
+  register const uint64_t bm_one_mask = GT_CDNA_ONE_MASK<<(block_pos); \
+  register const uint64_t bm_zero_mask = ~(bm_one_mask); \
+  GT_CDNA_PROYECT_CHAR(block_mem,enc_char,0,bm_one_mask,bm_zero_mask); \
+  GT_CDNA_PROYECT_CHAR(block_mem,enc_char,1,bm_one_mask,bm_zero_mask); \
+  GT_CDNA_PROYECT_CHAR(block_mem,enc_char,2,bm_one_mask,bm_zero_mask)
 
 /*
  * Constructor
@@ -106,19 +125,19 @@ const uint8_t gt_cdna_encode[256] = {
 GT_INLINE gt_compact_dna_string* gt_cdna_string_new(const uint64_t initial_chars) {
   gt_compact_dna_string* cdna_string = malloc(sizeof(gt_compact_dna_string));
   gt_cond_fatal_error(!cdna_string,MEM_HANDLER);
-  register const uint64_t initial_blocks = GT_CDNA_GET_NUM_BLOCKS(initial_chars);
+  register const uint64_t initial_blocks = initial_chars ? GT_CDNA_GET_NUM_BLOCKS(initial_chars) : 1;
   cdna_string->bitmaps = malloc(GT_CDNA_GET_BLOCKS_MEM(initial_blocks));
   gt_cond_fatal_error(!cdna_string->bitmaps,MEM_ALLOC);
   cdna_string->allocated = GT_CDNA_GET_NUM_CHARS(initial_blocks);
   cdna_string->length = 0;
-  GT_CDNA_INIT_BLOCK(cdna_string->bitmaps); // Init 0-block // FIXME: Block not zero
+  GT_CDNA_INIT_BLOCK(cdna_string->bitmaps); // Init 0-block
   return cdna_string;
 }
 GT_INLINE void gt_cdna_string_resize(gt_compact_dna_string* const cdna_string,const uint64_t num_chars) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
   if (num_chars > cdna_string->allocated) {
     register const uint64_t num_blocks = GT_CDNA_GET_NUM_BLOCKS(num_chars);
-    realloc(cdna_string->bitmaps,GT_CDNA_GET_BLOCKS_MEM(num_blocks));
+    cdna_string->bitmaps=realloc(cdna_string->bitmaps,GT_CDNA_GET_BLOCKS_MEM(num_blocks));
     gt_cond_fatal_error(!cdna_string->bitmaps,MEM_REALLOC);
     cdna_string->allocated = GT_CDNA_GET_NUM_CHARS(num_blocks);
   }
@@ -126,7 +145,7 @@ GT_INLINE void gt_cdna_string_resize(gt_compact_dna_string* const cdna_string,co
 GT_INLINE void gt_cdna_string_clear(gt_compact_dna_string* const cdna_string) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
   cdna_string->length = 0;
-  GT_CDNA_INIT_BLOCK(cdna_string->bitmaps); // Init 0-block // FIXME: Block not zero
+  GT_CDNA_INIT_BLOCK(cdna_string->bitmaps); // Init 0-block
 }
 GT_INLINE void gt_cdna_string_delete(gt_compact_dna_string* const cdna_string) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
@@ -137,44 +156,45 @@ GT_INLINE void gt_cdna_string_delete(gt_compact_dna_string* const cdna_string) {
 /*
  * Handlers
  */
-GT_INLINE char gt_cdna_string_get_char_at(gt_compact_dna_string* const cdna_string,const uint64_t pos) {
-  GT_COMPACT_DNA_STRING_CHECK(cdna_string);
-  if (pos >= cdna_string->length) return GT_DNA_CHAR_N;
-  register uint64_t block_num, block_pos;
-  register uint64_t bm_0, bm_1, bm_2;
-  GT_CDNA_GET_BLOCK_POS(pos,block_num,block_pos);
-  GT_CDNA_GET_BLOCKS(cdna_string->bitmaps,block_num,bm_0,bm_1,bm_2);
-  GT_CDNA_SHIFT_CHARS(block_pos,bm_0,bm_1,bm_2);
-  return cdna_decode[GT_CDNA_EXTRACT_CHAR(bm_0,bm_1,bm_2)];
-}
 GT_INLINE void gt_cdna_allocate__init_blocks(gt_compact_dna_string* const cdna_string,const uint64_t pos) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
   if (pos >= cdna_string->length) {
     // Check allocated blocks
-    gt_cdna_string_resize(cdna_string,pos+1);
-    // Initialize remaining new blocks
-    register const uint64_t next_block_num = (gt_expect_true(cdna_string->length>0) ?
-        (cdna_string->length-1)/GT_CDNA_BLOCK_CHARS : 0) + 1;
+    if (pos >= cdna_string->allocated) gt_cdna_string_resize(cdna_string,pos+(GT_CDNA_BLOCK_CHARS*10));
+    // Initialize new accessed blocks
+    register const uint64_t next_block_num = gt_expect_true(cdna_string->length>0) ? ((cdna_string->length-1)/GT_CDNA_BLOCK_CHARS)+1 : 1;
     register const uint64_t top_block_num = pos/GT_CDNA_BLOCK_CHARS;
     if (next_block_num <= top_block_num) {
       register uint64_t i;
-      register uint64_t* block_mem = cdna_string->bitmaps+(next_block_num*GT_CDNA_BLOCK_BITMAPS);
+      register uint64_t* block_mem = GT_CDNA_GET_MEM_BLOCK(cdna_string->bitmaps,next_block_num);
       for (i=next_block_num; i<=top_block_num; ++i) {
         GT_CDNA_INIT_BLOCK(block_mem);
         block_mem+=GT_CDNA_BLOCK_BITMAPS;
       }
     }
+    // Update total length
+    cdna_string->length = pos+1;
   }
 }
-GT_INLINE void gt_cdna_string_set_char_at(gt_compact_dna_string* const cdna_string,const uint64_t pos,const char character) {
+GT_INLINE char gt_cdna_string_get_char_at(gt_compact_dna_string* const cdna_string,const uint64_t position) {
+  GT_COMPACT_DNA_STRING_CHECK(cdna_string);
+  GT_COMPACT_DNA_STRING_POSITION_CHECK(cdna_string,position);
+  register uint64_t block_num, block_pos;
+  register uint64_t bm_0, bm_1, bm_2;
+  GT_CDNA_GET_BLOCK_POS(position,block_num,block_pos);
+  GT_CDNA_GET_BLOCKS(cdna_string->bitmaps,block_num,bm_0,bm_1,bm_2);
+  GT_CDNA_SHIFT_FORWARD_CHARS(block_pos,bm_0,bm_1,bm_2);
+  return gt_cdna_decode[GT_CDNA_EXTRACT_CHAR(bm_0,bm_1,bm_2)];
+}
+GT_INLINE void gt_cdna_string_set_char_at(gt_compact_dna_string* const cdna_string,const uint64_t position,const char character) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
   // Check allocated bitmaps
-  gt_cdna_allocate__init_blocks(cdna_string,pos);
+  gt_cdna_allocate__init_blocks(cdna_string,position);
   // Encode char
   register uint64_t block_num, block_pos;
-  GT_CDNA_GET_BLOCK_POS(pos,block_num,block_pos);
-  register uint64_t* const block_mem = (cdna_string->bitmaps)+(block_num*GT_CDNA_BLOCK_BITMAPS);
-  register const uint8_t enc_char = gt_cdna_encode[character];
+  GT_CDNA_GET_BLOCK_POS(position,block_num,block_pos);
+  register uint64_t* const block_mem = GT_CDNA_GET_MEM_BLOCK(cdna_string->bitmaps,block_num);
+  register const uint8_t enc_char = gt_cdna_encode(character);
   GT_CDNA_SET_CHAR(block_mem,block_pos,enc_char);
 }
 GT_INLINE uint64_t gt_cdna_string_get_length(gt_compact_dna_string* const cdna_string) {
@@ -185,27 +205,113 @@ GT_INLINE uint64_t gt_cdna_string_get_length(gt_compact_dna_string* const cdna_s
 GT_INLINE void gt_cdna_string_append_string(gt_compact_dna_string* const cdna_string,char* const string,const uint64_t length) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
   // Check allocated bitmaps
-  gt_cdna_allocate__init_blocks(cdna_string,pos);
-  // TODO
+  register const uint64_t total_chars = cdna_string->length+length-1;
+  if (total_chars >= cdna_string->allocated) {
+    gt_cdna_string_resize(cdna_string,total_chars);
+  }
+  // Copy string
+  register uint64_t block_num, block_pos, i;
+  GT_CDNA_GET_BLOCK_POS(cdna_string->length,block_num,block_pos);
+  register uint64_t* block_mem = GT_CDNA_GET_MEM_BLOCK(cdna_string->bitmaps,block_num);
+  for (i=0; i<length; ++i,++block_pos) {
+    if (gt_expect_false(block_pos==GT_CDNA_BLOCK_CHARS)) {
+      block_pos=0;
+      block_mem+=GT_CDNA_BLOCK_BITMAPS;
+    }
+    register const uint8_t enc_char = gt_cdna_encode(string[i]);
+    GT_CDNA_SET_CHAR(block_mem,block_pos,enc_char);
+  }
+  // Update total length
+  cdna_string->length = total_chars+1;
 }
 
 /*
  * Compact DNA String Sequence Iterator
  */
-GT_INLINE void gt_cdna_new_iterator(
-    gt_compact_dna_string* const cdna_string,const uint64_t pos,gt_strand const strand,
-    gt_compact_dna_sequence_iterator* const cdna_sequence_iterator) {
-  // TODO
+GT_INLINE void gt_cdna_string_new_iterator(
+    gt_compact_dna_string* const cdna_string,const uint64_t position,gt_string_traversal const direction,
+    gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+  GT_COMPACT_DNA_STRING_CHECK(cdna_string);
+  GT_NULL_CHECK(cdna_string_iterator);
+  // Initialize the iterator
+  cdna_string_iterator->cdna_string = cdna_string;
+  // Seek to the current position
+  if (position<cdna_string->length) {
+    gt_cdna_string_iterator_seek(cdna_string_iterator,position,direction);
+  } else {
+    cdna_string_iterator->current_pos=cdna_string->length;
+  }
 }
-GT_INLINE void gt_cdna_iterator_seek(gt_compact_dna_sequence_iterator* const cdna_sequence_iterator,const uint64_t pos) {
-  // TODO
+GT_INLINE void gt_cdna_string_iterator_seek(
+    gt_compact_dna_sequence_iterator* const cdna_string_iterator,
+    const uint64_t position,gt_string_traversal const direction) {
+  GT_NULL_CHECK(cdna_string_iterator);
+  GT_NULL_CHECK(cdna_string_iterator->cdna_string);
+  register gt_compact_dna_string* const cdna_string = cdna_string_iterator->cdna_string;
+  GT_COMPACT_DNA_STRING_POSITION_CHECK(cdna_string,position);
+  // Set the iterator
+  cdna_string_iterator->current_pos = position;
+  cdna_string_iterator->current_pos_mod = position%GT_CDNA_BLOCK_CHARS;
+  cdna_string_iterator->direction = direction;
+  // Set the current bitmap and seek to current position
+  register uint64_t block_num, block_pos;
+  GT_CDNA_GET_BLOCK_POS(position,block_num,block_pos);
+  cdna_string_iterator->current_bitmap = GT_CDNA_GET_MEM_BLOCK(cdna_string->bitmaps,block_num);
+  GT_CDNA_GET_BLOCKS(cdna_string->bitmaps,block_num,cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2);
+  if (cdna_string_iterator->direction==GT_ST_FORWARD) {
+    GT_CDNA_SHIFT_FORWARD_CHARS(block_pos,
+        cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2);
+  } else if (block_pos < GT_CDNA_BLOCK_CHARS-1) { // GT_ST_BACKWARD
+    GT_CDNA_SHIFT_BACKWARD_CHARS((GT_CDNA_BLOCK_CHARS-1-block_pos),
+        cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2);
+  }
 }
-GT_INLINE bool gt_cdna_iterator_eos(gt_compact_dna_sequence_iterator* const cdna_sequence_iterator) {
-  // TODO
+GT_INLINE bool gt_cdna_string_iterator_eos(gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+  GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator);
+  return cdna_string_iterator->current_pos>=cdna_string_iterator->cdna_string->length;
 }
-GT_INLINE char gt_cdna_iterator_next(gt_compact_dna_sequence_iterator* const cdna_sequence_iterator) {
-  // TODO
+GT_INLINE char gt_cdna_string_iterator_following(gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+  GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator);
+  GT_COMPACT_DNA_STRING_POSITION_CHECK(cdna_string_iterator->cdna_string,cdna_string_iterator->current_pos);
+  // Extract character
+  register const char character = gt_cdna_decode[GT_CDNA_EXTRACT_CHAR(cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2)];
+  // Update position
+  ++cdna_string_iterator->current_pos;
+  // Seek to proper position (load block if necessary)
+  if (cdna_string_iterator->current_pos_mod==GT_CDNA_BLOCK_CHARS-1) {
+    cdna_string_iterator->current_pos_mod = 0;
+    cdna_string_iterator->current_bitmap += GT_CDNA_BLOCK_BITMAPS;
+    GT_CDNA_LOAD_BLOCKS(cdna_string_iterator->current_bitmap,cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2);
+  } else {
+    ++cdna_string_iterator->current_pos_mod;
+    GT_CDNA_SHIFT_FORWARD_CHARS(1,cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2);
+  }
+  // Return the character decoded
+  return character;
 }
-GT_INLINE char gt_cdna_iterator_previous(gt_compact_dna_sequence_iterator* const cdna_sequence_iterator) {
-  // TODO
+GT_INLINE char gt_cdna_string_iterator_previous(gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+  GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator);
+  GT_COMPACT_DNA_STRING_POSITION_CHECK(cdna_string_iterator->cdna_string,cdna_string_iterator->current_pos);
+  // Extract character
+  register const char character = gt_cdna_decode[GT_CDNA_EXTRACT_LAST_CHAR(cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2)];
+  // Update position
+  --cdna_string_iterator->current_pos;
+  // Seek to proper position (load block if necessary)
+  if (cdna_string_iterator->current_pos_mod==0) {
+    cdna_string_iterator->current_pos_mod = GT_CDNA_BLOCK_CHARS-1;
+    cdna_string_iterator->current_bitmap -= GT_CDNA_BLOCK_BITMAPS;
+    GT_CDNA_LOAD_BLOCKS(cdna_string_iterator->current_bitmap,cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2);
+  } else {
+    --cdna_string_iterator->current_pos_mod;
+    GT_CDNA_SHIFT_BACKWARD_CHARS(1,cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2);
+  }
+  // Return the character decoded
+  return character;
 }
+GT_INLINE char gt_cdna_string_iterator_next(gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+  GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator);
+  return (cdna_string_iterator->direction==GT_ST_FORWARD) ?
+      gt_cdna_string_iterator_following(cdna_string_iterator) :
+      gt_cdna_string_iterator_previous(cdna_string_iterator);
+}
+

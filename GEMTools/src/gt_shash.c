@@ -17,19 +17,18 @@ GT_INLINE gt_shash* gt_shash_new(void) {
   shash->shash_head = NULL; // uthash initializer
   return shash;
 }
-GT_INLINE void gt_shash_clean(gt_shash* const shash,const bool free_element,const bool free_key) { // FIXME: Erase free_key
+GT_INLINE void gt_shash_clear(gt_shash* const shash,const bool free_element) {
   GT_HASH_CHECK(shash);
   gt_shash_element *shash_element, *tmp;
   HASH_ITER(hh,shash->shash_head,shash_element,tmp) {
     HASH_DEL(shash->shash_head,shash_element);
     if (free_element) free(shash_element->element);
-    if (free_key) free(shash_element->key);
     free(shash_element);
   }
 }
-GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element,const bool free_key) {
+GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element) {
   GT_HASH_CHECK(shash);
-  gt_shash_clean(shash,free_element,free_key);
+  gt_shash_clear(shash,free_element);
   free(shash);
 }
 

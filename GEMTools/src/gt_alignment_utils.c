@@ -24,12 +24,14 @@ GT_INLINE gt_map* gt_alignment_put_map(
   gt_map* found_map;
   uint64_t found_map_pos;
   if (gt_expect_false(gt_alignment_find_map_fx(gt_map_cmp_fx,alignment,map,&found_map_pos,&found_map))) {
-    if (gt_expect_true(replace_duplicated)) {
+    if (gt_expect_true(replace_duplicated && gt_map_get_global_distance(map) < gt_map_get_global_distance(found_map))) {
+      /* (gt_map_get_global_bases_aligned(map) <= gt_map_get_global_bases_aligned(found_map) ||
+       *  gt_map_get_global_distance(map) < gt_map_get_global_distance(found_map)) */
       // Remove old map
-      gt_alignment_dec_counter(alignment,gt_map_get_global_distance(found_map)+1);
-      gt_map_delete(found_map); // TODO: v2. Removal of a mmap member in duplicates resolution of conflict
+      gt_alignment_dec_counter(alignment,gt_map_get_global_distance(found_map));
+      gt_map_delete(found_map);
       // Replace old map
-      gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map)+1);
+      gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
       gt_alignment_set_map(alignment,map,found_map_pos);
       return map;
     } else {
@@ -38,7 +40,7 @@ GT_INLINE gt_map* gt_alignment_put_map(
     }
   } else {
     // Add new map
-    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map)+1);
+    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
     gt_alignment_add_map(alignment,map);
     return map;
   }
@@ -132,13 +134,13 @@ GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,
 }
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_vector_clean(gt_alignment_get_counters_vector(alignment));
+  gt_vector_clear(gt_alignment_get_counters_vector(alignment));
   // Recalculate counters
   gt_alignment_map_iterator map_iterator;
   gt_alignment_new_map_iterator(alignment,&map_iterator);
   register gt_map* map;
   while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
-    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map)+1);
+    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
   }
 }
 
@@ -173,8 +175,9 @@ GT_INLINE void gt_alignment_merge_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_src);
   GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
     register gt_map* const map_src_cp = gt_map_copy(map_src);
-    gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,false);
+    gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,true);
   }
+  gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst), gt_alignment_get_mcs(alignment_src)));
 }
 
 GT_INLINE void gt_alignment_remove_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {

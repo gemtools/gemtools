@@ -96,11 +96,11 @@ GT_INLINE gt_map** gt_template_put_mmap(
     gt_template_alias_dup_mmap_members(gt_map_cmp_fx,template,mmap,uniq_mmaps);
     // Insert mmap
     if (!is_duplicated) { // Add new mmap
-      gt_template_inc_counter(template,mmap_attr->distance+1);
+      gt_template_inc_counter(template,mmap_attr->distance);
       gt_template_add_mmap(template,uniq_mmaps,mmap_attr);
       template_mmap=gt_template_get_mmap(template,gt_template_get_num_mmaps(template)-1,NULL);
     } else { // Replace mmap
-      gt_template_dec_counter(template,found_mmap_attr.distance+1); // Remove old mmap
+      gt_template_dec_counter(template,found_mmap_attr.distance); // Remove old mmap
       gt_template_set_mmap(template,found_mmap_pos,uniq_mmaps,mmap_attr); // Replace old mmap
       template_mmap=gt_template_get_mmap(template,found_mmap_pos,NULL);
     }
@@ -126,7 +126,7 @@ GT_INLINE void gt_template_insert_mmap_fx(
     gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap); GT_NULL_CHECK(mmap_attr);
-  gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp,template,mmap,mmap_attr,true);
+  gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp,template,mmap,mmap_attr,true); // TODO: Why replace, why?
 }
 GT_INLINE void gt_template_insert_mmap_gtvector(
     gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr) {
@@ -228,7 +228,7 @@ GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
     gt_alignment_recalculate_counters(alignment);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Clear previous counters
-  gt_vector_clean(gt_template_get_counters_vector(template));
+  gt_vector_clear(gt_template_get_counters_vector(template));
   // Recalculate counters
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   GT_TEMPLATE__ATTR_ITERATE_(template,mmap,mmap_attr) {
@@ -237,7 +237,7 @@ GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
       total_distance+=gt_map_get_global_distance(mmap[i]);
     }
     mmap_attr->distance=total_distance;
-    gt_template_inc_counter(template,total_distance+1);
+    gt_template_inc_counter(template,total_distance);
   }
 }
 
@@ -289,7 +289,7 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
     register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
-    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,false);
+    gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,true);
     free(mmap_copy); // Free array handler
   }
 }

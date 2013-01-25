@@ -57,6 +57,9 @@ GT_INLINE void gt_string_set_length(gt_string* const string,const uint64_t lengt
 
 GT_INLINE char* gt_string_char_at(gt_string* const string,const uint64_t pos);
 
+GT_INLINE void gt_string_append_char(gt_string* const string_dst,char const character);
+GT_INLINE void gt_string_append_eos(gt_string* const string_dst);
+
 GT_INLINE void gt_string_append_string(gt_string* const string_dst,char* const string_src,const uint64_t length);
 GT_INLINE void gt_string_append_gt_string(gt_string* const string_dst,gt_string* const string_src);
 

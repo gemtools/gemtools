@@ -42,6 +42,10 @@
 // Internally to Gem-tools error codes are returned as gt_status
 typedef int32_t gt_status;
 
+// Codes gt_status
+#define GT_STATUS_OK 1
+#define GT_STATUS_FAIL -1
+
 // Special characters
 #define EOS '\0'
 #define EOL '\n'
@@ -57,6 +61,7 @@ typedef int32_t gt_status;
 #define EQUAL '='
 #define COMA ','
 #define SEMICOLON ';'
+#define HASH '#'
 
 // Buffer sizes
 #define GT_BUFFER_SIZE_1K   ((1<<10)-64)
@@ -110,7 +115,6 @@ typedef int32_t gt_status;
 /*
  * Is functions
  */
-#define gt_is_valid_quality(character) (33 <= (character))
 #define gt_is_number(character) ('0' <= (character) && (character) <= '9')
 #define gt_get_cipher(character) ((character) - '0')
 

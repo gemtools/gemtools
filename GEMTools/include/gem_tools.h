@@ -11,6 +11,8 @@
 
 // Common
 #include "gt_commons.h"
+#include "gt_string.h"
+#include "gt_dna_string.h"
 
 // Input handlers
 #include "gt_input_file.h"
@@ -18,7 +20,7 @@
 // Input parsers
 #include "gt_input_map_parser.h"
 #include "gt_input_sam_parser.h"
-#include "gt_input_fastq_parser.h"
+#include "gt_input_fasta_parser.h"
 
 // Output handlers
 #include "gt_output_buffer.h"
@@ -33,6 +35,11 @@
 #include "gt_alignment_utils.h"
 #include "gt_template.h"
 #include "gt_template_utils.h"
+#include "gt_counters_utils.h"
+
+#include "gt_dna_read.h"
+#include "gt_compact_dna_string.h"
+#include "gt_sequence_archive.h"
 
 // HighLevel Modules
 #include "gt_stats.h"

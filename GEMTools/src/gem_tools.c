@@ -41,6 +41,7 @@ GT_INLINE gt_status gt_input_generic_parser_get_template(
           return GT_IGP_FAIL;
         }
       }
+      // TODO: Tag check consistency
       break;
     case SAM:
       if (attributes->paired_read) {

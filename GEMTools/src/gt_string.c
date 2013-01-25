@@ -116,6 +116,18 @@ GT_INLINE char* gt_string_char_at(gt_string* const string,const uint64_t pos) {
   return string->buffer+pos;
 }
 
+GT_INLINE void gt_string_append_char(gt_string* const string_dst,char const character) {
+  GT_STRING_CHECK_NO_STATIC(string_dst);
+  gt_string_resize(string_dst,string_dst->length+1);
+  string_dst->buffer[string_dst->length] = character; // NOTE: No EOS appended
+  ++string_dst->length;
+}
+GT_INLINE void gt_string_append_eos(gt_string* const string_dst) {
+  GT_STRING_CHECK_NO_STATIC(string_dst);
+  gt_string_resize(string_dst,string_dst->length+1);
+  string_dst->buffer[string_dst->length] = EOS;
+}
+
 GT_INLINE void gt_string_append_string(gt_string* const string_dst,char* const string_src,const uint64_t length) {
   GT_STRING_CHECK_NO_STATIC(string_dst);
   GT_NULL_CHECK(string_src);

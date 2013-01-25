@@ -11,6 +11,7 @@
 
 #include "gt_commons.h"
 #include "gt_dna_string.h"
+#include "gt_dna_read.h"
 
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
@@ -22,9 +23,9 @@
 #include "gt_template_utils.h"
 
 // Codes gt_status
-#define GT_IMP_OK 1
-#define GT_IMP_FAIL -1
-#define GT_IMP_EOF 0
+#define GT_IMP_OK   GT_STATUS_OK
+#define GT_IMP_FAIL GT_STATUS_FAIL
+#define GT_IMP_EOF  0
 
 /*
  * Parsing error/state codes // TODO Move common errors to input_parser.h
@@ -148,17 +149,19 @@ GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_string* const src_text);
 GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_string* const src_text);
-GT_INLINE gt_status gt_input_map_parser_synch_blocks(
-    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
-    pthread_mutex_t* const input_mutex);
 
 GT_INLINE gt_status gt_input_map_parser_get_template_limited(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,const uint64_t num_mmaps);
 GT_INLINE gt_status gt_input_map_parser_get_alignment_limited(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,const uint64_t num_maps);
 
-GT_INLINE gt_status gt_input_map_parser_synch_blocks(
-    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
-    pthread_mutex_t* const input_mutex);
+#define gt_input_map_parser_synch_blocks(buffered_map_input1,buffered_map_input2,input_mutex) \
+    gt_input_map_parser_synch_blocks_va(input_mutex,2,buffered_map_input1,buffered_map_input2)
+GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
+    pthread_mutex_t* const input_mutex,uint64_t num_map_inputs,
+    gt_buffered_input_file* const buffered_map_input,va_list v_args);
+GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
+    pthread_mutex_t* const input_mutex,uint64_t num_map_inputs,
+    gt_buffered_input_file* const buffered_map_input,...);
 
 #endif /* GT_INPUT_MAP_PARSER_H_ */

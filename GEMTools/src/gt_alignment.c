@@ -41,25 +41,25 @@ GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment) {
   gt_string_clear(alignment->read);
   gt_string_clear(alignment->qualities);
   alignment->maps_txt = NULL;
-  gt_shash_clean(alignment->attributes,true,true);
+  gt_shash_clear(alignment->attributes,true);
 }
 GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_alignment_clear_maps(alignment);
-  gt_vector_clean(alignment->counters);
-  gt_shash_clean(alignment->maps_dictionary,true,true);
+  gt_vector_clear(alignment->counters);
+  gt_shash_clear(alignment->maps_dictionary,true);
   gt_alignment_clear_handler(alignment);
 }
 GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_alignment_clear_maps(alignment);
-  gt_shash_delete(alignment->maps_dictionary,true,true);
+  gt_shash_delete(alignment->maps_dictionary,true);
   gt_string_delete(alignment->tag);
   gt_string_delete(alignment->read);
   gt_string_delete(alignment->qualities);
   gt_vector_delete(alignment->counters);
   gt_vector_delete(alignment->maps);
-  gt_shash_delete(alignment->attributes,true,true);
+  gt_shash_delete(alignment->attributes,true);
   free(alignment);
 }
 
@@ -124,34 +124,30 @@ GT_INLINE uint64_t gt_alignment_get_num_counters(gt_alignment* const alignment) 
 }
 GT_INLINE uint64_t gt_alignment_get_counter(gt_alignment* const alignment,const uint64_t stratum) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
-  return *gt_vector_get_elm(alignment->counters,stratum-1,uint64_t);
+  return *gt_vector_get_elm(alignment->counters,stratum,uint64_t);
 }
 GT_INLINE void gt_alignment_dynamically_allocate_counter(gt_alignment* const alignment,const uint64_t stratum) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
-  gt_vector_reserve(alignment->counters,stratum,true);
-  if (gt_vector_get_used(alignment->counters)<stratum) {
-    gt_vector_set_used(alignment->counters,stratum);
+  register const uint64_t used_strata = stratum+1;
+  gt_vector_reserve(alignment->counters,used_strata,true);
+  if (gt_vector_get_used(alignment->counters) < used_strata) {
+    gt_vector_set_used(alignment->counters,used_strata);
   }
 }
 GT_INLINE void gt_alignment_set_counter(gt_alignment* const alignment,const uint64_t stratum,const uint64_t value) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
   gt_alignment_dynamically_allocate_counter(alignment,stratum);
-  *gt_vector_get_elm(alignment->counters,stratum-1,uint64_t) = value;
+  *gt_vector_get_elm(alignment->counters,stratum,uint64_t) = value;
 }
 GT_INLINE void gt_alignment_dec_counter(gt_alignment* const alignment,const uint64_t stratum) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
   gt_alignment_dynamically_allocate_counter(alignment,stratum);
-  --(*gt_vector_get_elm(alignment->counters,stratum-1,uint64_t));
+  --(*gt_vector_get_elm(alignment->counters,stratum,uint64_t));
 }
 GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint64_t stratum) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_fatal_check(stratum==0,COUNTERS_POS_STRATUM);
   gt_alignment_dynamically_allocate_counter(alignment,stratum);
-  ++(*gt_vector_get_elm(alignment->counters,stratum-1,uint64_t));
+  ++(*gt_vector_get_elm(alignment->counters,stratum,uint64_t));
 }
 
 /*
@@ -260,7 +256,7 @@ GT_INLINE void gt_alignment_clear_maps(gt_alignment* const alignment) {
   GT_VECTOR_ITERATE(alignment->maps,alg_map,alg_map_pos,gt_map*) {
     gt_map_delete(*alg_map);
   }
-  gt_vector_clean(alignment->maps);
+  gt_vector_clear(alignment->maps);
 }
 GT_INLINE bool gt_alignment_locate_map_reference(gt_alignment* const alignment,gt_map* const map,uint64_t* const position) {
   GT_ALIGNMENT_CHECK(alignment);

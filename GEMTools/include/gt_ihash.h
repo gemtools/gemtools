@@ -29,7 +29,7 @@ typedef struct {
  * Constructor
  */
 GT_INLINE gt_ihash* gt_ihash_new(void);
-GT_INLINE void gt_ihash_clean(gt_ihash* const ihash,const bool free_element);
+GT_INLINE void gt_ihash_clear(gt_ihash* const ihash,const bool free_element);
 GT_INLINE void gt_ihash_delete(gt_ihash* const ihash,const bool free_element);
 
 /*

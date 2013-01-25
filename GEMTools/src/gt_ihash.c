@@ -17,7 +17,7 @@ GT_INLINE gt_ihash* gt_ihash_new(void) {
   ihash->ihash_head = NULL; // uthash initializer
   return ihash;
 }
-GT_INLINE void gt_ihash_clean(gt_ihash* const ihash,const bool free_element) {
+GT_INLINE void gt_ihash_clear(gt_ihash* const ihash,const bool free_element) {
   GT_HASH_CHECK(ihash);
   gt_ihash_element *ihash_element, *tmp;
   HASH_ITER(hh,ihash->ihash_head,ihash_element,tmp) {
@@ -28,7 +28,7 @@ GT_INLINE void gt_ihash_clean(gt_ihash* const ihash,const bool free_element) {
 }
 GT_INLINE void gt_ihash_delete(gt_ihash* const ihash,const bool free_element) {
   GT_HASH_CHECK(ihash);
-  gt_ihash_clean(ihash,free_element);
+  gt_ihash_clear(ihash,free_element);
   free(ihash);
 }
 

@@ -25,7 +25,7 @@ GT_INLINE void gt_output_buffer_clear(gt_output_buffer* const output_buffer) {
   output_buffer->mayor_block_id=UINT32_MAX;
   output_buffer->minor_block_id=0;
   output_buffer->is_final_block=true;
-  gt_vector_clean(output_buffer->buffer);
+  gt_vector_clear(output_buffer->buffer);
 }
 GT_INLINE void gt_output_buffer_initiallize(gt_output_buffer* const output_buffer,const gt_output_buffer_state buffer_state) {
   GT_OUTPUT_BUFFER_CHECK(output_buffer);

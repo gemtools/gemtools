@@ -550,6 +550,97 @@ void gt_remove_maps_with_n_or_more_mismatches() {
   gt_output_file_close(output_file);
 }
 
+void gt_load_reference__dump_it() {
+  // Open file IN/OUT
+  gt_input_file* input_file = (parameters.name_input_file==NULL) ?
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,false);
+  gt_output_file* output_file = (parameters.name_output_file==NULL) ?
+      gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
+
+  // Load reference
+  register gt_sequence_archive* sequence_archive = gt_sequence_archive_new();
+  if (gt_input_multifasta_parser_get_archive(input_file,sequence_archive)!=GT_IFP_OK) {
+    gt_error_msg("Fatal error parsing reference\n");
+  }
+
+  // Dump summary of reference file
+  if (gt_input_fasta_is_multifasta(input_file)) {
+    fprintf(stderr,"File '%s' is MULTIFASTA\n",input_file->file_name);
+  }
+  gt_sequence_archive_iterator seq_arch_it;
+  gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
+  register gt_segmented_sequence* seq;
+  while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
+    fprintf(stderr,"SEQUENCE '%s' [length=%lu]\n",seq->seq_name->buffer,seq->sequence_total_length);
+  }
+  fprintf(stderr,"\n");
+
+//  // Dump the content of the reference file
+//  gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
+//  while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
+//    fprintf(stderr,">%s\n",seq->seq_name->buffer);
+//    register uint64_t i;
+//    for (i=0; i<seq->sequence_total_length; ++i) {
+//      fprintf(stderr,"%c",gt_segmented_sequence_get_char_at(seq,i));
+//    }
+//    if (seq->sequence_total_length) fprintf(stderr,"\n");
+//  }
+
+  // Dump the content of the reference file (using Iterators)
+  gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
+  while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
+    fprintf(stderr,">%s\n",seq->seq_name->buffer);
+    gt_segmented_sequence_iterator sequence_iterator;
+    gt_segmented_sequence_new_iterator(seq,0,GT_ST_FORWARD,&sequence_iterator);
+    if (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
+      while (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
+        fprintf(stderr,"%c",gt_segmented_sequence_iterator_next(&sequence_iterator));
+      }
+      fprintf(stderr,"\n");
+    }
+  }
+
+  // Freedom !!
+  gt_sequence_archive_delete(sequence_archive);
+  gt_input_file_close(input_file);
+  gt_output_file_close(output_file);
+}
+
+void gt_filter_fastq() {
+  // Open file IN/OUT
+  gt_input_file* input_file = (parameters.name_input_file==NULL) ?
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,false);
+  gt_output_file* output_file = (parameters.name_output_file==NULL) ?
+      gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
+
+  // Parallel reading+process
+  #pragma omp parallel num_threads(parameters.num_threads)
+  {
+    gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
+    gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
+    gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
+
+    gt_status error_code;
+    gt_dna_read* dna_read = gt_dna_read_new();
+    while ((error_code=gt_input_fasta_parser_get_read(buffered_input,dna_read))) {
+      if (error_code!=GT_IFP_OK) {
+        gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
+      }
+
+      gt_output_fasta_bofprint_dna_read(buffered_output,gt_input_fasta_get_format(input_file),dna_read);
+    }
+
+    // Clean
+    gt_dna_read_delete(dna_read);
+    gt_buffered_input_file_close(buffered_input);
+    gt_buffered_output_file_close(buffered_output);
+  }
+
+  // Clean
+  gt_input_file_close(input_file);
+  gt_output_file_close(output_file);
+}
+
 void parse_arguments(int argc,char** argv) {
   struct option long_options[] = {
     { "input", required_argument, 0, 'i' },
@@ -587,7 +678,8 @@ int main(int argc,char** argv) {
   // Load it!
   //
 
-  gt_remove_maps_with_n_or_more_mismatches();
+  // Leo's
+  //gt_remove_maps_with_n_or_more_mismatches();
 
   //gt_constructor_template_merge_hung();
 
@@ -598,8 +690,8 @@ int main(int argc,char** argv) {
   //gt_example_map_string_parsing();
   //gt_dummy_example();
 
-//  gt_error_msg("Incorrect test name provided");
-//  usage();
+  gt_filter_fastq();
+
   return -1;
 }
 

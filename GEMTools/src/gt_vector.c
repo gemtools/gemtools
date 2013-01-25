@@ -50,7 +50,7 @@ GT_INLINE gt_status gt_vector_reserve(gt_vector* vector,size_t num_elements,bool
   }
   return GT_VECTOR_OK;
 }
-GT_INLINE gt_status gt_vector_resize__clean(gt_vector* vector,size_t num_elements) {
+GT_INLINE gt_status gt_vector_resize__clear(gt_vector* vector,size_t num_elements) {
   GT_VECTOR_CHECK(vector);
   if (vector->elements_allocated < num_elements) {
     size_t proposed=(float)vector->elements_allocated*GT_VECTOR_EXPAND_FACTOR;
@@ -63,7 +63,7 @@ GT_INLINE gt_status gt_vector_resize__clean(gt_vector* vector,size_t num_element
   return GT_VECTOR_OK;
 }
 
-GT_INLINE void gt_vector_cast__clean(gt_vector* vector,size_t element_size) {
+GT_INLINE void gt_vector_cast__clear(gt_vector* vector,size_t element_size) {
   GT_VECTOR_CHECK(vector); GT_ZERO_CHECK(element_size);
   vector->elements_allocated=(vector->elements_allocated*vector->element_size)/element_size;
   vector->element_size=element_size;
@@ -76,7 +76,7 @@ GT_INLINE void gt_vector_delete(gt_vector* vector) {
 }
 GT_INLINE void gt_vector_copy(gt_vector* vector_to,gt_vector* vector_from) {
   GT_VECTOR_CHECK(vector_to); GT_VECTOR_CHECK(vector_from);
-  gt_vector_cast__clean(vector_to,vector_from->element_size);
+  gt_vector_cast__clear(vector_to,vector_from->element_size);
   gt_vector_reserve(vector_to,vector_from->used,false);
   gt_vector_set_used(vector_to,gt_vector_get_used(vector_from));
   memcpy(vector_to->memory,vector_from->memory,vector_from->used*vector_from->element_size);

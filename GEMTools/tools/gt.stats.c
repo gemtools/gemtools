@@ -54,7 +54,7 @@ void gt_stats_print_mmap_distribution(uint64_t* const mmap,const uint64_t num_al
 #define GT_STATS_PRINT_MMAP_FORMAT "%6" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_MMAP(RANGE) mmap[RANGE],100.0*(float)mmap[RANGE]/(float)num_alignments
   if(!num_alignments) return;
-  fprintf(stderr,"MMap.ranges\n");
+  fprintf(stderr,"MMap.ranges (from decoded maps)\n");
   fprintf(stderr,"  -->        [0] \t=> "GT_STATS_PRINT_MMAP_FORMAT,(num_alignments-num_mapped),100.0*(float)(num_alignments-num_mapped)/(float)num_alignments);
   fprintf(stderr,"  -->        [1] \t=> "GT_STATS_PRINT_MMAP_FORMAT,GT_STATS_PRINT_MMAP(MMAP_RANGE_1));
   fprintf(stderr,"  -->      (1,5] \t=> "GT_STATS_PRINT_MMAP_FORMAT,GT_STATS_PRINT_MMAP(MMAP_RANGE_5));
@@ -69,7 +69,7 @@ void gt_stats_print_uniq_distribution(uint64_t* const uniq,const uint64_t num_al
 #define GT_STATS_PRINT_UNIQ_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_UNIQ(RANGE) uniq[RANGE],100.0*(float)uniq[RANGE]/(float)num_alignments
   if(!num_alignments) return;
-  fprintf(stderr,"Uniq.ranges\n");
+  fprintf(stderr,"Uniq.ranges (from MAP.counters or SAM.alignments)\n");
   fprintf(stderr,"  -->        [X] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(UNIQ_RANGE_X));
   fprintf(stderr,"  -->        [0] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(UNIQ_RANGE_0));
   fprintf(stderr,"  -->        [1] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(UNIQ_RANGE_1));
@@ -120,9 +120,7 @@ void gt_stats_print_misms_distribution(uint64_t* const misms,const uint64_t num_
 }
 uint64_t gt_stats_sum_misms_pos(uint64_t* const pos_error,uint64_t const begin,uint64_t const end) {
   register uint64_t i, accum = 0;
-  for (i=begin;i<end;++i) {
-    accum += pos_error[i];
-  }
+  for (i=begin;i<end;++i) accum += pos_error[i];
   return accum;
 }
 void gt_stats_print_read_event_positions(
@@ -142,21 +140,21 @@ void gt_stats_print_read_event_positions(
 void gt_stats_print_num_junctions_distribution(uint64_t* const num_junctions,uint64_t const total) {
 #define GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_NUM_JUNCTIONS(RANGE) num_junctions[RANGE],100.0*(float)num_junctions[RANGE]/(float)total
-  fprintf(stderr,"  -->           [1]%% \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_1));
-  fprintf(stderr,"  -->           [2]%% \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_2));
-  fprintf(stderr,"  -->           [3]%% \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_3));
-  fprintf(stderr,"  -->       (3,inf)%% \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_BEHOND));
+  fprintf(stderr,"  -->           [1] \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_1));
+  fprintf(stderr,"  -->           [2] \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_2));
+  fprintf(stderr,"  -->           [3] \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_3));
+  fprintf(stderr,"  -->       (3,inf) \t=> "GT_STATS_PRINT_NUM_JUNCTIONS_FORMAT,GT_STATS_PRINT_NUM_JUNCTIONS(NUM_JUNCTION_BEHOND));
 }
 void gt_stats_print_length_junctions_distribution(uint64_t* const length_junctions,uint64_t const total_junctions) {
 #define GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_LENGTH_JUNCTION(RANGE) length_junctions[RANGE],100.0*(float)length_junctions[RANGE]/(float)total_junctions
   fprintf(stderr,"SM.Length.Junctions\n");
-  fprintf(stderr,"  -->       [0,100]%% \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_100));
-  fprintf(stderr,"  -->    (100,1000]%% \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_1000));
-  fprintf(stderr,"  -->   (1000,5000]%% \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_5000));
-  fprintf(stderr,"  -->  (5000,10000]%% \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_10000));
-  fprintf(stderr,"  --> (10000,50000]%% \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_50000));
-  fprintf(stderr,"  -->   (50000,inf)%% \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_BEHOND));
+  fprintf(stderr,"  -->       [0,100] \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_100));
+  fprintf(stderr,"  -->    (100,1000] \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_1000));
+  fprintf(stderr,"  -->   (1000,5000] \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_5000));
+  fprintf(stderr,"  -->  (5000,10000] \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_10000));
+  fprintf(stderr,"  --> (10000,50000] \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_50000));
+  fprintf(stderr,"  -->   (50000,inf) \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(LEN_JUNCTION_BEHOND));
 }
 void gt_stats_print_junction_position_distribution(uint64_t* const junction_position,uint64_t const total_junctions,uint64_t const max_length) {
   register const uint64_t max_length_stats = GT_MIN(max_length,SHORT_READ_POS_RANGE);
@@ -173,24 +171,25 @@ void gt_stats_print_junction_position_distribution(uint64_t* const junction_posi
 
 void gt_stats_print_qualities_error_distribution(uint64_t* const qualities_error,uint64_t const total_error,const char* const header) {
   register uint64_t i;
+  register uint64_t j, qual;
   if(!total_error) return;
   fprintf(stderr,"%s\n",header);
-//  // Print Header
-//  fprintf(stderr,"    ");
-//  for (j=0;j<16;++j) fprintf(stderr,"[%4lu]",j);
-//  fprintf(stderr,"\n");
-//  // Print Values
-//  for (i=0;i<16;++i) {
-//    fprintf(stderr,"%3lu ",qual);
-//    for (j=0;j<16;++j,++qual) {
-//      fprintf(stderr,"[%4.1f]",100.0*((double)qualities_error[qual]/(double)total_error));
-//    }
-//    fprintf(stderr,"\n");
-//  }
-  // CSV, Compact format
-  for (i=0;i<256;++i) {
-    fprintf(stderr,"\"%04.01f\",",100.0*((double)qualities_error[i]/(double)total_error));
+  // Print Header
+  fprintf(stderr,"    ");
+  for (j=0;j<16;++j) fprintf(stderr,"[%4lu]",j);
+  fprintf(stderr,"\n");
+  // Print Values
+  for (i=0,qual=0;i<16;++i) {
+    fprintf(stderr,"%3lu ",qual);
+    for (j=0;j<16;++j,++qual) {
+      fprintf(stderr,"[%4.1f]",100.0*((double)qualities_error[qual]/(double)total_error));
+    }
+    fprintf(stderr,"\n");
   }
+//  // CSV, Compact format
+//  for (i=0;i<256;++i) {
+//    fprintf(stderr,"\"%04.01f\",",100.0*((double)qualities_error[i]/(double)total_error));
+//  }
   fprintf(stderr,"\n");
 }
 void gt_stats_print_misms_transition_table(uint64_t* const misms_trans,uint64_t const total_misms,const char* const header) {
@@ -409,6 +408,7 @@ void usage() {
                   "        --num-reads|n\n"
                   "        --best-map\n"
                   "       [Tests]\n"
+                  "        --all|A\n"
                   "        --error-profile|E\n"
                   "        --mismatch-transitions|T\n"
                   "        --mismatch-quality|Q\n"
@@ -431,6 +431,7 @@ void parse_arguments(int argc,char** argv) {
     { "num-reads", no_argument, 0, 'n' },
     { "best-map", no_argument, 0, 2 },
     /* [Tests] */
+    { "all", no_argument, 0, 'A' },
     { "error-profile", no_argument, 0, 'E' },
     { "mismatch-transitions", no_argument, 0, 'T' },
     { "mismatch-quality", no_argument, 0, 'Q' },
@@ -445,7 +446,7 @@ void parse_arguments(int argc,char** argv) {
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:pn:ETQScvqt:h",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:pn:EATQScvqt:h",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     /* [Input] */
@@ -465,6 +466,12 @@ void parse_arguments(int argc,char** argv) {
       parameters.best_map = true;
       break;
     /* [Tests] */
+    case 'A': // --all
+      parameters.error_profile = true;
+      parameters.mismatch_transitions = true;
+      parameters.mismatch_quality = true;
+      parameters.splitmaps_profile = true;
+      break;
     case 'E': // --error-profile
       parameters.error_profile = true;
       break;

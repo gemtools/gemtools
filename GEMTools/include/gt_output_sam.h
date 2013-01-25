@@ -17,10 +17,15 @@
 
 
 /*
+ * SAM building block printers
+ */
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_qname,);
+
+/*
  * SAM High-level Printers
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_mismatch_string,print_template,gt_template* const template,const uint64_t max_printable_maps);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_mismatch_string,print_alignment,gt_alignment* const alignment,const uint64_t max_printable_maps);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_mismatch_string,gt_template* const template,const uint64_t max_printable_maps);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_mismatch_string,gt_alignment* const alignment,const uint64_t max_printable_maps);
 
 
 #endif /* GT_OUTPUT_SAM_H_ */

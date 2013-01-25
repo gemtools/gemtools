@@ -12,14 +12,39 @@ const bool gt_dna[256] =
 {
     [0 ... 255] = false,
     ['A'] = true,['C'] = true,['G'] = true,['T'] = true,
-    ['a'] = true,['c'] = true,['g'] = true,['t'] = true,
+    /*['a'] = true,['c'] = true,['g'] = true,['t'] = true, *//* TODO: a,c,g,t,n compatibility via gt_dna_string */
     ['N'] = true
+};
+const char gt_dna_normalized[256] =
+{
+    [0 ... 255] = 'N',
+    ['A'] = 'A',['C'] = 'C',['G'] = 'G',['T'] = 'T',
+    ['a'] = 'A',['c'] = 'C',['g'] = 'G',['t'] = 'T',
 };
 const char gt_complement_table[256] =
 {
   [0 ... 255] = '~',
   ['A'] = 'T', ['C'] = 'G', ['G'] = 'C',  ['T'] = 'A', ['N'] = 'N'
 };
+const bool gt_iupac_code[256] =
+{
+  [0 ... 255] = false,
+  /* Upper case */
+  ['A'] = true, ['C'] = true, ['G'] = true, ['T'] = true,
+  ['N'] = true, ['R'] = true, ['N'] = true, ['D'] = true,
+  ['E'] = true, ['H'] = true, ['I'] = true, ['L'] = true,
+  ['K'] = true, ['M'] = true, ['F'] = true, ['P'] = true,
+  ['S'] = true, ['W'] = true, ['Y'] = true, ['V'] = true, ['Q'] = true,
+  ['B'] = true, ['Z'] = true, ['X'] = true, ['U'] = true, ['R'] = true,
+  /* Lower case*/
+  ['a'] = true, ['c'] = true, ['g'] = true, ['t'] = true,
+  ['n'] = true, ['r'] = true, ['n'] = true, ['d'] = true,
+  ['e'] = true, ['h'] = true, ['i'] = true, ['l'] = true,
+  ['k'] = true, ['m'] = true, ['f'] = true, ['p'] = true,
+  ['s'] = true, ['w'] = true, ['y'] = true, ['v'] = true, ['q'] = true,
+  ['b'] = true, ['z'] = true, ['x'] = true, ['u'] = true, ['r'] = true
+};
+
 
 /*
  * DNA String handler
@@ -77,7 +102,7 @@ GT_INLINE void gt_dna_string_reverse_complement_copy(gt_dna_string* const dna_st
  * DNA String Iterator
  */
 GT_INLINE void gt_dna_string_new_iterator(
-    gt_dna_string* const dna_string,const uint64_t pos,gt_strand const strand,
+    gt_dna_string* const dna_string,const uint64_t pos,gt_string_traversal const direction,
     gt_dna_string_iterator* const dna_string_iterator) {
   // TODO
 }

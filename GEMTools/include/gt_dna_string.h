@@ -27,10 +27,22 @@ typedef struct {
   uint64_t current_pos;
 } gt_dna_string_iterator;
 
+typedef enum { GT_ST_FORWARD, GT_ST_BACKWARD } gt_string_traversal;
+
+/*
+ * Handy check functions
+ */
 extern const bool gt_dna[256];
+extern const bool gt_iupac_code[256];
+
+extern const char gt_dna_normalized[256];
 extern const char gt_complement_table[256];
-#define gt_is_dna(character) gt_dna[(int)character]
-#define gt_get_complement(character) (gt_complement_table[(int)character])
+
+#define gt_is_dna(character)         (gt_dna[(int)(character)])
+#define gt_is_iupac_code(character)  (gt_iupac_code[(int)(character)])
+
+#define gt_get_dna_normalized(character) (gt_dna_normalized[(int)(character)])
+#define gt_get_complement(character) (gt_complement_table[(int)(character)])
 
 /*
  * Checkers
@@ -55,15 +67,15 @@ extern const char gt_complement_table[256];
  */
 GT_INLINE bool gt_dna_string_is_dna_string(gt_dna_string* const dna_string);
 
-GT_INLINE char gt_dna_string_get_char_at(gt_dna_string* const dna_string,const uint64_t pos);
-GT_INLINE void gt_dna_string_set_char_at(gt_dna_string* const dna_string,const uint64_t pos,const char character);
+GT_INLINE char gt_dna_string_get_char_at(gt_dna_string* const dna_string,const uint64_t pos); // TODO
+GT_INLINE void gt_dna_string_set_char_at(gt_dna_string* const dna_string,const uint64_t pos,const char character); // TODO
 
-#define gt_dna_string_set_string gt_string_set_string
-#define gt_dna_string_set_nstring gt_string_set_nstring
+#define gt_dna_string_set_string gt_string_set_string /* TODO */
+#define gt_dna_string_set_nstring gt_string_set_nstring /* TODO */
 #define gt_dna_string_get_string gt_string_get_string
 #define gt_dna_string_get_length gt_string_get_length
 
-#define gt_dna_string_append_string gt_string_append_string
+#define gt_dna_string_append_string gt_string_append_string /* TODO */
 
 GT_INLINE void gt_dna_string_reverse_complement(gt_dna_string* const dna_string);
 GT_INLINE void gt_dna_string_reverse_complement_copy(gt_dna_string* const dna_string_dst,gt_dna_string* const dna_string_src);
@@ -72,7 +84,7 @@ GT_INLINE void gt_dna_string_reverse_complement_copy(gt_dna_string* const dna_st
  * DNA String Iterator
  */
 GT_INLINE void gt_dna_string_new_iterator(
-    gt_dna_string* const dna_string,const uint64_t pos,gt_strand const strand,
+    gt_dna_string* const dna_string,const uint64_t pos,gt_string_traversal const direction,
     gt_dna_string_iterator* const dna_string_iterator);
 GT_INLINE void gt_dna_string_iterator_seek(gt_dna_string_iterator* const dna_string_iterator,const uint64_t pos);
 GT_INLINE bool gt_dna_string_iterator_eos(gt_dna_string_iterator* const dna_string_iterator);

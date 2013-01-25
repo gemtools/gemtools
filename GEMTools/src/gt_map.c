@@ -184,7 +184,7 @@ GT_INLINE void gt_map_add_misms(gt_map* const map,gt_misms* misms) {
 }
 GT_INLINE void gt_map_clear_misms(gt_map* const map) {
   GT_MAP_CHECK(map);
-  gt_vector_clean(map->mismatches);
+  gt_vector_clear(map->mismatches);
 }
 GT_INLINE gt_misms* gt_map_get_misms(gt_map* const map,uint64_t offset) {
   GT_MAP_CHECK(map);
@@ -328,13 +328,13 @@ GT_INLINE int64_t gt_map_cmp_true(gt_map* const map_1,gt_map* const map_2) {
   return 0;
 }
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated) {
-  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2); // TODO: Should be corrected new format trim-based position
   if (gt_string_equals(map_1->seq_name,map_2->seq_name) && map_1->strand==map_2->strand) {
     register const int64_t begin_distance = ((int64_t)map_1->position-(int64_t)gt_map_get_left_trim_length(map_1)) -
         ((int64_t)map_2->position-(int64_t)gt_map_get_left_trim_length(map_2));
     if (GT_ABS(begin_distance)>range_tolerated) return begin_distance;
-    register const int64_t end_distance = (int64_t)(map_1->position+gt_map_get_global_length(map_1)) -
-        (int64_t)(map_2->position+gt_map_get_global_length(map_2));
+    register const int64_t end_distance = (int64_t)(map_1->position+gt_map_get_length(map_1)) -
+        (int64_t)(map_2->position+gt_map_get_length(map_2));
     if (GT_ABS(end_distance)>range_tolerated) return end_distance;
     // Cmp next maps
     if (map_1->next_block==NULL && map_2->next_block!=NULL) return INT64_MAX;

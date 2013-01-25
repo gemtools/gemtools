@@ -60,11 +60,11 @@ typedef struct {
 #define gt_vector_inc_used(vector) (++((vector)->used))
 #define gt_vector_dec_used(vector) (--((vector)->used))
 #define gt_vector_add_used(vector,additional) gt_vector_set_used(vector,gt_vector_get_used(vector)+additional)
-#define gt_vector_clean(vector) (vector)->used=0
+#define gt_vector_clear(vector) (vector)->used=0
 // Initialization and allocation
 #define gt_vector_reserve_additional(vector,additional) gt_vector_reserve(vector,gt_vector_get_used(vector)+additional,false)
 #define gt_vector_prepare(vector,data_type,num_elements) \
-  gt_vector_cast__clean(vector,sizeof(data_type)); \
+  gt_vector_cast__clear(vector,sizeof(data_type)); \
   gt_vector_reserve(vector,num_elements,false)
 // Macro generic iterator
 //  GT_VECTOR_ITERATE(vector_of_ints,elm_iterator,elm_counter,int) {
@@ -91,9 +91,9 @@ typedef struct {
 
 GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size);
 GT_INLINE gt_status gt_vector_reserve(gt_vector* vector,size_t num_elements,bool zero_mem);
-GT_INLINE gt_status gt_vector_resize__clean(gt_vector* vector,size_t num_elements);
+GT_INLINE gt_status gt_vector_resize__clear(gt_vector* vector,size_t num_elements);
 
-GT_INLINE void gt_vector_cast__clean(gt_vector* vector,size_t element_size);
+GT_INLINE void gt_vector_cast__clear(gt_vector* vector,size_t element_size);
 GT_INLINE void gt_vector_delete(gt_vector* vector);
 GT_INLINE void gt_vector_copy(gt_vector* vector_to,gt_vector* vector_from);
 GT_INLINE gt_vector* gt_vector_dup(gt_vector* vector);
