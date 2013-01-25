@@ -233,6 +233,33 @@ GT_INLINE uint64_t gt_map_get_right_trim_length(gt_map* const map) {
   }
   return 0;
 }
+// Bases aligned
+GT_INLINE uint64_t gt_map_get_bases_aligned(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  register int64_t bases_aligned = map->base_length; // FIXME: What if neg length
+  GT_MAP_MISMS_ITERATOR(map,misms_it,misms_pos) {
+    switch (misms_it->misms_type) {
+      case INS:
+        break;
+      case MISMS:
+        --bases_aligned;
+        break;
+      case DEL:
+        bases_aligned -= gt_misms_get_size(misms_it);
+        break;
+    }
+  }
+  gt_cond_fatal_error(bases_aligned<0,MAP_NEG_LENGTH); // FIXME: Error msg
+  return (uint64_t)bases_aligned;
+}
+GT_INLINE uint64_t gt_map_get_global_bases_aligned(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  register uint64_t bases_aligned = 0;
+  GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
+    bases_aligned += gt_map_get_bases_aligned(map_it);
+  } GT_END_MAP_BLOCKS_ITERATOR;
+  return bases_aligned;
+}
 // Global metrics
 GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map) {
   GT_MAP_CHECK(map);
@@ -327,22 +354,30 @@ GT_INLINE int64_t gt_map_cmp_true(gt_map* const map_1,gt_map* const map_2) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   return 0;
 }
+#define GT_MAP_RANGE_CMP_NEXT_MAPS(map_1,map_2,range_tolerated) \
+  if (map_1->next_block==NULL && map_2->next_block!=NULL) return INT64_MAX; \
+  if (map_1->next_block!=NULL && map_2->next_block==NULL) return INT64_MIN; \
+  if (map_1->next_block==NULL && map_2->next_block==NULL) return 0; \
+  return gt_map_range_cmp(map_1->next_block->map,map_2->next_block->map,range_tolerated)
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated) {
-  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2); // TODO: Should be corrected new format trim-based position
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2); // TODO: Should be corrected new/old format trim-based position
   if (gt_string_equals(map_1->seq_name,map_2->seq_name) && map_1->strand==map_2->strand) {
+    // Cmp BEGIN position
     register const int64_t begin_distance = ((int64_t)map_1->position-(int64_t)gt_map_get_left_trim_length(map_1)) -
         ((int64_t)map_2->position-(int64_t)gt_map_get_left_trim_length(map_2));
-    if (GT_ABS(begin_distance)>range_tolerated) return begin_distance;
+    if (GT_ABS(begin_distance)<=range_tolerated) {
+      GT_MAP_RANGE_CMP_NEXT_MAPS(map_1,map_2,range_tolerated);
+    }
+    // Cmp END position // TODO: Consider when the read had been trimmed then there is no base_length reliable
     register const int64_t end_distance = (int64_t)(map_1->position+gt_map_get_length(map_1)) -
         (int64_t)(map_2->position+gt_map_get_length(map_2));
-    if (GT_ABS(end_distance)>range_tolerated) return end_distance;
-    // Cmp next maps
-    if (map_1->next_block==NULL && map_2->next_block!=NULL) return INT64_MAX;
-    if (map_1->next_block!=NULL && map_2->next_block==NULL) return INT64_MIN;
-    if (map_1->next_block==NULL && map_2->next_block==NULL) return 0;
-    return gt_map_range_cmp(map_1->next_block->map,map_2->next_block->map,range_tolerated);
+    if (GT_ABS(end_distance)<=range_tolerated) {
+      GT_MAP_RANGE_CMP_NEXT_MAPS(map_1,map_2,range_tolerated);
+    }
+    // Maps are different, return the one that begins first
+    return begin_distance;
   } else {
-    return INT64_MAX;
+    return INT64_MAX; // TODO: GT_string_cmp();
   }
 }
 GT_INLINE int64_t gt_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps) {

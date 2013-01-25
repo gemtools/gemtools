@@ -281,7 +281,10 @@ GT_INLINE void gt_alignment_handler_copy(gt_alignment* const alignment_dst,gt_al
   gt_string_copy(alignment_dst->read,alignment_src->read);
   gt_string_copy(alignment_dst->qualities,alignment_src->qualities);
   alignment_dst->maps_txt = alignment_src->maps_txt;
+  // Copy attributes
+  alignment_dst->attributes = gt_shash_deep_copy(alignment_src->attributes);
 }
+
 GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment,const bool copy_maps) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_alignment* alignment_cp = gt_alignment_new();
@@ -290,8 +293,6 @@ GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment,const bo
   gt_alignment_handler_copy(alignment_cp,alignment);
   // Copy maps
   if (copy_maps) {
-    // Copy attributes
-    alignment_cp->attributes = gt_shash_deep_copy(alignment->attributes);
     // Copy map related fields (deep copy) {MAPS,MAPS_DICCTIONARY,COUNTERS,ATTRIBUTES}
     gt_vector_copy(alignment_cp->counters,alignment->counters);
     GT_VECTOR_ITERATE(alignment->maps,alg_map,alg_map_pos,gt_map*) {

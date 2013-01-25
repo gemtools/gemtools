@@ -457,7 +457,9 @@ void gt_stats_mmaps_profile(
   GT_TEMPLATE_ITERATE(template,mmap) {
     // Insert Size Distribution
     if (paired_map) {
-      gt_stats_get_inss_distribution(maps_error_profile->inss,gt_template_get_insert_size(mmap));
+      uint64_t gt_err;
+      int64_t ins_size=gt_template_get_insert_size(mmap,&gt_err);
+      if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) gt_stats_get_inss_distribution(maps_error_profile->inss,ins_size);
     }
     // Error Profile
     gt_stats_get_maps_profile(maps_error_profile,template,total_read_length,mmap);
