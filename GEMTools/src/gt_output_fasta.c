@@ -122,9 +122,11 @@ GT_INLINE gt_status gt_output_fasta_gprint_sequence_archive(
     gt_gprintf(gprinter,">"PRIgts"\n",seq->seq_name);
     gt_segmented_sequence_iterator sequence_iterator;
     gt_segmented_sequence_new_iterator(seq,0,GT_ST_FORWARD,&sequence_iterator);
+    register uint64_t chars_written = 0;
     if (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
       while (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
         gt_gprintf(gprinter,"%c",gt_segmented_sequence_iterator_next(&sequence_iterator));
+        if ((++chars_written)%column_width==0) gt_gprintf(gprinter,"\n");
       }
       gt_gprintf(gprinter,"\n");
     }
