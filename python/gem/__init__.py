@@ -1,16 +1,10 @@
 #!/usr/bin/env python
 """Python wrapper around the GEM2 mapper that provides
 ability to feed data into GEM and retrieve the mappings"""
-from Queue import Queue
 import os
-import shutil
 import sys
 import logging
 
-
-# set this to true to cpli qualities to
-# read length and print a warning instead of raising an
-# exception
 import tempfile
 import files
 from . import utils
@@ -40,14 +34,26 @@ use_bundled_executables = True
 ## max mappings to replace mapping counts for + and ! summaries
 _max_mappings = 999999999
 ## filter to work around GT-32 and #006 in gem-map-2-map
-__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(_max_mappings)+'\t"$5}else{print}}}']
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t' + str(_max_mappings) + '\t"$5}else{print}}}']
+
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
     def __getitem__(self, item):
-        if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s"%item):
-            f = pkg_resources.resource_filename("gem", "gembinaries/%s"%item)
+        # check if there is an environment variable set
+        # to specify the path to the GEM executables
+        base_dir = os.getenv("GEM_PATH", None)
+        if base_dir is not None:
+            file = "%s/%s" % (base_dir, item)
+            if os.path.exists(file):
+                logging.debug("Using binary from GEM_PATH : %s" % file)
+                return file
+
+        if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s" % item):
+            f = pkg_resources.resource_filename("gem", "gembinaries/%s" % item)
+            logging.debug("Using bundled binary : %s" % f)
             return f
+        logging.debug("Using binary from PATH: %s" % item)
         return dict.__getitem__(self, item)
 
 ## paths to the executables
@@ -396,6 +402,7 @@ def mapper(input, index, output=None,
            max_edit_distance=0.20,
            mismatch_alphabet="ACGT",
            trim=None,
+           unique_pairing=False,
            threads=1,
            extra=None,
            key_file=None,
@@ -452,6 +459,9 @@ def mapper(input, index, output=None,
           '-T', str(threads)
     ]
 
+    if unique_pairing:
+        pa.append("--unique-pairing")
+
     if max_edit_distance > 0:
         pa.append("-e")
         pa.append("%s" % str(max_edit_distance))
@@ -468,7 +478,10 @@ def mapper(input, index, output=None,
 
     # workaround for GT-32 - filter away the !
     # build list of tools
-    tools = [pa, __awk_filter]
+    tools = [pa]
+    if unique_pairing:
+        tools.append(__awk_filter)
+
     if trim is not None:
         tools.append(trim_c)
 
@@ -596,7 +609,7 @@ def splitmapper(input,
     """
 
     ## check the index
-    index = _prepare_index_parameter(index, gem_suffix=False)
+    index = _prepare_index_parameter(index, gem_suffix=True)
     if quality is None and isinstance(input, files.ReadIterator):
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
@@ -609,7 +622,7 @@ def splitmapper(input,
           '--min-split-size', str(min_split_size),
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
-          '--strata-after-first', str(strata_after_first),
+          '-s', str(strata_after_first),
           '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
@@ -956,7 +969,7 @@ def compute_transcriptome(max_read_length, index, junctions, substract=None):
     """
     transcriptome_p = [
         executables['compute-transcriptome'],
-        max_read_length,
+        str(max_read_length),
         index,
         junctions
     ]

@@ -101,13 +101,13 @@ def read_to_map(read):
 def __parse_error_output(stream, name="Tool"):
     """Parse the GEM error output stream and
     if 'error' occurs exists"""
-    logging.info("Error thread started for %s %s" % (name, stream))
+    logging.debug("Error thread started for %s %s" % (name, stream))
     for line in stream:
         line = line.rstrip()
         if re.search("error", line):
             logging.error("%s raised an error !\n%s\n" % (name, line))
             exit(1)
-    logging.info("Error thread method finished for %s %s" % (name, stream))
+    logging.debug("Error thread method finished for %s %s" % (name, stream))
 
 
 complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
@@ -194,7 +194,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
     if path is not None:
         env = {'PATH': path}
     for i, params in enumerate(tools):
-        logging.info("Starting %s :\n\t%s" % (name, " ".join(params)))
+        logging.info("Starting %s :\n\t%s" % (name, " ".join(params).replace("\t", "\\t")))
         #print "Starting %s :\n\t%s" % (name, " ".join(params))
         p_in = process_in
         p_out = process_out
@@ -204,8 +204,6 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             ## and set stdout to PIPE if there are more
             if num_tools > 1 or post_transform is not None:
                 p_out = subprocess.PIPE
-            logging.debug("Starting Initial process %s %s\nstdout: %s\nstderr %s" % (
-                name, str(params), str(process_out), str(process_err)))
             first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True,
                 env=env)
             current_process = first_process
@@ -215,13 +213,11 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             p_out = process_out
             if i < num_tools - 1 or post_transform is not None:
                 p_out = subprocess.PIPE
-            logging.debug("Starting Piped process %s %s" % (name, str(params)))
             current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err,
                 close_fds=True, env=env)
         if gem.log_output != gem.LOG_STDERR:
             append_logger(current_process, logfile)
         last_process = current_process
-
 
     ## start the input thread
     threads = []
@@ -295,7 +291,6 @@ def __write_input(sequence, stream, transformer=None):
     @param transformer: optional transformer function
     @type transformer: function
     """
-    logging.info("Input thread method started for %s" % (stream))
     for e in sequence:
         if transformer is not None:
             e = transformer(e)
@@ -305,7 +300,6 @@ def __write_input(sequence, stream, transformer=None):
             logging.error("Failed to write %s to stream: %s" % (str(e), str(ex)))
             exit(1)
     stream.close()
-    logging.info("Input thread method finished for %s" % (stream))
 
 
 def __write_output(output, stream, transformer=None):

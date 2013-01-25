@@ -3,58 +3,211 @@ import sys
 import os
 import time
 import argparse
-
+import logging
 import gem
 
+from gem.filter import interleave, unmapped
+from gem.filter import filter as gf
 
-class MappingParameters(object):
-    def __init__(self, index, name, output_dir, delta, threads):
-        self.index = index
+
+class MappingPipeline(object):
+
+    def __init__(self, name=None, index=None,
+        output_dir=None,
+        annotation=None,
+        threads=2,
+        junctioncoverage=4,
+        maxlength=100,
+        transcript_index=None,
+        transcript_keys=None,
+        delta=1
+        ):
         self.name = name
-        self.delta = delta
+        self.index = index
         self.output_dir = output_dir
+        self.annotation = annotation
         self.threads = threads
-        self.transcript_index = None
-        self.transcript_index_keys = None
-        self.transcript_index_denovo = None
-        self.transcript_index_denovo_keys = None
+        self.junctioncoverage = junctioncoverage
+        self.maxlength = maxlength
+        self.transcript_index = transcript_index
+        self.transcript_keys = transcript_keys
+        self.denovo_index = None
+        self.denovo_keys = None
+        self.delta = delta
+        self.mappings = []
+        self.files = []
 
+        if self.output_dir is None:
+            self.output_dir = os.getcwd()
 
-def map_step(input, suffix, params, trim=None, do_transcript_mapping=True):
-    mapping = None
-    transcript_mapping = None
-    mapping_out = "%s/%s_%s.map" % (params.output_dir, suffix, params.name)
-    transcript_out = "%s/%s_%s_transcript.map" % (params.output_dir, suffix, params.name)
+        ## check if output is specified and create folder in case it does not exists
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
 
-    ## create initial mapping
-    if not os.path.exists(mapping_out):
+        if self.transcript_keys is None and self.transcript_index is not None:
+            self.transcript_keys = self.transcript_index[:-4] + ".keys"
+
+    def cleanup(self):
+        """Delete all remaining temporary and intermediate files
+        """
+        for f in self.files:
+            if os.path.exists(f):
+                logging.info("Removing intermediate file : %s" % (f))
+                os.remove(f)
+
+    def create_file_name(self, suffix, file_suffix="map", final=False):
+        """Create a result file name"""
+        file = ""
+        if suffix is not None and len(suffix) > 0:
+            file = "%s/%s_%s.%s" % (self.output_dir, self.name, suffix, file_suffix)
+        else:
+            file = "%s/%s.%s" % (self.output_dir, self.name, file_suffix)
+        if not final:
+            self.files.append(file)
+        return file
+
+    def _guess_input_name(self, input):
+        try:
+            return input.filename
+        except Exception:
+            return "STREAM"
+
+    def merge(self, suffix):
+        """Merge current set of mappings and delete last ones"""
+        out = self.create_file_name(suffix)
+        logging.info("Merging %d mappings into %s" % (len(self.mappings), out))
+        merged = gem.merger(
+            self.mappings[0].clone(),
+            [m.clone() for m in self.mappings[1:]]
+        ).merge(out)
+
+        for m in self.mappings:
+            logging.info("Removing temporary mapping %s ", m.filename)
+            os.remove(m.filename)
+        self.mappgins = []
+        self.mappings.append(merged)
+        return merged
+
+    def mapping_step(self, input, suffix, trim=None):
+        """Single mapping step where the input is passed on
+        as is to the mapper. The output name is created based on
+        the dataset name in the parameters the suffix.
+
+        The function returns an opened ReadIterator on the resulting
+        mapping
+
+        input -- mapper input
+        suffix -- output name suffix
+        trim -- optional trimming options, i.e. '0,20'
+        """
+        mapping_out = self.create_file_name(suffix)
+        input_name = self._guess_input_name(input)
+        logging.debug("Mapping from %s to %s" % (input_name, mapping_out))
         mapping = gem.mapper(input,
-                params.index,
+                self.index,
                 mapping_out,
                 mismatches=0.06,
-                delta=params.delta,
+                delta=self.delta,
                 trim=trim,
-                threads=params.threads)
-    else:
-        mapping = gem.files.open(mapping_out)
+                threads=self.threads)
+        self.mappings.append(mapping)
+        return mapping
 
-    if do_transcript_mapping:
-        if not os.path.exists(transcript_out):
-            print "Running transcriptome mapping"
-            transcript_mapping = gem.transcript_mapper(
-                                input.clone(),
-                                [params.transcript_index, params.transcript_index_denovo],
-                                [params.transcript_index_keys, params.transcript_index_denovo_keys],
-                                transcript_out,
+    def transcript_mapping_step(self, input, suffix, trim=None):
+        """Single transcript mapping step where the input is passed on
+        as is to the mapper. The output name is created based on
+        the dataset name in the parameters the suffix.
+
+        The function returns an opened ReadIterator on the resulting
+        mapping
+
+        input -- mapper input
+        suffix -- output name suffix
+        trim -- optional trimming options, i.e. '0,20'
+        """
+        mapping_out = self.create_file_name(suffix + "_transcript")
+        input_name = self._guess_input_name(input)
+        logging.debug("Mapping transcripts from %s to %s" % (input_name, mapping_out))
+
+        mapping = gem.transcript_mapper(
+                                input,
+                                [self.transcript_index, self.denovo_index],
+                                [self.transcript_keys, self.denovo_keys],
+                                mapping_out,
                                 mismatches=0.06,
                                 trim=trim,
-                                delta=params.delta,
-                                threads=params.threads)
-        else:
-            transcript_mapping = gem.files.open(transcript_out)
-        return (mapping, transcript_mapping)
-    else:
+                                delta=self.delta,
+                                threads=self.threads
+                                )
+        self.mappings.append(mapping)
         return mapping
+
+    def gtf_junctions(self):
+        """check if there is a .junctions file for the given annotation, if not,
+        create it. Returns a tuple of the set of junctions and the output file.
+        """
+        logging.info("Loading junctions from %s" % (self.annotation))
+        junctions = set(gem.junctions.from_gtf(self.annotation))
+        logging.info("%d Junctions from GTF" % (len(junctions)))
+        out = self.create_file_name("gtf", file_suffix="junctions")
+        gem.junctions.write_junctions(junctions, out, self.index)
+        return (junctions, out)
+
+    def create_denovo_transcriptome(self, input):
+        """Squeeze input throw the split mapper to extract denovo junctions
+        and create a transcriptome out of the junctions"""
+        (junctions, junctions_gtf_out) = self.gtf_junctions()
+        ## get de-novo junctions
+        logging.info("Getting de-novo junctions")
+        denovo_out = self.create_file_name("denovo")
+        junctions_out = self.create_file_name("all", file_suffix="junctions")
+
+        ## add .fa and .keys to list of files to delete
+        self.files.append(junctions_out + ".fa")
+        self.files.append(junctions_out + ".keys")
+
+        index_denovo_out = self.create_file_name("denovo_transcripts", file_suffix="gem")
+        (denovo_mapping, junctions) = gem.extract_junctions(
+            input,
+            self.index,
+            denovo_out,
+            mismatches=0.04,
+            threads=self.threads,
+            strata_after_first=0,
+            coverage=self.junctioncoverage,
+            merge_with=junctions)
+        logging.info("Total Junctions %d" % (len(junctions)))
+
+        gem.junctions.write_junctions(gem.junctions.filter_by_distance(junctions, 500000), junctions_out, self.index)
+
+        logging.info("Computing denovo transcriptome")
+        (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(self.maxlength, self.index, junctions_out, junctions_gtf_out)
+        logging.info("Indexing denovo transcriptome")
+
+        idx = gem.index(denovo_transcriptome, index_denovo_out, threads=self.threads)
+        # add indexer log file to list of files
+        self.files.append(idx[:-4] + ".log")
+        self.denovo_keys = denovo_keys
+        self.denovo_index = idx
+        self.mappings.append(denovo_mapping)
+        return denovo_mapping
+
+    def pair_align(self, input, compress=False):
+            logging.info("Running pair aligner")
+            paired_out = self.create_file_name("", final=True)
+            paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=self.threads)
+            scored = gem.score(paired_mapping, self.index, paired_out, threads=self.threads)
+            if compress:
+                logging.info("Compressing final mapping")
+                gem.utils.gzip(paired_out, threads=self.threads)
+
+            return scored
+
+    def create_bam(self, input, sort=True):
+        logging.info("Converting to sam/bam")
+        sam_out = self.create_file_name("", file_suffix="bam", final=True)
+        sam = gem.gem2sam(input, self.index, threads=max(1, int(self.threads / 2)))
+        gem.sam2bam(sam, sam_out, sorted=sort)
 
 
 def main():
@@ -75,7 +228,6 @@ def main():
         help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable', default=4)
     parser.add_argument('-s', '--strata-after-best', dest="delta",
         help='Number of strata that are examined after the best one', default=1)
-    parser.add_argument('-e', '--exclusive', dest="exclusive", action="store_true", default=False, help="Exclusive merge")
     parser.add_argument('-g', '--no-gzip', dest="gzip", action="store_false", default=True, help="Do not compress result mapping")
     parser.add_argument('--keep-temp', dest="rmtemp", action="store_false", default=True, help="Keep temporary files")
     parser.add_argument('-t', '--threads', dest="threads", default=8, type=int, help="Number of threads to use")
@@ -85,191 +237,63 @@ def main():
 
     ## parsing command line arguments
     args = parser.parse_args()
-    annotation = os.path.abspath(args.annotation)
-    index = os.path.abspath(args.index[0])
-    transcript_index = os.path.abspath(args.index[1])
-
-    THREADS = args.threads
-    rmFiles = args.rmtemp
-    gzipOut = args.gzip
-    exclusive = args.exclusive
-    maxlength = args.maxlength
-    nosam = args.nosam
-    delta = int(args.delta)
-    unmappedthreshold = float(args.unmappedthreshold)
-    junctioncoverage = int(args.junctioncoverage)
-    transcript_keys = args.transcript_keys
     if args.loglevel is not None:
         gem.loglevel(args.loglevel)
 
     input_file = os.path.abspath(args.file)
-    name = os.path.splitext(os.path.basename(input_file))[0].replace(".0", "")
-
     input_file2 = input_file.replace("0.f", "1.f")
-
+    name = os.path.splitext(os.path.basename(input_file))[0].replace(".0", "")
     if args.extendname:
-        name = "%s_%d_%.2f_%d" % (name, delta, unmappedthreshold, junctioncoverage)
+        name = "%s_%d_%.2f_%d" % (name, args.delta, args.unmappedthreshold, args.junctioncoverage)
 
-    output_dir = os.getcwd()
-    ## check if output is specified and create folder in case it does not exists
-    if args.output is not None:
-        output_dir = os.path.abspath(args.output)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-    print "Loading %s with data set name %s" % (input_file, name)
-    print ""
-    print "Index file", index
-    print "Annotation file", annotation
-    print "Output folder", output_dir
-    print ""
-    print "****** Parameters ******"
-    print "Keep Temp", (not rmFiles)
-    print "GZIP Map", gzipOut
-    print "Threads", THREADS
-    print "Exclusive Merge", exclusive
-    print "Prefix name", name
-    print "Unmapped Threshold", unmappedthreshold
-    print "Junction Coverage", junctioncoverage
-    print "Strata after best", delta
-    print "************************"
-    print ""
-
-    initial_out = "%s/%s_initial.map" % (output_dir, name)
-    denovo_out = "%s/%s_denovo.map" % (output_dir, name)
-    index_denovo_out = "%s/%s_denovo.gem" % (output_dir, name)
-    junctions_out = "%s/%s.junctions" % (output_dir, name)
-    junctions_gtf_out = "%s/%s.gtf.junctions" % (output_dir, name)
-    initial_split_out = "%s/%s_initial_split.map" % (output_dir, name)
-    trim_20_out = "%s/%s_trim_20.map" % (output_dir, name)
-    trim_20_split_out = "%s/%s_trim_20_split.map" % (output_dir, name)
-    trim_5_out = "%s/%s_trim_5.map" % (output_dir, name)
-    trim_5_split_out = "%s/%s_trim_5_split.map" % (output_dir, name)
-    final_out = "%s/%s_final.map" % (output_dir, name)
-    scored_out = "%s/%s.map" % (output_dir, name)
-    paired_out = "%s/%s_paired.map" % (output_dir, name)
-    sam_out = "%s/%s.bam" % (output_dir, name)
+    pipeline = MappingPipeline(
+        name=name,
+        index=args.index[0],
+        output_dir=args.output,
+        annotation=args.annotation,
+        threads=int(args.threads),
+        junctioncoverage=int(args.junctioncoverage),
+        maxlength=int(args.maxlength),
+        transcript_index=args.index[1],
+        transcript_keys=args.transcript_keys,
+        delta=int(args.delta)
+    )
 
     start_time = time.time()
 
-    ## create initial mapping
-    if not os.path.exists(initial_out):
-        main_input = gem.files.open(input_file)
-        main_input2 = gem.files.open(input_file2)
-        print "Running initial mapping"
-        initial_mapping = gem.mapper(gem.filter.interleave([main_input, main_input2], add_id=False), index, initial_out,
-                mismatches=0.06,
-                delta=delta,
-                threads=THREADS)
-    else:
-        initial_mapping = gem.files.open(initial_out)
+    main_input = gem.files.open(input_file)
+    main_input2 = gem.files.open(input_file2)
 
-    ## get junctions from the annotation
+    # initial mapping
+    initial_mapping = pipeline.mapping_step(interleave([main_input, main_input2], add_id=False), "initial")
+    # create denovo transcriptome
+    pipeline.create_denovo_transcriptome(initial_mapping)
 
-    if not os.path.exists(denovo_out):
-        print "Loading GTF junctions from %s" % annotation
-        junctions = set(gem.junctions.from_gtf(annotation))
-        print "%d Junctions from GTF" % (len(junctions))
-        gem.junctions.write_junctions(junctions, junctions_gtf_out, index)
+    ## run initial transcript mapping
+    initial_split_mapping = pipeline.transcript_mapping_step(initial_mapping.clone(), "initial_transcripts")
 
-        ## get de-novo junctions
-        print "Getting de-novo junctions"
-        (denovo_mapping, junctions) = gem.extract_junctions(
-            gem.filter.unmapped(initial_mapping, unmappedthreshold),
-            index,
-            denovo_out,
-            mismatches=0.04,
-            threads=THREADS,
-            strata_after_first=0,
-            coverage=junctioncoverage,
-            merge_with=junctions)
-        print "Total Junctions %d" % (len(junctions))
-        ## merge de-novo and known junctions
-        print "Writing junctions file"
-        gem.junctions.write_junctions(gem.junctions.filter_by_distance(junctions, 500000), junctions_out, index)
-    else:
-        denovo_mapping = gem.files.open(denovo_out)
+    # merge
+    #pipeline.merge("step_1")
 
-    print "Computing denovo transcriptome"
-    (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(maxlength, index, junctions_out, junctions_gtf_out)
-    print "Indexing denovo transcriptome"
-    gem.index(denovo_transcriptome, index_denovo_out, threads=THREADS)
+    ## trim 20 mappings
+    pipeline.mapping_step(gf(initial_split_mapping, unmapped), "trim_20", trim=(0, 20))
+    pipeline.transcript_mapping_step(gf(initial_split_mapping, unmapped), "trim_20", trim=(0, 20))
 
-    ## map to transcriptome
-    ## create initial split-map
-    if not os.path.exists(initial_split_out):
-        print "Running transcriptome mapping"
-        initial_split_mapping = gem.transcript_mapper(
-                            gem.filter.filter(denovo_mapping, gem.filter.unmapped),
-                            [transcript_index, index_denovo_out],
-                            [transcript_keys, denovo_keys],
-                            initial_split_out,
-                            mismatches=0.06,
-                            delta=delta,
-                            threads=THREADS)
-    else:
-        initial_split_mapping = gem.files.open(initial_split_out)
+    ## trium 5 mappings
+    pipeline.mapping_step(gf(initial_split_mapping, unmapped), "trim_5", trim=(5, 20))
+    pipeline.transcript_mapping_step(gf(initial_split_mapping, unmapped), "trim_5", trim=(5, 20))
 
-    params = MappingParameters(index, name, output_dir, delta, THREADS)
-    params.transcript_index = transcript_index
-    params.transcript_index_keys = transcript_keys
-    params.transcript_index_denovo = index_denovo_out
-    params.transcript_index_denovo_keys = denovo_keys
+    ## merge everything
+    merged = pipeline.merge("merged")
 
-    (trim_20_mapping, trim_20_split_mapping) = map_step(initial_split_mapping, "trim_20", params, trim=(0, 20))
-    (trim_5_mapping, trim_5_split_mapping) = map_step(initial_split_mapping, "trim_5", params, trim=(5, 20))
+    paired_mapping = pipeline.pair_align(merged, compress=True)
 
-    ## merge
-    print "Merging results"
-    merged = gem.merger(
-        initial_mapping.clone(),
-        [denovo_mapping.clone(),
-         initial_split_mapping.clone(),
-         trim_20_mapping.clone(),
-         trim_20_split_mapping.clone(),
-         trim_5_mapping.clone(),
-         trim_5_split_mapping.clone()],
-         exclusive=exclusive
-    ).merge(final_out)
+    pipeline.create_bam(paired_mapping, sort=True)
 
-    ## remove files
-    if rmFiles:
-        print "Removing files"
-        os.remove(initial_mapping.filename)
-        os.remove(initial_split_mapping.filename)
-        os.remove(denovo_mapping.filename)
-        os.remove(junctions_out)
-        os.remove(trim_20_mapping.filename)
-        os.remove(trim_20_split_mapping.filename)
-        os.remove(trim_5_mapping.filename)
-        os.remove(trim_5_split_mapping.filename)
-
-    ## pair align
-    print "Running pair aligner"
-    #validation = gem.validate(merged, index, threads=8)
-    paired_mapping = gem.pairalign(merged, index, paired_out, max_insert_size=100000, threads=THREADS)
-    if rmFiles:
-        os.remove(final_out)
-
-    ## score the alignments
-    print "Validating and scoring alignment"
-    scored = gem.score(paired_mapping, index, scored_out, threads=THREADS)
-    if rmFiles:
-        os.remove(paired_out)
-
-    ## create a sorted bamfile
-    if not nosam:
-        print "Converting to sam"
-        sam = gem.gem2sam(scored, index, threads=max(1, int(THREADS / 2)))
-        bam = gem.sam2bam(sam, sam_out, sorted=True)
-
-    ## create a gzipped map file
-    if gzipOut:
-        print "Compressing map"
-        gem.utils.gzip(scored_out, threads=THREADS)
+    pipeline.cleanup()
 
     end_time = (time.time() - start_time) / 60
-    print "Done!"
+
     print "Completed job in %0.2f mins" % end_time
 
 

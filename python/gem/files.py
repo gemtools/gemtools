@@ -4,7 +4,7 @@ gem.files handles opening files and streams
 """
 from itertools import islice
 import os
-
+import logging
 import subprocess
 import __builtin__
 import gem
@@ -175,13 +175,13 @@ class ReadIterator(object):
         self.process = process
         self.remove_after_iteration = remove_after_iteration
         self.quality = quality
-        self.raw= raw
+        self.raw = raw
 
     def __iter__(self):
         return self
 
     def next(self):
-        """ Delegates to the parser
+        """ Delegs ates to the parser
         to get the next entry
         """
         ret = None
@@ -190,6 +190,7 @@ class ReadIterator(object):
         else:
             ret = self.parser.next(self.stream)
         if not ret:
+            logging.debug("Read iterator closing stream on %s" % (self.filename))
             self.stream.close()
             if self.remove_after_iteration and self.filename:
                 os.remove(self.filename)
@@ -197,6 +198,7 @@ class ReadIterator(object):
         return ret
 
     def close(self):
+        logging.debug("Read iterator closing stream on %s" % (self.filename))
         self.stream.close()
         if self.remove_after_iteration and self.filename:
             os.remove(self.filename)
