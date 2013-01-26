@@ -37,8 +37,14 @@ if [ $? -eq 0 ]; then
     # install
     python setup.py clean
     GEM_NO_BUNDLE=1 python setup.py install --prefix=$DIR
+    # install argparse for 2.7 just in case
+    pip install argparse --target=$DIR/lib64/python2.7/site-packages/
     deactivate
 fi
+
+# copy start script
+cp -R dist-utils/gemtools.py $DIR/bin/gemtools
+chmod +x $DIR/bin/gemtools
 
 # build tools and copy lib/include and bin
 make gemtools

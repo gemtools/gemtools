@@ -261,7 +261,7 @@ https://github.com/gemtools/gemtools
         install_requires = ["argparse"],
         entry_points = {
             'console_scripts': [
-                'gem-rnaseq-pipeline = gem.production.gtex_rnaseq_pipeline:main'
+                'gemtools = gem.commands:gemtools'
             ]
         },
 )
