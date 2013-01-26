@@ -406,10 +406,10 @@ def gzip(file, threads=1):
     logging.debug("Starting GZIP compression for %s" % (file))
 
     if threads > 1:
-        if subprocess.Popen(['pigz','-p', str(threads), file]).wait() != 0:
+        if subprocess.Popen(['pigz', '-q', '-p', str(threads), file]).wait() != 0:
             raise ValueError("Error wile executing pigz on %s" % file)
     else:
-        if subprocess.Popen(['gzip', file]).wait() != 0:
+        if subprocess.Popen(['gzip', '-q', file]).wait() != 0:
             raise ValueError("Error wile executing gzip on %s" % file)
     return "%s.gz" % file
 
