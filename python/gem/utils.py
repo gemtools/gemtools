@@ -14,6 +14,20 @@ import gem
 import sys
 
 
+class CommandException(Exception):
+    pass
+
+
+class Command(object):
+    """Command base class to be registered 
+    with the gem tools main command
+    """
+    def register(self, parser):
+        pass
+    def run(self, args):
+        pass
+
+
 class ProcessWrapper(object):
     def __init__(self, _parent, _threads, stdout=None):
         self._parent = _parent
@@ -370,6 +384,30 @@ def which(program):
         ## ignore exceptions and try path search
         return None
 
+def find_pair(file):
+    """find another pair file or return none if it could not be
+    found or a tuple of the clean name and the name of the second pair.
+    """
+    pairs = {
+        "0.fastq.gz" : "1.fastq.gz",
+        "1.fastq.gz" : "2.fastq.gz",
+        "1.fastq" : "2.fastq",
+        "0.fastq" : "1.fastq",
+        "0.txt.gz" : "1.txt.gz",
+        "1.txt.gz" : "2.txt.gz",
+        "1.txt" : "2.txt",
+        "0.txt" : "1.txt",
+    }
+    for k, v in pairs.items():
+        if file.endswith(k):
+            name = file[:-len(k)]
+            other = name + v
+            if name[-1] in (".", "-", "_"):
+                name = name[:-1]
+            return (os.path.basename(name), other)
+    return (None, None)
+
+
 
 def find_in_path(program):
     """
@@ -405,11 +443,11 @@ def gzip(file, threads=1):
     """
     logging.debug("Starting GZIP compression for %s" % (file))
 
-    if threads > 1:
-        if subprocess.Popen(['pigz', '-q', '-p', str(threads), file]).wait() != 0:
+    if threads > 1 and which("pigz") is not None:
+        if subprocess.Popen(['pigz', '-q', '-f', '-p', str(threads), file]).wait() != 0:
             raise ValueError("Error wile executing pigz on %s" % file)
     else:
-        if subprocess.Popen(['gzip', '-q', file]).wait() != 0:
+        if subprocess.Popen(['gzip', '-f', '-q', file]).wait() != 0:
             raise ValueError("Error wile executing gzip on %s" % file)
     return "%s.gz" % file
 

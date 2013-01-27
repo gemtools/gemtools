@@ -56,8 +56,8 @@ cp -R GEMTools/bin/* $DIR/bin/
 D26=$DIR/lib64/python2.6/site-packages/gem/gembinaries
 D27=$DIR/lib64/python2.7/site-packages/gem/gembinaries
 BASE="../../../../.."
-if [ -e "$D26/../" ]; then mkdir -p $D26; fi
-if [ -e "$D27/../" ]; then mkdir -p $D27; fi
+if [ -e "$DIR/lib64/python2.6" ]; then mkdir -p $D26; fi
+if [ -e "$DIR/lib64/python2.7" ]; then mkdir -p $D27; fi
 for f in `tar -C $DIR/bin -xzvf downloads/*-$VERSION-$TYPE*`; do
     echo "Linking $f"
     if [ -e $D26 ]; then rm -f $D26/$f; $(cd $D26; ln -s $BASE/bin/$f .); fi

@@ -7,18 +7,6 @@ import sys
 
 __VERSION__ = "1.6"
 
-class CommandException(Exception):
-    pass
-
-class Command(object):
-    """Command base class to be registered 
-    with the gem tools main command
-    """
-    def register(self, parser):
-        pass
-    def run(self, args):
-        pass
-
 def gemtools():
     try:
         parser = argparse.ArgumentParser(prog="gemtools",
@@ -45,7 +33,7 @@ def gemtools():
             gem.loglevel(args.loglevel)
         try:
             instances[args.command].run(args)
-        except gem.commands.CommandException, e:
+        except gem.utils.CommandException, e:
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
     except KeyboardInterrupt:

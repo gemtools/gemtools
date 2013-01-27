@@ -10,9 +10,9 @@ import gem.commands
 from gem.filter import interleave, unmapped
 from gem.filter import filter as gf
 from gem.pipeline import MappingPipeline
-from gem.commands import Command, CommandException
+from gem.utils import Command, CommandException
 
-class Index(gem.commands.Command):
+class Index(Command):
     title = "Index genomes"
     description = """This command can be used to index genomes
     """
@@ -39,7 +39,7 @@ class Index(gem.commands.Command):
         gem.index(input, output, threads=args.threads)
 
 
-class TranscriptIndex(gem.commands.Command):
+class TranscriptIndex(Command):
     title = "Create and index transcriptomes"
     description = """This command creates a transcriptome and its index from a gem
     index and a GTF annotation.
@@ -84,7 +84,7 @@ class TranscriptIndex(gem.commands.Command):
         print "Done"
 
 
-class RnaPipeline(gem.commands.Command):
+class RnaPipeline(Command):
     description = "The RNASeq pipeline alignes reads"
     title = "Default RNASeq Pipeline"
 
@@ -94,7 +94,7 @@ class RnaPipeline(gem.commands.Command):
         parser.add_argument('-i', '--index', dest="index", help='Genome index', required=True)
         parser.add_argument('-m', '--max-read-length', dest="maxlength", help='The maximum read length', required=True)
         parser.add_argument('-a', '--annotation', dest="annotation", help='GTF annotation file', required=True)
-        parser.add_argument('-r',  '--transcript-index', dest="trans_index", nargs=2, help='Transcriptome index. If not specified it is assumed to be <gtf>.gem')
+        parser.add_argument('-r', '--transcript-index', dest="trans_index", help='Transcriptome index. If not specified it is assumed to be <gtf>.gem')
         parser.add_argument('-k', '--keys', dest="transcript_keys", help='Transcriptome .keys file. If not specified it is assumed to be <gtf>.junctions.keys')
 
         ## optional parameters
@@ -107,14 +107,22 @@ class RnaPipeline(gem.commands.Command):
         parser.add_argument('--keep-temp', dest="rmtemp", action="store_false", default=True, help="Keep temporary files")
         parser.add_argument('-t', '--threads', dest="threads", default=8, type=int, help="Number of threads to use")
         parser.add_argument('--no-sam', dest="nosam", action="store_true", default=False, help="Do not create sam/bam file")
+        parser.add_argument('-n', '--name', dest="name", help="Name used for the results")
         parser.add_argument('--extend-name', dest="extendname", action="store_true", default=False, help="Extend the name by prefixing it with the parameter combination")
 
     def run(self, args):
         ## parsing command line arguments
         input_file = os.path.abspath(args.file[0])
-        input_file2 = input_file.replace("0.f", "1.f")
+        input_file2 = None
+        name = None
         if len(args.file) > 1:
             input_file2 = os.path.abspath(args.file[1])
+            name = os.path.basename(input_file)[:inputfile.rfind(".")]
+        else:
+            (name, input_file2) = gem.utils.find_pair(input_file)
+
+        if args.name:
+            name = args.name
 
         name = os.path.splitext(os.path.basename(input_file))[0].replace(".0", "")
         if args.extendname:
@@ -130,7 +138,8 @@ class RnaPipeline(gem.commands.Command):
             maxlength=int(args.maxlength),
             transcript_index=args.trans_index,
             transcript_keys=args.transcript_keys,
-            delta=int(args.delta)
+            delta=int(args.delta),
+            remove_temp=args.rmtemp
         )
 
         start_time = time.time()

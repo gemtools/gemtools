@@ -18,8 +18,10 @@ class MappingPipeline(object):
         maxlength=100,
         transcript_index=None,
         transcript_keys=None,
-        delta=1
+        delta=1,
+        remove_temp=True
         ):
+        self.remove_temp = remove_temp
         self.name = name
         self.index = index
         self.output_dir = output_dir
@@ -49,10 +51,11 @@ class MappingPipeline(object):
     def cleanup(self):
         """Delete all remaining temporary and intermediate files
         """
-        for f in self.files:
-            if os.path.exists(f):
-                logging.info("Removing intermediate file : %s" % (f))
-                os.remove(f)
+        if self.remove_temp:
+            for f in self.files:
+                if os.path.exists(f):
+                    logging.info("Removing intermediate file : %s" % (f))
+                    os.remove(f)
 
     def create_file_name(self, suffix, file_suffix="map", final=False):
         """Create a result file name"""
@@ -79,10 +82,10 @@ class MappingPipeline(object):
             self.mappings[0].clone(),
             [m.clone() for m in self.mappings[1:]]
         ).merge(out)
-
-        for m in self.mappings:
-            logging.info("Removing temporary mapping %s ", m.filename)
-            os.remove(m.filename)
+        if self.remove_temp:
+            for m in self.mappings:
+                logging.info("Removing temporary mapping %s ", m.filename)
+                os.remove(m.filename)
         self.mappgins = []
         self.mappings.append(merged)
         return merged
