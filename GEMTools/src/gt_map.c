@@ -91,6 +91,7 @@ GT_INLINE uint64_t gt_map_get_length(gt_map* const map) {
       case MISMS: break;
       case INS:
         length += gt_misms_get_size(misms_it);
+        break;
       case DEL:
         length -= gt_misms_get_size(misms_it);
         break;

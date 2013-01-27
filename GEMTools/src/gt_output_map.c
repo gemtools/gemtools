@@ -43,9 +43,10 @@ GT_INLINE gt_status gt_output_map_gprint_counters(
   return 0;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_mismatch_string,gt_map* const map);
-GT_INLINE gt_status gt_output_map_gprint_mismatch_string(gt_generic_printer* const gprinter,gt_map* const map) {
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,begin_trim,end_trim
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_mismatch_string,gt_map* const map,const bool begin_trim,const bool end_trim);
+GT_INLINE gt_status gt_output_map_gprint_mismatch_string(
+    gt_generic_printer* const gprinter,gt_map* const map,const bool begin_trim,const bool end_trim) {
   GT_NULL_CHECK(gprinter); GT_MAP_CHECK(map);
   register const uint64_t map_length = gt_map_get_base_length(map);
   register uint64_t centinel = 0;
@@ -66,7 +67,7 @@ GT_INLINE gt_status gt_output_map_gprint_mismatch_string(gt_generic_printer* con
       case DEL: {
         register const uint64_t init_centinel = centinel;
         centinel+=gt_misms_get_size(misms);
-        if (gt_expect_false(init_centinel==0 || centinel==map_length)) { // Trim
+        if (gt_expect_false((init_centinel==0 && begin_trim) || (centinel==map_length && end_trim))) { // Trim
           gt_gprintf(gprinter,"(%"PRIu64")",gt_misms_get_size(misms));
         } else {
           gt_gprintf(gprinter,">%"PRIu64"-",gt_misms_get_size(misms));
@@ -99,8 +100,9 @@ GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,
   register gt_map* map_it = map, *next_map=NULL;
   register bool cigar_pending = true;
   while (cigar_pending) {
-    gt_output_map_gprint_mismatch_string(gprinter,map_it);
-    if (gt_map_has_next_block(map_it)) {
+    register const bool has_next_block = gt_map_has_next_block(map_it);
+    gt_output_map_gprint_mismatch_string(gprinter,map_it,next_map==NULL,!has_next_block);
+    if (has_next_block) {
       next_map = gt_map_get_next_block(map_it);
       if ((cigar_pending=(gt_string_equals(map_it->seq_name,next_map->seq_name)))) {
         switch (gt_map_get_junction(map_it)) {
