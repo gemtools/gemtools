@@ -105,7 +105,7 @@ class RnaPipeline(Command):
             help='Number of strata that are examined after the best one', default=1)
         parser.add_argument('-g', '--no-gzip', dest="gzip", action="store_false", default=True, help="Do not compress result mapping")
         parser.add_argument('--keep-temp', dest="rmtemp", action="store_false", default=True, help="Keep temporary files")
-        parser.add_argument('-t', '--threads', dest="threads", default=8, type=int, help="Number of threads to use")
+        parser.add_argument('-t', '--threads', dest="threads", default=2, type=int, help="Number of threads to use")
         parser.add_argument('--no-sam', dest="nosam", action="store_true", default=False, help="Do not create sam/bam file")
         parser.add_argument('-n', '--name', dest="name", help="Name used for the results")
         parser.add_argument('--extend-name', dest="extendname", action="store_true", default=False, help="Extend the name by prefixing it with the parameter combination")
@@ -124,9 +124,9 @@ class RnaPipeline(Command):
         if args.name:
             name = args.name
 
-        name = os.path.splitext(os.path.basename(input_file))[0].replace(".0", "")
         if args.extendname:
             name = "%s_%d_%.2f_%d" % (name, args.delta, args.unmappedthreshold, args.junctioncoverage)
+        logging.info("Using dataset name: %s" % (name))
 
         pipeline = MappingPipeline(
             name=name,
@@ -153,7 +153,7 @@ class RnaPipeline(Command):
         pipeline.create_denovo_transcriptome(initial_mapping)
 
         ## run initial transcript mapping
-        initial_split_mapping = pipeline.transcript_mapping_step(initial_mapping.clone(), "initial_transcripts")
+        initial_split_mapping = pipeline.transcript_mapping_step(initial_mapping.clone(), "initial")
 
         # merge
         #pipeline.merge("step_1")

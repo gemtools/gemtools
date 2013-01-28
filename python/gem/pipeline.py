@@ -191,7 +191,9 @@ class MappingPipeline(object):
         self.files.append(idx[:-4] + ".log")
         self.denovo_keys = denovo_keys
         self.denovo_index = idx
-        self.mappings.append(denovo_mapping)
+        # do not add the denovo mapping but make sure file goes to temp files
+        #self.mappings.append(denovo_mapping)
+        self.files.append(denovo_out)
         return denovo_mapping
 
     def pair_align(self, input, compress=False):
