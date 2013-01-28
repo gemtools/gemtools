@@ -99,6 +99,7 @@ class RnaPipeline(Command):
 
         ## optional parameters
         parser.add_argument('-o', '--output-dir', dest="output", help='The output folder. If not specified the current working directory is used.')
+        parser.add_argument('-q', '--quality', dest="quality", default=33, help='Quality offset. 33 or 64, default 33')
         parser.add_argument('--junction-coverage', dest="junctioncoverage",
             help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable', default=2)
         parser.add_argument('-s', '--strata-after-best', dest="delta",
@@ -134,6 +135,7 @@ class RnaPipeline(Command):
             output_dir=args.output,
             annotation=args.annotation,
             threads=int(args.threads),
+            quality=int(args.quality),
             junctioncoverage=int(args.junctioncoverage),
             maxlength=int(args.maxlength),
             transcript_index=args.trans_index,

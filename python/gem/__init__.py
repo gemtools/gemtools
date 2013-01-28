@@ -406,6 +406,7 @@ def mapper(input, index, output=None,
            threads=1,
            extra=None,
            key_file=None,
+           force_min_decoded_strata=False
            ):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
@@ -440,7 +441,7 @@ def mapper(input, index, output=None,
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
 
-    if delta >= min_decoded_strata:
+    if delta >= min_decoded_strata and not force_min_decoded_strata:
         logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
             str(min_decoded_strata), str(delta + 1), str(delta)))
         min_decoded_strata = delta + 1
@@ -562,6 +563,7 @@ def transcript_mapper(input, indices, key_files, output=None,
            trim=trim,
            threads=threads,
            extra=extra,
+           force_min_decoded_strata=True
            )
         )
     merged = merger(outputs[0], outputs[1:])

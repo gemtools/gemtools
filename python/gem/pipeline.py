@@ -19,6 +19,7 @@ class MappingPipeline(object):
         maxlength=100,
         transcript_index=None,
         transcript_keys=None,
+        quality=33,
         delta=1,
         remove_temp=True
         ):
@@ -35,6 +36,7 @@ class MappingPipeline(object):
         self.denovo_index = None
         self.denovo_keys = None
         self.delta = delta
+        self.quality = quality
         self.mappings = []
         self.files = []
 
@@ -78,6 +80,10 @@ class MappingPipeline(object):
     def merge(self, suffix):
         """Merge current set of mappings and delete last ones"""
         out = self.create_file_name(suffix)
+        if os.path.exists(out):
+            logging.warning("Merge target exists, skipping merge : %s" % (out))
+            return gem.files.open(out, type="map", quality=self.quality)
+
         logging.info("Merging %d mappings into %s" % (len(self.mappings), out))
         timer = Timer()
         merged = gem.merger(
@@ -107,6 +113,9 @@ class MappingPipeline(object):
         """
         timer = Timer()
         mapping_out = self.create_file_name(suffix)
+        if os.path.exists(mapping_out):
+            logging.warning("Mapping step target exists, skip mapping set : %s" % (mapping_out))
+            return gem.files.open(mapping_out, type="map", quality=self.quality)
         input_name = self._guess_input_name(input)
         logging.debug("Mapping from %s to %s" % (input_name, mapping_out))
         mapping = gem.mapper(input,
@@ -115,6 +124,7 @@ class MappingPipeline(object):
                 mismatches=0.06,
                 delta=self.delta,
                 trim=trim,
+                quality=self.quality,
                 threads=self.threads)
         self.mappings.append(mapping)
         timer.stop("Mapping step finished in %s")
@@ -134,6 +144,9 @@ class MappingPipeline(object):
         """
         timer = Timer()
         mapping_out = self.create_file_name(suffix + "_transcript")
+        if os.path.exists(mapping_out):
+            logging.warning("Transcript mapping step target exists, skip mapping set : %s" % (mapping_out))
+            return gem.files.open(mapping_out, type="map", quality=self.quality)
         input_name = self._guess_input_name(input)
         logging.debug("Mapping transcripts from %s to %s" % (input_name, mapping_out))
 
@@ -143,8 +156,10 @@ class MappingPipeline(object):
                                 [self.transcript_keys, self.denovo_keys],
                                 mapping_out,
                                 mismatches=0.06,
+                                min_decoded_strata=0,
                                 trim=trim,
                                 delta=self.delta,
+                                quality=self.quality,
                                 threads=self.threads
                                 )
         self.mappings.append(mapping)
@@ -167,17 +182,28 @@ class MappingPipeline(object):
     def create_denovo_transcriptome(self, input):
         """Squeeze input throw the split mapper to extract denovo junctions
         and create a transcriptome out of the junctions"""
+        index_denovo_out = self.create_file_name("denovo_transcripts", file_suffix="gem")
+        junctions_out = self.create_file_name("all", file_suffix="junctions")
+        denovo_keys = junctions_out + ".keys"
+        if os.path.exists(index_denovo_out) and os.path.exists(denovo_keys):
+            logging.warning("Transcriptome index and keys found, skip creating : %s" % (index_denovo_out))
+            ## add .fa and .keys to list of files to delete
+            self.files.append(junctions_out + ".fa")
+            self.files.append(junctions_out + ".keys")
+            self.files.append(index_denovo_out[:-4] + ".log")
+            self.denovo_keys = denovo_keys
+            self.denovo_index = index_denovo_out
+            return index_denovo_out
+
         timer = Timer()
         (junctions, junctions_gtf_out) = self.gtf_junctions()
         ## get de-novo junctions
         logging.info("Getting de-novo junctions")
-        junctions_out = self.create_file_name("all", file_suffix="junctions")
 
         ## add .fa and .keys to list of files to delete
         self.files.append(junctions_out + ".fa")
         self.files.append(junctions_out + ".keys")
 
-        index_denovo_out = self.create_file_name("denovo_transcripts", file_suffix="gem")
         junctions = gem.extract_junctions(
             input,
             self.index,
@@ -211,7 +237,14 @@ class MappingPipeline(object):
         logging.info("Running pair aligner")
         timer = Timer()
         paired_out = self.create_file_name("", final=True)
-        paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=self.threads)
+        out_name = paired_out
+        if compress:
+            out_name = out_name + ".gz"
+        if os.path.exists(out_name):
+            logging.warning("Pair-alignment exists, skip creating : %s" % (paired_out))
+            return gem.files.open(out_name, type="map", quality=self.quality)
+
+        paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=self.threads, quality=self.quality)
         scored = gem.score(paired_mapping, self.index, paired_out, threads=self.threads)
         timer.stop("Pair-Align and scoring finished in %s")
         if compress:
@@ -223,8 +256,11 @@ class MappingPipeline(object):
 
     def create_bam(self, input, sort=True):
         logging.info("Converting to sam/bam")
-        timer = Timer()
         sam_out = self.create_file_name("", file_suffix="bam", final=True)
-        sam = gem.gem2sam(input, self.index, threads=max(1, int(self.threads / 2)))
-        gem.sam2bam(sam, sam_out, sorted=sort)
-        timer.stop("BAM file created in %s")
+        if os.path.exists(sam_out):
+            logging.warning("SAM/BAM exists, skip creating : %s" % (sam_out))
+        else:
+            timer = Timer()
+            sam = gem.gem2sam(input, self.index, threads=max(1, int(self.threads / 2)))
+            gem.sam2bam(sam, sam_out, sorted=sort)
+            timer.stop("BAM file created in %s")
