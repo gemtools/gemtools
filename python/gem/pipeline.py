@@ -156,7 +156,7 @@ class MappingPipeline(object):
                                 [self.transcript_keys, self.denovo_keys],
                                 mapping_out,
                                 mismatches=0.06,
-                                min_decoded_strata=0,
+                                min_decoded_strata=1,
                                 trim=trim,
                                 delta=self.delta,
                                 quality=self.quality,

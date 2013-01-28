@@ -562,8 +562,7 @@ def transcript_mapper(input, indices, key_files, output=None,
            mismatch_alphabet=mismatch_alphabet,
            trim=trim,
            threads=threads,
-           extra=extra,
-           force_min_decoded_strata=True
+           extra=extra
            )
         )
     merged = merger(outputs[0], outputs[1:])
