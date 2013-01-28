@@ -13,6 +13,18 @@ from threading import Thread
 import gem
 import sys
 
+import datetime
+import time
+
+class Timer(object):
+    """Helper class to take runtimes"""
+    def __init__(self):
+        self.start_time = time.time()
+
+    def stop(self, message):
+        end = datetime.timedelta(seconds=int(time.time() - self.start_time))
+        if message is not None:
+            logging.info(message % (str(end)))
 
 class CommandException(Exception):
     pass

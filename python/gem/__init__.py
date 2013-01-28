@@ -17,7 +17,7 @@ LOG_NOTHING = 1
 LOG_STDERR = 2
 
 log_output = LOG_NOTHING
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.WARN)
+logging.basicConfig(format='%(asctime)-15s %(levelname)s: %(message)s', level=logging.WARN)
 
 _trim_qualities = False
 default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
@@ -675,13 +675,12 @@ def splitmapper(input,
 
 def extract_junctions(input,
                       index,
-                      output=None,
                       junctions=0.02,
                       filter="ordered,non-zero-distance",
                       mismatches=0.04,
                       refinement_step_size=2,
                       min_split_size=15,
-                      matches_threshold=100,
+                      matches_threshold=75,
                       splice_consensus=extended_splice_consensus,
                       strata_after_first=1,
                       quality=33,
@@ -712,37 +711,39 @@ def extract_junctions(input,
         extra=extra)
     ## make sure we have an output file
     ## for the splitmap results
-    output_file = output
-    if output is None:
-        (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
+    #output_file = output
+    #if output is None:
+    #    (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
 
     ## helper filter to pass the read on to the junction extractor,
     ## kill the splitmap as long as it is no short indel and
     ## write the result to the output file
-    def write_helper(reads):
-        of = open(output_file, 'w')
-        for read in reads:
-            yield read
-            if keep_short_indels:
-                gemfilter.keep_short_indel(read)
-                ## and write the read
-            of.write(str(read))
-            of.write("\n")
-        of.close()
+    #def write_helper(reads):
+    #    of = open(output_file, 'w')
+    #    for read in reads:
+    #        yield read
+    #        if keep_short_indels:
+    #            gemfilter.keep_short_indel(read)
+    #            ## and write the read
+    #        of.write(str(read))
+    #        of.write("\n")
+    #    of.close()
 
+    splitmap.raw = True
     denovo_junctions = splits.extract_denovo_junctions(
-        write_helper(splitmap),
+        #write_helper(splitmap),
+        splitmap,
         minsplit=min_split,
         maxsplit=max_split,
         coverage=coverage,
         sites=merge_with)
-
-    if output is None:
-        ## return delete iterator
-        return (
-        files.open(output_file, type="map", process=splitmap, remove_after_iteration=True), denovo_junctions)
-    else:
-        return files.open(output_file, type="map", process=splitmap), denovo_junctions
+    return denovo_junctions
+    #if output is None:
+    #    ## return delete iterator
+    #    return (
+    #    files.open(output_file, type="map", process=splitmap, remove_after_iteration=True), denovo_junctions)
+    #else:
+    #    return files.open(output_file, type="map", process=splitmap), denovo_junctions
 
 
 def pairalign(input, index, output=None,
@@ -854,7 +855,7 @@ def validate(input,
 def score(input,
           index,
           output=None,
-          scoring="+U,+u,-t,-s,-i,-a",
+          scoring="+U,+u,-s,-t,+1,-i,-a",
           filter=None,  # "2,25"
           threads=1):
     index = _prepare_index_parameter(index, gem_suffix=True)

@@ -12,9 +12,9 @@ from . import filter as gemfilters
 from threading import Thread
 import gem
 from gem.junctions import Exon, JunctionSite
+from gem.files import ReadIterator
 
-
-def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None, coverage=0):
+def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None, coverage=0, unique_strata=1):
     """Extract denovo junctions from a split map run.
 
     gemoutput - a read iterator over gem splitmapper Output
@@ -28,13 +28,22 @@ def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None
     splits2junctions_p = [
         gem.executables['splits-2-junctions'],
         str(minsplit),
-        str(maxsplit)
+        str(maxsplit),
+        str(unique_strata)
     ]
-    p = subprocess.Popen(splits2junctions_p, stdin=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True, bufsize=0)
+    instream = subprocess.PIPE
+    israw = False
+    if isinstance(gemoutput, ReadIterator):
+        if gemoutput.raw:
+            instream = gemoutput.stream
+            israw = True
+
+    p = subprocess.Popen(splits2junctions_p, stdin=instream, stdout=subprocess.PIPE, close_fds=True, bufsize=0)
 
     ## start pipe thread
-    input_thread = Thread(target=_pipe_geminput, args=(gemoutput, p))
-    input_thread.start()
+    if not israw:
+        input_thread = Thread(target=_pipe_geminput, args=(gemoutput, p))
+        input_thread.start()
 
     ## read from process stdout and get junctions
     if sites is None:

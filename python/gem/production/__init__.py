@@ -100,7 +100,7 @@ class RnaPipeline(Command):
         ## optional parameters
         parser.add_argument('-o', '--output-dir', dest="output", help='The output folder. If not specified the current working directory is used.')
         parser.add_argument('--junction-coverage', dest="junctioncoverage",
-            help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable', default=4)
+            help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable', default=2)
         parser.add_argument('-s', '--strata-after-best', dest="delta",
             help='Number of strata that are examined after the best one', default=1)
         parser.add_argument('-g', '--no-gzip', dest="gzip", action="store_false", default=True, help="Do not compress result mapping")

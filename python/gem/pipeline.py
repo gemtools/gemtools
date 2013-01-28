@@ -7,6 +7,7 @@ import gem
 
 from gem.filter import interleave, unmapped
 from gem.filter import filter as gf
+from gem.utils import Timer
 
 class MappingPipeline(object):
 
@@ -78,6 +79,7 @@ class MappingPipeline(object):
         """Merge current set of mappings and delete last ones"""
         out = self.create_file_name(suffix)
         logging.info("Merging %d mappings into %s" % (len(self.mappings), out))
+        timer = Timer()
         merged = gem.merger(
             self.mappings[0].clone(),
             [m.clone() for m in self.mappings[1:]]
@@ -88,6 +90,7 @@ class MappingPipeline(object):
                 os.remove(m.filename)
         self.mappgins = []
         self.mappings.append(merged)
+        timer.stop("Merging finished in %s")
         return merged
 
     def mapping_step(self, input, suffix, trim=None):
@@ -102,6 +105,7 @@ class MappingPipeline(object):
         suffix -- output name suffix
         trim -- optional trimming options, i.e. '0,20'
         """
+        timer = Timer()
         mapping_out = self.create_file_name(suffix)
         input_name = self._guess_input_name(input)
         logging.debug("Mapping from %s to %s" % (input_name, mapping_out))
@@ -113,6 +117,7 @@ class MappingPipeline(object):
                 trim=trim,
                 threads=self.threads)
         self.mappings.append(mapping)
+        timer.stop("Mapping step finished in %s")
         return mapping
 
     def transcript_mapping_step(self, input, suffix, trim=None):
@@ -127,6 +132,7 @@ class MappingPipeline(object):
         suffix -- output name suffix
         trim -- optional trimming options, i.e. '0,20'
         """
+        timer = Timer()
         mapping_out = self.create_file_name(suffix + "_transcript")
         input_name = self._guess_input_name(input)
         logging.debug("Mapping transcripts from %s to %s" % (input_name, mapping_out))
@@ -142,26 +148,29 @@ class MappingPipeline(object):
                                 threads=self.threads
                                 )
         self.mappings.append(mapping)
+        timer.stop("Transcript-Mapping step finished in %s")
         return mapping
 
     def gtf_junctions(self):
         """check if there is a .junctions file for the given annotation, if not,
         create it. Returns a tuple of the set of junctions and the output file.
         """
+        timer = Timer()
         logging.info("Loading junctions from %s" % (self.annotation))
         junctions = set(gem.junctions.from_gtf(self.annotation))
         logging.info("%d Junctions from GTF" % (len(junctions)))
         out = self.create_file_name("gtf", file_suffix="junctions")
         gem.junctions.write_junctions(junctions, out, self.index)
+        timer.stop("GTF-Junctions prepared in %s")
         return (junctions, out)
 
     def create_denovo_transcriptome(self, input):
         """Squeeze input throw the split mapper to extract denovo junctions
         and create a transcriptome out of the junctions"""
+        timer = Timer()
         (junctions, junctions_gtf_out) = self.gtf_junctions()
         ## get de-novo junctions
         logging.info("Getting de-novo junctions")
-        denovo_out = self.create_file_name("denovo")
         junctions_out = self.create_file_name("all", file_suffix="junctions")
 
         ## add .fa and .keys to list of files to delete
@@ -169,46 +178,53 @@ class MappingPipeline(object):
         self.files.append(junctions_out + ".keys")
 
         index_denovo_out = self.create_file_name("denovo_transcripts", file_suffix="gem")
-        (denovo_mapping, junctions) = gem.extract_junctions(
+        junctions = gem.extract_junctions(
             input,
             self.index,
-            denovo_out,
             mismatches=0.04,
             threads=self.threads,
             strata_after_first=0,
             coverage=self.junctioncoverage,
             merge_with=junctions)
         logging.info("Total Junctions %d" % (len(junctions)))
-
+        timer.stop("Denovo Transcripts extracted in %s")
+        timer = Timer()
         gem.junctions.write_junctions(gem.junctions.filter_by_distance(junctions, 500000), junctions_out, self.index)
 
         logging.info("Computing denovo transcriptome")
         (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(self.maxlength, self.index, junctions_out, junctions_gtf_out)
         logging.info("Indexing denovo transcriptome")
-
+        timer.stop("Transcriptome generated in %s")
+        timer = Timer()
         idx = gem.index(denovo_transcriptome, index_denovo_out, threads=self.threads)
+        timer.stop("Transcriptome indexed in %s")
         # add indexer log file to list of files
         self.files.append(idx[:-4] + ".log")
         self.denovo_keys = denovo_keys
         self.denovo_index = idx
         # do not add the denovo mapping but make sure file goes to temp files
         #self.mappings.append(denovo_mapping)
-        self.files.append(denovo_out)
-        return denovo_mapping
+        #self.files.append(denovo_out)
+        return idx
 
     def pair_align(self, input, compress=False):
-            logging.info("Running pair aligner")
-            paired_out = self.create_file_name("", final=True)
-            paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=self.threads)
-            scored = gem.score(paired_mapping, self.index, paired_out, threads=self.threads)
-            if compress:
-                logging.info("Compressing final mapping")
-                gem.utils.gzip(paired_out, threads=self.threads)
-
-            return scored
+        logging.info("Running pair aligner")
+        timer = Timer()
+        paired_out = self.create_file_name("", final=True)
+        paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=self.threads)
+        scored = gem.score(paired_mapping, self.index, paired_out, threads=self.threads)
+        timer.stop("Pair-Align and scoring finished in %s")
+        if compress:
+            logging.info("Compressing final mapping")
+            timer = Timer()
+            gem.utils.gzip(paired_out, threads=self.threads)
+            timer.stop("Results compressed in %s")
+        return scored
 
     def create_bam(self, input, sort=True):
         logging.info("Converting to sam/bam")
+        timer = Timer()
         sam_out = self.create_file_name("", file_suffix="bam", final=True)
         sam = gem.gem2sam(input, self.index, threads=max(1, int(self.threads / 2)))
         gem.sam2bam(sam, sam_out, sorted=sort)
+        timer.stop("BAM file created in %s")
