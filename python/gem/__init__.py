@@ -801,11 +801,14 @@ def pairalign(input, index, output=None,
     if map_both_ends:
         pa.append("--map-both-ends")
 
-        ## run the mapper
-    process = utils.run_tool(pa, input, output,
-        "GEM-Pair-align", utils.read_to_map)
-    return _prepare_output(process, output, type="map",
-        name="GEM-Pair-align", quality=quality)
+    use_raw = False
+    if isinstance(input, files.ReadIterator):
+        if input.type == "map":
+            use_raw = True
+
+    ## run the mapper
+    process = utils.run_tool(pa, input, output, "GEM-Pair-align", utils.read_to_map, raw_stream=use_raw)
+    return _prepare_output(process, output, type="map", name="GEM-Pair-align", quality=quality)
 
 
 def realign(input,

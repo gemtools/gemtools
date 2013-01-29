@@ -278,8 +278,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
     return ProcessWrapper(last_process, threads, stdout=stdout)
 
 
-def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None
-             , raw_stream=False):
+def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None, raw_stream=False):
     """
     Run the tool defined in the params array using a new process.
     The input is a ReadIterator and the method checks
@@ -326,6 +325,7 @@ def __write_input(sequence, stream, transformer=None):
             stream.write(str(e))
         except Exception, ex:
             logging.error("Failed to write %s to stream: %s" % (str(e), str(ex)))
+            stream.close()
             exit(1)
     stream.close()
 
