@@ -52,7 +52,6 @@ START_TEST(gt_test_template_merge_hang)
   gt_output_map_sprint_template(string, source, GT_ALL, true);
   // convert to string
   char * line = gt_string_get_string(string);
-  printf("%s\n", line);
   fail_unless(gt_streq(line,"HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t"
       "@CCFFFFFHHHHHIJIJJIJJJJJJJIIJGIDGIHHHFF6>CCCDEDDDDCBDD>CCDCC>CCCCCDDDDDBDC>\t0:1+0:0:0:0\tchr21:+:47848466:39>1419*36\n"));
 }

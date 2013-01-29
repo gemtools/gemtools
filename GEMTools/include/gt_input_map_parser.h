@@ -15,6 +15,7 @@
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
 #include "gt_input_parser.h"
+#include "gt_input_fastq_parser.h"
 
 #include "gt_buffered_output_file.h"
 
@@ -121,7 +122,7 @@ GT_INLINE void gt_input_map_parser_prompt_error(
     uint64_t line_num,uint64_t column_pos,const gt_status error_code);
 GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buffered_map_input);
 GT_INLINE gt_status gt_input_map_parser_reload_buffer(
-    gt_buffered_input_file* const buffered_map_input,const bool synchronized_map);
+    gt_buffered_input_file* const buffered_map_input,const bool synchronized_map,const uint64_t num_lines);
 
 /*
  * MAP string parsers
@@ -148,9 +149,6 @@ GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_string* const src_text);
 GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_string* const src_text);
-GT_INLINE gt_status gt_input_map_parser_synch_blocks(
-    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
-    pthread_mutex_t* const input_mutex);
 
 GT_INLINE gt_status gt_input_map_parser_get_template_limited(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,const uint64_t num_mmaps);
@@ -160,5 +158,8 @@ GT_INLINE gt_status gt_input_map_parser_get_alignment_limited(
 GT_INLINE gt_status gt_input_map_parser_synch_blocks(
     gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
     pthread_mutex_t* const input_mutex);
+GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
+    pthread_mutex_t* const input_mutex,gt_buffered_input_file* const buffered_map_input_master,
+    gt_buffered_input_file* const buffered_map_input_slave,const bool read_paired); // Used to merge files in parallel
 
 #endif /* GT_INPUT_MAP_PARSER_H_ */

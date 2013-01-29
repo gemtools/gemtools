@@ -440,7 +440,7 @@ void parse_arguments(int argc,char** argv) {
     { "verbose", no_argument, 0, 'v' },
     { "quiet", no_argument, 0, 'q' },
     /* [Misc] */
-    { "threads", no_argument, 0, 't' },
+    { "threads", required_argument, 0, 't' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 } };
   int c,option_index;

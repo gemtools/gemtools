@@ -171,7 +171,7 @@ GT_INLINE gt_status gt_input_fastq_parser_get_template(
 /*
  * FASTQ utils
  */
-GT_INLINE uint64_t gt_fastq_tag_chomp_end_info(gt_string* const tag) {
+GT_INLINE uint64_t gt_input_fastq_tag_chomp_end_info(gt_string* const tag) {
   GT_STRING_CHECK(tag);
   // Parse the end information {/1,/2}
   register const uint64_t tag_length = gt_string_get_length(tag);

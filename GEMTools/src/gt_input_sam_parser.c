@@ -147,13 +147,14 @@ GT_INLINE gt_status gt_input_sam_parser_get_block(
   // Read lines & synch SAM records
   uint64_t lines_read = 0;
   while (lines_read<num_records &&
-      gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,NULL) ) ++lines_read;
+      gt_input_file_next_line(input_file,buffered_sam_input->block_buffer) ) ++lines_read;
   if (lines_read==num_records) { // !EOF, Synch wrt to tag content
+    uint64_t num_blocks=0, num_tabs=0;
     register gt_string* const reference_tag = gt_string_new(30);
-    if (gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,reference_tag)) {
-      gt_fastq_tag_chomp_end_info(reference_tag);
-      while (gt_input_file_cmp_next_sam_record(input_file,reference_tag)) {
-        if (!gt_input_file_next_sam_record(input_file,buffered_sam_input->block_buffer,NULL)) break;
+    if (gt_input_file_next_record(input_file,buffered_sam_input->block_buffer,reference_tag,&num_blocks,&num_tabs)) {
+      gt_input_fastq_tag_chomp_end_info(reference_tag);
+      while (gt_input_file_next_record_cmp_first_field(input_file,reference_tag)) {
+        if (!gt_input_file_next_record(input_file,buffered_sam_input->block_buffer,NULL,&num_blocks,&num_tabs)) break;
         ++lines_read;
       }
     }
@@ -574,7 +575,7 @@ GT_INLINE bool gt_isp_fetch_next_line(
   register gt_string* const next_tag = gt_string_new(0);
   char* ptext_line;
   if (gt_isp_read_tag(&(buffered_sam_input->cursor),&ptext_line,next_tag)) return false;
-  if (chomp_tag) gt_fastq_tag_chomp_end_info(next_tag);
+  if (chomp_tag) gt_input_fastq_tag_chomp_end_info(next_tag);
   register const bool same_tag = gt_string_equals(expected_tag,next_tag);
   gt_string_delete(next_tag);
   if (same_tag) {
@@ -675,7 +676,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   register char** text_line = &(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
-  gt_fastq_tag_chomp_end_info(template->tag);
+  gt_input_fastq_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   gt_vector* pending_v = gt_vector_new(GT_ISP_NUM_INITIAL_MAPS,sizeof(gt_sam_pending_end));
   do {
@@ -706,7 +707,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
   register gt_status error_code;
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
-  gt_fastq_tag_chomp_end_info(template->tag);
+  gt_input_fastq_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   do {
     // Parse SAM Alignment

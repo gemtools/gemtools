@@ -11,7 +11,7 @@
 #include "gt_input_file.h"
 
 // Internal constants
-#define GT_INPUT_BUFFER_SIZE GT_BUFFER_SIZE_16M
+#define GT_INPUT_BUFFER_SIZE GT_BUFFER_SIZE_64M
 
 /*
  * Basic I/O functions
@@ -75,16 +75,16 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
       // Regular file - check if gzip or bzip compressed
       i=(int)fread(tbuf,(size_t)1,(size_t)4,input_file->file);
       if(tbuf[0]==0x1f && tbuf[1]==0x8b && tbuf[2]==0x08) {
-	input_file->file_type=GZIPPED_FILE;
-	fclose(input_file->file);
-	gt_cond_fatal_error(!(input_file->file=gzopen(file_name,"r")),FILE_GZIP_OPEN,file_name);
+        input_file->file_type=GZIPPED_FILE;
+        fclose(input_file->file);
+        gt_cond_fatal_error(!(input_file->file=gzopen(file_name,"r")),FILE_GZIP_OPEN,file_name);
       } else if(tbuf[0]=='B' && tbuf[1]=='Z' && tbuf[2]=='h' && tbuf[3]>='0' && tbuf[3]<='9') {
-	fseek(input_file->file,0L,SEEK_SET);
-	input_file->file_type=BZIPPED_FILE;
-	input_file->file=BZ2_bzReadOpen(&i,input_file->file,0,0,NULL,0);
-	gt_cond_fatal_error(i!=BZ_OK,FILE_BZIP_OPEN,file_name);
+        fseek(input_file->file,0L,SEEK_SET);
+        input_file->file_type=BZIPPED_FILE;
+        input_file->file=BZ2_bzReadOpen(&i,input_file->file,0,0,NULL,0);
+        gt_cond_fatal_error(i!=BZ_OK,FILE_BZIP_OPEN,file_name);
       } else {
-	fseek(input_file->file,0L,SEEK_SET);
+        fseek(input_file->file,0L,SEEK_SET);
       }
     } else {
       input_file->eof=0;
@@ -250,80 +250,78 @@ GT_INLINE size_t gt_input_file_next_line(gt_input_file* const input_file,gt_vect
   GT_INPUT_FILE_HANDLE_EOL();
   return GT_INPUT_FILE_LINE_READ;
 }
-GT_INLINE size_t gt_input_file_next_map_record(
-    gt_input_file* const input_file,gt_vector* const buffer_dst,uint64_t* const num_blocks) {
+GT_INLINE size_t gt_input_file_next_record(
+    gt_input_file* const input_file,gt_vector* const buffer_dst,gt_string* const first_field,
+    uint64_t* const num_blocks,uint64_t* const num_tabs) {
   GT_INPUT_FILE_CHECK(input_file);
   GT_VECTOR_CHECK(buffer_dst);
   GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst);
   if (input_file->eof) return GT_INPUT_FILE_EOF;
   // Read line
-  register uint64_t num_tabs = 0;
+  register uint64_t const begin_line_pos_at_file = input_file->buffer_pos;
+  register uint64_t const begin_line_pos_at_buffer = gt_vector_get_used(buffer_dst);
+  register uint64_t current_pfield = 0, length_first_field = 0;
   while (gt_expect_true(!input_file->eof &&
       GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL &&
       GT_INPUT_FILE_CURRENT_CHAR(input_file)!=DOS_EOL)) {
-    if (gt_expect_false(num_tabs==1 && GT_INPUT_FILE_CURRENT_CHAR(input_file)==SPACE)) {
-      ++(*num_blocks);
-    } else if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB)) {
-      ++num_tabs;
-    }
-    GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst);
-  }
-  ++(*num_blocks);
-  // Handle EOL
-  GT_INPUT_FILE_HANDLE_EOL();
-  return GT_INPUT_FILE_LINE_READ;
-}
-GT_INLINE size_t gt_input_file_next_sam_record(
-    gt_input_file* const input_file,gt_vector* const buffer_dst,gt_string* const first_field) {
-  GT_INPUT_FILE_CHECK(input_file);
-  GT_VECTOR_CHECK(buffer_dst);
-  GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst);
-  if (input_file->eof) return GT_INPUT_FILE_EOF;
-  // Read line
-  register char* const begin_line = (char*)(input_file->file_buffer+input_file->buffer_pos);
-  register uint64_t current_pfield = 0;
-  while (gt_expect_true(!input_file->eof &&
-      GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL &&
-      GT_INPUT_FILE_CURRENT_CHAR(input_file)!=DOS_EOL)) {
-    if (gt_expect_false(first_field && current_pfield==0 &&
-        (GT_INPUT_FILE_CURRENT_CHAR(input_file)==SPACE ||
-         GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB) )) {
-      register char* const end_first_field = (char*)(input_file->file_buffer+input_file->buffer_pos);
-      gt_string_set_nstring(first_field,begin_line,end_first_field-begin_line);
-      ++current_pfield;
-    } else if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB)) {
-      ++current_pfield;
+    if (current_pfield==0) {
+      ++length_first_field;
+      if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB)) {
+        ++current_pfield; ++(*num_tabs);
+      }
+    } else if (current_pfield==1) {
+      if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==SPACE)) {
+        ++(*num_blocks);
+      } else if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB)) {
+        ++current_pfield; ++(*num_tabs); ++(*num_blocks);
+      }
+    } else {
+      if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB)) {
+        ++current_pfield; ++(*num_tabs);
+      }
     }
     GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst);
   }
   // Handle EOL
   GT_INPUT_FILE_HANDLE_EOL();
+  // Set first field (from the input_file_buffer or the buffer_dst)
+  if (first_field) {
+    register char* first_field_begin;
+    if (input_file->buffer_pos <= begin_line_pos_at_file) {
+      gt_input_file_dump_to_buffer(input_file,buffer_dst); // Forced to dump to buffer
+      first_field_begin = gt_vector_get_elm(buffer_dst,begin_line_pos_at_buffer,char);
+    } else {
+      first_field_begin = (char*)input_file->file_buffer + begin_line_pos_at_file;
+    }
+    gt_string_set_nstring(first_field,first_field_begin,length_first_field);
+  }
   return GT_INPUT_FILE_LINE_READ;
 }
-#define GT_INPUT_SAM_FILE_TEST_NEXT_CHAR(input_file,buffer_centinel) \
+
+#define GT_INPUT_FILE_TEST_NEXT_CHAR(input_file,buffer_centinel) \
   ++buffer_centinel; \
   if (gt_expect_false(buffer_centinel >= input_file->buffer_size)) return true;
-#define GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel) input_file->file_buffer[buffer_centinel]
-GT_INLINE bool gt_input_file_cmp_next_sam_record(gt_input_file* const input_file,gt_string* const reference_tag) {
+#define GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel) input_file->file_buffer[buffer_centinel]
+GT_INLINE bool gt_input_file_next_record_cmp_first_field(gt_input_file* const input_file,gt_string* const first_field) {
   GT_INPUT_FILE_CHECK(input_file);
-  GT_STRING_CHECK(reference_tag);
+  GT_STRING_CHECK(first_field);
   if (gt_expect_false(input_file->eof || input_file->buffer_pos >= input_file->buffer_size)) return true;
   // Read line
   register char* const tag_begin = (char*)(input_file->file_buffer+input_file->buffer_pos);
   register uint64_t buffer_centinel = input_file->buffer_pos;
   while (gt_expect_true(!input_file->eof &&
-      GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)!=EOL &&
-      GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)!=DOS_EOL)) {
+      GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)!=EOL &&
+      GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)!=DOS_EOL)) {
     if (gt_expect_false(
-        (GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)==SPACE ||
-         GT_INPUT_SAM_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)==TAB) )) {
+        (GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)==SPACE ||
+         GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)==TAB) )) {
       register char* const tag_end = (char*)(input_file->file_buffer+buffer_centinel);
       register uint64_t tag_lenth = tag_end-tag_begin;
       if (tag_lenth>2 && tag_begin[tag_lenth-2]==SLASH) tag_lenth-=2;
-      if (reference_tag->length != tag_lenth) return false;
-      return gt_strneq(reference_tag->buffer,tag_begin,tag_lenth);
+      if (first_field->length != tag_lenth) return false;
+      return gt_strneq(first_field->buffer,tag_begin,tag_lenth);
     }
-    GT_INPUT_SAM_FILE_TEST_NEXT_CHAR(input_file,buffer_centinel);
+    GT_INPUT_FILE_TEST_NEXT_CHAR(input_file,buffer_centinel);
   }
   return true;
 }
