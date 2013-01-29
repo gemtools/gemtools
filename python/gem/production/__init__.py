@@ -12,10 +12,31 @@ from gem.filter import filter as gf
 from gem.pipeline import MappingPipeline
 from gem.utils import Command, CommandException
 
+
+class Merge(Command):
+    title = "Merge .map files"
+    description = """Merge two .map files. The first file has to
+    be the master file that contains all the reads, the second file can
+    contain a subset of the reads with the same ID tags and the same order.
+    """
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-i', '--input', dest="input", help='Master file with all the reads', required=True)
+        parser.add_argument('-s', '--second', dest="second", help='Second file with a subset of the reads in the same order', required=True)
+        parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+
+    def run(self, args):
+        i1 = args.input
+        i2 = args.second
+        gem.merger(gem.files.open(i1), [gem.files.open(i2)]).merge(args.output)
+
+
 class Index(Command):
     title = "Index genomes"
     description = """This command can be used to index genomes
     """
+
     def register(self, parser):
         ## required parameters
         parser.add_argument('-i', '--input', dest="input", help='Path to a single uncompressed fasta file with the genome', required=True)
@@ -101,9 +122,9 @@ class RnaPipeline(Command):
         parser.add_argument('-o', '--output-dir', dest="output", help='The output folder. If not specified the current working directory is used.')
         parser.add_argument('-q', '--quality', dest="quality", default=33, help='Quality offset. 33 or 64, default 33')
         parser.add_argument('--junction-coverage', dest="junctioncoverage",
-            help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable', default=2)
+            help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable. Default 2', default=2)
         parser.add_argument('-s', '--strata-after-best', dest="delta",
-            help='Number of strata that are examined after the best one', default=1)
+            help='Number of strata that are examined after the best one. Default 1', default=1)
         parser.add_argument('-g', '--no-gzip', dest="gzip", action="store_false", default=True, help="Do not compress result mapping")
         parser.add_argument('--keep-temp', dest="rmtemp", action="store_false", default=True, help="Keep temporary files")
         parser.add_argument('-t', '--threads', dest="threads", default=2, type=int, help="Number of threads to use")
@@ -118,7 +139,7 @@ class RnaPipeline(Command):
         name = None
         if len(args.file) > 1:
             input_file2 = os.path.abspath(args.file[1])
-            name = os.path.basename(input_file)[:inputfile.rfind(".")]
+            name = os.path.basename(input_file)[:input_file.rfind(".")]
         else:
             (name, input_file2) = gem.utils.find_pair(input_file)
 
@@ -126,7 +147,7 @@ class RnaPipeline(Command):
             name = args.name
 
         if args.extendname:
-            name = "%s_%d_%.2f_%d" % (name, args.delta, args.unmappedthreshold, args.junctioncoverage)
+            name = "%s_%d_%d" % (name, args.delta, args.junctioncoverage)
         logging.info("Using dataset name: %s" % (name))
 
         pipeline = MappingPipeline(
@@ -144,7 +165,7 @@ class RnaPipeline(Command):
             remove_temp=args.rmtemp
         )
 
-        start_time = time.time()
+        timer = gem.utils.Timer()
 
         main_input = gem.files.open(input_file)
         main_input2 = gem.files.open(input_file2)
@@ -178,11 +199,101 @@ class RnaPipeline(Command):
 
         pipeline.cleanup()
 
-        end_time = (time.time() - start_time) / 60
-
-        print "Completed job in %0.2f mins" % end_time
+        timer.stop("Completed job in %s")
 
 
-if __name__ == "__main__":
-    main()
+class RnaSplitmapPipeline(Command):
+    description = "The RNASeq splitmapping pipeline alignes reads"
+    title = "Splitmapping based RNASeq Pipeline"
 
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-f', '--files', dest="file", nargs="+", help='Single fastq input file or both pairs', required=True)
+        parser.add_argument('-i', '--index', dest="index", help='Genome index', required=True)
+        parser.add_argument('-a', '--annotation', dest="annotation", help='GTF annotation file', required=True)
+
+        ## optional parameters
+        parser.add_argument('-o', '--output-dir', dest="output", help='The output folder. If not specified the current working directory is used.')
+        parser.add_argument('-q', '--quality', dest="quality", default=33, help='Quality offset. 33 or 64, default 33')
+        parser.add_argument('-u', '--unmapped-threshold', dest="unmappedthreshold", default=2, help='Pass on reads that are unmapped or have a primary mapping with >= n mismatches. Default 2.')
+        parser.add_argument('--junction-coverage', dest="junctioncoverage",
+            help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable. Default 2', default=2)
+        parser.add_argument('-s', '--strata-after-best', dest="delta",
+            help='Number of strata that are examined after the best one. Default 1', default=1)
+        parser.add_argument('-g', '--no-gzip', dest="gzip", action="store_false", default=True, help="Do not compress result mapping")
+        parser.add_argument('--keep-temp', dest="rmtemp", action="store_false", default=True, help="Keep temporary files")
+        parser.add_argument('-t', '--threads', dest="threads", default=2, type=int, help="Number of threads to use")
+        parser.add_argument('--no-sam', dest="nosam", action="store_true", default=False, help="Do not create sam/bam file")
+        parser.add_argument('-n', '--name', dest="name", help="Name used for the results")
+        parser.add_argument('--extend-name', dest="extendname", action="store_true", default=False, help="Extend the name by prefixing it with the parameter combination")
+
+    def run(self, args):
+        ## parsing command line arguments
+        input_file = os.path.abspath(args.file[0])
+        input_file2 = None
+        unmappedthreshold = args.unmappedthreshold
+        name = None
+        if len(args.file) > 1:
+            input_file2 = os.path.abspath(args.file[1])
+            name = os.path.basename(input_file)[:input_file.rfind(".")]
+        else:
+            (name, input_file2) = gem.utils.find_pair(input_file)
+
+        if args.name:
+            name = args.name
+
+        if args.extendname:
+            name = "%s_%d_%.2f_%d" % (name, args.delta, args.unmappedthreshold, args.junctioncoverage)
+        logging.info("Using dataset name: %s" % (name))
+
+        pipeline = MappingPipeline(
+            name=name,
+            index=args.index,
+            output_dir=args.output,
+            annotation=args.annotation,
+            threads=int(args.threads),
+            quality=int(args.quality),
+            junctioncoverage=int(args.junctioncoverage),
+            delta=int(args.delta),
+            remove_temp=args.rmtemp
+        )
+
+        timer = gem.utils.Timer()
+
+        main_input = gem.files.open(input_file)
+        main_input2 = gem.files.open(input_file2)
+
+        # initial mapping
+        initial_mapping = pipeline.mapping_step(interleave([main_input, main_input2], add_id=False), "initial")
+
+        # create denovo transcriptome from unmapped
+        pipeline.create_denovo_junctions(gf(initial_mapping, unmapped, unmappedthreshold))
+
+        ## run initial split mapping
+        pipeline.split_mapping_step(initial_mapping.clone(), "initial_splits")
+
+        # merge initial
+        step_1 = pipeline.merge("step_1")
+
+        ## trim 20 mappings
+        t20 = pipeline.mapping_step(gf(step_1, unmapped), "trim_20", trim=(0, 20))
+        pipeline.split_mapping_step(gf(t20, unmapped), "trim_20_splits", trim=(0, 20))
+
+        # merge
+        step_2 = pipeline.merge("step_2")
+
+        ## trium 5 mappings
+        t20 = pipeline.mapping_step(gf(step_2, unmapped), "trim_5", trim=(5, 20))
+        pipeline.split_mapping_step(gf(t20, unmapped), "trim_5_splits", trim=(5, 20))
+
+        ## merge everything
+        merged = pipeline.merge("merged")
+
+        paired_mapping = pipeline.pair_align(merged, compress=args.gzip)
+
+        if not args.nosam:
+            pipeline.create_bam(paired_mapping, sort=True)
+
+        pipeline.cleanup()
+
+        timer.stop("Completed job in %s")

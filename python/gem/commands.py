@@ -7,22 +7,25 @@ import sys
 
 __VERSION__ = "1.6"
 
+
 def gemtools():
     try:
         parser = argparse.ArgumentParser(prog="gemtools",
                 description="Gemtools driver to execute different gemtools command and pipelines"
                 )
         parser.add_argument('--loglevel', dest="loglevel", default=None, help="Log level (error, warn, info, debug)")
-        parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __VERSION__ )
+        parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __VERSION__)
 
         commands = {
             "index": gem.production.Index,
             "rna-pipeline": gem.production.RnaPipeline,
-            "t-index": gem.production.TranscriptIndex
+            "rna-splitmap-pipeline": gem.production.RnaSplitmapPipeline,
+            "t-index": gem.production.TranscriptIndex,
+            "merge": gem.production.Merge
         }
         instances = {}
 
-        subparsers = parser.add_subparsers(title="commands", description="Available commands", dest="command")
+        subparsers = parser.add_subparsers(title="commands", metavar="<command>", description="Available commands", dest="command")
         for name, cmdClass in commands.items():
             p = subparsers.add_parser(name, help=cmdClass.title, description=cmdClass.description)
             instances[name] = cmdClass()
@@ -38,6 +41,6 @@ def gemtools():
             exit(1)
     except KeyboardInterrupt:
         exit(1)
-        
+
 if __name__ == "__main__":
     gemtools()
