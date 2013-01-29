@@ -122,12 +122,12 @@ void gt_merge_map_read__write() {
 }
 
 void usage() {
-  fprintf(stderr, "USE: ./gt.merge.map [OP] [ARGS]...\n"
+  fprintf(stderr, "USE: ./gt.merge.map [ARGS]...\n"
                   "       [ARGS]\n"
                   "         --i1 [FILE]\n"
                   "         --i2 [FILE]\n"
                   "         --output|-o [FILE]\n"
-                  "         --paired-end|p\n"
+                  "         --paired-end|-p\n"
                   "       [Misc]\n"
                   "         --threads|t\n"
                   "         --verbose|v\n"
