@@ -195,11 +195,9 @@ def test_junction_extraction_from_splitmap():
     input = files.open(testfiles["reads_1.fastq"])
     index = testfiles["genome.gem"]
     gtf_junctions = set(junctions.from_gtf(testfiles["refseq.gtf"]))
-    (splitmap, jj) = gem.extract_junctions(input, index, merge_with=gtf_junctions)
-    assert splitmap is not None
+    jj = gem.extract_junctions(input, index, merge_with=gtf_junctions)
     assert junctions is not None
     assert len(jj) == 260
-    assert sum(1 for x in splitmap) == 10000
 
 
 @with_setup(setup_func, cleanup)

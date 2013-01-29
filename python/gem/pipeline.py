@@ -9,6 +9,7 @@ from gem.filter import interleave, unmapped
 from gem.filter import filter as gf
 from gem.utils import Timer
 
+
 class MappingPipeline(object):
 
     def __init__(self, name=None, index=None,
@@ -37,6 +38,7 @@ class MappingPipeline(object):
         self.denovo_keys = None
         self.delta = delta
         self.quality = quality
+        self.junctions_file = None
         self.mappings = []
         self.files = []
 
@@ -115,7 +117,9 @@ class MappingPipeline(object):
         mapping_out = self.create_file_name(suffix)
         if os.path.exists(mapping_out):
             logging.warning("Mapping step target exists, skip mapping set : %s" % (mapping_out))
-            return gem.files.open(mapping_out, type="map", quality=self.quality)
+            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            self.mappings.append(mapping)
+            return mapping
         input_name = self._guess_input_name(input)
         logging.debug("Mapping from %s to %s" % (input_name, mapping_out))
         mapping = gem.mapper(input,
@@ -128,6 +132,41 @@ class MappingPipeline(object):
                 threads=self.threads)
         self.mappings.append(mapping)
         timer.stop("Mapping step finished in %s")
+        return mapping
+
+    def split_mapping_step(self, input, suffix, trim=None):
+        """Single split-mapping step where the input is passed on
+        as is to the mapper. The output name is created based on
+        the dataset name in the parameters the suffix.
+
+        The function returns an opened ReadIterator on the resulting
+        mapping
+
+        input -- mapper input
+        suffix -- output name suffix
+        trim -- optional trimming options, i.e. '0,20'
+        """
+        timer = Timer()
+        mapping_out = self.create_file_name(suffix)
+        if os.path.exists(mapping_out):
+            logging.warning("Split-Mapping step target exists, skip mapping set : %s" % (mapping_out))
+            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            self.mappings.append(mapping)
+            return mapping
+        input_name = self._guess_input_name(input)
+        logging.debug("Split-Mapping from %s to %s" % (input_name, mapping_out))
+
+        mapping = gem.splitmapper(
+            input,
+            self.index,
+            mapping_out,
+            junctions_file=self.junctions_file,
+            trim=trim,
+            threads=self.threads,
+            quality=self.quality,
+            mismatches=0.06)
+        self.mappings.append(mapping)
+        timer.stop("Split-Mapping step finished in %s")
         return mapping
 
     def transcript_mapping_step(self, input, suffix, trim=None):
@@ -146,7 +185,9 @@ class MappingPipeline(object):
         mapping_out = self.create_file_name(suffix + "_transcript")
         if os.path.exists(mapping_out):
             logging.warning("Transcript mapping step target exists, skip mapping set : %s" % (mapping_out))
-            return gem.files.open(mapping_out, type="map", quality=self.quality)
+            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            self.mappings.append(mapping)
+            return mapping
         input_name = self._guess_input_name(input)
         logging.debug("Mapping transcripts from %s to %s" % (input_name, mapping_out))
 
@@ -171,11 +212,24 @@ class MappingPipeline(object):
         create it. Returns a tuple of the set of junctions and the output file.
         """
         timer = Timer()
-        logging.info("Loading junctions from %s" % (self.annotation))
-        junctions = set(gem.junctions.from_gtf(self.annotation))
+        gtf_junctions = self.annotation + ".junctions"
+        out = None
+        junctions = None
+        if os.path.exists(gtf_junctions):
+            logging.info("Loading existing junctions from %s" % (gtf_junctions))
+            out = gtf_junctions
+            junctions = set(gem.junctions.from_junctions(gtf_junctions))
+        else:
+            out = self.create_file_name("gtf", file_suffix="junctions")
+            if os.path.exists(out):
+                logging.info("Loading existing junctions from %s" % (out))
+                junctions = set(gem.junctions.from_junctions(out))
+            else:
+                logging.info("Extracting junctions from %s" % (self.annotation))
+                junctions = set(gem.junctions.from_gtf(self.annotation))
+                gem.junctions.write_junctions(junctions, out, self.index)
+
         logging.info("%d Junctions from GTF" % (len(junctions)))
-        out = self.create_file_name("gtf", file_suffix="junctions")
-        gem.junctions.write_junctions(junctions, out, self.index)
         timer.stop("GTF-Junctions prepared in %s")
         return (junctions, out)
 
@@ -195,8 +249,9 @@ class MappingPipeline(object):
             self.denovo_index = index_denovo_out
             return index_denovo_out
 
-        timer = Timer()
         (junctions, junctions_gtf_out) = self.gtf_junctions()
+
+        timer = Timer()
         ## get de-novo junctions
         logging.info("Getting de-novo junctions")
 
@@ -232,6 +287,35 @@ class MappingPipeline(object):
         #self.mappings.append(denovo_mapping)
         #self.files.append(denovo_out)
         return idx
+
+    def create_denovo_junctions(self, input):
+        """Extract junctions from input and merge them with the gtf_junctions"""
+
+        junctions_out = self.create_file_name("all", file_suffix="junctions")
+        if os.path.exists(junctions_out):
+            logging.warning("Junctions found, skip creating : %s" % (junctions_out))
+            self.junctions_file = junctions_out
+            return junctions_out
+
+        timer = Timer()
+        (junctions, junctions_gtf_out) = self.gtf_junctions()
+        ## get de-novo junctions
+        logging.info("Getting de-novo junctions")
+
+        junctions = gem.extract_junctions(
+            input,
+            self.index,
+            mismatches=0.04,
+            threads=self.threads,
+            strata_after_first=0,
+            coverage=self.junctioncoverage,
+            merge_with=junctions)
+        logging.info("Total Junctions %d" % (len(junctions)))
+        timer.stop("Junctions extracted in %s")
+        timer = Timer()
+        gem.junctions.write_junctions(gem.junctions.filter_by_distance(junctions, 500000), junctions_out, self.index)
+        self.junctions_file = junctions_out
+        return junctions_out
 
     def pair_align(self, input, compress=False):
         logging.info("Running pair aligner")

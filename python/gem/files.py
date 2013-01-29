@@ -15,6 +15,8 @@ from utils import which
 __author__ = 'Thasso Griebel'
 __zcat_path = None
 
+__open_iterators = []
+
 class Parser(object):
     def __init__(self):
         self.read = gem.Read()
@@ -150,7 +152,7 @@ class parse_sam(Parser):
 
 
 class ReadIterator(object):
-    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False, quality=None, raw=False):
+    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False, quality=None, raw=False, type=None):
         """
         Create a ReadIterator from a stream with a given parser.
         If the filename is given, the iterator can be cloned to re-read
@@ -175,6 +177,7 @@ class ReadIterator(object):
         self.process = process
         self.remove_after_iteration = remove_after_iteration
         self.quality = quality
+        self.type = type
         self.raw = raw
 
     def __iter__(self):
@@ -258,8 +261,15 @@ def open(input, type=None, process=None, remove_after_iteration=False, quality=N
     else:
         input = None  ## reset filename
 
-    return ReadIterator(stream, supported_types[type](), input, process=process,
-                        remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
+    it = ReadIterator(stream, supported_types[type](), input, process=process,
+                        remove_after_iteration=remove_after_iteration, quality=quality, raw=raw, type=type)
+    __open_iterators.append(it)
+    return it
+
+
+def _cleanup():
+    for r in __open_iterators:
+        r.close()
 
 
 def open_file(file):

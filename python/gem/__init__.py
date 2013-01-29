@@ -12,6 +12,7 @@ import pkg_resources
 import splits
 import filter as gemfilter
 import gem.gemtools as gt
+import gem
 
 LOG_NOTHING = 1
 LOG_STDERR = 2
@@ -506,7 +507,7 @@ def transcript_mapper(input, indices, key_files, output=None,
            delta=0,
            quality=33,
            quality_threshold=26,
-           max_decoded_matches=20,
+           max_decoded_matches=100,
            min_decoded_strata=1,
            min_matched_bases=0.80,
            max_big_indel_length=15,
@@ -800,11 +801,14 @@ def pairalign(input, index, output=None,
     if map_both_ends:
         pa.append("--map-both-ends")
 
-        ## run the mapper
-    process = utils.run_tool(pa, input, output,
-        "GEM-Pair-align", utils.read_to_map)
-    return _prepare_output(process, output, type="map",
-        name="GEM-Pair-align", quality=quality)
+    use_raw = False
+    if isinstance(input, files.ReadIterator):
+        if input.type == "map":
+            use_raw = True
+
+    ## run the mapper
+    process = utils.run_tool(pa, input, output, "GEM-Pair-align", utils.read_to_map, raw_stream=use_raw)
+    return _prepare_output(process, output, type="map", name="GEM-Pair-align", quality=quality)
 
 
 def realign(input,
@@ -817,11 +821,16 @@ def realign(input,
                   '-r',
                   '-T', str(threads)
     ]
+
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
+        if input.type == "map":
+            use_raw = True
+
     process = utils.run_tool(validate_p, input, output,
-        "GEM-Validate", utils.read_to_map)
+        "GEM-Validate", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map",
         name="GEM-Validate", quality=quality)
 
@@ -846,10 +855,13 @@ def validate(input,
         validate_p.extend(['-f', validate_filter])
 
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
+        if input.type == "map":
+            use_raw = True
 
-    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
+    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map", name="GEM-Validate", quality=quality)
 
 
@@ -867,12 +879,19 @@ def score(input,
     ]
     if filter is not None:
         score_p.append("-f")
-        score_p.append(filter)
+        ff = filter
+        if not isinstance(filter, basestring):
+            ff = ",".join(filter)
+        score_p.append(ff)
 
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
-    process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map)
+        if input.type == "map":
+            use_raw = True
+
+    process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map", name="GEM-Score", quality=quality)
 
 
@@ -884,7 +903,7 @@ def validate_and_score(input,
                        validate_filter="2,25",
                        threads=1):
     validator = validate(input, index, None, validate_score, validate_filter, max(threads / 2, 1))
-    return score(validator, index, output, scoring, max(threads / 2, 1))
+    return score(validator, index, output=output, scoring=scoring, threads=max(threads / 2, 1))
 
 
 def gem2sam(input, index=None, output=None,
@@ -1016,19 +1035,19 @@ def index(input, output, content="dna", threads=1):
         logging.warning("Index %s already exists, skipping indexing" % existing)
         return os.path.abspath(existing)
 
-
     # indexer takes the prefix
     if output[-4:] == ".gem":
         output = output[:-4]
     indexer_p.extend(['-o', output])
 
     # the indexer need the other indexer tools in PATH
-    path="%s:%s" % (os.path.dirname(executables['gem-indexer']), os.getenv("PATH"))
+    path = "%s:%s" % (os.path.dirname(executables['gem-indexer']), os.getenv("PATH"))
 
     process = utils.run_tools([indexer_p], input=None, output=None, name="gem-indexer", raw_stream=True, path=path)
     if process.wait() != 0:
         raise ValueError("Error while executing the gem-indexer")
     return os.path.abspath("%s.gem" % output)
+
 
 def hash(input, output):
     """Run the gem-retriever on the given input and create a hash
@@ -1056,9 +1075,10 @@ class merger(object):
     exclusive - if set the True, the next mappings are take
                 exlusively if the reads is not mapped at all. The default
                 is False, where all mappings are merged
+    paired -- merging paried reads
     """
 
-    def __init__(self, target, source, exclusive=False):
+    def __init__(self, target, source, exclusive=False, paired=False):
         if target is None:
             raise ValueError("No target file specified")
         if source is None:
@@ -1069,6 +1089,7 @@ class merger(object):
         self.reads = []
         self.result_read = Read()
         self.exclusive = exclusive
+        self.paired = paired
         for x in self.source:
             self.reads.append(None)
 
@@ -1114,12 +1135,29 @@ class merger(object):
         return self.result_read
 
     def merge(self, output):
-        of = open(output, 'w')
-        for read in self:
-            of.write(str(read))
-            of.write("\n")
-        of.close()
-        return files.open(output, type="map")
+        if output is not None:
+            of = open(output, 'wb')
+        else:
+            of = sys.stdout
+        target_is_iterator = isinstance(self.target, gem.files.ReadIterator) and self.target.filename is not None
+        source_is_iterator = isinstance(self.source[0], gem.files.ReadIterator) and self.source[0].filename is not None
+
+        if len(self.source) == 1 and target_is_iterator and source_is_iterator:
+            # merge two file
+            f1 = self.target.stream
+            f2 = self.source[0].stream
+            logging.debug("Using faster file merging")
+            gt.merge_files(f1, f2, of, False)
+            f1.close()
+            f2.close()
+        else:
+            for read in self:
+                of.write(str(read))
+                of.write("\n")
+        if output is not None:
+            of.close()
+            return files.open(output, type="map")
+        return None
 
 
 def _is_i3_compliant(stream):
@@ -1131,7 +1169,7 @@ def _is_i3_compliant(stream):
     The input is a stream that must provide a readline method"""
     i3_flags = set(["popcnt", "ssse3", "sse4_1", "sse4_2"])
     cpu_flags = set([])
-    for line in iter(stream.readline,''):
+    for line in iter(stream.readline, ''):
         line = line.rstrip()
         if line.startswith("flags"):
             for e in line.split(":")[1].strip().split(" "):

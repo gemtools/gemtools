@@ -641,9 +641,101 @@ static PyObject* gemtools_merge_templates(PyObject *self, PyObject *args){
 
 
 
+GT_INLINE gt_status gt_mapset_read_template_sync(
+    gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
+    gt_template* const template_master,gt_template* const template_slave, bool paired_end) {
+  // Read master
+  register gt_status error_code_master, error_code_slave;
+  gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(paired_end);
+  if ((error_code_master=gt_input_generic_parser_get_template(
+      buffered_input_master,template_master,&generic_parser_attr))==GT_IMP_FAIL) {
+    gt_fatal_error_msg("Fatal error parsing file <<Master>>");
+  }
+  // Read slave
+  if ((error_code_slave=gt_input_generic_parser_get_template(
+      buffered_input_slave,template_slave,&generic_parser_attr))==GT_IMP_FAIL) {
+    gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
+  }
+  // Check EOF conditions
+  if (error_code_master==GT_IMP_EOF) {
+    if (error_code_slave!=GT_IMP_EOF) {
+      gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
+    }
+    return GT_IMP_EOF;
+  } else if (error_code_slave==GT_IMP_EOF) { // Slave exhausted. Dump master & return EOF
+    do {
+      if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
+      gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
+    } while ((error_code_master=gt_input_generic_parser_get_template(
+                buffered_input_master,template_master,&generic_parser_attr)));
+    return GT_IMP_EOF;
+  }
+  // Synch loop
+  while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
+    // Print non correlative master's template
+    gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
+    // Fetch next master's template
+    if ((error_code_master=gt_input_generic_parser_get_template(
+        buffered_input_master,template_master,&generic_parser_attr))!=GT_IMP_OK) {
+      gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
+    }
+  }
+  return GT_IMP_OK;
+}
+
+static PyObject* gemtools_merge_files(PyObject *self, PyObject *args){
+    PyObject *py_instream1 = NULL;
+    PyObject *py_instream2 = NULL;
+    PyObject *py_outstream = NULL;
+    PyObject *py_paired = NULL;
+    if (!PyArg_UnpackTuple(args, "ref", 4, 4, &py_instream1, &py_instream2, &py_outstream, &py_paired)) {
+        PyErr_SetString(PyExc_Exception, "Error while parsing arguments!");
+        return NULL;
+    }
+
+    bool paired = PyObject_IsTrue(py_paired);
+    // Open file IN/OUT
+    gt_input_file* input_file_1 = gt_input_stream_open(PyFile_AsFile(py_instream1));
+    gt_input_file* input_file_2 = gt_input_stream_open(PyFile_AsFile(py_instream2));
+    //gt_output_file* output_file = gt_output_stream_new(PyFile_AsFile(py_outstream),SORTED_FILE);
+    FILE* output_file = PyFile_AsFile(py_outstream);
+    // Parallel reading+process
+    gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
+    gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
+
+    gt_template *template_1 = gt_template_new();
+    gt_template *template_2 = gt_template_new();
+    while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,paired)) {
+        // Record current read length
+        //current_read_length = gt_template_get_total_length(template_1);
+        // Apply operation
+        register gt_template *ptemplate;
+        ptemplate=gt_template_union_template_mmaps(template_1,template_2);
+        // Print template
+        gt_output_map_fprint_gem_template(output_file, ptemplate, GT_ALL, true);
+        // Delete template
+        gt_template_delete(ptemplate);
+    }
+    // Clean
+    gt_template_delete(template_1);
+    gt_template_delete(template_2);
+    gt_buffered_input_file_close(buffered_input_1);
+    gt_buffered_input_file_close(buffered_input_2);
+
+    // Clean
+    //gt_input_file_close(input_file_1);
+    //gt_input_file_close(input_file_2);
+    //gt_output_file_close(output_file);
+    //fclose(output_file);
+    //Py_RETURN_NONE;
+    return Py_BuildValue("");
+}
+
+
 
 static PyMethodDef GempyMethods[] = {
     {"merge_templates", gemtools_merge_templates, METH_VARARGS, "Merge two Templates and returns the merged result Template"},
+    {"merge_files", gemtools_merge_files, METH_VARARGS, "Merge two streams of mappings into one output stream"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
