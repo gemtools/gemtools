@@ -59,4 +59,8 @@ GT_INLINE gt_status gt_input_generic_parser_get_alignment(
 GT_INLINE gt_status gt_input_generic_parser_get_template(
     gt_buffered_input_file* const buffered_input,gt_template* const template,gt_generic_parser_attr* const attributes);
 
+GT_INLINE void gt_merge_map_files(
+    pthread_mutex_t* const input_mutex,gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
+    const bool paired_end,gt_output_file* const output_file);
+
 #endif /* GEM_TOOLS_H_ */

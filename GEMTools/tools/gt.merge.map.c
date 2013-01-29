@@ -35,49 +35,6 @@ gt_stats_args parameters = {
     .verbose=false,
 };
 
-pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-
-GT_INLINE gt_status gt_merge_map_read_template_sync(
-    gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
-    gt_buffered_output_file* buffered_output,gt_template* const template_master,gt_template* const template_slave) {
-  register gt_status error_code_master, error_code_slave;
-  do {
-    // Read Synch blocks
-    error_code_master=gt_input_map_parser_synch_blocks_by_subset(&input_mutex,buffered_input_master,buffered_input_slave,parameters.paired_end);
-    if (error_code_master==GT_IMP_EOF) return GT_IMP_EOF;
-    if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error synchronizing files");
-    // Read master (always guaranteed)
-    if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))==GT_IMP_FAIL) {
-      gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-    }
-    // Check slave
-    if (gt_buffered_input_file_eob(buffered_input_slave)) { // Slave exhausted. Dump master & return EOF
-      gt_output_map_bofprint_gem_template(buffered_output,template_master,GT_ALL,true);
-      while ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))) {
-        if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-        gt_output_map_bofprint_gem_template(buffered_output,template_master,GT_ALL,true);
-      }
-    } else {
-      // Read slave
-      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_slave,template_slave))==GT_IMP_FAIL) {
-        gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
-      }
-      // Synch loop
-      while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
-        // Print non correlative master's template
-        gt_output_map_bofprint_gem_template(buffered_output,template_master,GT_ALL,true);
-        // Fetch next master's template
-        if (gt_buffered_input_file_eob(buffered_input_master)) gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
-        if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))!=GT_IMP_OK) {
-          gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-        }
-      }
-      return GT_IMP_OK;
-    }
-  } while (true);
-}
-
 void gt_merge_map_read__write() {
   // Open file IN/OUT
   gt_input_file* input_file_1 = gt_input_file_open(parameters.name_input_file_1,parameters.mmap_input);
@@ -87,32 +44,13 @@ void gt_merge_map_read__write() {
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
+  // Mutex
+  pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
+
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
   {
-    // Parallel reading+process
-    gt_buffered_input_file* buffered_input_master = gt_buffered_input_file_new(input_file_1);
-    gt_buffered_input_file* buffered_input_slave  = gt_buffered_input_file_new(input_file_2);
-    gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
-    gt_buffered_input_file_attach_buffered_output(buffered_input_master,buffered_output);
-
-    gt_template *template_1 = gt_template_new();
-    gt_template *template_2 = gt_template_new();
-    while (gt_merge_map_read_template_sync(buffered_input_master,buffered_input_slave,buffered_output,template_1,template_2)) {
-      // Merge maps
-      register gt_template *ptemplate = gt_template_union_template_mmaps(template_1,template_2);
-      // Print template
-      gt_output_map_bofprint_gem_template(buffered_output,ptemplate,GT_ALL,true);
-      // Delete template
-      gt_template_delete(ptemplate);
-    }
-
-    // Clean
-    gt_template_delete(template_1);
-    gt_template_delete(template_2);
-    gt_buffered_input_file_close(buffered_input_master);
-    gt_buffered_input_file_close(buffered_input_slave);
-    gt_buffered_output_file_close(buffered_output);
+    gt_merge_map_files(&input_mutex,input_file_1,input_file_2,parameters.paired_end,output_file);
   }
 
   // Clean
