@@ -31,7 +31,7 @@ class CommandException(Exception):
 
 
 class Command(object):
-    """Command base class to be registered 
+    """Command base class to be registered
     with the gem tools main command
     """
     def register(self, parser):
@@ -254,6 +254,8 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
         input_thread = Thread(target=__write_input, args=(input, first_process.stdin, transform_fun))
         input_thread.start()
         threads.append(input_thread)
+    elif raw_stream:
+        logging.debug("Passing raw stream to process")
 
     if post_transform is not None and isinstance(post_transform, (list, tuple)):
         if len(post_transform) == 0:

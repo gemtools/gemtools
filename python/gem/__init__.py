@@ -818,11 +818,16 @@ def realign(input,
                   '-r',
                   '-T', str(threads)
     ]
+
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
+        if input.type == "map":
+            use_raw = True
+
     process = utils.run_tool(validate_p, input, output,
-        "GEM-Validate", utils.read_to_map)
+        "GEM-Validate", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map",
         name="GEM-Validate", quality=quality)
 
@@ -847,10 +852,13 @@ def validate(input,
         validate_p.extend(['-f', validate_filter])
 
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
+        if input.type == "map":
+            use_raw = True
 
-    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
+    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map", name="GEM-Validate", quality=quality)
 
 
@@ -874,9 +882,13 @@ def score(input,
         score_p.append(ff)
 
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
-    process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map)
+        if input.type == "map":
+            use_raw = True
+
+    process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map", name="GEM-Score", quality=quality)
 
 

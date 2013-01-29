@@ -19,7 +19,6 @@ def gemtools():
         commands = {
             "index": gem.production.Index,
             "rna-pipeline": gem.production.RnaPipeline,
-            "rna-splitmap-pipeline": gem.production.RnaSplitmapPipeline,
             "t-index": gem.production.TranscriptIndex,
             "merge": gem.production.Merge
         }
@@ -41,6 +40,8 @@ def gemtools():
             exit(1)
     except KeyboardInterrupt:
         exit(1)
-
+    finally:
+        # cleanup
+        gem.files._cleanup()
 if __name__ == "__main__":
     gemtools()
