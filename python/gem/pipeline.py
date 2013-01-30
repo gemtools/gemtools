@@ -91,7 +91,7 @@ class MappingPipeline(object):
         merged = gem.merger(
             self.mappings[0].clone(),
             [m.clone() for m in self.mappings[1:]]
-        ).merge(out)
+        ).merge(out, self.threads)
         if self.remove_temp:
             for m in self.mappings:
                 logging.info("Removing temporary mapping %s ", m.filename)
@@ -169,7 +169,7 @@ class MappingPipeline(object):
         timer.stop("Split-Mapping step finished in %s")
         return mapping
 
-    def transcript_mapping_step(self, input, suffix, trim=None):
+    def transcript_mapping_step(self, input, suffix, index=None, key=None, trim=None):
         """Single transcript mapping step where the input is passed on
         as is to the mapper. The output name is created based on
         the dataset name in the parameters the suffix.
@@ -191,13 +191,22 @@ class MappingPipeline(object):
         input_name = self._guess_input_name(input)
         logging.debug("Mapping transcripts from %s to %s" % (input_name, mapping_out))
 
+        indices = [self.transcript_index, self.denovo_index]
+        keys = [self.transcript_keys, self.denovo_keys]
+
+        if index is not None:
+            indices = [index]
+            if key is None:
+                key = index[:-4] + ".junctions.keys"
+            keys = [key]
+
         mapping = gem.transcript_mapper(
                                 input,
-                                [self.transcript_index, self.denovo_index],
-                                [self.transcript_keys, self.denovo_keys],
+                                indices,
+                                keys,
                                 mapping_out,
                                 mismatches=0.06,
-                                min_decoded_strata=1,
+                                min_decoded_strata=0,
                                 trim=trim,
                                 delta=self.delta,
                                 quality=self.quality,

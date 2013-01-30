@@ -13,6 +13,7 @@ from gem.filter import interleave, unmapped
 from gem.filter import filter as gf
 from gem.pipeline import MappingPipeline
 from gem.utils import Command, CommandException
+# import gem.gemtools as gt
 
 
 class Merge(Command):
@@ -26,12 +27,36 @@ class Merge(Command):
         ## required parameters
         parser.add_argument('-i', '--input', dest="input", help='Master file with all the reads', required=True)
         parser.add_argument('-s', '--second', dest="second", help='Second file with a subset of the reads in the same order', required=True)
+        parser.add_argument('-t', '--threads', dest="threads", default=1, help='Number of threads')
         parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
 
     def run(self, args):
         i1 = args.input
         i2 = args.second
-        gem.merger(gem.files.open(i1), [gem.files.open(i2)]).merge(args.output)
+        gem.merger(gem.files.open(i1), [gem.files.open(i2)]).merge(args.output, threads=int(args.threads))
+
+# class Trim(Command):
+#     title = "Merge .map files"
+#     description = """Merge two .map files. The first file has to
+#     be the master file that contains all the reads, the second file can
+#     contain a subset of the reads with the same ID tags and the same order.
+#     """
+
+#     def register(self, parser):
+#         ## required parameters
+#         parser.add_argument('-i', '--input', dest="input", help='Master file with all the reads', required=True)
+#         parser.add_argument('-t', '--threads', dest="threads", default=1, help='Number of threads')
+#         parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+
+#     def run(self, args):
+#         i1 = args.input
+#         o = sys.stdout
+#         if args.output:
+#             o = open(args.output, "wb")
+
+#         gt.trim_file(gem.files.open(i1).stream, o, False, args.threads)
+#         if args.output:
+#             o.close()
 
 
 class Index(Command):
@@ -178,7 +203,7 @@ class RnaPipeline(Command):
         pipeline.create_denovo_transcriptome(initial_mapping)
 
         ## run initial transcript mapping
-        initial_split_mapping = pipeline.transcript_mapping_step(initial_mapping.clone(), "initial")
+        pipeline.transcript_mapping_step(initial_mapping.clone(), "initial")
 
         # merge
         #pipeline.merge("step_1")
