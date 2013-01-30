@@ -345,7 +345,7 @@ gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file)
     return SAM;
   }
   // Unknown format
-  // gt_error(FILE_FORMAT);
+  gt_error(FILE_FORMAT);
   return FILE_FORMAT_UNKNOWN;
 }
 

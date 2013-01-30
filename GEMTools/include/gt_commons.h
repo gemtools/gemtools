@@ -61,6 +61,7 @@ typedef int32_t gt_status;
 #define EQUAL '='
 #define COMA ','
 #define SEMICOLON ';'
+#define COLON ':'
 #define HASH '#'
 
 // Buffer sizes

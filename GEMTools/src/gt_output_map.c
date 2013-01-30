@@ -42,10 +42,9 @@ GT_INLINE gt_status gt_output_map_gprint_counters(
   }
   return 0;
 }
-#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_mismatch_string,gt_map* const map);
-GT_INLINE gt_status gt_output_map_gprint_mismatch_string(gt_generic_printer* const gprinter,gt_map* const map) {
+
+GT_INLINE gt_status gt_output_map_gprint_mismatch_string_(
+    gt_generic_printer* const gprinter,gt_map* const map,const bool begin_trim,const bool end_trim) {
   GT_NULL_CHECK(gprinter); GT_MAP_CHECK(map);
   register const uint64_t map_length = gt_map_get_base_length(map);
   register uint64_t centinel = 0;
@@ -66,7 +65,7 @@ GT_INLINE gt_status gt_output_map_gprint_mismatch_string(gt_generic_printer* con
       case DEL: {
         register const uint64_t init_centinel = centinel;
         centinel+=gt_misms_get_size(misms);
-        if (gt_expect_false(init_centinel==0 || centinel==map_length)) { // Trim
+        if (gt_expect_false((init_centinel==0 && begin_trim) || (centinel==map_length && end_trim))) { // Trim
           gt_gprintf(gprinter,"(%"PRIu64")",gt_misms_get_size(misms));
         } else {
           gt_gprintf(gprinter,">%"PRIu64"-",gt_misms_get_size(misms));
@@ -84,9 +83,14 @@ GT_INLINE gt_status gt_output_map_gprint_mismatch_string(gt_generic_printer* con
   return 0;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,print_scores
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_map,gt_map* const map,const bool print_scores);
-GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,gt_map* const map,const bool print_scores) {
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_mismatch_string,gt_map* const map);
+GT_INLINE gt_status gt_output_map_gprint_mismatch_string(gt_generic_printer* const gprinter,gt_map* const map) {
+  GT_NULL_CHECK(gprinter); GT_MAP_CHECK(map);
+  return gt_output_map_gprint_mismatch_string_(gprinter,map,true,true);
+}
+
+GT_INLINE gt_status gt_output_map_gprint_map_(gt_generic_printer* const gprinter,gt_map* const map,const bool print_scores,const bool print_trims) {
   GT_NULL_CHECK(gprinter); GT_MAP_CHECK(map);
   // FORMAT => chr11:-:51590050:(5)43T46A9>24*
   // Print sequence name
@@ -99,8 +103,9 @@ GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,
   register gt_map* map_it = map, *next_map=NULL;
   register bool cigar_pending = true;
   while (cigar_pending) {
-    gt_output_map_gprint_mismatch_string(gprinter,map_it);
-    if (gt_map_has_next_block(map_it)) {
+    register const bool has_next_block = gt_map_has_next_block(map_it);
+    gt_output_map_gprint_mismatch_string_(gprinter,map_it,next_map==NULL,!has_next_block);
+    if (has_next_block) {
       next_map = gt_map_get_next_block(map_it);
       if ((cigar_pending=(gt_string_equals(map_it->seq_name,next_map->seq_name)))) {
         switch (gt_map_get_junction(map_it)) {
@@ -133,12 +138,20 @@ GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,
     gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_global_score(map));
   }
   // Print possible next blocks (out of the current sequence => split-maps across chromosomes)
-  if (gt_map_has_next_block(map_it)) {
+  if (gt_map_has_next_block(map_it)) { // FIXME: trimmings, do this really occurs?
     gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-    gt_output_map_gprint_map(gprinter,next_map,print_scores);
+    gt_output_map_gprint_map_(gprinter,next_map,print_scores,false);
   }
   return 0;
 }
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,print_scores
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_map,gt_map* const map,const bool print_scores);
+GT_INLINE gt_status gt_output_map_gprint_map(gt_generic_printer* const gprinter,gt_map* const map,const bool print_scores) {
+  GT_NULL_CHECK(gprinter); GT_MAP_CHECK(map);
+  return gt_output_map_gprint_map_(gprinter,map,print_scores,true);
+}
+
 /*
  * Print maps unsorted
  */
@@ -159,7 +172,7 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps(
       if ((i++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
       GT_MULTIMAP_ITERATE(map_array,map,end_position) {
         if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-        gt_output_map_gprint_map(gprinter,map,print_scores);
+        gt_output_map_gprint_map_(gprinter,map,print_scores,true);
         if (print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
           gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
         }
@@ -183,7 +196,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps(
     GT_ALIGNMENT_ITERATE(alignment,map) {
       if (i>=max_printable_maps) break;
       if ((i++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
-      gt_output_map_gprint_map(gprinter,map,print_scores);
+      gt_output_map_gprint_map_(gprinter,map,print_scores,true);
     }
   }
   return 0;
@@ -211,7 +224,7 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_sorted(
         if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
         GT_MULTIMAP_ITERATE(map_array,map,end_position) {
           if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-          gt_output_map_gprint_map(gprinter,map,false);
+          gt_output_map_gprint_map_(gprinter,map,false,true);
         }
         if (print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
           gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
@@ -246,7 +259,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps_sorted(
         // Print map
         --pending_maps;
         if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
-        gt_output_map_gprint_map(gprinter,map,print_scores);
+        gt_output_map_gprint_map_(gprinter,map,print_scores,true);
         if (total_maps_printed>=max_printable_maps || total_maps_printed>=num_maps) return 0;
         if (pending_maps==0) break;
       }

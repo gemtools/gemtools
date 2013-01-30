@@ -116,27 +116,3 @@ GT_INLINE gt_shash* gt_shash_deep_copy(gt_shash* const shash) {
   return shash_cp;
 }
 
-/*
- * Attribute accessors
- */
-GT_INLINE void* gt_attribute_get(gt_shash* const attributes,char* const attribute_id) {
-  GT_HASH_CHECK(attributes);
-  GT_NULL_CHECK(attribute_id);
-  return gt_shash_get(attributes,attribute_id,void);
-}
-GT_INLINE void gt_attribute_set(
-    gt_shash* const attributes,char* const attribute_id,
-    void* const attribute,const size_t element_size) {
-  GT_HASH_CHECK(attributes);
-  GT_NULL_CHECK(attribute_id);
-  GT_NULL_CHECK(attribute);
-  GT_ZERO_CHECK(element_size);
-  // Test attribute
-  register void* attr = gt_shash_get(attributes,attribute_id,void);
-  if (gt_expect_false(attr!=NULL)) free(attr);
-  // Insert attribute
-  attr = malloc(element_size); // Allocate attribute
-  gt_cond_fatal_error(!attr,MEM_ALLOC);
-  memcpy(attr,attribute,element_size); // Copy attribute
-  gt_shash_insert_element(attributes,attribute_id,attr,element_size);
-}

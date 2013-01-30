@@ -10,6 +10,7 @@
 #define GT_INPUT_FILE_H_
 
 #include "gt_commons.h"
+#include "gt_data_attributes.h"
 
 #include <zlib.h>
 #include <bzlib.h>
@@ -28,31 +29,9 @@
   GT_NULL_CHECK(input_file->file_name)
 
 /*
- * File specifics (formats, attributes, ...)
- */
-typedef enum { FASTA, MAP, SAM, FILE_FORMAT_UNKNOWN } gt_file_format;
-// MAP specific info
-typedef struct {
-  bool contains_qualities;
-} gt_map_file_format;
-// FASTQ/FASTA specific info
-typedef enum { F_FASTA, F_FASTQ, F_MULTI_FASTA } gt_file_fasta_format;
-typedef struct {
-  gt_file_fasta_format fasta_format;
-} gt_fasta_file_format;
-// SAM specific info (headers)
-typedef struct {
-  // gt_reference_sequences reference_sequences;
-  char* program_name;
-  char* program_version;
-  /* ... */
-} gt_sam_headers;
-/* */
-
-
-/*
  * GT Input file
  */
+typedef enum { FASTA, MAP, SAM, FILE_FORMAT_UNKNOWN } gt_file_format;
 typedef enum { STREAM, REGULAR_FILE, MAPPED_FILE, GZIPPED_FILE, BZIPPED_FILE } gt_file_type;
 typedef struct {
   /* Input file */
@@ -92,12 +71,14 @@ gt_status gt_input_file_close(gt_input_file* const input_file);
  * Advanced I/O
  *   // TODO
  */
+
 //gt_input_file* gt_input_file_segmented_file_open(
 //    char* const file_name,const bool mmap_file,
 //    const uint64_t segment_number,const uint64_t total_segments);
 //gt_input_file* gt_input_file_reads_segmented_file_open(
 //    char* const file_name,const bool mmap_file,
 //    const uint64_t num_init_line,const uint64_t num_end_line);
+
 /* Format detection */
 gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file);
 

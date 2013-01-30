@@ -11,6 +11,7 @@
 
 #include "gt_commons.h"
 #include "gt_map.h"
+#include "gt_data_attributes.h"
 
 typedef struct {
   uint32_t alignment_id;

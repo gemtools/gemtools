@@ -84,8 +84,9 @@ GT_INLINE void gt_maps_error_profile_merge(
   for (j=0;j<INSS_RANGE;++j) maps_ep_dst->inss[j] += maps_ep_src->inss[j];
   // Error Positions
   for (j=0;j<LARGE_READ_POS_RANGE;++j) maps_ep_dst->error_position[j] += maps_ep_src->error_position[j];
-  // Trim stats
-  maps_ep_dst->total_bases_aligned += maps_ep_src->total_bases_aligned;
+  // Trim/Mapping stats
+  maps_ep_dst->total_bases += maps_ep_src->total_bases;
+  maps_ep_dst->total_bases_matching += maps_ep_src->total_bases_matching;
   maps_ep_dst->total_bases_trimmed += maps_ep_src->total_bases_trimmed;
   // Mismatch/Errors bases
   for (j=0;j<MISMS_BASE_RANGE*MISMS_BASE_RANGE;++j) {
@@ -321,6 +322,8 @@ GT_INLINE gt_stats* gt_stats_new() {
   stats->max_length=0;
   stats->total_bases=0;
   stats->total_bases_unaligned=0;
+  stats->mapped_min_length=UINT64_MAX;
+  stats->mapped_max_length=0;
   // Mapped/Maps/MMaps/Uniq...
   stats->num_blocks=0;
   stats->num_alignments=0;
@@ -340,6 +343,8 @@ GT_INLINE void gt_stats_clear(gt_stats *stats) {
   stats->max_length=0;
   stats->total_bases=0;
   stats->total_bases_unaligned=0;
+  stats->mapped_min_length=UINT64_MAX;
+  stats->mapped_max_length=0;
   // Mapped/Maps/MMaps/Uniq...
   stats->num_blocks=0;
   stats->num_alignments=0;
@@ -371,6 +376,8 @@ void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_size) {
     stats[0]->max_length = GT_MAX(stats[0]->max_length,stats[i]->max_length);
     stats[0]->total_bases += stats[i]->total_bases;
     stats[0]->total_bases_unaligned += stats[i]->total_bases_unaligned;
+    stats[0]->mapped_min_length = GT_MIN(stats[0]->mapped_min_length,stats[i]->mapped_min_length);
+    stats[0]->mapped_max_length = GT_MAX(stats[0]->mapped_max_length,stats[i]->mapped_max_length);
     // Mapped/Maps
     stats[0]->num_blocks += stats[i]->num_blocks;
     stats[0]->num_alignments += stats[i]->num_alignments;
@@ -455,14 +462,21 @@ void gt_stats_mmaps_profile(
   register bool has_splitsmaps = false;
   register bool only_splitsmaps = true;
   GT_TEMPLATE_ITERATE(template,mmap) {
-    // Insert Size Distribution
+    /*
+     * Insert Size Distribution
+     */
     if (paired_map) {
       uint64_t gt_err;
       int64_t ins_size=gt_template_get_insert_size(mmap,&gt_err);
       if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) gt_stats_get_inss_distribution(maps_error_profile->inss,ins_size);
     }
-    // Error Profile
+    /*
+     * Error Profile
+     */
     gt_stats_get_maps_profile(maps_error_profile,template,total_read_length,mmap);
+    /*
+     * SplitMap Stats
+     */
     // SM block stats
     bool has_sm[2] = {true, true};
     GT_MULTIMAP_ITERATE(mmap,map,end_pos) {
@@ -510,13 +524,15 @@ void gt_stats_mmaps_profile(
     if (only_splitsmaps) splitmaps_profile->num_mapped_only_splitmaps++;
   }
 }
-GT_INLINE void gt_stats_calculate_template_stats(gt_stats* const stats,gt_template* const template,const bool best_map) {
+GT_INLINE void gt_stats_calculate_template_stats(
+    gt_stats* const stats,gt_template* const template,gt_stats_analysis* const stats_analysis) {
   /*
    * Blocks/Alignments STATS
    */
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register uint64_t num_maps = gt_template_get_num_mmaps(template);
-  if (best_map && num_maps>0) num_maps = 1;
+  if (stats_analysis->best_map && num_maps>0) num_maps = 1;
+  register const bool is_mapped = (num_maps > 0 || gt_template_is_mapped(template));
   ++stats->num_alignments;
   stats->num_blocks += num_blocks;
   /*
@@ -530,24 +546,29 @@ GT_INLINE void gt_stats_calculate_template_stats(gt_stats* const stats,gt_templa
     total_length += read_length;
     stats->min_length = GT_MIN(stats->min_length,read_length);
     stats->max_length = GT_MAX(stats->max_length,read_length);
+    if (is_mapped) {
+      stats->mapped_min_length = GT_MIN(stats->mapped_min_length,read_length);
+      stats->mapped_max_length = GT_MAX(stats->mapped_max_length,read_length);
+    }
   }
   stats->total_bases += total_length;
-  /*
-   * Maps/MMaps STATS
-   */
-  if (num_maps > 0 || gt_template_is_mapped(template)){ // Is mapped?
-    ++stats->num_mapped; // Mapped/Maps
-    stats->num_maps += num_maps;
-    gt_stats_get_mmap_distribution(stats->mmap,num_maps); // MMap Distribution
-  } else {
-    stats->total_bases_unaligned += total_length;
-  }
   /*
    * Uniq Distribution
    */
   gt_stats_get_uniq_distribution(stats->uniq,gt_template_get_uniq_degree(template));
   /*
+   * Maps/MMaps STATS
+   */
+  if (is_mapped){ // Is mapped?
+    ++stats->num_mapped; // Mapped/Maps
+    stats->num_maps += num_maps;
+    stats->total_bases_aligned += total_length;
+    gt_stats_get_mmap_distribution(stats->mmap,num_maps); // MMap Distribution
+  }
+  /*
    * MMaps Profile {Insert Size Distribution, Error Profile, SM Profile, ...}
    */
-  if (num_maps > 0) gt_stats_mmaps_profile(stats,template,total_length,best_map);
+  if (num_maps > 0) {
+    gt_stats_mmaps_profile(stats,template,total_length,best_map);
+  }
 }

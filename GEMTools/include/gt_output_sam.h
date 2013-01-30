@@ -15,17 +15,15 @@
 #include "gt_buffered_output_file.h"
 #include "gt_generic_printer.h"
 
-
 /*
- * SAM building block printers
+ * SAM
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_qname,);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_header,gt_shash* attributes);
 
 /*
  * SAM High-level Printers
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_mismatch_string,gt_template* const template,const uint64_t max_printable_maps);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_mismatch_string,gt_alignment* const alignment,const uint64_t max_printable_maps);
-
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_template,gt_template* const template,const bool compact,const uint64_t max_printable_maps);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_alignment,gt_alignment* const alignment,const bool compact,const uint64_t max_printable_maps);
 
 #endif /* GT_OUTPUT_SAM_H_ */

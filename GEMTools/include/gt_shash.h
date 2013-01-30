@@ -76,12 +76,4 @@ GT_INLINE gt_shash* gt_shash_deep_copy(gt_shash* const shash);
 
 #define GT_SHASH_END_ITERATE }}
 
-/*
- * Attribute accessors
- */
-GT_INLINE void* gt_attribute_get(gt_shash* const attributes,char* const attribute_id);
-GT_INLINE void gt_attribute_set(
-    gt_shash* const attributes,char* const attribute_id,
-    void* const attribute,const size_t element_size);
-
 #endif /* GT_SHASH_H_ */

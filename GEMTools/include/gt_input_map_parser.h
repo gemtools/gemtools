@@ -86,10 +86,10 @@
 #define GT_MAP_SEP_S ":"
 #define GT_MAP_NEXT_S ","
 #define GT_MAP_MCS_S "+"
-#define GT_MAP_TEMPLATE_SEP "::"
-#define GT_MAP_TEMPLATE_SCORE ":::"
 #define GT_MAP_COUNTS_TIMES_S "x"
 #define GT_MAP_COUNTS_NOT_UNIQUE_S "!"
+#define GT_MAP_TEMPLATE_SEP "::"
+#define GT_MAP_TEMPLATE_SCORE ":::"
 
 #define GT_MAP_STRAND_FORWARD_SYMBOL '+'
 #define GT_MAP_STRAND_FORWARD_LETTER 'F'

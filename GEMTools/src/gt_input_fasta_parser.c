@@ -87,7 +87,6 @@ GT_INLINE bool gt_input_fasta_parser_test_fastq(
 GT_INLINE bool gt_input_file_test_fasta(
     gt_input_file* const input_file,gt_fasta_file_format* const fasta_file_format,const bool show_errors) {
   GT_INPUT_FILE_CHECK(input_file);
-  //GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,NULL);
   return (gt_input_fasta_parser_test_fastq(
       input_file->file_name,input_file->processed_lines+1,
       (char*)input_file->file_buffer,input_file->buffer_size,fasta_file_format,show_errors));

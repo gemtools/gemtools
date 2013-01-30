@@ -32,7 +32,7 @@ GT_INLINE gt_alignment* gt_alignment_new() {
   alignment->maps = gt_vector_new(GT_ALIGNMENT_NUM_INITIAL_MAPS,sizeof(gt_map));
   alignment->maps_txt = NULL;
   alignment->maps_dictionary = gt_shash_new();
-  alignment->attributes = gt_shash_new();
+  alignment->attributes = gt_attribute_new();
   return alignment;
 }
 GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment) {
@@ -41,7 +41,7 @@ GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment) {
   gt_string_clear(alignment->read);
   gt_string_clear(alignment->qualities);
   alignment->maps_txt = NULL;
-  gt_shash_clear(alignment->attributes,true);
+  gt_attribute_clear(alignment->attributes);
 }
 GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
@@ -59,7 +59,7 @@ GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   gt_string_delete(alignment->qualities);
   gt_vector_delete(alignment->counters);
   gt_vector_delete(alignment->maps);
-  gt_shash_delete(alignment->attributes,true);
+  gt_attribute_delete(alignment->attributes);
   free(alignment);
 }
 

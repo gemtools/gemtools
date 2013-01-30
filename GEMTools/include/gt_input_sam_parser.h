@@ -15,6 +15,8 @@
 #include "gt_alignment_utils.h"
 #include "gt_template_utils.h"
 
+#include "gt_sequence_archive.h"
+
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
 #include "gt_input_parser.h"
@@ -62,11 +64,17 @@
  */
 #define GT_ATTR_SAM_FLAGS "SAM_FLAGS"
 
+typedef struct {
+  bool sam_soap_style;
+} gt_sam_parser_attr;
+
+#define SAM_PARSER_ATTR_DEFAULT { .sam_soap_style=false }
+
 /*
  * SAM File basics
  */
 GT_INLINE bool gt_input_file_test_sam(
-    gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors); // TODO: Install it in gt_input_file.h
+    gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors);
 GT_INLINE void gt_input_sam_parser_prompt_error(
     gt_buffered_input_file* const buffered_map_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code);
@@ -75,8 +83,9 @@ GT_INLINE void gt_input_sam_parser_next_record(gt_buffered_input_file* const buf
 /*
  * High Level Parsers
  */
-GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_map_input,gt_template* const template);
-GT_INLINE gt_status gt_input_sam_parser_get_soap_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template);
-GT_INLINE gt_status gt_input_sam_parser_get_alignment(gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment);
+GT_INLINE gt_status gt_input_sam_parser_get_template(
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_sam_parser_attr* const sam_parser_attr);
+GT_INLINE gt_status gt_input_sam_parser_get_alignment(
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_sam_parser_attr* const sam_parser_attr);
 
 #endif /* GT_INPUT_SAM_PARSER_H_ */

@@ -28,14 +28,14 @@ GT_INLINE gt_template* gt_template_new() {
   template->mmaps = gt_vector_new(GT_TEMPLATE_NUM_INITIAL_MMAPS,sizeof(gt_map*));
   template->mmaps_attributes = gt_vector_new(GT_TEMPLATE_NUM_INITIAL_MMAPS,sizeof(gt_mmap_attributes));
   template->maps_txt = NULL;
-  template->attributes = gt_shash_new();
+  template->attributes = gt_attribute_new();
   return template;
 }
 GT_INLINE void gt_template_clear_handler(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   gt_string_clear(template->tag);
   template->maps_txt = NULL;
-  gt_shash_clear(template->attributes,true);
+  gt_attribute_clear(template->attributes);
 }
 GT_INLINE void gt_template_clear(gt_template* const template,const bool delete_alignments) {
   GT_TEMPLATE_CHECK(template);
@@ -61,7 +61,7 @@ GT_INLINE void gt_template_delete(gt_template* const template) {
   gt_vector_delete(template->counters);
   gt_vector_delete(template->mmaps);
   gt_vector_delete(template->mmaps_attributes);
-  gt_shash_delete(template->attributes,true);
+  gt_attribute_delete(template->attributes);
   free(template);
 }
 

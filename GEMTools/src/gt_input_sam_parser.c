@@ -8,7 +8,6 @@
 
 #include "gt_input_sam_parser.h"
 
-
 // Constants
 #define GT_ISP_NUM_LINES GT_NUM_LINES_10K
 #define GT_ISP_NUM_INITIAL_MAPS 5
@@ -32,46 +31,106 @@ typedef struct {
 /*
  * SAM File Format test
  */
-GT_INLINE bool gt_input_file_detect_sam_format(char* const buffer,const uint64_t buffer_size,const bool show_errors) {
+#define GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(tag_array,l1,l2) ((tag_array)[0]==l1 && (tag_array)[1]==l2 && (tag_array)[2]==TAB)
+#define GT_INPUT_FILE_SAM_READ_HEADERS_CMP_ATTR(tag_array,l1,l2) ((tag_array)[0]==l1 && (tag_array)[1]==l2 && (tag_array)[2]==COLON)
+GT_INLINE gt_status gt_input_file_sam_read_headers(
+    char* const buffer,const uint64_t buffer_size,gt_sam_headers* const sam_headers) {
+  register uint64_t buffer_pos=0;
+  // Read until no more header lines are parsed
+  while (buffer[buffer_pos]==GT_SAM_HEADER_BEGIN) {
+    ++buffer_pos;
+    // TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO
+    // TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO
+    // TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO
+    // TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO
+    if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'H','D')) {
+      buffer_pos+=3;
+      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) {
+
+      }
+    } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'S','Q')) {
+//      if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_ATTR(tag_array,'','')) {
+//
+//      }
+    } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'R','G')) {
+
+    } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'P','G')) {
+
+    }
+  }
+  return 0;
+}
+
+#define GT_ISP_TEST_SAM_SKIP_STRING() \
+  while (buffer_pos<buffer_size && buffer[buffer_pos]!=TAB && buffer[buffer_pos]!=EOL) ++buffer_pos; \
+  if (buffer_pos==buffer_size || buffer[buffer_pos]==EOL) return false; \
+  ++buffer_pos
+
+#define GT_ISP_TEST_SAM_TEST_INTEGER() \
+  while (buffer_pos<buffer_size && buffer[buffer_pos]!=TAB && buffer[buffer_pos]!=EOL) { \
+    if (!gt_is_number(buffer[buffer_pos])) return false; \
+    ++buffer_pos; \
+  } \
+  if (buffer_pos==buffer_size || buffer[buffer_pos]==EOL) return false; \
+  ++buffer_pos
+
+GT_INLINE bool gt_input_sam_parser_test_sam(
+    char* const file_name,const uint64_t line_num,char* const buffer,const uint64_t buffer_size,
+    gt_sam_headers* const sam_headers,const bool show_errors) {
   /*
-   * After 2 header lines or 1 SAM line we are fine to say this is SAM-format
-   * By default, like 16MB of buffered data should be fine to assess the SAM format
-   *  (1) @SQ     SN:chr10        LN:135534747
-   *      @SQ     SN:chr11        LN:135006516
-   *  (2) 1/1     16  chr12  57338496  37  75M  *  0  0  TCTGGTT...TTTGN  _b....VNNQQB  XT:A:U  NM:i:1
+   * (1) @SQ     SN:chr10        LN:135534747
+   *     @SQ     SN:chr11        LN:135006516
+   * (2) 1/1     16  chr12  57338496  37  75M  *  0  0  TCTG...TTGN  BbQ..QQB  XT:A:U  NM:i:1
    */
-  // TODO
+  if (buffer[0]==GT_SAM_HEADER_BEGIN) { // Read headers
+    if (!gt_input_file_sam_read_headers(buffer,buffer_size,sam_headers)) return false;
+    return true;
+  }
+  /*
+   * Check SAM record
+   */
+  register uint64_t buffer_pos=0;
+  // Skip TAG
+  GT_ISP_TEST_SAM_SKIP_STRING();
+  // Check FLAG
+  GT_ISP_TEST_SAM_TEST_INTEGER();
+  // Skip RNAME
+  GT_ISP_TEST_SAM_SKIP_STRING();
+  // Check POS
+  GT_ISP_TEST_SAM_TEST_INTEGER();
+  // Check MAPQ
+  GT_ISP_TEST_SAM_TEST_INTEGER();
+  // Skip CIGAR
+  GT_ISP_TEST_SAM_SKIP_STRING();
+  // Skip RNEXT
+  GT_ISP_TEST_SAM_SKIP_STRING();
+  // Check PNEXT
+  GT_ISP_TEST_SAM_TEST_INTEGER();
+  // Check TLEN
+  GT_ISP_TEST_SAM_SKIP_STRING();
+  // Check SEQ
+  while (buffer_pos<buffer_size && buffer[buffer_pos]!=TAB && buffer[buffer_pos]!=EOL) {
+    if (!gt_is_dna(buffer[buffer_pos])) return false;
+    ++buffer_pos;
+  }
+  if (buffer_pos==buffer_size || buffer[buffer_pos]==EOL) return false;
+  ++buffer_pos;
+  // Skip QUAL
+  if (buffer_pos==buffer_size || buffer[buffer_pos]==EOL) return false;
   return true;
 }
+
+
+
+#define GT_ISP_HEADERS_WRONG_FORMAT -1
+#define GT_ISP_HEADERS_END 0
+
 GT_INLINE bool gt_input_file_test_sam(
     gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors) {
   GT_INPUT_FILE_CHECK(input_file);
-  if (gt_input_file_detect_sam_format((char*)input_file->file_buffer,input_file->buffer_size,show_errors)) {
-    register uint64_t lines_read = 0;
-    while (!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==GT_SAM_HEADER_BEGIN) {
-
-      // TODO => sam_headers
-      while (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL)) { // FIXME: DOS_EOL
-        GT_INPUT_FILE_NEXT_CHAR(input_file);
-        GT_INPUT_FILE_CHECK_BUFFER(input_file);
-      }
-      if (!input_file->eof) {
-        GT_INPUT_FILE_NEXT_CHAR(input_file); // Check DOS EOF
-        if (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==DOS_EOL)) {
-          GT_INPUT_FILE_NEXT_CHAR(input_file);
-        }
-      }
-      ++lines_read;
-      // TODO => sam_headers
-
-    }
-    // Skip header from input-file buffer
-    input_file->buffer_begin = input_file->buffer_pos;
-    input_file->processed_lines = lines_read;
-    return true;
-  } else {
-    return false;
-  }
+  GT_NULL_CHECK(sam_headers);
+  return gt_input_sam_parser_test_sam(input_file->file_name,input_file->processed_lines+1,
+      (char*)input_file->file_buffer,input_file->buffer_size,sam_headers,show_errors);
 }
 GT_INLINE gt_status gt_input_sam_parser_check_sam_file_format(gt_buffered_input_file* const buffered_sam_input) {
   register gt_input_file* const input_file = buffered_sam_input->input_file;
@@ -759,10 +818,11 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
 /*
  * High Level Parsers
  */
-GT_INLINE gt_status gt_input_sam_parser_get_template_(
-    gt_buffered_input_file* const buffered_sam_input,gt_template* const template,const bool soap_sam) {
+GT_INLINE gt_status gt_input_sam_parser_get_template(
+    gt_buffered_input_file* const buffered_sam_input,gt_template* const template,gt_sam_parser_attr* const sam_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
+  GT_NULL_CHECK(sam_parser_attr);
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_sam_input)) {
@@ -780,7 +840,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_template_(
   gt_template_clear(template,true);
   template->template_id = line_num;
   // Parse template
-  if (gt_expect_false(soap_sam)) {
+  if (gt_expect_false(sam_parser_attr->sam_soap_style)) {
     error_code=gt_input_sam_parser_parse_soap_template(buffered_sam_input,template);
   } else {
     error_code=gt_input_sam_parser_parse_template(buffered_sam_input,template);
@@ -793,18 +853,9 @@ GT_INLINE gt_status gt_input_sam_parser_get_template_(
   }
   return GT_ISP_OK;
 }
-GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
-  GT_TEMPLATE_CHECK(template);
-  return gt_input_sam_parser_get_template_(buffered_sam_input,template,false);
-}
-GT_INLINE gt_status gt_input_sam_parser_get_soap_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
-  GT_TEMPLATE_CHECK(template);
-  return gt_input_sam_parser_get_template_(buffered_sam_input,template,true);
-}
+
 GT_INLINE gt_status gt_input_sam_parser_get_alignment(
-    gt_buffered_input_file* const buffered_sam_input,gt_alignment* const alignment) {
+    gt_buffered_input_file* const buffered_sam_input,gt_alignment* const alignment,gt_sam_parser_attr* const sam_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_ALIGNMENT_CHECK(alignment);
   register gt_status error_code;
