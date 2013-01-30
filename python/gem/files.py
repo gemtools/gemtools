@@ -4,7 +4,7 @@ gem.files handles opening files and streams
 """
 from itertools import islice
 import os
-
+import logging
 import subprocess
 import __builtin__
 import gem
@@ -14,6 +14,8 @@ from utils import which
 
 __author__ = 'Thasso Griebel'
 __zcat_path = None
+
+__open_iterators = []
 
 class Parser(object):
     def __init__(self):
@@ -150,7 +152,7 @@ class parse_sam(Parser):
 
 
 class ReadIterator(object):
-    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False, quality=None, raw=False):
+    def __init__(self, stream, parser, filename=None, process=None, remove_after_iteration=False, quality=None, raw=False, type=None):
         """
         Create a ReadIterator from a stream with a given parser.
         If the filename is given, the iterator can be cloned to re-read
@@ -175,13 +177,14 @@ class ReadIterator(object):
         self.process = process
         self.remove_after_iteration = remove_after_iteration
         self.quality = quality
-        self.raw= raw
+        self.type = type
+        self.raw = raw
 
     def __iter__(self):
         return self
 
     def next(self):
-        """ Delegates to the parser
+        """ Delegs ates to the parser
         to get the next entry
         """
         ret = None
@@ -190,6 +193,7 @@ class ReadIterator(object):
         else:
             ret = self.parser.next(self.stream)
         if not ret:
+            logging.debug("Read iterator closing stream on %s" % (self.filename))
             self.stream.close()
             if self.remove_after_iteration and self.filename:
                 os.remove(self.filename)
@@ -197,6 +201,7 @@ class ReadIterator(object):
         return ret
 
     def close(self):
+        logging.debug("Read iterator closing stream on %s" % (self.filename))
         self.stream.close()
         if self.remove_after_iteration and self.filename:
             os.remove(self.filename)
@@ -256,8 +261,15 @@ def open(input, type=None, process=None, remove_after_iteration=False, quality=N
     else:
         input = None  ## reset filename
 
-    return ReadIterator(stream, supported_types[type](), input, process=process,
-                        remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
+    it = ReadIterator(stream, supported_types[type](), input, process=process,
+                        remove_after_iteration=remove_after_iteration, quality=quality, raw=raw, type=type)
+    __open_iterators.append(it)
+    return it
+
+
+def _cleanup():
+    for r in __open_iterators:
+        r.close()
 
 
 def open_file(file):

@@ -3,6 +3,9 @@ all:
 	$(MAKE) -C GEMTools
 	python setup.py build
 
+gemtools:
+	$(MAKE) -C GEMTools release
+
 install: all
 	python setup.py install
 
@@ -18,6 +21,9 @@ test-c: all
 
 test-python: all
 	python setup.py nosetests --with-xunit
+
+package:
+	python setup.py package
 
 clean:
 	$(MAKE) -C GEMTools clean

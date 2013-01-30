@@ -1,16 +1,10 @@
 #!/usr/bin/env python
 """Python wrapper around the GEM2 mapper that provides
 ability to feed data into GEM and retrieve the mappings"""
-from Queue import Queue
 import os
-import shutil
 import sys
 import logging
 
-
-# set this to true to cpli qualities to
-# read length and print a warning instead of raising an
-# exception
 import tempfile
 import files
 from . import utils
@@ -18,12 +12,13 @@ import pkg_resources
 import splits
 import filter as gemfilter
 import gem.gemtools as gt
+import gem
 
 LOG_NOTHING = 1
 LOG_STDERR = 2
 
 log_output = LOG_NOTHING
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.WARN)
+logging.basicConfig(format='%(asctime)-15s %(levelname)s: %(message)s', level=logging.WARN)
 
 _trim_qualities = False
 default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
@@ -40,14 +35,26 @@ use_bundled_executables = True
 ## max mappings to replace mapping counts for + and ! summaries
 _max_mappings = 999999999
 ## filter to work around GT-32 and #006 in gem-map-2-map
-__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t'+str(_max_mappings)+'\t"$5}else{print}}}']
+__awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t' + str(_max_mappings) + '\t"$5}else{print}}}']
+
 
 class execs_dict(dict):
     """Helper dict that resolves bundled binaries"""
     def __getitem__(self, item):
-        if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s"%item):
-            f = pkg_resources.resource_filename("gem", "gembinaries/%s"%item)
+        # check if there is an environment variable set
+        # to specify the path to the GEM executables
+        base_dir = os.getenv("GEM_PATH", None)
+        if base_dir is not None:
+            file = "%s/%s" % (base_dir, item)
+            if os.path.exists(file):
+                logging.debug("Using binary from GEM_PATH : %s" % file)
+                return file
+
+        if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s" % item):
+            f = pkg_resources.resource_filename("gem", "gembinaries/%s" % item)
+            logging.debug("Using bundled binary : %s" % f)
             return f
+        logging.debug("Using binary from PATH: %s" % item)
         return dict.__getitem__(self, item)
 
 ## paths to the executables
@@ -396,9 +403,11 @@ def mapper(input, index, output=None,
            max_edit_distance=0.20,
            mismatch_alphabet="ACGT",
            trim=None,
+           unique_pairing=False,
            threads=1,
            extra=None,
            key_file=None,
+           force_min_decoded_strata=False
            ):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
@@ -433,7 +442,7 @@ def mapper(input, index, output=None,
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
 
-    if delta >= min_decoded_strata:
+    if delta >= min_decoded_strata and not force_min_decoded_strata:
         logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
             str(min_decoded_strata), str(delta + 1), str(delta)))
         min_decoded_strata = delta + 1
@@ -452,6 +461,9 @@ def mapper(input, index, output=None,
           '-T', str(threads)
     ]
 
+    if unique_pairing:
+        pa.append("--unique-pairing")
+
     if max_edit_distance > 0:
         pa.append("-e")
         pa.append("%s" % str(max_edit_distance))
@@ -468,7 +480,10 @@ def mapper(input, index, output=None,
 
     # workaround for GT-32 - filter away the !
     # build list of tools
-    tools = [pa, __awk_filter]
+    tools = [pa]
+    if unique_pairing:
+        tools.append(__awk_filter)
+
     if trim is not None:
         tools.append(trim_c)
 
@@ -492,7 +507,7 @@ def transcript_mapper(input, indices, key_files, output=None,
            delta=0,
            quality=33,
            quality_threshold=26,
-           max_decoded_matches=20,
+           max_decoded_matches=100,
            min_decoded_strata=1,
            min_matched_bases=0.80,
            max_big_indel_length=15,
@@ -548,7 +563,7 @@ def transcript_mapper(input, indices, key_files, output=None,
            mismatch_alphabet=mismatch_alphabet,
            trim=trim,
            threads=threads,
-           extra=extra,
+           extra=extra
            )
         )
     merged = merger(outputs[0], outputs[1:])
@@ -596,7 +611,7 @@ def splitmapper(input,
     """
 
     ## check the index
-    index = _prepare_index_parameter(index, gem_suffix=False)
+    index = _prepare_index_parameter(index, gem_suffix=True)
     if quality is None and isinstance(input, files.ReadIterator):
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
@@ -609,7 +624,7 @@ def splitmapper(input,
           '--min-split-size', str(min_split_size),
           '--refinement-step-size', str(refinement_step_size),
           '--matches-threshold', str(matches_threshold),
-          '--strata-after-first', str(strata_after_first),
+          '-s', str(strata_after_first),
           '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
@@ -662,13 +677,12 @@ def splitmapper(input,
 
 def extract_junctions(input,
                       index,
-                      output=None,
                       junctions=0.02,
-                      filter="ordered",
+                      filter="ordered,non-zero-distance",
                       mismatches=0.04,
                       refinement_step_size=2,
                       min_split_size=15,
-                      matches_threshold=200,
+                      matches_threshold=75,
                       splice_consensus=extended_splice_consensus,
                       strata_after_first=1,
                       quality=33,
@@ -699,37 +713,39 @@ def extract_junctions(input,
         extra=extra)
     ## make sure we have an output file
     ## for the splitmap results
-    output_file = output
-    if output is None:
-        (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
+    #output_file = output
+    #if output is None:
+    #    (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
 
     ## helper filter to pass the read on to the junction extractor,
     ## kill the splitmap as long as it is no short indel and
     ## write the result to the output file
-    def write_helper(reads):
-        of = open(output_file, 'w')
-        for read in reads:
-            yield read
-            if keep_short_indels:
-                gemfilter.keep_short_indel(read)
-                ## and write the read
-            of.write(str(read))
-            of.write("\n")
-        of.close()
+    #def write_helper(reads):
+    #    of = open(output_file, 'w')
+    #    for read in reads:
+    #        yield read
+    #        if keep_short_indels:
+    #            gemfilter.keep_short_indel(read)
+    #            ## and write the read
+    #        of.write(str(read))
+    #        of.write("\n")
+    #    of.close()
 
+    splitmap.raw = True
     denovo_junctions = splits.extract_denovo_junctions(
-        write_helper(splitmap),
+        #write_helper(splitmap),
+        splitmap,
         minsplit=min_split,
         maxsplit=max_split,
         coverage=coverage,
         sites=merge_with)
-
-    if output is None:
-        ## return delete iterator
-        return (
-        files.open(output_file, type="map", process=splitmap, remove_after_iteration=True), denovo_junctions)
-    else:
-        return files.open(output_file, type="map", process=splitmap), denovo_junctions
+    return denovo_junctions
+    #if output is None:
+    #    ## return delete iterator
+    #    return (
+    #    files.open(output_file, type="map", process=splitmap, remove_after_iteration=True), denovo_junctions)
+    #else:
+    #    return files.open(output_file, type="map", process=splitmap), denovo_junctions
 
 
 def pairalign(input, index, output=None,
@@ -785,11 +801,14 @@ def pairalign(input, index, output=None,
     if map_both_ends:
         pa.append("--map-both-ends")
 
-        ## run the mapper
-    process = utils.run_tool(pa, input, output,
-        "GEM-Pair-align", utils.read_to_map)
-    return _prepare_output(process, output, type="map",
-        name="GEM-Pair-align", quality=quality)
+    use_raw = False
+    if isinstance(input, files.ReadIterator):
+        if input.type == "map":
+            use_raw = True
+
+    ## run the mapper
+    process = utils.run_tool(pa, input, output, "GEM-Pair-align", utils.read_to_map, raw_stream=use_raw)
+    return _prepare_output(process, output, type="map", name="GEM-Pair-align", quality=quality)
 
 
 def realign(input,
@@ -802,11 +821,16 @@ def realign(input,
                   '-r',
                   '-T', str(threads)
     ]
+
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
+        if input.type == "map":
+            use_raw = True
+
     process = utils.run_tool(validate_p, input, output,
-        "GEM-Validate", utils.read_to_map)
+        "GEM-Validate", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map",
         name="GEM-Validate", quality=quality)
 
@@ -831,17 +855,20 @@ def validate(input,
         validate_p.extend(['-f', validate_filter])
 
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
+        if input.type == "map":
+            use_raw = True
 
-    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map)
+    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map", name="GEM-Validate", quality=quality)
 
 
 def score(input,
           index,
           output=None,
-          scoring="+U,+u,-t,-s,-i,-a",
+          scoring="+U,+u,-s,-t,+1,-i,-a",
           filter=None,  # "2,25"
           threads=1):
     index = _prepare_index_parameter(index, gem_suffix=True)
@@ -852,12 +879,19 @@ def score(input,
     ]
     if filter is not None:
         score_p.append("-f")
-        score_p.append(filter)
+        ff = filter
+        if not isinstance(filter, basestring):
+            ff = ",".join(filter)
+        score_p.append(ff)
 
     quality = None
+    use_raw = False
     if isinstance(input, files.ReadIterator):
         quality = input.quality
-    process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map)
+        if input.type == "map":
+            use_raw = True
+
+    process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map, raw_stream=use_raw)
     return _prepare_output(process, output, type="map", name="GEM-Score", quality=quality)
 
 
@@ -869,7 +903,7 @@ def validate_and_score(input,
                        validate_filter="2,25",
                        threads=1):
     validator = validate(input, index, None, validate_score, validate_filter, max(threads / 2, 1))
-    return score(validator, index, output, scoring, max(threads / 2, 1))
+    return score(validator, index, output=output, scoring=scoring, threads=max(threads / 2, 1))
 
 
 def gem2sam(input, index=None, output=None,
@@ -956,7 +990,7 @@ def compute_transcriptome(max_read_length, index, junctions, substract=None):
     """
     transcriptome_p = [
         executables['compute-transcriptome'],
-        max_read_length,
+        str(max_read_length),
         index,
         junctions
     ]
@@ -1001,19 +1035,19 @@ def index(input, output, content="dna", threads=1):
         logging.warning("Index %s already exists, skipping indexing" % existing)
         return os.path.abspath(existing)
 
-
     # indexer takes the prefix
     if output[-4:] == ".gem":
         output = output[:-4]
     indexer_p.extend(['-o', output])
 
     # the indexer need the other indexer tools in PATH
-    path="%s:%s" % (os.path.dirname(executables['gem-indexer']), os.getenv("PATH"))
+    path = "%s:%s" % (os.path.dirname(executables['gem-indexer']), os.getenv("PATH"))
 
     process = utils.run_tools([indexer_p], input=None, output=None, name="gem-indexer", raw_stream=True, path=path)
     if process.wait() != 0:
         raise ValueError("Error while executing the gem-indexer")
     return os.path.abspath("%s.gem" % output)
+
 
 def hash(input, output):
     """Run the gem-retriever on the given input and create a hash
@@ -1041,9 +1075,10 @@ class merger(object):
     exclusive - if set the True, the next mappings are take
                 exlusively if the reads is not mapped at all. The default
                 is False, where all mappings are merged
+    paired -- merging paried reads
     """
 
-    def __init__(self, target, source, exclusive=False):
+    def __init__(self, target, source, exclusive=False, paired=False):
         if target is None:
             raise ValueError("No target file specified")
         if source is None:
@@ -1054,6 +1089,7 @@ class merger(object):
         self.reads = []
         self.result_read = Read()
         self.exclusive = exclusive
+        self.paired = paired
         for x in self.source:
             self.reads.append(None)
 
@@ -1099,12 +1135,29 @@ class merger(object):
         return self.result_read
 
     def merge(self, output):
-        of = open(output, 'w')
-        for read in self:
-            of.write(str(read))
-            of.write("\n")
-        of.close()
-        return files.open(output, type="map")
+        if output is not None:
+            of = open(output, 'wb')
+        else:
+            of = sys.stdout
+        target_is_iterator = isinstance(self.target, gem.files.ReadIterator) and self.target.filename is not None
+        source_is_iterator = isinstance(self.source[0], gem.files.ReadIterator) and self.source[0].filename is not None
+
+        if len(self.source) == 1 and target_is_iterator and source_is_iterator:
+            # merge two file
+            f1 = self.target.stream
+            f2 = self.source[0].stream
+            logging.debug("Using faster file merging")
+            gt.merge_files(f1, f2, of, False)
+            f1.close()
+            f2.close()
+        else:
+            for read in self:
+                of.write(str(read))
+                of.write("\n")
+        if output is not None:
+            of.close()
+            return files.open(output, type="map")
+        return None
 
 
 def _is_i3_compliant(stream):
@@ -1116,7 +1169,7 @@ def _is_i3_compliant(stream):
     The input is a stream that must provide a readline method"""
     i3_flags = set(["popcnt", "ssse3", "sse4_1", "sse4_2"])
     cpu_flags = set([])
-    for line in iter(stream.readline,''):
+    for line in iter(stream.readline, ''):
         line = line.rstrip()
         if line.startswith("flags"):
             for e in line.split(":")[1].strip().split(" "):

@@ -13,6 +13,32 @@ from threading import Thread
 import gem
 import sys
 
+import datetime
+import time
+
+class Timer(object):
+    """Helper class to take runtimes"""
+    def __init__(self):
+        self.start_time = time.time()
+
+    def stop(self, message):
+        end = datetime.timedelta(seconds=int(time.time() - self.start_time))
+        if message is not None:
+            logging.info(message % (str(end)))
+
+class CommandException(Exception):
+    pass
+
+
+class Command(object):
+    """Command base class to be registered
+    with the gem tools main command
+    """
+    def register(self, parser):
+        pass
+    def run(self, args):
+        pass
+
 
 class ProcessWrapper(object):
     def __init__(self, _parent, _threads, stdout=None):
@@ -101,13 +127,13 @@ def read_to_map(read):
 def __parse_error_output(stream, name="Tool"):
     """Parse the GEM error output stream and
     if 'error' occurs exists"""
-    logging.info("Error thread started for %s %s" % (name, stream))
+    logging.debug("Error thread started for %s %s" % (name, stream))
     for line in stream:
         line = line.rstrip()
         if re.search("error", line):
             logging.error("%s raised an error !\n%s\n" % (name, line))
             exit(1)
-    logging.info("Error thread method finished for %s %s" % (name, stream))
+    logging.debug("Error thread method finished for %s %s" % (name, stream))
 
 
 complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
@@ -194,7 +220,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
     if path is not None:
         env = {'PATH': path}
     for i, params in enumerate(tools):
-        logging.info("Starting %s :\n\t%s" % (name, " ".join(params)))
+        logging.info("Starting %s :\n\t%s" % (name, " ".join(params).replace("\t", "\\t")))
         #print "Starting %s :\n\t%s" % (name, " ".join(params))
         p_in = process_in
         p_out = process_out
@@ -204,8 +230,6 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             ## and set stdout to PIPE if there are more
             if num_tools > 1 or post_transform is not None:
                 p_out = subprocess.PIPE
-            logging.debug("Starting Initial process %s %s\nstdout: %s\nstderr %s" % (
-                name, str(params), str(process_out), str(process_err)))
             first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True,
                 env=env)
             current_process = first_process
@@ -215,13 +239,11 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
             p_out = process_out
             if i < num_tools - 1 or post_transform is not None:
                 p_out = subprocess.PIPE
-            logging.debug("Starting Piped process %s %s" % (name, str(params)))
             current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err,
                 close_fds=True, env=env)
         if gem.log_output != gem.LOG_STDERR:
             append_logger(current_process, logfile)
         last_process = current_process
-
 
     ## start the input thread
     threads = []
@@ -232,6 +254,8 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
         input_thread = Thread(target=__write_input, args=(input, first_process.stdin, transform_fun))
         input_thread.start()
         threads.append(input_thread)
+    elif raw_stream:
+        logging.debug("Passing raw stream to process")
 
     if post_transform is not None and isinstance(post_transform, (list, tuple)):
         if len(post_transform) == 0:
@@ -254,8 +278,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
     return ProcessWrapper(last_process, threads, stdout=stdout)
 
 
-def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None
-             , raw_stream=False):
+def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None, raw_stream=False):
     """
     Run the tool defined in the params array using a new process.
     The input is a ReadIterator and the method checks
@@ -295,7 +318,6 @@ def __write_input(sequence, stream, transformer=None):
     @param transformer: optional transformer function
     @type transformer: function
     """
-    logging.info("Input thread method started for %s" % (stream))
     for e in sequence:
         if transformer is not None:
             e = transformer(e)
@@ -303,9 +325,9 @@ def __write_input(sequence, stream, transformer=None):
             stream.write(str(e))
         except Exception, ex:
             logging.error("Failed to write %s to stream: %s" % (str(e), str(ex)))
+            stream.close()
             exit(1)
     stream.close()
-    logging.info("Input thread method finished for %s" % (stream))
 
 
 def __write_output(output, stream, transformer=None):
@@ -376,6 +398,30 @@ def which(program):
         ## ignore exceptions and try path search
         return None
 
+def find_pair(file):
+    """find another pair file or return none if it could not be
+    found or a tuple of the clean name and the name of the second pair.
+    """
+    pairs = {
+        "0.fastq.gz" : "1.fastq.gz",
+        "1.fastq.gz" : "2.fastq.gz",
+        "1.fastq" : "2.fastq",
+        "0.fastq" : "1.fastq",
+        "0.txt.gz" : "1.txt.gz",
+        "1.txt.gz" : "2.txt.gz",
+        "1.txt" : "2.txt",
+        "0.txt" : "1.txt",
+    }
+    for k, v in pairs.items():
+        if file.endswith(k):
+            name = file[:-len(k)]
+            other = name + v
+            if name[-1] in (".", "-", "_"):
+                name = name[:-1]
+            return (os.path.basename(name), other)
+    return (None, None)
+
+
 
 def find_in_path(program):
     """
@@ -411,11 +457,11 @@ def gzip(file, threads=1):
     """
     logging.debug("Starting GZIP compression for %s" % (file))
 
-    if threads > 1:
-        if subprocess.Popen(['pigz','-p', str(threads), file]).wait() != 0:
+    if threads > 1 and which("pigz") is not None:
+        if subprocess.Popen(['pigz', '-q', '-f', '-p', str(threads), file]).wait() != 0:
             raise ValueError("Error wile executing pigz on %s" % file)
     else:
-        if subprocess.Popen(['gzip', file]).wait() != 0:
+        if subprocess.Popen(['gzip', '-f', '-q', file]).wait() != 0:
             raise ValueError("Error wile executing gzip on %s" % file)
     return "%s.gz" % file
 

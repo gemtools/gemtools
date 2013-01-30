@@ -41,6 +41,50 @@ def _is_i3_compliant():
     stream.close()
     return i3_flags.issubset(cpu_flags)
 
+
+def download(type):
+    file_name = __DOWNLOAD_FILE_TEMPLATE__ % (__VERSION__, type)
+    base_url = "%s/%s" % (__DOWNLOAD_URL__,file_name)
+
+    parent_dir = os.path.split(os.path.abspath(__file__))[0]
+    dirpath = "%s/%s" % (parent_dir, "downloads")
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+    target = "%s/%s" %(dirpath, file_name)
+    keep = False
+    if not os.path.exists(target):
+        print "Downloading %s bundle from %s to %s" % (type, base_url, target)
+        urllib.urlretrieve (base_url, target)
+
+
+class fetch(Command):
+    """Fetch binaries  package"""
+    description = "Fetch binaries"    
+    user_options = []
+    def run(self):
+        print "Fetching binaries"
+        download("i3")
+        download("core2")
+    def initialize_options(self):
+        pass
+    def finalize_options(self):
+        pass
+
+class package(Command):
+    """Package distribution"""
+    description = "Package distribution"
+    user_options = []
+    def run(self):
+        print "Fetching binaries"
+        download("i3")
+        download("core2")
+        subprocess.Popen(["./dist-utils/create_distribution.sh", __VERSION__, "i3"]).wait()
+        subprocess.Popen(["./dist-utils/create_distribution.sh", __VERSION__, "core2"]).wait()
+    def initialize_options(self):
+        pass
+    def finalize_options(self):
+        pass
+
 def _install_bundle(install_dir, base=None):
     """Download GEM bundle and move
     the bundled executables into the given target directory
@@ -115,15 +159,15 @@ class install_bundle(Command):
 class install(_install):
     def run(self):
         _install.run(self)
+        if os.getenv("GEM_NO_BUNDLE", None) is None:
+            # find target folder
+            install_dir = None
+            for file in self.get_outputs():
+                if file.endswith("gem/__init__.py"):
+                    install_dir = "%s/gembinaries" % os.path.split(file)[0]
+                    break
 
-        # find target folder
-        install_dir = None
-        for file in self.get_outputs():
-            if file.endswith("gem/__init__.py"):
-                install_dir = "%s/gembinaries" % os.path.split(file)[0]
-                break
-
-        _install_bundle(install_dir)
+            _install_bundle(install_dir)
 
 class build_ext(_build_ext):
     def run(self):
@@ -133,7 +177,7 @@ class build_ext(_build_ext):
         _build_ext.run(self)
 
 
-_commands = {'install': install, 'build_ext': build_ext}
+_commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package':package}
 
 # extend nosetests command to
 # ensure we have the bundle installed and
@@ -197,7 +241,9 @@ https://github.com/gemtools/gemtools
                                                                      "gem-info",
                                                                      "gem-mapper",
                                                                      "gem-rna-mapper",
-                                                                     "splits-2-junctions"]]},
+                                                                     "splits-2-junctions",
+                                                                     "compute-transcriptome",
+                                                                     "transcriptome-2-genome"]]},
         ext_modules=[gemtools],
         test_suite='nose.collector',
         zip_safe=False,
@@ -217,7 +263,7 @@ https://github.com/gemtools/gemtools
         install_requires = ["argparse"],
         entry_points = {
             'console_scripts': [
-                'gem-rnaseq-pipeline = gem.production.gtex_rnaseq_pipeline:main'
+                'gemtools = gem.commands:gemtools'
             ]
         },
 )
