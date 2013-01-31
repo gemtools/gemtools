@@ -7,6 +7,7 @@
 //#include "py_template_iterator.h"
 //#include "py_mappings_iterator.h"
 //#include "py_iterator.h"
+#include <omp.h>
 
 /******* TEMPLATE ********/
 //static PyObject* Template_iterate_mappings(PyObject* self, PyObject* closure){
@@ -639,48 +640,25 @@ static PyObject* gemtools_merge_templates(PyObject *self, PyObject *args){
     return returnvalue;
 };
 
-
-
-GT_INLINE gt_status gt_mapset_read_template_sync(
-    gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
-    gt_template* const template_master,gt_template* const template_slave, bool paired_end) {
-  // Read master
-  register gt_status error_code_master, error_code_slave;
-  gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(paired_end);
-  if ((error_code_master=gt_input_generic_parser_get_template(
-      buffered_input_master,template_master,&generic_parser_attr))==GT_IMP_FAIL) {
-    gt_fatal_error_msg("Fatal error parsing file <<Master>>");
+/*
+HELPER and workaround as we are not allowd to close the file handle when passed
+from python
+*/
+gt_status py_gt_output_file_close(gt_output_file* const output_file) {
+  GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
+  register gt_status error_code = 0;
+  // Delete allocated buffers
+  register uint64_t i;
+  for (i=0;i<GT_MAX_OUTPUT_BUFFERS&&output_file->buffer[i]!=NULL;++i) {
+    gt_output_buffer_delete(output_file->buffer[i]);
   }
-  // Read slave
-  if ((error_code_slave=gt_input_generic_parser_get_template(
-      buffered_input_slave,template_slave,&generic_parser_attr))==GT_IMP_FAIL) {
-    gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
-  }
-  // Check EOF conditions
-  if (error_code_master==GT_IMP_EOF) {
-    if (error_code_slave!=GT_IMP_EOF) {
-      gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
-    }
-    return GT_IMP_EOF;
-  } else if (error_code_slave==GT_IMP_EOF) { // Slave exhausted. Dump master & return EOF
-    do {
-      if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-      gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
-    } while ((error_code_master=gt_input_generic_parser_get_template(
-                buffered_input_master,template_master,&generic_parser_attr)));
-    return GT_IMP_EOF;
-  }
-  // Synch loop
-  while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
-    // Print non correlative master's template
-    gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
-    // Fetch next master's template
-    if ((error_code_master=gt_input_generic_parser_get_template(
-        buffered_input_master,template_master,&generic_parser_attr))!=GT_IMP_OK) {
-      gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
-    }
-  }
-  return GT_IMP_OK;
+  // Free mutex/CV
+  gt_cond_error(error_code|=pthread_cond_destroy(&output_file->out_buffer_cond),SYS_COND_VAR_INIT);
+  gt_cond_error(error_code|=pthread_cond_destroy(&output_file->out_write_cond),SYS_COND_VAR_INIT);
+  gt_cond_error(error_code|=pthread_mutex_destroy(&output_file->out_file_mutex),SYS_MUTEX_DESTROY);
+  // Free handler
+  free(output_file);
+  return error_code;
 }
 
 static PyObject* gemtools_merge_files(PyObject *self, PyObject *args){
@@ -688,54 +666,146 @@ static PyObject* gemtools_merge_files(PyObject *self, PyObject *args){
     PyObject *py_instream2 = NULL;
     PyObject *py_outstream = NULL;
     PyObject *py_paired = NULL;
-    if (!PyArg_UnpackTuple(args, "ref", 4, 4, &py_instream1, &py_instream2, &py_outstream, &py_paired)) {
+    PyObject *py_threads = NULL;
+    if (!PyArg_UnpackTuple(args, "ref", 5, 5, &py_instream1, &py_instream2, &py_outstream, &py_paired, &py_threads)) {
         PyErr_SetString(PyExc_Exception, "Error while parsing arguments!");
         return NULL;
     }
 
     bool paired = PyObject_IsTrue(py_paired);
+    uint64_t  threads = PyInt_AsLong(py_threads);
+
     // Open file IN/OUT
     gt_input_file* input_file_1 = gt_input_stream_open(PyFile_AsFile(py_instream1));
     gt_input_file* input_file_2 = gt_input_stream_open(PyFile_AsFile(py_instream2));
-    //gt_output_file* output_file = gt_output_stream_new(PyFile_AsFile(py_outstream),SORTED_FILE);
-    FILE* output_file = PyFile_AsFile(py_outstream);
-    // Parallel reading+process
-    gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
-    gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
+    gt_output_file* output_file = gt_output_stream_new(PyFile_AsFile(py_outstream),SORTED_FILE);
 
-    gt_template *template_1 = gt_template_new();
-    gt_template *template_2 = gt_template_new();
-    while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,paired)) {
-        // Record current read length
-        //current_read_length = gt_template_get_total_length(template_1);
-        // Apply operation
-        register gt_template *ptemplate;
-        ptemplate=gt_template_union_template_mmaps(template_1,template_2);
-        // Print template
-        gt_output_map_fprint_gem_template(output_file, ptemplate, GT_ALL, true);
-        // Delete template
-        gt_template_delete(ptemplate);
+     // Mutex
+    pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
+     // Parallel reading+process
+    #pragma omp parallel num_threads(threads)
+    {
+      gt_merge_map_files(&input_mutex,input_file_1,input_file_2,paired,output_file);
     }
     // Clean
-    gt_template_delete(template_1);
-    gt_template_delete(template_2);
-    gt_buffered_input_file_close(buffered_input_1);
-    gt_buffered_input_file_close(buffered_input_2);
-
-    // Clean
-    //gt_input_file_close(input_file_1);
-    //gt_input_file_close(input_file_2);
-    //gt_output_file_close(output_file);
-    //fclose(output_file);
-    //Py_RETURN_NONE;
+    gt_input_file_close(input_file_1);
+    gt_input_file_close(input_file_2);
+    py_gt_output_file_close(output_file);
     return Py_BuildValue("");
 }
 
+
+// static PyObject* gemtools_filter_stream(PyObject *self, PyObject *args){
+//     PyObject *py_instream1 = NULL;
+//     PyObject *py_outstream = NULL;
+//     PyObject *py_paired = NULL;
+//     PyObject *py_threads = NULL;
+//     if (!PyArg_UnpackTuple(args, "ref", 4, 4, &py_instream1, &py_outstream, &py_paired, &py_threads)) {
+//         PyErr_SetString(PyExc_Exception, "Error while parsing arguments!");
+//         return NULL;
+//     }
+
+//     bool paired = PyObject_IsTrue(py_paired);
+//     uint64_t  threads = PyInt_AsLong(py_threads);
+
+//     // Open file IN/OUT
+//     gt_input_file* input_file = gt_input_stream_open(PyFile_AsFile(py_instream1));
+//     gt_output_file* output_file = gt_output_stream_new(PyFile_AsFile(py_outstream),SORTED_FILE);
+
+//     bool has_error = false;
+//     // Parallel reading+process
+//     int left = 5;
+//     int right = 20;
+
+//     #pragma omp parallel num_threads(threads)
+//     {
+//       gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
+//       gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
+//       gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
+
+//       gt_status error_code;
+//       gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(paired);
+//       gt_template* template = gt_template_new();
+
+//       while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
+//         if(has_error) break;
+//         if (error_code!=GT_IMP_OK) {
+//           gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n","STREAM",buffered_input->current_line_num-1);
+//           has_error = true;
+//           break;
+//         }
+//         register int read_length = 0;
+//         register int trimmed_length = 0;
+
+//         /*
+//         * Iterate alignments and update ids/reads/qualities
+//         */
+//         GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+//           char* read = gt_alignment_get_read(alignment);
+//           read_length = strlen(read);
+//           trimmed_length = read_length - (left + right);
+//           register char* trimmed_read;
+//           register char* trimmed_qual;
+//           register char* left_qual;
+//           register char* right_qual;
+//           register char* left_read;
+//           register char* right_read;
+//           register char* tag;
+
+//           trimmed_read = strndup(read + left, trimmed_length);
+//           if(left > 0) left_read = strndup(read, left);
+//           if(right > 0) right_read = strndup(read + read_length - right, right);
+
+
+//           gt_alignment_set_read(alignment, trimmed_read, trimmed_length);
+//           free(trimmed_read);
+//           char* qual = gt_alignment_get_qualities(alignment);
+//           if (qual!=NULL) {
+//             trimmed_qual = strndup(qual + left, trimmed_length);
+//             gt_alignment_set_qualities(alignment, trimmed_qual, trimmed_length);
+//             if(left > 0) left_qual = strndup(qual, left);
+//             if(right > 0) right_qual = strndup(qual + read_length - right, right);
+//             free(trimmed_qual);
+//           }
+
+//           // update tag
+//           if(!right_read) right_read = "";
+//           if(!left_read) left_read = "";
+//           if(!right_qual) right_qual = "";
+//           if(!left_qual) left_qual = "";
+//           printf("PRep tag\n");
+//           register uint64_t tag_len = gt_alignment_get_tag_length(alignment) + 8 + left + left + right + right;
+//           tag = malloc(tag_len + 1);
+//           tag = sprintf("%s B T %s %s %s %s", gt_alignment_get_tag(alignment), left_read, right_read, left_qual, right_qual);
+//           gt_alignment_set_tag(alignment, tag, tag_len);
+//           free(tag);
+//           free(left_read);
+//           free(left_qual);
+//           free(right_qual);
+//           free(right_read);
+//         }
+//         // Print template
+//         gt_output_map_bofprint_template(buffered_output,template,GT_ALL,true);
+//       }
+//       // Clean
+//       gt_template_delete(template);
+//       gt_buffered_input_file_close(buffered_input);
+//       gt_buffered_output_file_close(buffered_output);
+//     }
+//     // Clean
+//     gt_input_file_close(input_file);
+//     py_gt_output_file_close(output_file);
+//     if (has_error) {
+//         return NULL;
+//     }
+//     return Py_BuildValue("");
+// }
 
 
 static PyMethodDef GempyMethods[] = {
     {"merge_templates", gemtools_merge_templates, METH_VARARGS, "Merge two Templates and returns the merged result Template"},
     {"merge_files", gemtools_merge_files, METH_VARARGS, "Merge two streams of mappings into one output stream"},
+    // {"trim_file", gemtools_filter_stream, METH_VARARGS, "Filter stream"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

@@ -543,10 +543,18 @@ def transcript_mapper(input, indices, key_files, output=None,
     extra -- list of additional parameters added to gem mapper call
     """
 
+    if not isinstance(indices, (list, tuple)):
+        indices = [indices]
+
+    if not isinstance(key_files, (list, tuple)):
+        key_files = [key_files]
+
     outputs = []
     output_files = []
     for i, index in enumerate(indices):
-        (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="transcript_mapping_output", dir=".")
+        output_file = output
+        if len(indices) > 1:
+            (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="transcript_mapping_output", dir=".")
         output_files.append(output_file)
         outputs.append(mapper(input.clone(), index,
            key_file=key_files[i],
@@ -563,16 +571,20 @@ def transcript_mapper(input, indices, key_files, output=None,
            mismatch_alphabet=mismatch_alphabet,
            trim=trim,
            threads=threads,
-           extra=extra
+           extra=extra,
+           force_min_decoded_strata=True
            )
         )
-    merged = merger(outputs[0], outputs[1:])
-    if(output is not None):
-        merged.merge(output)
-        for f in output_files:
-            os.remove(f)
+    if len(indices) > 1:
+        merged = merger(outputs[0], outputs[1:])
+        if(output is not None):
+            merged.merge(output, threads=threads)
+            for f in output_files:
+                os.remove(f)
+            return _prepare_output(None, output, type="map", name="GEM-Mapper", quality=quality)
+        return merged
+    else:
         return _prepare_output(None, output, type="map", name="GEM-Mapper", quality=quality)
-    return merged
 
 
 def splitmapper(input,
@@ -1134,7 +1146,7 @@ class merger(object):
                 self.reads[i] = self.__get_next_read(h)
         return self.result_read
 
-    def merge(self, output):
+    def merge(self, output, threads=1, paired=False):
         if output is not None:
             of = open(output, 'wb')
         else:
@@ -1146,8 +1158,8 @@ class merger(object):
             # merge two file
             f1 = self.target.stream
             f2 = self.source[0].stream
-            logging.debug("Using faster file merging")
-            gt.merge_files(f1, f2, of, False)
+            logging.debug("Using faster file merging with %d threads" % (threads))
+            gt.merge_files(f1, f2, of, paired, threads)
             f1.close()
             f2.close()
         else:

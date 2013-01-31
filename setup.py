@@ -59,7 +59,7 @@ def download(type):
 
 class fetch(Command):
     """Fetch binaries  package"""
-    description = "Fetch binaries"    
+    description = "Fetch binaries"
     user_options = []
     def run(self):
         print "Fetching binaries"
@@ -200,6 +200,8 @@ gemtools = Extension('gem.gemtools',
                     include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
                     library_dirs=['GEMTools/lib'],
                     libraries=['z','bz2', 'gemtools'],
+                    extra_compile_args=["-fopenmp"],
+                    extra_link_args=["-fopenmp"],
                     sources=['python/src/py_iterator.c', 'python/src/py_template_iterator.c',
                                'python/src/py_mismatch.c', 'python/src/py_map.c', 'python/src/py_alignment.c',
                                'python/src/py_template.c', 'python/src/gemtoolsmodule.c', 'python/src/py_mappings_iterator.c'])
@@ -228,7 +230,7 @@ The code for this project can be found on github:
 https://github.com/gemtools/gemtools
 ''',
         package_dir={'':'python'},
-        packages=['gem', 'gem.production'],
+        packages=['gem'],
 #        package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("python/gem/gembinaries")]},
         package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in ["gem-2-sam",
                                                                      "gem-indexer_bwt-dna",

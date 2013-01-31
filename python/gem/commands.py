@@ -20,7 +20,8 @@ def gemtools():
             "index": gem.production.Index,
             "rna-pipeline": gem.production.RnaPipeline,
             "t-index": gem.production.TranscriptIndex,
-            "merge": gem.production.Merge
+            "merge": gem.production.Merge,
+            # "trim": gem.production.Trim
         }
         instances = {}
 

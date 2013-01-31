@@ -10,6 +10,7 @@ DIR=dist/$NAME
 # ensure base directlry exists
 mkdir -p $DIR
 mkdir -p $DIR/lib64
+mkdir -p $DIR/bin
 
 if [ ! -e $DIR/lib ]; then
     # create lib link
