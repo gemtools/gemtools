@@ -16,7 +16,7 @@
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
 #include "gt_input_parser.h"
-#include "gt_input_fastq_parser.h"
+#include "gt_input_fasta_parser.h"
 
 #include "gt_buffered_output_file.h"
 
@@ -91,14 +91,6 @@
 #define GT_MAP_COUNTS_NOT_UNIQUE_S "!"
 #define GT_MAP_TEMPLATE_SEP "::"
 #define GT_MAP_TEMPLATE_SCORE ":::"
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-#define GT_MAP_COUNTS_TIMES_S "x"
-#define GT_MAP_COUNTS_NOT_UNIQUE_S "!"
->>>>>>>>>>>>>>>>>>>> File 3
-#define GT_MAP_COUNTS_TIMES_S "x"
-#define GT_MAP_COUNTS_NOT_UNIQUE_S "!"
-<<<<<<<<<<<<<<<<<<<<
 
 #define GT_MAP_STRAND_FORWARD_SYMBOL '+'
 #define GT_MAP_STRAND_FORWARD_LETTER 'F'
@@ -158,22 +150,21 @@ GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_string* const src_text);
 GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_string* const src_text);
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-GT_INLINE gt_status gt_input_map_parser_synch_blocks(
-    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
-    pthread_mutex_t* const input_mutex);
->>>>>>>>>>>>>>>>>>>> File 3
-<<<<<<<<<<<<<<<<<<<<
 
 GT_INLINE gt_status gt_input_map_parser_get_template_limited(
     gt_buffered_input_file* const buffered_map_input,gt_template* const template,const uint64_t num_mmaps);
 GT_INLINE gt_status gt_input_map_parser_get_alignment_limited(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,const uint64_t num_maps);
 
-GT_INLINE gt_status gt_input_map_parser_synch_blocks(
-    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,
-    pthread_mutex_t* const input_mutex);
+#define gt_input_map_parser_synch_blocks(buffered_input1,buffered_input2,mutex) gt_input_map_parser_synch_blocks_va(mutex,2,buffered_input1,buffered_input2)
+GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
+    pthread_mutex_t* const input_mutex,uint64_t num_map_inputs,
+    gt_buffered_input_file* const buffered_map_input,va_list v_args);
+GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
+    pthread_mutex_t* const input_mutex,uint64_t num_map_inputs,
+    gt_buffered_input_file* const buffered_map_input,...);
+
+
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
     pthread_mutex_t* const input_mutex,gt_buffered_input_file* const buffered_map_input_master,
     gt_buffered_input_file* const buffered_map_input_slave,const bool read_paired); // Used to merge files in parallel

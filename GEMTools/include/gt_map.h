@@ -76,7 +76,6 @@ typedef struct {
  * Setup
  */
 GT_INLINE gt_map* gt_map_new(void);
-GT_INLINE gt_map* gt_map_new_(const bool static_seq_name);
 GT_INLINE void gt_map_clear(gt_map* const map);
 GT_INLINE void gt_map_delete(gt_map* const map);
 

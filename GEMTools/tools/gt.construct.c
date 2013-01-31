@@ -641,6 +641,24 @@ void gt_filter_fastq() {
   gt_output_file_close(output_file);
 }
 
+void gt_debug_mem_leak() {
+  // Open input file
+  gt_input_file* input_file = (parameters.name_input_file==NULL) ?
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,GT_EXAMPLE_MMAP_FILE);
+
+  // Buffered reading of the file
+  gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
+  gt_alignment* alignment = gt_alignment_new();
+  gt_status error_code;
+  while ((error_code=gt_input_map_parser_get_alignment(buffered_input,alignment))) {
+    if (error_code==GT_BMI_FAIL) continue;
+  }
+  gt_buffered_input_file_close(buffered_input);
+
+  // Close files
+  gt_input_file_close(input_file);
+}
+
 void parse_arguments(int argc,char** argv) {
   struct option long_options[] = {
     { "input", required_argument, 0, 'i' },
@@ -690,9 +708,10 @@ int main(int argc,char** argv) {
   //gt_example_map_string_parsing();
   //gt_dummy_example();
 
-  gt_filter_fastq();
+  //gt_filter_fastq();
+  gt_debug_mem_leak();
 
-  return -1;
+  return 0;
 }
 
 

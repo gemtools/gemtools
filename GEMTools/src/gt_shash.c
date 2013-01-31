@@ -22,6 +22,7 @@ GT_INLINE void gt_shash_clear(gt_shash* const shash,const bool free_element) {
   gt_shash_element *shash_element, *tmp;
   HASH_ITER(hh,shash->shash_head,shash_element,tmp) {
     HASH_DEL(shash->shash_head,shash_element);
+    free(shash_element->key);
     if (free_element) free(shash_element->element);
     free(shash_element);
   }
@@ -75,6 +76,7 @@ GT_INLINE void gt_shash_remove_element(gt_shash* const shash,char* const key) {
   GT_NULL_CHECK(key);
   gt_shash_element *shash_element = gt_shash_get_shash_element(shash,key);
   if (shash_element) {
+    free(shash_element->key);
     HASH_DEL(shash->shash_head,shash_element);
   }
 }

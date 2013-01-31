@@ -330,7 +330,7 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
     gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,true);
     free(mmap_copy); // Free array handler
   }
-  gt_template_set_mcs(template_dst,GT_MIN(gt_template_get_mcs(template_dst), gt_template_get_mcs(template_src)));
+  gt_template_set_mcs(template_dst,GT_MIN(gt_template_get_mcs(template_dst),gt_template_get_mcs(template_src)));
 }
 
 //// TODO: Scheduled for v2.0

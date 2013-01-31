@@ -31,7 +31,6 @@ GT_INLINE gt_alignment* gt_alignment_new() {
   alignment->counters = gt_vector_new(GT_ALIGNMENT_NUM_INITIAL_COUNTERS,sizeof(uint64_t));
   alignment->maps = gt_vector_new(GT_ALIGNMENT_NUM_INITIAL_MAPS,sizeof(gt_map));
   alignment->maps_txt = NULL;
-  alignment->maps_dictionary = gt_shash_new();
   alignment->attributes = gt_attribute_new();
   return alignment;
 }
@@ -47,13 +46,11 @@ GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_alignment_clear_maps(alignment);
   gt_vector_clear(alignment->counters);
-  gt_shash_clear(alignment->maps_dictionary,true);
   gt_alignment_clear_handler(alignment);
 }
 GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_alignment_clear_maps(alignment);
-  gt_shash_delete(alignment->maps_dictionary,true);
   gt_string_delete(alignment->tag);
   gt_string_delete(alignment->read);
   gt_string_delete(alignment->qualities);
@@ -151,46 +148,27 @@ GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint
 }
 
 /*
- * Attribute accessors
- */
-GT_INLINE void* gt_alignment_get_attr(
-    gt_alignment* const alignment,char* const attribute_id) {
-  GT_ALIGNMENT_CHECK(alignment);
-  GT_NULL_CHECK(attribute_id);
-  return gt_attribute_get(alignment->attributes,attribute_id);
-}
-GT_INLINE void gt_alignment_set_attr(
-    gt_alignment* const alignment,char* const attribute_id,
-    void* const attribute,const size_t element_size) {
-  GT_ALIGNMENT_CHECK(alignment);
-  GT_NULL_CHECK(attribute_id);
-  GT_NULL_CHECK(attribute);
-  GT_ZERO_CHECK(element_size);
-  // Insert attribute
-  gt_attribute_set(alignment->attributes,attribute_id,attribute,element_size);
-}
-/*
  * Predefined attributes
  */
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  register uint64_t* const mcs = gt_alignment_get_attribute(alignment,GT_ATTR_MAX_COMPLETE_STRATA,uint64_t);
+  register uint64_t* const mcs = (uint64_t*)gt_attribute_get(alignment->attributes,GT_ATTR_MAX_COMPLETE_STRATA);
   if (mcs == NULL) return UINT64_MAX;
   return *mcs;
 }
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,uint64_t max_complete_strata) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_alignment_set_attribute(alignment,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
+  gt_attribute_set(alignment->attributes,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,sizeof(uint64_t));
 }
 GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  register bool* const not_unique_flag = gt_alignment_get_attribute(alignment,GT_ATTR_NOT_UNIQUE,bool);
+  register bool* const not_unique_flag = (bool*)gt_attribute_get(alignment->attributes,GT_ATTR_NOT_UNIQUE);
   if (not_unique_flag==NULL) return false;
   return *not_unique_flag;
 }
 GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_alignment_set_attribute(alignment,GT_ATTR_NOT_UNIQUE,&is_not_unique,bool);
+  gt_attribute_set(alignment->attributes,GT_ATTR_NOT_UNIQUE,&is_not_unique,sizeof(bool));
 }
 
 /*
@@ -200,34 +178,9 @@ GT_INLINE uint64_t gt_alignment_get_num_maps(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   return gt_vector_get_used(alignment->maps);
 }
-GT_INLINE void gt_alignment_record_seq_name(gt_alignment* const alignment,gt_string* const seq_name) {
-  register bool free_sequence_name = false;
-  register const uint64_t length = gt_string_get_length(seq_name);
-  register char* sequence_name;
-  if (gt_string_is_static(seq_name)) {
-    sequence_name = gt_strndup(gt_string_get_string(seq_name),length);
-    free_sequence_name = true;
-  } else {
-    sequence_name = gt_string_get_string(seq_name);
-  }
-  // Check for key alias
-  register char* key;
-  if (!(key=gt_shash_get_key(alignment->maps_dictionary,sequence_name))) {
-    register gt_maps_dictionary_element* const md_elm = malloc(sizeof(gt_maps_dictionary_element));
-    gt_cond_fatal_error(!md_elm,MEM_ALLOC);
-    key=gt_shash_insert(alignment->maps_dictionary,sequence_name,md_elm,gt_maps_dictionary_element);
-  }
-  // Replace key with alias
-  gt_string_cast_static(seq_name);
-  gt_string_set_nstring(seq_name,key,length);
-  // Clear
-  if (free_sequence_name) free(sequence_name);
-}
 GT_INLINE void gt_alignment_add_map(gt_alignment* const alignment,gt_map* const map) {
   GT_ALIGNMENT_CHECK(alignment);
   GT_NULL_CHECK(map);
-  // Alias all map keys into a common dictionary
-  gt_alignment_record_seq_name(alignment,map->seq_name);
   // Insert the map
   gt_vector_insert(alignment->maps,map,gt_map*);
 }
@@ -246,8 +199,6 @@ GT_INLINE gt_map* gt_alignment_get_map(gt_alignment* const alignment,const uint6
 GT_INLINE void gt_alignment_set_map(gt_alignment* const alignment,gt_map* const map,const uint64_t position) {
   GT_ALIGNMENT_CHECK(alignment);
   GT_MAP_CHECK(map);
-  // Alias all map keys into a common dictionary
-  gt_alignment_record_seq_name(alignment,map->seq_name);
   // Insert the map
   *gt_vector_get_elm(alignment->maps,position,gt_map*) = map;
 }
@@ -282,6 +233,7 @@ GT_INLINE void gt_alignment_handler_copy(gt_alignment* const alignment_dst,gt_al
   gt_string_copy(alignment_dst->qualities,alignment_src->qualities);
   alignment_dst->maps_txt = alignment_src->maps_txt;
   // Copy attributes
+  gt_attribute_delete(alignment_dst->attributes); // FIXME
   alignment_dst->attributes = gt_shash_deep_copy(alignment_src->attributes);
 }
 

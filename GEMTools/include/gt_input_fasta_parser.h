@@ -71,7 +71,7 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
 /*
  * FASTQ utils
  */
-GT_INLINE uint64_t gt_fasta_tag_chomp_end_info(gt_string* const tag);
+GT_INLINE uint64_t gt_input_fasta_tag_chomp_end_info(gt_string* const tag);
 
 
 #endif /* GT_INPUT_FASTA_PARSER_H_ */

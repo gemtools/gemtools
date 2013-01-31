@@ -54,7 +54,7 @@ void gt_stats_print_mmap_distribution(uint64_t* const mmap,const uint64_t num_al
 #define GT_STATS_PRINT_MMAP_FORMAT "%6" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_MMAP(RANGE) mmap[RANGE],100.0*(float)mmap[RANGE]/(float)num_alignments
   if(!num_alignments) return;
-  fprintf(stderr,"MMap.ranges (from decoded maps)\n");
+  fprintf(stderr,"MMap.ranges\n");
   fprintf(stderr,"  -->        [0] \t=> "GT_STATS_PRINT_MMAP_FORMAT,(num_alignments-num_mapped),100.0*(float)(num_alignments-num_mapped)/(float)num_alignments);
   fprintf(stderr,"  -->        [1] \t=> "GT_STATS_PRINT_MMAP_FORMAT,GT_STATS_PRINT_MMAP(MMAP_RANGE_1));
   fprintf(stderr,"  -->      (1,5] \t=> "GT_STATS_PRINT_MMAP_FORMAT,GT_STATS_PRINT_MMAP(MMAP_RANGE_5));
@@ -69,7 +69,7 @@ void gt_stats_print_uniq_distribution(uint64_t* const uniq,const uint64_t num_al
 #define GT_STATS_PRINT_UNIQ_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
 #define GT_STATS_PRINT_UNIQ(RANGE) uniq[RANGE],100.0*(float)uniq[RANGE]/(float)num_alignments
   if(!num_alignments) return;
-  fprintf(stderr,"Uniq.ranges (from MAP.counters or SAM.alignments)\n");
+  fprintf(stderr,"Uniq.ranges\n");
   fprintf(stderr,"  -->        [X] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(UNIQ_RANGE_X));
   fprintf(stderr,"  -->        [0] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(UNIQ_RANGE_0));
   fprintf(stderr,"  -->        [1] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(UNIQ_RANGE_1));
@@ -120,7 +120,9 @@ void gt_stats_print_misms_distribution(uint64_t* const misms,const uint64_t num_
 }
 uint64_t gt_stats_sum_misms_pos(uint64_t* const pos_error,uint64_t const begin,uint64_t const end) {
   register uint64_t i, accum = 0;
-  for (i=begin;i<end;++i) accum += pos_error[i];
+  for (i=begin;i<end;++i) {
+    accum += pos_error[i];
+  }
   return accum;
 }
 void gt_stats_print_read_event_positions(
@@ -224,23 +226,18 @@ void gt_stats_print_misms_transition_table(uint64_t* const misms_trans,uint64_t 
   }
   fprintf(stderr,"\n");
 }
-
-#define GT_STATS_PERCENT(amount,total) (total?100.0*(float)amount/(float)total:0.0)
-#define GT_STATS_RATIO(amount1,amount2) (amount2?(float)amount1/(float)amount2:0.0)
-
 void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
   fprintf(stderr,"[GENERAL.STATS]\n");
   /*
    * Reads
    */
-  register const uint64_t num_reads = num_reads; // PE => 1 read, SE => 1 read
+  register const uint64_t eff_num_reads = paired_end?num_reads>>1:num_reads;
   if(stats->min_length>stats->max_length) stats->min_length=0; // For the case of zero input lines
   fprintf(stderr,"Num.reads %" PRIu64 "\n",num_reads);
   fprintf(stderr,"  --> Length.(min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
-    stats->min_length,GT_STATS_PERCENT(stats->num_blocks,stats->total_bases),stats->max_length);
-  fprintf(stderr,"  --> Length.mapped.(min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
-    stats->mapped_min_length,GT_STATS_PERCENT(stats->total_bases_aligned,stats->num_blocks),stats->mapped_max_length);
-  fprintf(stderr,"  --> Num.mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,GT_STATS_PERCENT(stats->num_mapped,num_reads));
+	  stats->min_length,stats->num_blocks?stats->total_bases/stats->num_blocks:(uint64_t)0,stats->max_length);
+  fprintf(stderr,"  --> Num.mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
+	  eff_num_reads?100.0*(float)stats->num_mapped/(float)eff_num_reads:0.0);
   fprintf(stderr,"Num.alignments %" PRIu64 "\n",stats->num_alignments);
   /*
    * Total bases (aligned/trimmed/unaligned)
@@ -249,20 +246,22 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
       stats->maps_error_profile->total_bases_aligned+stats->maps_error_profile->total_bases_trimmed;
   fprintf(stderr,"  --> Num.bases %" PRIu64 "\n",stats->total_bases);
   fprintf(stderr,"    --> Num.bases.unaligned %" PRIu64 " (%2.3f%%)\n",
-	  stats->total_bases_unaligned,GT_STATS_PERCENT(stats->total_bases_unaligned,stats->total_bases));
+	  stats->total_bases_unaligned,stats->total_bases?100.0*(float)stats->total_bases_unaligned/(float)stats->total_bases:0.0);
   fprintf(stderr,"    --> Num.bases.allMaps.aligned %" PRIu64 " (%2.3f%%)\n",
-    stats->maps_error_profile->total_bases_aligned,GT_STATS_PERCENT(stats->maps_error_profile->total_bases_aligned,total_bases_mmaps));
+      stats->maps_error_profile->total_bases_aligned,
+	  total_bases_mmaps?100.0*(float)stats->maps_error_profile->total_bases_aligned/(float)total_bases_mmaps:0.0);
   fprintf(stderr,"    --> Num.bases.allMaps.trimmed %" PRIu64 " (%2.3f%%)\n",
-    stats->maps_error_profile->total_bases_trimmed,GT_STATS_PERCENT(stats->maps_error_profile->total_bases_trimmed,total_bases_mmaps));
+      stats->maps_error_profile->total_bases_trimmed,
+	  total_bases_mmaps?100.0*(float)stats->maps_error_profile->total_bases_trimmed/(float)total_bases_mmaps:0.0);
   /*
    * Maps
    */
-  fprintf(stderr,"  --> Num.maps %" PRIu64 " (%2.3f maps/readsMapped)\n",GT_STATS_RATIO(stats->num_maps,stats->num_mapped));
-  gt_stats_print_mmap_distribution(stats->mmap,num_reads,stats->num_mapped);
+  fprintf(stderr,"  --> Num.maps %" PRIu64 " (%2.3f map/alg)\n",stats->num_maps,stats->num_mapped?(float)stats->num_maps/(float)stats->num_mapped:0.0);
+  gt_stats_print_mmap_distribution(stats->mmap,eff_num_reads,stats->num_mapped);
   if (paired_end) {
     gt_stats_print_inss_distribution(stats->maps_error_profile->inss,stats->num_maps);
   }
-  gt_stats_print_uniq_distribution(stats->uniq,num_reads);
+  gt_stats_print_uniq_distribution(stats->uniq,eff_num_reads);
   if (parameters.error_profile) {
     fprintf(stderr,"[ERROR.PROFILE]\n");
     gt_stats_print_misms_distribution(stats->maps_error_profile->mismatches,stats->num_maps,"Mismatches");
@@ -306,9 +305,9 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
 
       register const uint64_t num_single_maps = stats->num_maps*(paired_end?2:1);
       fprintf(stderr,"SM.Num.Splitted.Segments \t %" PRIu64 " (%2.3f%% SplitMaps/Maps)\n",splitmap_stats->total_splitmaps,
-        GT_STATS_PERCENT(splitmap_stats->total_splitmaps,num_single_maps));
+	      num_single_maps?100.0*(float)splitmap_stats->total_splitmaps/(float)num_single_maps:0.0);
       fprintf(stderr,"SM.Num.Junctions \t %" PRIu64 " (%2.3f Juntions/SplitMaps)\n",splitmap_stats->total_junctions,
-        GT_STATS_PERCENT(splitmap_stats->total_junctions,splitmap_stats->total_splitmaps));
+	      splitmap_stats->total_splitmaps?(float)splitmap_stats->total_junctions/(float)splitmap_stats->total_splitmaps:0.0);
 
       gt_stats_print_num_junctions_distribution(splitmap_stats->num_junctions,splitmap_stats->total_splitmaps);
       gt_stats_print_length_junctions_distribution(splitmap_stats->length_junctions,splitmap_stats->total_junctions);
@@ -328,13 +327,13 @@ void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const
    *  mapped(%), MMap(maps/alg), Bases.aligned(%), Bases.trimmed(%), #Uniq-0, %Uniq-0
    */
   // #mapped, %mapped
-  register const uint64_t num_reads = paired_end?num_reads>>1:num_reads;
+  register const uint64_t eff_num_reads = paired_end?num_reads>>1:num_reads;
   fprintf(stderr,"%" PRIu64 ",",stats->num_mapped);
-  fprintf(stderr,"%2.3f,",num_reads?100.0*(float)stats->num_mapped/(float)num_reads:0.0);
+  fprintf(stderr,"%2.3f,",eff_num_reads?100.0*(float)stats->num_mapped/(float)eff_num_reads:0.0);
   // #unmapped, %unmapped
-  register const uint64_t unmapped = num_reads-stats->num_mapped;
+  register const uint64_t unmapped = eff_num_reads-stats->num_mapped;
   fprintf(stderr,"%" PRIu64 ",",unmapped);
-  fprintf(stderr,"%2.3f,",num_reads?100.0*(float)unmapped/(float)num_reads:0.0);
+  fprintf(stderr,"%2.3f,",eff_num_reads?100.0*(float)unmapped/(float)eff_num_reads:0.0);
   // MMap(maps/alg)
   fprintf(stderr,"%2.3f,",stats->num_mapped?(float)stats->num_maps/(float)stats->num_mapped:0.0);
   // Bases.aligned(%)
@@ -345,7 +344,7 @@ void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const
   fprintf(stderr,"%2.3f,",total_bases_mmaps?100.0*(float)stats->maps_error_profile->total_bases_trimmed/(float)total_bases_mmaps:0.0);
   // #Uniq-0, %Uniq-0
   fprintf(stderr,"%" PRIu64 ",",stats->uniq[UNIQ_RANGE_0]);
-  fprintf(stderr,"%2.3f\n",num_reads?100.0*(float)stats->uniq[UNIQ_RANGE_0]/(float)num_reads:0.0);
+  fprintf(stderr,"%2.3f\n",eff_num_reads?100.0*(float)stats->uniq[UNIQ_RANGE_0]/(float)eff_num_reads:0.0);
 }
 
 /*
@@ -390,10 +389,10 @@ void gt_stats_parallel_generate_stats() {
   if (!parameters.quiet) {
     if (!parameters.compact) {
       gt_stats_print_stats(stats[0],(parameters.num_reads>0)?
-          parameters.num_reads:stats[0]->num_alignments,parameters.paired_end);
+          parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
     } else {
       gt_stats_print_stats_compact(stats[0],(parameters.num_reads>0)?
-          parameters.num_reads:stats[0]->num_alignments,parameters.paired_end);
+          parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
     }
   }
 
@@ -411,7 +410,6 @@ void usage() {
                   "        --num-reads|n\n"
                   "        --best-map\n"
                   "       [Tests]\n"
-                  "        --all|A\n"
                   "        --error-profile|E\n"
                   "        --mismatch-transitions|T\n"
                   "        --mismatch-quality|Q\n"
@@ -434,7 +432,6 @@ void parse_arguments(int argc,char** argv) {
     { "num-reads", no_argument, 0, 'n' },
     { "best-map", no_argument, 0, 2 },
     /* [Tests] */
-    { "all", no_argument, 0, 'A' },
     { "error-profile", no_argument, 0, 'E' },
     { "mismatch-transitions", no_argument, 0, 'T' },
     { "mismatch-quality", no_argument, 0, 'Q' },
@@ -449,7 +446,7 @@ void parse_arguments(int argc,char** argv) {
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:pn:EATQScvqt:h",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:pn:ETQScvqt:h",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     /* [Input] */
@@ -469,12 +466,6 @@ void parse_arguments(int argc,char** argv) {
       parameters.best_map = true;
       break;
     /* [Tests] */
-    case 'A': // --all
-      parameters.error_profile = true;
-      parameters.mismatch_transitions = true;
-      parameters.mismatch_quality = true;
-      parameters.splitmaps_profile = true;
-      break;
     case 'E': // --error-profile
       parameters.error_profile = true;
       break;

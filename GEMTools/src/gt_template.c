@@ -195,45 +195,29 @@ GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_
 }
 
 /*
- * Attribute accessors
- */
-GT_INLINE void* gt_template_get_attr(
-    gt_template* const template,char* const attribute_id) {
-  GT_TEMPLATE_CHECK(template);
-  GT_NULL_CHECK(attribute_id);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-    return gt_alignment_get_attr(alignment,attribute_id);
-  } GT_TEMPLATE_END_REDUCTION;
-  return gt_attribute_get(template->attributes,attribute_id);
-}
-GT_INLINE void gt_template_set_attr(
-    gt_template* const template,char* const attribute_id,
-    void* const attribute,const size_t element_size) {
-  GT_TEMPLATE_CHECK(template);
-  GT_NULL_CHECK(attribute_id);
-  GT_NULL_CHECK(attribute);
-  GT_ZERO_CHECK(element_size);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-    gt_alignment_set_attr(alignment,attribute_id,attribute,element_size);
-  } GT_TEMPLATE_END_REDUCTION__RETURN;
-  // Insert attribute
-  gt_attribute_set(template->attributes,attribute_id,attribute,element_size);
-}
-/*
  * Predefined attributes
  */
 GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  register uint64_t* mcs = gt_template_get_attribute(template,GT_ATTR_MAX_COMPLETE_STRATA,uint64_t);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_mcs(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  register uint64_t* mcs = gt_attribute_get(template->attributes,GT_ATTR_MAX_COMPLETE_STRATA);
   if (mcs == NULL) return UINT64_MAX;
   return *mcs;
 }
 GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_complete_strata) {
   GT_TEMPLATE_CHECK(template);
-  gt_template_set_attribute(template,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_set_mcs(alignment,max_complete_strata);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  gt_attribute_set(template->attributes,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,sizeof(uint64_t));
 }
 GT_INLINE bool gt_template_has_qualities(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_has_qualities(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register uint64_t i;
   for (i=0;i<num_blocks;++i) {
@@ -244,13 +228,19 @@ GT_INLINE bool gt_template_has_qualities(gt_template* const template) {
 }
 GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  register bool* const not_unique_flag = gt_template_get_attribute(template,GT_ATTR_NOT_UNIQUE,bool);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_not_unique_flag(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  register bool* const not_unique_flag = gt_attribute_get(template->attributes,GT_ATTR_NOT_UNIQUE);
   if (not_unique_flag==NULL) return false;
   return *not_unique_flag;
 }
 GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique) {
   GT_TEMPLATE_CHECK(template);
-  gt_template_set_attribute(template,GT_ATTR_NOT_UNIQUE,&is_not_unique,bool);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_set_not_unique_flag(alignment,is_not_unique);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  gt_attribute_set(template->attributes,GT_ATTR_NOT_UNIQUE,&is_not_unique,sizeof(bool));
 }
 
 /*
@@ -414,6 +404,7 @@ GT_INLINE void gt_template_copy_handler(gt_template* template_dst,gt_template* c
   gt_string_copy(template_dst->tag,template_src->tag);
   template_dst->maps_txt = template_src->maps_txt;
   // Copy templates' attributes
+  gt_attribute_delete(template_dst->attributes); // FIXME
   template_dst->attributes = gt_shash_deep_copy(template_src->attributes);
 }
 GT_INLINE void gt_template_copy_blocks(gt_template* template_dst,gt_template* const template_src,const bool copy_maps) {

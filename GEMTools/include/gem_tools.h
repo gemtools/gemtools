@@ -47,56 +47,8 @@
 // HighLevel Modules
 #include "gt_stats.h"
 
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-/*
- * Parsers Helpers
- */
-#define GT_IGP_FAIL -1
-#define GT_IGP_EOF 0
-#define GT_IGP_OK 1
-
-typedef struct {
-  /* General attributes*/
-  bool paired_read;
-  /* Format specific features */
-  bool sam_soap_style;
-  uint64_t max_matches;
-} gt_generic_parser_attr;
-
-#define GENERIC_PARSER_ATTR_DEFAULT(parse_paired) { .sam_soap_style=false, .max_matches=GT_ALL, .paired_read=parse_paired }
-
-GT_INLINE gt_status gt_input_generic_parser_get_alignment(
-    gt_buffered_input_file* const buffered_input,gt_alignment* const alignment,gt_generic_parser_attr* const attributes);
-GT_INLINE gt_status gt_input_generic_parser_get_template(
-    gt_buffered_input_file* const buffered_input,gt_template* const template,gt_generic_parser_attr* const attributes);
-
->>>>>>>>>>>>>>>>>>>> File 3
-/*
- * Parsers Helpers
- */
-#define GT_IGP_FAIL -1
-#define GT_IGP_EOF 0
-#define GT_IGP_OK 1
-
-typedef struct {
-  /* General attributes*/
-  bool paired_read;
-  /* Format specific features */
-  bool sam_soap_style;
-  uint64_t max_matches;
-} gt_generic_parser_attr;
-
-#define GENERIC_PARSER_ATTR_DEFAULT(parse_paired) { .sam_soap_style=false, .max_matches=GT_ALL, .paired_read=parse_paired }
-
-GT_INLINE gt_status gt_input_generic_parser_get_alignment(
-    gt_buffered_input_file* const buffered_input,gt_alignment* const alignment,gt_generic_parser_attr* const attributes);
-GT_INLINE gt_status gt_input_generic_parser_get_template(
-    gt_buffered_input_file* const buffered_input,gt_template* const template,gt_generic_parser_attr* const attributes);
-
 GT_INLINE void gt_merge_map_files(
     pthread_mutex_t* const input_mutex,gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
     const bool paired_end,gt_output_file* const output_file);
 
-<<<<<<<<<<<<<<<<<<<<
 #endif /* GEM_TOOLS_H_ */

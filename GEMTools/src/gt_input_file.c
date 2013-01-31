@@ -222,32 +222,19 @@ GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
     return 0;
   }
 }
-#define GT_INPUT_FILE_HANDLE_EOL() \
-  if (!input_file->eof) { \
-    GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst); /* Skip EOF/DOS_EOL */  \
-    if (gt_expect_true(!input_file->eof && GT_INPUT_FILE_CURRENT_CHAR(input_file)==EOL)) { \
-      ++input_file->buffer_pos; \
-      if (gt_expect_true(buffer_dst!=NULL)) { \
-        gt_input_file_dump_to_buffer(input_file,buffer_dst); \
-        gt_vector_dec_used(buffer_dst); \
-        *gt_vector_get_last_elm(buffer_dst,char)=EOL; \
-      } \
-      gt_input_file_fill_buffer(input_file); \
-    } \
-  }
 GT_INLINE size_t gt_input_file_next_line(gt_input_file* const input_file,gt_vector* const buffer_dst) {
   GT_INPUT_FILE_CHECK(input_file);
   GT_VECTOR_CHECK(buffer_dst);
-  GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst);
+  GT_INPUT_FILE_CHECK_BUFFER__DUMP(input_file,buffer_dst);
   if (input_file->eof) return GT_INPUT_FILE_EOF;
   // Read line
   while (gt_expect_true(!input_file->eof &&
       GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL &&
       GT_INPUT_FILE_CURRENT_CHAR(input_file)!=DOS_EOL)) {
-    GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst);
+    GT_INPUT_FILE_NEXT_CHAR__DUMP(input_file,buffer_dst);
   }
   // Handle EOL
-  GT_INPUT_FILE_HANDLE_EOL();
+  GT_INPUT_FILE_HANDLE_EOL(input_file,buffer_dst);
   return GT_INPUT_FILE_LINE_READ;
 }
 GT_INLINE size_t gt_input_file_next_record(
@@ -255,7 +242,7 @@ GT_INLINE size_t gt_input_file_next_record(
     uint64_t* const num_blocks,uint64_t* const num_tabs) {
   GT_INPUT_FILE_CHECK(input_file);
   GT_VECTOR_CHECK(buffer_dst);
-  GT_INPUT_FILE_CHECK__FILL_BUFFER(input_file,buffer_dst);
+  GT_INPUT_FILE_CHECK_BUFFER__DUMP(input_file,buffer_dst);
   if (input_file->eof) return GT_INPUT_FILE_EOF;
   // Read line
   register uint64_t const begin_line_pos_at_file = input_file->buffer_pos;
@@ -280,16 +267,10 @@ GT_INLINE size_t gt_input_file_next_record(
         ++current_pfield; ++(*num_tabs);
       }
     }
-    GT_INPUT_FILE_NEXT_CHAR(input_file,buffer_dst);
+    GT_INPUT_FILE_NEXT_CHAR__DUMP(input_file,buffer_dst);
   }
->>>>>>>>>>>>>>>>>>>> File 1
-  ++(*num_blocks);
->>>>>>>>>>>>>>>>>>>> File 2
-  ++(*num_blocks);
->>>>>>>>>>>>>>>>>>>> File 3
-<<<<<<<<<<<<<<<<<<<<
   // Handle EOL
-  GT_INPUT_FILE_HANDLE_EOL();
+  GT_INPUT_FILE_HANDLE_EOL(input_file,buffer_dst);
   // Set first field (from the input_file_buffer or the buffer_dst)
   if (first_field) {
     register char* first_field_begin;
@@ -301,14 +282,6 @@ GT_INLINE size_t gt_input_file_next_record(
     }
     gt_string_set_nstring(first_field,first_field_begin,length_first_field);
   }
->>>>>>>>>>>>>>>>>>>> File 1
-  // Handle EOL
-  GT_INPUT_FILE_HANDLE_EOL(input_file,buffer_dst);
->>>>>>>>>>>>>>>>>>>> File 2
-  // Handle EOL
-  GT_INPUT_FILE_HANDLE_EOL();
->>>>>>>>>>>>>>>>>>>> File 3
-<<<<<<<<<<<<<<<<<<<<
   return GT_INPUT_FILE_LINE_READ;
 }
 
@@ -361,7 +334,7 @@ gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file)
     input_file->file_format = MAP;
     return MAP;
   }
-  // FASTQ test
+  // FASTA test
   if (gt_input_file_test_fasta(input_file,&(input_file->fasta_type),false)) {
     input_file->file_format = FASTA;
     return FASTA;
@@ -371,20 +344,7 @@ gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file)
     input_file->file_format = SAM;
     return SAM;
   }
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-  // TODO: Install FASTQ
->>>>>>>>>>>>>>>>>>>> File 3
-  // TODO: Install FASTQ
-<<<<<<<<<<<<<<<<<<<<
-  // Unknown format
->>>>>>>>>>>>>>>>>>>> File 1
-  gt_error(FILE_FORMAT);
->>>>>>>>>>>>>>>>>>>> File 2
   // gt_error(FILE_FORMAT);
->>>>>>>>>>>>>>>>>>>> File 3
-  // gt_error(FILE_FORMAT);
-<<<<<<<<<<<<<<<<<<<<
   return FILE_FORMAT_UNKNOWN;
 }
 
@@ -414,7 +374,7 @@ GT_INLINE uint64_t gt_input_file_get_lines(
   GT_INPUT_FILE_CHECK(input_file);
   GT_VECTOR_CHECK(buffer_dst);
   // Clear dst buffer
-  gt_vector_clean(buffer_dst);
+  gt_vector_clear(buffer_dst);
   // Read lines
   return gt_input_file_add_lines(input_file,buffer_dst,num_lines);
 }

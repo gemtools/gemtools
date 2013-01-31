@@ -358,16 +358,17 @@ GT_INLINE gt_status gt_input_fasta_parser_get_template(
   // Prepare read
   gt_template_clear(template,true);
   // Parse FASTA/FASTQ record (end/1)
+  register gt_status error_code;
   register gt_alignment* alignment = gt_template_get_block_dyn(template,0);
-  if (gt_input_fasta_parser_get_alignment(buffered_fasta_input,alignment) != GT_IFP_OK) {
-    return GT_IFP_FAIL;
+  if ((error_code=gt_input_fasta_parser_get_alignment(buffered_fasta_input,alignment))!=GT_IFP_OK) {
+    return error_code;
   }
   if (paired_read) {
     register gt_alignment* alignment = gt_template_get_block_dyn(template,1);
     if (gt_buffered_input_file_eob(buffered_fasta_input)) return GT_IFP_FAIL;
     // Parse FASTA/FASTQ record (end/2)
-    if (gt_input_fasta_parser_get_alignment(buffered_fasta_input,alignment) != GT_IFP_OK) {
-      return GT_IFP_FAIL;
+    if ((error_code=gt_input_fasta_parser_get_alignment(buffered_fasta_input,alignment)) != GT_IFP_OK) {
+      return error_code;
     }
   }
   return GT_IFP_OK;
@@ -431,7 +432,7 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
 /*
  * FASTQ utils
  */
-GT_INLINE uint64_t gt_fasta_tag_chomp_end_info(gt_string* const tag) {
+GT_INLINE uint64_t gt_input_fasta_tag_chomp_end_info(gt_string* const tag) {
   GT_STRING_CHECK(tag);
   // Parse the end information {/1,/2}
   register const uint64_t tag_length = gt_string_get_length(tag);

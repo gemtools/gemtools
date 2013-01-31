@@ -8,12 +8,6 @@
 
 #include "gt_input_sam_parser.h"
 
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-
->>>>>>>>>>>>>>>>>>>> File 3
-
-<<<<<<<<<<<<<<<<<<<<
 // Constants
 #define GT_ISP_NUM_LINES GT_NUM_LINES_10K
 #define GT_ISP_NUM_INITIAL_MAPS 5
@@ -32,40 +26,47 @@ typedef struct {
   uint64_t num_maps; // Maps in the vector coupled to the first one
 } gt_sam_pending_end;
 
-#define GT_SAM_INIT_PENDING {.map_seq_name.allocated=0, .next_seq_name.allocated=0}
+#define GT_SAM_INIT_PENDING { .map_seq_name.allocated=0, .next_seq_name.allocated=0 }
 
 /*
  * SAM File Format test
  */
->>>>>>>>>>>>>>>>>>>> File 1
 #define GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(tag_array,l1,l2) ((tag_array)[0]==l1 && (tag_array)[1]==l2 && (tag_array)[2]==TAB)
 #define GT_INPUT_FILE_SAM_READ_HEADERS_CMP_ATTR(tag_array,l1,l2) ((tag_array)[0]==l1 && (tag_array)[1]==l2 && (tag_array)[2]==COLON)
-GT_INLINE gt_status gt_input_file_sam_read_headers(
+GT_INLINE int64_t gt_input_file_sam_read_headers(
     char* const buffer,const uint64_t buffer_size,gt_sam_headers* const sam_headers) {
   register uint64_t buffer_pos=0;
   // Read until no more header lines are parsed
   while (buffer[buffer_pos]==GT_SAM_HEADER_BEGIN) {
     ++buffer_pos;
-    // TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO
-    // TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO
-    // TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO
-    // TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO// TODO
     if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'H','D')) {
       buffer_pos+=3;
-      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) {
-
-      }
+      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
+      if (buffer_pos==buffer_size) return 0;
+      ++buffer_pos;
     } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'S','Q')) {
 //      if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_ATTR(tag_array,'','')) {
 //
 //      }
+      buffer_pos+=3;
+      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
+      if (buffer_pos==buffer_size) return 0;
+      ++buffer_pos;
     } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'R','G')) {
-
+      buffer_pos+=3;
+      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
+      if (buffer_pos==buffer_size) return 0;
+      ++buffer_pos;
     } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'P','G')) {
-
+      buffer_pos+=3;
+      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
+      if (buffer_pos==buffer_size) return 0;
+      ++buffer_pos;
+    } else {
+      return -1;
     }
   }
-  return 0;
+  return buffer_pos;
 }
 
 #define GT_ISP_TEST_SAM_SKIP_STRING() \
@@ -83,39 +84,19 @@ GT_INLINE gt_status gt_input_file_sam_read_headers(
 
 GT_INLINE bool gt_input_sam_parser_test_sam(
     char* const file_name,const uint64_t line_num,char* const buffer,const uint64_t buffer_size,
-    gt_sam_headers* const sam_headers,const bool show_errors) {
+    uint64_t* const characters_read,gt_sam_headers* const sam_headers,const bool show_errors) {
   /*
    * (1) @SQ     SN:chr10        LN:135534747
    *     @SQ     SN:chr11        LN:135006516
    * (2) 1/1     16  chr12  57338496  37  75M  *  0  0  TCTG...TTGN  BbQ..QQB  XT:A:U  NM:i:1
    */
-  if (buffer[0]==GT_SAM_HEADER_BEGIN) { // Read headers
-    if (!gt_input_file_sam_read_headers(buffer,buffer_size,sam_headers)) return false;
-    return true;
-  }
->>>>>>>>>>>>>>>>>>>> File 2
-GT_INLINE bool gt_input_file_detect_sam_format(char* const buffer,const uint64_t buffer_size,const bool show_errors) {
->>>>>>>>>>>>>>>>>>>> File 3
-GT_INLINE bool gt_input_file_detect_sam_format(char* const buffer,const uint64_t buffer_size,const bool show_errors) {
-<<<<<<<<<<<<<<<<<<<<
-  /*
->>>>>>>>>>>>>>>>>>>> File 1
-   * Check SAM record
->>>>>>>>>>>>>>>>>>>> File 2
-   * After 2 header lines or 1 SAM line we are fine to say this is SAM-format
-   * By default, like 16MB of buffered data should be fine to assess the SAM format
-   *  (1) @SQ     SN:chr10        LN:135534747
-   *      @SQ     SN:chr11        LN:135006516
-   *  (2) 1/1     16  chr12  57338496  37  75M  *  0  0  TCTGGTT...TTTGN  _b....VNNQQB  XT:A:U  NM:i:1
->>>>>>>>>>>>>>>>>>>> File 3
-   * After 2 header lines or 1 SAM line we are fine to say this is SAM-format
-   * By default, like 16MB of buffered data should be fine to assess the SAM format
-   *  (1) @SQ     SN:chr10        LN:135534747
-   *      @SQ     SN:chr11        LN:135006516
-   *  (2) 1/1     16  chr12  57338496  37  75M  *  0  0  TCTGGTT...TTTGN  _b....VNNQQB  XT:A:U  NM:i:1
-<<<<<<<<<<<<<<<<<<<<
-   */
   register uint64_t buffer_pos=0;
+  if (buffer[0]==GT_SAM_HEADER_BEGIN) { // Read headers
+    if ((buffer_pos=gt_input_file_sam_read_headers(buffer,buffer_size,sam_headers)) < 0) return false;
+  }
+  /*
+   * Check SAM record
+   */
   // Skip TAG
   GT_ISP_TEST_SAM_SKIP_STRING();
   // Check FLAG
@@ -146,8 +127,6 @@ GT_INLINE bool gt_input_file_detect_sam_format(char* const buffer,const uint64_t
   return true;
 }
 
-
-
 #define GT_ISP_HEADERS_WRONG_FORMAT -1
 #define GT_ISP_HEADERS_END 0
 
@@ -155,8 +134,13 @@ GT_INLINE bool gt_input_file_test_sam(
     gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors) {
   GT_INPUT_FILE_CHECK(input_file);
   GT_NULL_CHECK(sam_headers);
-  return gt_input_sam_parser_test_sam(input_file->file_name,input_file->processed_lines+1,
-      (char*)input_file->file_buffer,input_file->buffer_size,sam_headers,show_errors);
+  uint64_t characters_read = 0;
+  if (gt_input_sam_parser_test_sam(input_file->file_name,input_file->processed_lines+1,
+      (char*)input_file->file_buffer,input_file->buffer_size,&characters_read,sam_headers,show_errors)) {
+    input_file->buffer_pos = characters_read;
+    return true;
+  }
+  return false;
 }
 GT_INLINE gt_status gt_input_sam_parser_check_sam_file_format(gt_buffered_input_file* const buffered_sam_input) {
   register gt_input_file* const input_file = buffered_sam_input->input_file;
@@ -237,7 +221,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_block(
     uint64_t num_blocks=0, num_tabs=0;
     register gt_string* const reference_tag = gt_string_new(30);
     if (gt_input_file_next_record(input_file,buffered_sam_input->block_buffer,reference_tag,&num_blocks,&num_tabs)) {
-      gt_input_fastq_tag_chomp_end_info(reference_tag);
+      gt_input_fasta_tag_chomp_end_info(reference_tag);
       while (gt_input_file_next_record_cmp_first_field(input_file,reference_tag)) {
         if (!gt_input_file_next_record(input_file,buffered_sam_input->block_buffer,NULL,&num_blocks,&num_tabs)) break;
         ++lines_read;
@@ -348,7 +332,7 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
         break;
       case 'N': { // Split. Eg TOPHAT, GEM, ...
         // Create a new map block
-        gt_map* next_map = gt_map_new_(true);
+        gt_map* next_map = gt_map_new();
         gt_map_set_seq_name(next_map,gt_string_get_string(map->seq_name),gt_string_get_length(map->seq_name));
         gt_map_set_position(next_map,gt_map_get_position(map)+reference_span+length);
         gt_map_set_strand(next_map,gt_map_get_strand(map));
@@ -493,8 +477,8 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     GT_NULL_CHECK(_alignment);
     alignment = _alignment;
   }
-  if (!gt_alignment_get_attr(alignment,GT_ATTR_SAM_FLAGS)) {
-    gt_alignment_set_attr(alignment,GT_ATTR_SAM_FLAGS,alignment_flag,sizeof(uint64_t));
+  if (!gt_attribute_get(alignment->attributes,GT_ATTR_SAM_FLAGS)) {
+    gt_attribute_set(alignment->attributes,GT_ATTR_SAM_FLAGS,alignment_flag,sizeof(uint64_t));
   }
   /*
    * Parse RNAME (Sequence-name/Chromosome)
@@ -660,7 +644,7 @@ GT_INLINE bool gt_isp_fetch_next_line(
   register gt_string* const next_tag = gt_string_new(0);
   char* ptext_line;
   if (gt_isp_read_tag(&(buffered_sam_input->cursor),&ptext_line,next_tag)) return false;
-  if (chomp_tag) gt_fasta_tag_chomp_end_info(next_tag);
+  if (chomp_tag) gt_input_fasta_tag_chomp_end_info(next_tag);
   register const bool same_tag = gt_string_equals(expected_tag,next_tag);
   gt_string_delete(next_tag);
   if (same_tag) {
@@ -761,7 +745,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   register char** text_line = &(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
-  gt_fasta_tag_chomp_end_info(template->tag);
+  gt_input_fasta_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   gt_vector* pending_v = gt_vector_new(GT_ISP_NUM_INITIAL_MAPS,sizeof(gt_sam_pending_end));
   do {
@@ -792,7 +776,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
   register gt_status error_code;
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
-  gt_fasta_tag_chomp_end_info(template->tag);
+  gt_input_fasta_tag_chomp_end_info(template->tag);
   // Read all maps related to this TAG
   do {
     // Parse SAM Alignment
@@ -880,31 +864,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_template(
   }
   return GT_ISP_OK;
 }
->>>>>>>>>>>>>>>>>>>> File 1
 
->>>>>>>>>>>>>>>>>>>> File 2
-GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
-  GT_TEMPLATE_CHECK(template);
-  return gt_input_sam_parser_get_template_(buffered_sam_input,template,false);
-}
-GT_INLINE gt_status gt_input_sam_parser_get_soap_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
-  GT_TEMPLATE_CHECK(template);
-  return gt_input_sam_parser_get_template_(buffered_sam_input,template,true);
-}
->>>>>>>>>>>>>>>>>>>> File 3
-GT_INLINE gt_status gt_input_sam_parser_get_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
-  GT_TEMPLATE_CHECK(template);
-  return gt_input_sam_parser_get_template_(buffered_sam_input,template,false);
-}
-GT_INLINE gt_status gt_input_sam_parser_get_soap_template(gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
-  GT_TEMPLATE_CHECK(template);
-  return gt_input_sam_parser_get_template_(buffered_sam_input,template,true);
-}
-<<<<<<<<<<<<<<<<<<<<
 GT_INLINE gt_status gt_input_sam_parser_get_alignment(
     gt_buffered_input_file* const buffered_sam_input,gt_alignment* const alignment,gt_sam_parser_attr* const sam_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);

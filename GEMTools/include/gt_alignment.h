@@ -22,7 +22,6 @@ typedef struct {
   gt_vector* counters;
   gt_vector* maps; /* (gt_map*) */
   char* maps_txt;
-  gt_shash* maps_dictionary;
   gt_shash* attributes;
 } gt_alignment;
 
@@ -41,7 +40,6 @@ typedef struct {
   GT_STRING_CHECK(alignment->qualities); \
   GT_VECTOR_CHECK(alignment->counters); \
   GT_VECTOR_CHECK(alignment->maps); \
-  GT_HASH_CHECK(alignment->maps_dictionary); \
   GT_HASH_CHECK(alignment->attributes)
 /*
  *  TODO: Scheduled for v2.0 (all lazy parsing)
@@ -87,13 +85,6 @@ GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint
 // Predefined attributes
 #define GT_ATTR_MAX_COMPLETE_STRATA "MCS"
 #define GT_ATTR_NOT_UNIQUE "NOT-UNIQUE"
-GT_INLINE void* gt_alignment_get_attr(
-    gt_alignment* const alignment,char* const attribute_id);
-GT_INLINE void gt_alignment_set_attr(
-    gt_alignment* const alignment,char* const attribute_id,
-    void* const attribute,const size_t element_size);
-#define gt_alignment_get_attribute(alignment,attribute_id,type) ((type*)gt_alignment_get_attr(alignment,attribute_id))
-#define gt_alignment_set_attribute(alignment,attribute_id,attribute,type) gt_alignment_set_attr(alignment,attribute_id,attribute,sizeof(type))
 
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,uint64_t max_complete_strata);

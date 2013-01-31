@@ -123,14 +123,6 @@ GT_INLINE void gt_template_inc_counter(gt_template* const template,const uint64_
 /*
  * Attribute accessors
  */
-GT_INLINE void* gt_template_get_attr(
-    gt_template* const template,char* const attribute_id);
-GT_INLINE void gt_template_set_attr(
-    gt_template* const template,char* const attribute_id,
-    void* const attribute,const size_t element_size);
-#define gt_template_get_attribute(template,attribute_id,type) ((type*)gt_template_get_attr(template,attribute_id))
-#define gt_template_set_attribute(template,attribute_id,attribute,type) gt_template_set_attr(template,attribute_id,attribute,sizeof(type))
-
 GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template);
 GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_complete_strata);
 GT_INLINE bool gt_template_has_qualities(gt_template* const template);

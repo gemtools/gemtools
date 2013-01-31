@@ -35,6 +35,7 @@ GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element);
 /*
  * Basic (Type-unsafe) Accessors
  */
+GT_INLINE gt_shash_element* gt_shash_get_shash_element(gt_shash* const shash,char* const key);
 GT_INLINE char* gt_shash_insert_element(gt_shash* const shash,char* const key,void* const element,const size_t element_size);
 GT_INLINE char* gt_shash_get_key(gt_shash* const shash,char* const key);
 GT_INLINE void* gt_shash_get_element(gt_shash* const shash,char* const key);

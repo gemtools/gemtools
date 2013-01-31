@@ -219,16 +219,16 @@ GT_INLINE gt_status gt_input_map_parser_reload_buffer_matching_tag(
   }
   buffered_map_input->block_id = gt_input_file_next_id(input_file) % UINT32_MAX;
   buffered_map_input->current_line_num = input_file->processed_lines+1;
-  gt_vector_clean(buffered_map_input->block_buffer); // Clear dst buffer
+  gt_vector_clear(buffered_map_input->block_buffer); // Clear dst buffer
   // Read lines
-  if (read_paired) gt_input_fastq_tag_chomp_end_info(reference_tag);
+  if (read_paired) gt_input_fasta_tag_chomp_end_info(reference_tag);
   register gt_string* const last_tag = gt_string_new(0);
   register uint64_t lines_read, total_lines_read = 0;
   uint64_t num_blocks = 0, num_tabs = 0;
   do {
     if ((lines_read=gt_input_file_next_record(input_file,
         buffered_map_input->block_buffer,last_tag,&num_blocks,&num_tabs))==0) break;
-    if (read_paired) gt_input_fastq_tag_chomp_end_info(last_tag);
+    if (read_paired) gt_input_fasta_tag_chomp_end_info(last_tag);
     ++total_lines_read;
   } while (!gt_string_equals(reference_tag,last_tag));
   if (read_paired && lines_read>0 && num_blocks%2!=0) { // Check paired read
@@ -268,7 +268,7 @@ GT_INLINE gt_status gt_input_map_parser_get_block(
   }
   buffered_map_input->block_id = gt_input_file_next_id(input_file) % UINT32_MAX;
   buffered_map_input->current_line_num = input_file->processed_lines+1;
-  gt_vector_clean(buffered_map_input->block_buffer); // Clear dst buffer
+  gt_vector_clear(buffered_map_input->block_buffer); // Clear dst buffer
   // Read lines
   uint64_t lines_read = 0, num_blocks = 0, num_tabs = 0;
   while ( (lines_read<num_records || num_blocks%2!=0) &&
@@ -606,9 +606,9 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(char** const text_line,gt_ma
         gt_map_set_seq_name(next_map,gt_string_get_string(map->seq_name),gt_string_get_length(map->seq_name));
         gt_map_set_position(next_map,gt_map_get_position(map)+length+size);
         gt_map_set_strand(next_map,gt_map_get_strand(map));
-        gt_map_set_base_length(next_map,gt_map_get_base_length(map)-position); // FIXED: position->length
+        gt_map_set_base_length(next_map,gt_map_get_base_length(map)-position);
         // Close current map block
-        gt_map_set_base_length(map,position); // FIXED: position->length
+        gt_map_set_base_length(map,position);
         gt_map_set_next_block(map,next_map,junction);
         // Swap maps & Reset length,position
         map = next_map;
@@ -1104,12 +1104,6 @@ GT_INLINE gt_status gt_imp_parse_template(
   if ((error_code=gt_input_map_parse_tag(text_line,template->tag))) {
     return error_code;
   }
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-
->>>>>>>>>>>>>>>>>>>> File 3
-
-<<<<<<<<<<<<<<<<<<<<
   // READ
   register uint64_t num_blocks = 0;
   error_code=GT_IMP_PE_PENDING_BLOCKS;
@@ -1119,12 +1113,6 @@ GT_INLINE gt_status gt_imp_parse_template(
     if (error_code!=GT_IMP_PE_PENDING_BLOCKS && error_code!=GT_IMP_PE_EOB) return error_code;
     ++num_blocks;
   }
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-
->>>>>>>>>>>>>>>>>>>> File 3
-
-<<<<<<<<<<<<<<<<<<<<
   // TAG Setup {Tag Splitting/Swapping}
   if (gt_expect_true(num_blocks>1)) {
     gt_template_deduce_alignments_tags(template);
@@ -1133,12 +1121,6 @@ GT_INLINE gt_status gt_imp_parse_template(
     GT_SWAP(template->tag,alignment->tag);
     gt_template_deduce_template_tag(template,alignment);
   }
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-
->>>>>>>>>>>>>>>>>>>> File 3
-
-<<<<<<<<<<<<<<<<<<<<
   // QUALITIES
   if (has_map_quality) {
     register uint64_t i;
@@ -1153,12 +1135,6 @@ GT_INLINE gt_status gt_imp_parse_template(
     }
     if (error_code!=GT_IMP_PE_EOB) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;
   }
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
-
->>>>>>>>>>>>>>>>>>>> File 3
-
-<<<<<<<<<<<<<<<<<<<<
   // COUNTERS
   gt_vector_clear(gt_template_get_counters_vector(template));
   if (gt_expect_true(num_blocks>1)) {
@@ -1477,7 +1453,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
   if (gt_buffered_input_file_eob(buffered_map_input)) {
     GT_BEGIN_MUTEX_SECTION(*input_mutex) {
       // Reload main 'buffered_map_input' file
-      if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,true))!=GT_IMP_OK) {
+      if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,true,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
         GT_END_MUTEX_SECTION(*input_mutex);
         return error_code;
       }
@@ -1485,7 +1461,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
       // Reload the rest of the 'buffered_map_input' files
       while (num_map_inputs>0) {
         register gt_buffered_input_file* buffered_map_input_file = va_arg(v_args,gt_buffered_input_file*);
-        if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input_file,true))!=GT_IMP_OK) {
+        if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input_file,true,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
           GT_END_MUTEX_SECTION(*input_mutex);
           return error_code;
         }
@@ -1507,7 +1483,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
       gt_input_map_parser_synch_blocks_v(input_mutex,num_map_inputs,buffered_map_input,v_args);
   va_end(v_args);
   return error_code;
-
+}
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
     pthread_mutex_t* const input_mutex,gt_buffered_input_file* const buffered_map_input_master,
     gt_buffered_input_file* const buffered_map_input_slave,const bool read_paired) {
@@ -1548,8 +1524,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
       return error_code_slave;
     }
     // Read new input block for master matching the last tag of the slave block
-    if ((error_code_master=gt_input_map_parser_reload_buffer_matching_tag(
-        buffered_map_input_master,last_tag,read_paired))!=GT_IMP_OK) {
+    if ((error_code_master=gt_input_map_parser_reload_buffer_matching_tag(buffered_map_input_master,last_tag,read_paired))!=GT_IMP_OK) {
       gt_string_delete(last_tag); // Free
       GT_END_MUTEX_SECTION(*input_mutex);
       return error_code_master;
@@ -1558,3 +1533,5 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
   } GT_END_MUTEX_SECTION(*input_mutex);
   return GT_IMP_OK;
 }
+
+

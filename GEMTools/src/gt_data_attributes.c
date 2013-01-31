@@ -51,14 +51,19 @@ GT_INLINE void gt_attribute_set(
   GT_NULL_CHECK(attribute_id);
   GT_NULL_CHECK(attribute);
   GT_ZERO_CHECK(element_size);
-  // Test attribute
-  register void* attr = gt_shash_get(attributes,attribute_id,void);
-  if (gt_expect_false(attr!=NULL)) free(attr);
-  // Insert attribute
-  attr = malloc(element_size); // Allocate attribute
+  // NOTE: We do a copy of the element as to handle it ourselves from here
+  register void* attr = malloc(element_size); // Allocate attribute
   gt_cond_fatal_error(!attr,MEM_ALLOC);
   memcpy(attr,attribute,element_size); // Copy attribute
-  gt_shash_insert_element(attributes,attribute_id,attr,element_size);
+  // Test attribute
+  register gt_shash_element* shash_element = gt_shash_get_shash_element(attributes,attribute_id);
+  if (gt_expect_false(shash_element!=NULL)) {
+    free(shash_element->element);
+    shash_element->element = attr;
+  } else {
+    // Insert attribute
+    gt_shash_insert_element(attributes,attribute_id,attr,element_size);
+  }
 }
 
 /*

@@ -25,7 +25,7 @@
  * MAP building block printers
  */
 // NOTE: Macro based definition for all printers
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_string,gt_map* const map,const bool begin_trim,const bool end_trim);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_string,gt_map* const map);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_counters,gt_vector* const counters,const uint64_t max_complete_strata,const bool compact);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map,gt_map* const map,const bool print_scores);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_maps,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores);

@@ -15,13 +15,10 @@
 /*
  * Setup
  */
-GT_INLINE gt_map* gt_map_new(void) {
-  return gt_map_new_(false);
-}
-GT_INLINE gt_map* gt_map_new_(const bool static_seq_name) {
+GT_INLINE gt_map* gt_map_new() {
   gt_map* map = malloc(sizeof(gt_map));
   gt_cond_fatal_error(!map,MEM_HANDLER);
-  map->seq_name = static_seq_name ? gt_string_new(0) : gt_string_new(GT_MAP_INITIAL_SEQ_NAME_SIZE);
+  map->seq_name = gt_string_new(GT_MAP_INITIAL_SEQ_NAME_SIZE);
   map->position = 0;
   map->base_length = 0;
   map->score = GT_MAP_NO_SCORE;
