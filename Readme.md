@@ -25,7 +25,7 @@ Dependencies
 
 For the C API you need to have gzlib and bzlib installed with header files.
 Both libraries are used to transparently open compressed files. On a Debian/Ubuntu
-system the pacakges are libbz2-dev and zlib1g-dev.
+system the pacakges are libbz2-dev and zlib-dev.
 
 For python, the library will work both with Python 2.6 and Python 2.7, but for
 2.6 you have ti install the argparse library. An easy way to install gemtools
