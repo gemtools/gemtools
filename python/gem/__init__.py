@@ -471,6 +471,9 @@ def mapper(input, index, output=None,
     ## extend with additional parameters
     _extend_parameters(pa, extra)
 
+    if key_file is not None:
+        threads = max(1, threads / 2)
+
     trim_c = [executables['gem-map-2-map'], '-c', '-T', str(threads)]
     if trim is not None:
         ## check type

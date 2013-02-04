@@ -13,7 +13,7 @@ from gem.filter import interleave, unmapped
 from gem.filter import filter as gf
 from gem.pipeline import MappingPipeline
 from gem.utils import Command, CommandException
-# import gem.gemtools as gt
+import gem.gemtools as gt
 
 
 class Merge(Command):
@@ -35,28 +35,40 @@ class Merge(Command):
         i2 = args.second
         gem.merger(gem.files.open(i1), [gem.files.open(i2)]).merge(args.output, threads=int(args.threads))
 
-# class Trim(Command):
-#     title = "Merge .map files"
-#     description = """Merge two .map files. The first file has to
-#     be the master file that contains all the reads, the second file can
-#     contain a subset of the reads with the same ID tags and the same order.
-#     """
 
-#     def register(self, parser):
-#         ## required parameters
-#         parser.add_argument('-i', '--input', dest="input", help='Master file with all the reads', required=True)
-#         parser.add_argument('-t', '--threads', dest="threads", default=1, help='Number of threads')
-#         parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+class Trim(Command):
+    title = "Merge .map files"
+    description = """Merge two .map files. The first file has to
+    be the master file that contains all the reads, the second file can
+    contain a subset of the reads with the same ID tags and the same order.
+    """
 
-#     def run(self, args):
-#         i1 = args.input
-#         o = sys.stdout
-#         if args.output:
-#             o = open(args.output, "wb")
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-i', '--input', nargs="+", dest="input", help='Master file with all the reads', required=True)
+        parser.add_argument('-t', '--threads', dest="threads", default=1, help='Number of threads')
+        parser.add_argument('-l', '--left', dest="left", default=0, help='trim left')
+        parser.add_argument('-r', '--right', dest="right", default=0, help='trim right')
+        parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
 
-#         gt.trim_file(gem.files.open(i1).stream, o, False, args.threads)
-#         if args.output:
-#             o.close()
+    def run(self, args):
+        i1 = args.input[0]
+        i2 = None
+        if len(args.input) > 1:
+            i2 = args.input[1]
+
+        o = sys.stdout
+        if args.output:
+            o = open(args.output, "wb")
+
+        s1 = gem.files.open(i1).stream
+        s2 = None
+        if i2 is not None:
+            s2 = gem.files.open(i2).stream
+
+        gt.trim_file(s1, s2, o, False, args.threads, args.left, args.right)
+        if args.output:
+            o.close()
 
 
 class Index(Command):

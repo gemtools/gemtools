@@ -29,7 +29,7 @@ class MappingPipeline(object):
         self.index = index
         self.output_dir = output_dir
         self.annotation = annotation
-        self.threads = threads
+        self.threads = max(threads, 1)
         self.junctioncoverage = junctioncoverage
         self.maxlength = maxlength
         self.transcript_index = transcript_index
@@ -337,8 +337,8 @@ class MappingPipeline(object):
             logging.warning("Pair-alignment exists, skip creating : %s" % (paired_out))
             return gem.files.open(out_name, type="map", quality=self.quality)
 
-        paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=self.threads, quality=self.quality)
-        scored = gem.score(paired_mapping, self.index, paired_out, threads=self.threads)
+        paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=max(self.threads - 2, 1), quality=self.quality)
+        scored = gem.score(paired_mapping, self.index, paired_out, threads=min(2, self.threads))
         timer.stop("Pair-Align and scoring finished in %s")
         if compress:
             logging.info("Compressing final mapping")
