@@ -1477,9 +1477,19 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed (synch)
   if (gt_buffered_input_file_eob(buffered_map_input)) {
+    /*
+     * Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
+     */
+    if (buffered_map_input->buffered_output_file!=NULL) {
+      gt_buffered_output_file_dump(buffered_map_input->buffered_output_file);
+    }
+    /*
+     * Read synch blocks
+     */
     GT_BEGIN_MUTEX_SECTION(*input_mutex) {
       // Reload main 'buffered_map_input' file
-      if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,true,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
+      if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,
+          map_parser_attr->read_paired,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
         GT_END_MUTEX_SECTION(*input_mutex);
         return error_code;
       }
@@ -1488,7 +1498,8 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
       while (num_map_inputs>0) {
         register gt_buffered_input_file* buffered_map_input_file = va_arg(v_args,gt_buffered_input_file*);
         GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
-        if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input_file,true,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
+        if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input_file,
+            map_parser_attr->read_paired,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
           GT_END_MUTEX_SECTION(*input_mutex);
           return error_code;
         }
