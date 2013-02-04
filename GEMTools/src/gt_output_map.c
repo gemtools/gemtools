@@ -295,7 +295,7 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   }
   // Print QUALITY
   i = 0;
-  if (gt_alignment_get_qualities(gt_template_get_block(template,i))!=NULL) {
+  if (gt_alignment_has_qualities(gt_template_get_block(template,i))) {
     gt_gprintf(gprinter,"\t%s",gt_alignment_get_qualities(gt_template_get_block(template,i)));
     while (++i<num_blocks) {
       gt_gprintf(gprinter," %s",gt_alignment_get_qualities(gt_template_get_block(template,i)));
@@ -332,7 +332,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   // Print READ(s)
   gt_gprintf(gprinter,"\t%s",gt_alignment_get_read(alignment));
   // Print QUALITY
-  if (gt_alignment_get_qualities(alignment)!=NULL) {
+  if (gt_alignment_has_qualities(alignment)) {
     gt_gprintf(gprinter,"\t%s",gt_alignment_get_qualities(alignment));
   }
   // Print COUNTERS

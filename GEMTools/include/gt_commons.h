@@ -139,7 +139,15 @@ GT_INLINE int gt_strncmp(char* const buffer_a,char* const buffer_b,const uint64_
 GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_t length);
 
 /*
- * Memory usage functions
+ * Memory usage helper functions
+ */
+#define gt_malloc(num_elements,size_element) gt_malloc_(num_elements,sizeof(size_element))
+#define gt_malloc_int64() gt_malloc(1,uint64_t)
+
+GT_INLINE void* gt_malloc_(uint64_t const num_elements,uint64_t const size_element);
+
+/*
+ * Print's template helpers
  */
 GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v_args);
 GT_INLINE uint64_t gt_calculate_memory_required_va(const char *template,...);

@@ -20,6 +20,7 @@ typedef struct {
   char* name_output_file;
   bool mmap_input;
   bool paired_end;
+  bool files_contain_same_reads;
   /* [Misc] */
   uint64_t num_threads;
   bool verbose;
@@ -31,6 +32,7 @@ gt_stats_args parameters = {
     .name_output_file=NULL,
     .mmap_input=false,
     .paired_end=false,
+    .files_contain_same_reads=false,
     .num_threads=1,
     .verbose=false,
 };
@@ -50,7 +52,8 @@ void gt_merge_map_read__write() {
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
   {
-    gt_merge_map_files(&input_mutex,input_file_1,input_file_2,parameters.paired_end,output_file);
+    gt_merge_map_files(&input_mutex,input_file_1,input_file_2,
+        parameters.paired_end,parameters.files_contain_same_reads,output_file);
   }
 
   // Clean
@@ -66,6 +69,7 @@ void usage() {
                   "         --i2 [FILE]\n"
                   "         --output|-o [FILE]\n"
                   "         --paired-end|-p\n"
+                  "         --files-same-reads|-s\n"
                   "       [Misc]\n"
                   "         --threads|t\n"
                   "         --verbose|v\n"
@@ -80,13 +84,14 @@ void parse_arguments(int argc,char** argv) {
     { "mmap-input", no_argument, 0, 3 },
     { "output", required_argument, 0, 'o' },
     { "paired-end", no_argument, 0, 'p' },
+    { "files-same-reads", no_argument, 0, 's' },
     { "verbose", no_argument, 0, 'v' },
     { "help", no_argument, 0, 'h' },
     { "threads", required_argument, 0, 't' },
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:o:t:phv",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:o:t:pshv",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     case 1:
@@ -103,6 +108,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'p':
       parameters.paired_end = true;
+      break;
+    case 's':
+      parameters.files_contain_same_reads = true;
       break;
     case 't':
       parameters.num_threads = atol(optarg);

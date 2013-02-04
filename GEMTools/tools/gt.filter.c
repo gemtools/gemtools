@@ -68,7 +68,7 @@ void gt_filter_read__write() {
 
     gt_status error_code;
     gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
-    generic_parser_attr.max_matches = parameters.max_matches;
+    generic_parser_attr.map_parser_attr.max_parsed_maps = parameters.max_matches;
     gt_template* template = gt_template_new();
     while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {

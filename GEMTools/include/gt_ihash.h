@@ -35,6 +35,7 @@ GT_INLINE void gt_ihash_delete(gt_ihash* const ihash,const bool free_element);
 /*
  * Basic (Type-unsafe) Accessors
  */
+GT_INLINE gt_ihash_element* gt_ihash_get_ihash_element(gt_ihash* const ihash,const int64_t key);
 GT_INLINE void gt_ihash_insert_element(gt_ihash* const ihash,const int64_t key,void* const element,const size_t element_size);
 GT_INLINE void* gt_ihash_get_element(gt_ihash* const ihash,const int64_t key);
 GT_INLINE void gt_ihash_remove_element(gt_ihash* const ihash,const int64_t key);

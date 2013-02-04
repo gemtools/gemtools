@@ -33,9 +33,10 @@ typedef struct {
  */
 #define GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(tag_array,l1,l2) ((tag_array)[0]==l1 && (tag_array)[1]==l2 && (tag_array)[2]==TAB)
 #define GT_INPUT_FILE_SAM_READ_HEADERS_CMP_ATTR(tag_array,l1,l2) ((tag_array)[0]==l1 && (tag_array)[1]==l2 && (tag_array)[2]==COLON)
-GT_INLINE int64_t gt_input_file_sam_read_headers(
-    char* const buffer,const uint64_t buffer_size,gt_sam_headers* const sam_headers) {
-  register uint64_t buffer_pos=0;
+GT_INLINE gt_status gt_input_file_sam_read_headers(
+    char* const buffer,const uint64_t buffer_size,gt_sam_headers* const sam_headers,
+    uint64_t* const characters_read,uint64_t* const lines_read) {
+  register uint64_t buffer_pos=0, lines=0;
   // Read until no more header lines are parsed
   while (buffer[buffer_pos]==GT_SAM_HEADER_BEGIN) {
     ++buffer_pos;
@@ -45,9 +46,6 @@ GT_INLINE int64_t gt_input_file_sam_read_headers(
       if (buffer_pos==buffer_size) return 0;
       ++buffer_pos;
     } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'S','Q')) {
-//      if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_ATTR(tag_array,'','')) {
-//
-//      }
       buffer_pos+=3;
       while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
       if (buffer_pos==buffer_size) return 0;
@@ -62,11 +60,19 @@ GT_INLINE int64_t gt_input_file_sam_read_headers(
       while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
       if (buffer_pos==buffer_size) return 0;
       ++buffer_pos;
+    } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'C','O')) {
+      buffer_pos+=3;
+      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
+      if (buffer_pos==buffer_size) return 0;
+      ++buffer_pos;
     } else {
       return -1;
     }
+    ++lines;
   }
-  return buffer_pos;
+  *characters_read = buffer_pos;
+  *lines_read = lines;
+  return 0;
 }
 
 #define GT_ISP_TEST_SAM_SKIP_STRING() \
@@ -84,7 +90,7 @@ GT_INLINE int64_t gt_input_file_sam_read_headers(
 
 GT_INLINE bool gt_input_sam_parser_test_sam(
     char* const file_name,const uint64_t line_num,char* const buffer,const uint64_t buffer_size,
-    uint64_t* const characters_read,gt_sam_headers* const sam_headers,const bool show_errors) {
+    uint64_t* const characters_read,uint64_t* const lines_read,gt_sam_headers* const sam_headers,const bool show_errors) {
   /*
    * (1) @SQ     SN:chr10        LN:135534747
    *     @SQ     SN:chr11        LN:135006516
@@ -92,10 +98,15 @@ GT_INLINE bool gt_input_sam_parser_test_sam(
    */
   register uint64_t buffer_pos=0;
   if (buffer[0]==GT_SAM_HEADER_BEGIN) { // Read headers
-    if ((buffer_pos=gt_input_file_sam_read_headers(buffer,buffer_size,sam_headers)) < 0) return false;
+    if(gt_input_file_sam_read_headers(buffer,buffer_size,sam_headers,characters_read,lines_read)!=0) return false;
+    buffer_pos = *characters_read;
+  } else {
+    *lines_read = 0;
+    *characters_read = 0;
   }
   /*
    * Check SAM record
+   *   SRR003161.1     4       *       0       0       *       *       0       0       *       *       AS:i:0
    */
   // Skip TAG
   GT_ISP_TEST_SAM_SKIP_STRING();
@@ -116,14 +127,9 @@ GT_INLINE bool gt_input_sam_parser_test_sam(
   // Check TLEN
   GT_ISP_TEST_SAM_SKIP_STRING();
   // Check SEQ
-  while (buffer_pos<buffer_size && buffer[buffer_pos]!=TAB && buffer[buffer_pos]!=EOL) {
-    if (!gt_is_dna(buffer[buffer_pos])) return false;
-    ++buffer_pos;
-  }
-  if (buffer_pos==buffer_size || buffer[buffer_pos]==EOL) return false;
-  ++buffer_pos;
+  GT_ISP_TEST_SAM_SKIP_STRING();
   // Skip QUAL
-  if (buffer_pos==buffer_size || buffer[buffer_pos]==EOL) return false;
+  GT_ISP_TEST_SAM_SKIP_STRING();
   return true;
 }
 
@@ -134,10 +140,12 @@ GT_INLINE bool gt_input_file_test_sam(
     gt_input_file* const input_file,gt_sam_headers* const sam_headers,const bool show_errors) {
   GT_INPUT_FILE_CHECK(input_file);
   GT_NULL_CHECK(sam_headers);
-  uint64_t characters_read = 0;
+  uint64_t characters_read = 0, processed_lines = 0;
   if (gt_input_sam_parser_test_sam(input_file->file_name,input_file->processed_lines+1,
-      (char*)input_file->file_buffer,input_file->buffer_size,&characters_read,sam_headers,show_errors)) {
+      (char*)input_file->file_buffer,input_file->buffer_size,&characters_read,&processed_lines,sam_headers,show_errors)) {
+    input_file->buffer_begin = characters_read;
     input_file->buffer_pos = characters_read;
+    input_file->processed_lines = processed_lines;
     return true;
   }
   return false;
@@ -893,4 +901,15 @@ GT_INLINE gt_status gt_input_sam_parser_get_alignment(
     return GT_ISP_FAIL;
   }
   return GT_ISP_OK;
+}
+
+/*
+ * SAM alignment/template attribute
+ */
+
+GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attr* const sam_parser_attr) {
+  sam_parser_attr->sam_soap_style = false;
+}
+GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attr* const sam_parser_attr) {
+  sam_parser_attr->sam_soap_style = true;
 }

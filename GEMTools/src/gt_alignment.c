@@ -13,10 +13,6 @@
 #define GT_ALIGNMENT_NUM_INITIAL_MAPS 20
 #define GT_ALIGNMENT_NUM_INITIAL_COUNTERS 5
 
-typedef struct {
-  uint64_t dummy; // TODO: Extensible dictionary element
-} gt_maps_dictionary_element;
-
 /*
  * Setup
  */
@@ -32,6 +28,7 @@ GT_INLINE gt_alignment* gt_alignment_new() {
   alignment->maps = gt_vector_new(GT_ALIGNMENT_NUM_INITIAL_MAPS,sizeof(gt_map));
   alignment->maps_txt = NULL;
   alignment->attributes = gt_attribute_new();
+  alignment->alg_dictionary = NULL;
   return alignment;
 }
 GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment) {
@@ -41,6 +38,8 @@ GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment) {
   gt_string_clear(alignment->qualities);
   alignment->maps_txt = NULL;
   gt_attribute_clear(alignment->attributes);
+  gt_alignment_dictionary_delete(alignment->alg_dictionary);
+  alignment->alg_dictionary = NULL;
 }
 GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
@@ -57,6 +56,7 @@ GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   gt_vector_delete(alignment->counters);
   gt_vector_delete(alignment->maps);
   gt_attribute_delete(alignment->attributes);
+  gt_alignment_dictionary_delete(alignment->alg_dictionary);
   free(alignment);
 }
 
@@ -233,8 +233,7 @@ GT_INLINE void gt_alignment_handler_copy(gt_alignment* const alignment_dst,gt_al
   gt_string_copy(alignment_dst->qualities,alignment_src->qualities);
   alignment_dst->maps_txt = alignment_src->maps_txt;
   // Copy attributes
-  gt_attribute_delete(alignment_dst->attributes); // FIXME
-  alignment_dst->attributes = gt_shash_deep_copy(alignment_src->attributes);
+  gt_shash_deep_copy(alignment_dst->attributes,alignment_src->attributes);
 }
 
 GT_INLINE gt_alignment* gt_alignment_copy(gt_alignment* const alignment,const bool copy_maps) {
@@ -279,4 +278,103 @@ GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const al
   GT_NULL_CHECK(alignment_map_iterator);
   GT_ALIGNMENT_CHECK(alignment_map_iterator->alignment);
   return alignment_map_iterator->next_pos;
+}
+
+/*
+ * Map Dictionary (For Fast Indexing)
+ */
+GT_INLINE gt_alignment_dictionary_element* gt_alignment_dictionary_element_add(gt_alignment_dictionary* const alignment_dictionary,char* const key) {
+  gt_alignment_dictionary_element* alg_dicc_elem = malloc(sizeof(gt_alignment_dictionary_element));
+  gt_cond_fatal_error(!alg_dicc_elem,MEM_HANDLER);
+  // Init Dictionary Element
+  alg_dicc_elem->begin_position = gt_ihash_new();
+  alg_dicc_elem->end_position = gt_ihash_new();
+  // Insert
+  gt_shash_insert(alignment_dictionary->maps_dictionary,key,alg_dicc_elem,gt_alignment_dictionary_element);
+  return alg_dicc_elem;
+}
+GT_INLINE void gt_alignment_dictionary_element_delete(gt_alignment_dictionary_element* const alg_dicc_elem) {
+  GT_NULL_CHECK(alg_dicc_elem);
+  gt_ihash_delete(alg_dicc_elem->begin_position,true);
+  gt_ihash_delete(alg_dicc_elem->end_position,true);
+}
+GT_INLINE void gt_alignment_dictionary_element_add_position(
+    gt_alignment_dictionary_element* const alg_dicc_elem,const uint64_t begin_position,const uint64_t end_position,uint64_t const vector_position) {
+  // Allocate new position in vector
+  register uint64_t* const vlpos_b = gt_malloc_int64();
+  register uint64_t* const vlpos_e = gt_malloc_int64();
+  *vlpos_b = vector_position;
+  *vlpos_e = vector_position;
+  // Insert
+  gt_ihash_insert(alg_dicc_elem->begin_position,begin_position,vlpos_b,uint64_t);
+  gt_ihash_insert(alg_dicc_elem->end_position,end_position,vlpos_e,uint64_t);
+}
+GT_INLINE gt_alignment_dictionary* gt_alignment_dictionary_new(gt_alignment* const alignment) {
+  gt_alignment_dictionary* alignment_dictionary = malloc(sizeof(gt_alignment_dictionary));
+  gt_cond_fatal_error(!alignment_dictionary,MEM_HANDLER);
+  alignment_dictionary->maps_dictionary = gt_shash_new();
+  alignment_dictionary->alignment = alignment;
+  return alignment_dictionary;
+}
+GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const alignment_dictionary) {
+  GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary);
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(alignment_dictionary->maps_dictionary,alg_dicc_elem,gt_alignment_dictionary_element) {
+    gt_alignment_dictionary_element_delete(alg_dicc_elem);
+  } GT_SHASH_END_ITERATE;
+  free(alignment_dictionary);
+}
+GT_INLINE bool gt_alignment_dictionary_try_add(
+    gt_alignment_dictionary* const alignment_dictionary,gt_map* const map,
+    const uint64_t begin_position,const uint64_t end_position,
+    uint64_t const vector_position,uint64_t* found_vector_position,
+    gt_ihash_element* ihash_element_b,gt_ihash_element* ihash_element_e) {
+  GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary);
+  GT_MAP_CHECK(map);
+  GT_NULL_CHECK(found_vector_position);
+  GT_NULL_CHECK(ihash_element_b); GT_NULL_CHECK(ihash_element_e);
+  register gt_alignment_dictionary_element* alg_dicc_elem =
+      gt_shash_get(alignment_dictionary->maps_dictionary,gt_string_get_string(map->seq_name),gt_alignment_dictionary_element);
+  if (alg_dicc_elem!=NULL) {
+    // Find positions {begin, end}
+    ihash_element_b = gt_ihash_get_ihash_element(alg_dicc_elem->begin_position,begin_position);
+    ihash_element_e = gt_ihash_get_ihash_element(alg_dicc_elem->end_position,end_position);
+    gt_check((ihash_element_b!=NULL && ihash_element_e==NULL) || (ihash_element_b==NULL && ihash_element_e!=NULL),ALG_INCONSISNTENCY);
+    gt_check((ihash_element_b!=NULL && ihash_element_e!=NULL) &&
+        (*((uint64_t*)ihash_element_b->element)!=*((uint64_t*)ihash_element_e->element)),ALG_INCONSISNTENCY);
+    if (ihash_element_b!=NULL) {
+      *found_vector_position = *((uint64_t*)ihash_element_b->element);
+      return false; // We have a conflict
+    } else if (ihash_element_e!=NULL) {
+      *found_vector_position = *((uint64_t*)ihash_element_e->element);
+      return false; // We have a conflict
+    } else {
+      gt_alignment_dictionary_element_add_position(alg_dicc_elem,begin_position,end_position,vector_position);
+      *found_vector_position = vector_position;
+      return true;
+    }
+  } else {
+    // Add new element
+    alg_dicc_elem = gt_alignment_dictionary_element_add(alignment_dictionary,gt_string_get_string(map->seq_name));
+    gt_alignment_dictionary_element_add_position(alg_dicc_elem,begin_position,end_position,vector_position);
+    *found_vector_position = vector_position;
+    return true;
+  }
+}
+GT_INLINE void gt_alignment_dictionary_replace(
+    gt_alignment_dictionary* const alignment_dictionary,gt_map* const new_map,gt_map* const old_map,
+    const uint64_t begin_position,const uint64_t end_position,const uint64_t found_vector_position,
+    gt_ihash_element* const ihash_element_b,gt_ihash_element* const ihash_element_e) {
+  GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary);
+  GT_MAP_CHECK(new_map); GT_MAP_CHECK(old_map);
+  GT_NULL_CHECK(ihash_element_b); GT_NULL_CHECK(ihash_element_e);
+  GT_HASH_CHECK(ihash_element_b); GT_HASH_CHECK(ihash_element_e);
+  // Replace ihash element
+  *((uint64_t*)ihash_element_b->element) = begin_position;
+  *((uint64_t*)ihash_element_e->element) = end_position;
+  // Replace map
+  register gt_alignment* const alignment = alignment_dictionary->alignment;
+  gt_alignment_dec_counter(alignment,gt_map_get_global_distance(old_map));
+  gt_alignment_inc_counter(alignment,gt_map_get_global_distance(new_map));
+  gt_alignment_set_map(alignment,new_map,found_vector_position);
+  gt_map_delete(old_map);
 }

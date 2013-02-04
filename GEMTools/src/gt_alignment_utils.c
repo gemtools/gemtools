@@ -166,7 +166,34 @@ GT_INLINE bool gt_alignment_get_next_matching_strata(
 GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {
   GT_ALIGNMENT_CHECK(alignment_dst);
   GT_ALIGNMENT_CHECK(alignment_src);
-  gt_alignment_merge_alignment_maps_fx(gt_map_cmp,alignment_dst,alignment_src);
+  // Initialice new alignment dictionary
+  if (alignment_dst->alg_dictionary == NULL) {
+    alignment_dst->alg_dictionary = gt_alignment_dictionary_new(alignment_dst);
+  }
+  gt_ihash_element* ihash_element_b = NULL;
+  gt_ihash_element* ihash_element_e = NULL;
+  uint64_t found_vector_position;
+  GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
+    register const uint64_t vector_position = gt_vector_get_used(alignment_dst->maps);
+    register const uint64_t begin_position = gt_map_get_position(map_src)-gt_map_get_left_trim_length(map_src);
+    register const uint64_t end_position = gt_map_get_position(map_src)+gt_map_get_length(map_src);
+    // Try add
+    if (gt_alignment_dictionary_try_add(alignment_dst->alg_dictionary,map_src,
+        begin_position,end_position,vector_position,&found_vector_position,ihash_element_b,ihash_element_e)) {
+      register gt_map* const map_src_cp = gt_map_copy(map_src);
+      gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
+      gt_alignment_add_map(alignment_dst,map_src_cp);
+    } else {
+      // Solve conflict
+      register gt_map* map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
+      if (gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found)) {
+        register gt_map* const map_src_cp = gt_map_copy(map_src);
+        gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,
+            map_src_cp,map_found,begin_position,end_position,found_vector_position,ihash_element_b,ihash_element_e);
+      }
+    }
+  }
+  gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst),gt_alignment_get_mcs(alignment_src)));
 }
 GT_INLINE void gt_alignment_merge_alignment_maps_fx(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
@@ -177,7 +204,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps_fx(
     register gt_map* const map_src_cp = gt_map_copy(map_src);
     gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,true);
   }
-  // gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst),gt_alignment_get_mcs(alignment_src)));
+  gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst),gt_alignment_get_mcs(alignment_src)));
 }
 
 GT_INLINE void gt_alignment_remove_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {
@@ -198,6 +225,33 @@ GT_INLINE void gt_alignment_remove_alignment_maps_fx(
   }
 }
 
+GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_v(
+    const uint64_t num_src_alignments,gt_alignment* const alignment_src,va_list v_args) {
+  GT_ZERO_CHECK(num_src_alignments);
+  // Create new alignment
+  register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false);
+  gt_alignment_merge_alignment_maps(alignment_union,alignment_src);
+  // Merge alignment sources into alignment_union
+  register uint64_t num_alg_merged = 1;
+  while (num_alg_merged < num_src_alignments) {
+    register gt_alignment* alignment_target = va_arg(v_args,gt_alignment*);
+    GT_ALIGNMENT_CHECK(alignment_target);
+    gt_alignment_merge_alignment_maps(alignment_union,alignment_target);
+    ++num_alg_merged;
+  }
+  return alignment_union;
+}
+GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_va(
+    const uint64_t num_src_alignments,gt_alignment* const alignment_src,...) {
+  GT_ZERO_CHECK(num_src_alignments);
+  GT_ALIGNMENT_CHECK(alignment_src);
+  va_list v_args;
+  va_start(v_args,alignment_src);
+  register gt_alignment* const alignment_dst =
+      gt_alignment_union_alignment_maps_v(num_src_alignments,alignment_src,v_args);
+  va_end(v_args);
+  return alignment_dst;
+}
 GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_v(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_alignments,gt_alignment* const alignment_src,va_list v_args) {
@@ -226,17 +280,6 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_va(
   va_start(v_args,alignment_src);
   register gt_alignment* const alignment_dst =
       gt_alignment_union_alignment_maps_fx_v(gt_map_cmp_fx,num_src_alignments,alignment_src,v_args);
-  va_end(v_args);
-  return alignment_dst;
-}
-GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_va(
-    const uint64_t num_src_alignments,gt_alignment* const alignment_src,...) {
-  GT_ZERO_CHECK(num_src_alignments);
-  GT_ALIGNMENT_CHECK(alignment_src);
-  va_list v_args;
-  va_start(v_args,alignment_src);
-  register gt_alignment* const alignment_dst =
-      gt_alignment_union_alignment_maps_fx_v(gt_map_cmp,num_src_alignments,alignment_src,v_args);
   va_end(v_args);
   return alignment_dst;
 }
@@ -286,3 +329,4 @@ GT_INLINE gt_alignment* gt_alignment_intersect_alignment_maps(
   GT_ALIGNMENT_CHECK(alignment_src_B);
   return gt_alignment_intersect_alignment_maps_fx(gt_map_cmp,alignment_src_A,alignment_src_B);
 }
+

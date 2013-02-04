@@ -13,6 +13,7 @@ typedef struct {
   char *dist_file;
   bool mmap_input;
   gt_generic_parser_attr parser_attr;
+  bool paired_read;
   bool variable_read_length;
   bool ignore_id;
   uint64_t read_length[2]; // Untrimmed read length for both reads

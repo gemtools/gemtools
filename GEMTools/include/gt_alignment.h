@@ -13,34 +13,57 @@
 #include "gt_map.h"
 #include "gt_data_attributes.h"
 
+// Alignment itself
+typedef struct _gt_alignment_dictionary gt_alignment_dictionary; // Forward declaration of gt_alignment_dictionary
 typedef struct {
+  /* IDs */
   uint32_t alignment_id;
   uint32_t in_block_id;
+  /* Basic components */
   gt_string* tag;
   gt_string* read;
   gt_string* qualities;
   gt_vector* counters;
+  /* Maps structures */
   gt_vector* maps; /* (gt_map*) */
   char* maps_txt;
   gt_shash* attributes;
+  /* Hashed Dictionary */
+  gt_alignment_dictionary* alg_dictionary;
 } gt_alignment;
 
+// Iterator
 typedef struct {
   gt_alignment* alignment;
   uint64_t next_pos;
 } gt_alignment_map_iterator;
 
+// Map Dictionary (For Fast Indexing)
+typedef struct {
+  gt_ihash* begin_position; /* (uint64_t) */
+  gt_ihash* end_position;   /* (uint64_t) */
+} gt_alignment_dictionary_element;
+struct _gt_alignment_dictionary {
+  gt_shash* maps_dictionary; /* (gt_alignment_dictionary_element*) */
+  gt_alignment* alignment;
+};
+
 /*
  * Checkers
  */
 #define GT_ALIGNMENT_CHECK(alignment) \
-  gt_fatal_check(alignment==NULL,NULL_HANDLER); \
+  GT_NULL_CHECK(alignment); \
   GT_STRING_CHECK(alignment->tag); \
   GT_STRING_CHECK(alignment->read); \
   GT_STRING_CHECK(alignment->qualities); \
   GT_VECTOR_CHECK(alignment->counters); \
   GT_VECTOR_CHECK(alignment->maps); \
   GT_HASH_CHECK(alignment->attributes)
+#define GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary) \
+  GT_NULL_CHECK(alignment_dictionary); \
+  GT_ALIGNMENT_CHECK(alignment_dictionary->alignment); \
+  GT_HASH_CHECK(alignment_dictionary->maps_dictionary)
+
 /*
  *  TODO: Scheduled for v2.0 (all lazy parsing)
  *  TODO: Check
@@ -124,5 +147,20 @@ GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const al
   register gt_map* map; \
   gt_alignment_new_map_iterator(alignment,&(__##map##_iterator)); \
   while ((map=gt_alignment_next_map(&(__##map##_iterator))))
+
+/*
+ * Map Dictionary (For Fast Indexing)
+ */
+GT_INLINE gt_alignment_dictionary* gt_alignment_dictionary_new(gt_alignment* const alignment);
+GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const alignment_dictionary);
+GT_INLINE bool gt_alignment_dictionary_try_add(
+    gt_alignment_dictionary* const alignment_dictionary,gt_map* const map,
+    const uint64_t begin_position,const uint64_t end_position,
+    uint64_t const vector_position,uint64_t* found_vector_position,
+    gt_ihash_element* ihash_element_b,gt_ihash_element* ihash_element_e);
+GT_INLINE void gt_alignment_dictionary_replace(
+    gt_alignment_dictionary* const alignment_dictionary,gt_map* const new_map,gt_map* const old_map,
+    const uint64_t begin_position,const uint64_t end_position,const uint64_t found_vector_position,
+    gt_ihash_element* const ihash_element_b,gt_ihash_element* const ihash_element_e);
 
 #endif /* GT_ALIGNMENT_H_ */

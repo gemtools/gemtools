@@ -22,24 +22,28 @@
 #include "gt_input_map_parser.h"
 #include "gt_input_sam_parser.h"
 
-/*
- * Parsers Helpers
- */
 #define GT_IGP_FAIL -1
 #define GT_IGP_EOF 0
 #define GT_IGP_OK 1
 
+/*
+ * Attributes
+ */
 typedef struct {
-  /* General attributes*/
-  bool paired_read;
-  /* SAM specific */
-  gt_sam_parser_attr sam_parser_attr;
-  /* MAP specific */
-  uint64_t max_matches;
+  gt_sam_parser_attr sam_parser_attr; /* SAM specific */
+  gt_map_parser_attr map_parser_attr; /* MAP specific */
 } gt_generic_parser_attr;
 
-#define GENERIC_PARSER_ATTR_DEFAULT(parse_paired) { .sam_parser_attr.sam_soap_style=false, .max_matches=GT_ALL, .paired_read=parse_paired }
+#define GENERIC_PARSER_ATTR_DEFAULT(force_read_paired) \
+  { .sam_parser_attr=GT_SAM_PARSER_ATTR_DEFAULT, .map_parser_attr=GT_MAP_PARSER_ATTR_DEFAULT(force_read_paired) }
 
+GT_INLINE void gt_input_generic_parser_attributes_set_defaults(gt_generic_parser_attr* const attributes);
+GT_INLINE bool gt_input_generic_parser_attributes_is_paired(gt_generic_parser_attr* const attributes);
+GT_INLINE void gt_input_generic_parser_attributes_set_paired(gt_generic_parser_attr* const attributes,const bool is_paired);
+
+/*
+ * Generic Parser
+ */
 GT_INLINE gt_status gt_input_generic_parser_get_alignment(
     gt_buffered_input_file* const buffered_input,gt_alignment* const alignment,gt_generic_parser_attr* const attributes);
 GT_INLINE gt_status gt_input_generic_parser_get_template(

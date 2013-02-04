@@ -48,7 +48,8 @@
 #include "gt_stats.h"
 
 GT_INLINE void gt_merge_map_files(
-    pthread_mutex_t* const input_mutex,gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
-    const bool paired_end,gt_output_file* const output_file);
+    pthread_mutex_t* const input_mutex,
+    gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
+    const bool paired_end,const bool files_contain_same_reads,gt_output_file* const output_file);
 
 #endif /* GEM_TOOLS_H_ */
