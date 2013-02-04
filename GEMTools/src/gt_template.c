@@ -404,8 +404,7 @@ GT_INLINE void gt_template_copy_handler(gt_template* template_dst,gt_template* c
   gt_string_copy(template_dst->tag,template_src->tag);
   template_dst->maps_txt = template_src->maps_txt;
   // Copy templates' attributes
-  gt_attribute_delete(template_dst->attributes); // FIXME
-  template_dst->attributes = gt_shash_deep_copy(template_src->attributes);
+  gt_shash_deep_copy(template_dst->attributes,template_src->attributes);
 }
 GT_INLINE void gt_template_copy_blocks(gt_template* template_dst,gt_template* const template_src,const bool copy_maps) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);

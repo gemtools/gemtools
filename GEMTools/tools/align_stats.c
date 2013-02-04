@@ -124,7 +124,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 	stats->nreads++;
 	uint64_t nrd;
 	bool paired_file=false; // Was the input file from a paired mapping
-	if(param->parser_attr.paired_read) {
+	if(param->paired_read) {
 		if(gt_template_get_num_blocks(template)!=2) {
 			gt_fatal_error_msg("Fatal error: Expecting paired reads\n");
 		}
@@ -277,7 +277,7 @@ static void as_merge_stats(as_stats **st,uint64_t nt,bool paired)
 
 static void as_print_yield_summary(FILE *f,as_stats *st,as_param *param)
 {
-	bool paired=param->parser_attr.paired_read;
+	bool paired=param->paired_read;
 	uint64_t trimmed[2]={0,0},yield[2]={0,0},min_rl[2],i,j,k;
 	fputs("Yield summary\n\n",f);
 	j=paired?2:1;
@@ -330,7 +330,7 @@ static void as_print_yield_summary(FILE *f,as_stats *st,as_param *param)
 
 static void as_print_mapping_summary(FILE *f,as_stats *st,as_param *param)
 {
-	bool paired=param->parser_attr.paired_read;
+	bool paired=param->paired_read;
 	bool paired_file=false; // Was the input file from a paired mapping
 	if(paired==true && !param->input_files[1]) paired_file=true;
 	fputs("\nSingle end mapping summary\n\n",f);
@@ -431,7 +431,7 @@ static void as_print_stats(as_stats *st,as_param *param)
 	}
 	as_print_yield_summary(fout,st,param);
 	as_print_mapping_summary(fout,st,param);
-	as_print_read_lengths(fout,st,param->parser_attr.paired_read);
+	as_print_read_lengths(fout,st,param->paired_read);
 }
 
 int main(int argc,char *argv[])
@@ -467,6 +467,7 @@ int main(int argc,char *argv[])
 			.dist_file=NULL,
 			.mmap_input=false,
 			.parser_attr=GENERIC_PARSER_ATTR_DEFAULT(false),
+			.paired_read=false,
 			.ignore_id=false,
 			.min_insert=0,
 			.max_insert=DEFAULT_MAX_INSERT,
@@ -483,7 +484,7 @@ int main(int argc,char *argv[])
 			set_opt("insert_dist",&param.dist_file,optarg);
 			break;
 		case 'p':
-			param.parser_attr.paired_read=true;
+			param.paired_read=true;
 			break;
 		case 'o':
 			set_opt("output",&param.output_file,optarg);
@@ -555,7 +556,7 @@ int main(int argc,char *argv[])
 	as_stats** stats=as_malloc(param.num_threads*sizeof(void *));
 	// Do we have two map files as input (one for each read)?
 	if(param.input_files[1]) {
-		param.parser_attr.paired_read=true;
+		param.paired_read=true;
 		pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 		gt_input_file* input_file1=gt_input_file_open(param.input_files[0],param.mmap_input);
 		gt_input_file* input_file2=gt_input_file_open(param.input_files[1],param.mmap_input);
@@ -569,7 +570,7 @@ int main(int argc,char *argv[])
 			gt_buffered_input_file* buffered_input2=gt_buffered_input_file_new(input_file2);
 			gt_status error_code;
 			gt_template *template=gt_template_new();
-			stats[tid]=as_stats_new(param.parser_attr.paired_read);
+			stats[tid]=as_stats_new(param.paired_read);
 			while(gt_input_map_parser_synch_blocks(buffered_input1,buffered_input2,&mutex)) {
 				error_code=gt_input_map_parser_get_template(buffered_input1,template);
 				if(error_code!=GT_IMP_OK) {
@@ -624,14 +625,14 @@ int main(int argc,char *argv[])
 			gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
 			gt_status error_code;
 			gt_template *template=gt_template_new();
-			stats[tid]=as_stats_new(param.parser_attr.paired_read);
+			stats[tid]=as_stats_new(param.paired_read);
 			while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&param.parser_attr))) {
 				if (error_code!=GT_IMP_OK) {
 					gt_error_msg("Error parsing file '%s'\n",param.input_files[0]);
 					continue;
 				}
 				// For paired reads, insert single end mappings into alignments
-				if(param.parser_attr.paired_read) {
+				if(param.paired_read) {
 					if(gt_template_get_num_blocks(template)!=2) {
 						gt_fatal_error_msg("Fatal error: Expecting paired reads\n");
 					}
@@ -649,7 +650,7 @@ int main(int argc,char *argv[])
 		}
 		gt_input_file_close(input_file);
 	}
-	as_merge_stats(stats,param.num_threads,param.parser_attr.paired_read);
+	as_merge_stats(stats,param.num_threads,param.paired_read);
 	as_print_stats(stats[0],&param);
 	as_stats_free(stats[0]);
 	free(stats);

@@ -105,16 +105,14 @@ GT_INLINE gt_shash* gt_shash_copy(gt_shash* const shash) {
   } GT_SHASH_END_ITERATE
   return shash_cpy;
 }
-GT_INLINE gt_shash* gt_shash_deep_copy(gt_shash* const shash) {
-  register gt_shash* const shash_cp =  gt_shash_new();
-  GT_SHASH_BEGIN_ITERATE(shash,skey,shash_element,void) {
+GT_INLINE void gt_shash_deep_copy(gt_shash* const shash_dst,gt_shash* const shash_src) {
+  GT_SHASH_BEGIN_ITERATE(shash_src,skey,shash_element,void) {
     // Copy element
     register void* const shash_element_cp = malloc(shash_sh_element->element_size);
     gt_cond_fatal_error(!shash_element_cp,MEM_ALLOC);
     memcpy(shash_element_cp,shash_element,shash_sh_element->element_size);
     // Insert element into the copy
-    gt_shash_insert_element(shash_cp,skey,shash_element_cp,shash_sh_element->element_size);
+    gt_shash_insert_element(shash_dst,skey,shash_element_cp,shash_sh_element->element_size);
   } GT_SHASH_END_ITERATE
-  return shash_cp;
 }
 

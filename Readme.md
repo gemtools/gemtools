@@ -146,7 +146,8 @@ Changelog
     - Added new bundle system and detection for i3 vs core2
     - Added optional appending NH field to SAM entries
     - Added *extra* options to mapper/splitmapper/pairalign to enable 
-      passing custom command line options to the tools. 
+      passing custom command line options to the tools.
+    - Modify C::counters_functions to use zero-based indexes
 
     1.5
     - Fixed issues with gem-rna-mapper output and validation

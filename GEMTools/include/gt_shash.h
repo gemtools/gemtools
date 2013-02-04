@@ -54,7 +54,7 @@ GT_INLINE uint64_t gt_shash_get_num_elements(gt_shash* const shash);
  * Miscellaneous
  */
 GT_INLINE gt_shash* gt_shash_copy(gt_shash* const shash);
-GT_INLINE gt_shash* gt_shash_deep_copy(gt_shash* const shash);
+GT_INLINE void gt_shash_deep_copy(gt_shash* const shash_dst,gt_shash* const shash_src);
 
 /*
  * Iterator

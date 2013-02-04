@@ -63,22 +63,16 @@ GT_INLINE void gt_alignment_merge_alignment_maps_fx(
     int64_t (*gt_map_cmp)(gt_map*,gt_map*),
     gt_alignment* const alignment_dst,gt_alignment* const alignment_src);
 
-// TODO: Scheduled for v2.0
-GT_INLINE void gt_alignment_remove_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src);
-GT_INLINE void gt_alignment_remove_alignment_maps_fx(
-    int64_t (*gt_map_cmp)(gt_map*,gt_map*),
-    gt_alignment* const alignment_dst,gt_alignment* const alignment_src);
-
+GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_va(
+    const uint64_t num_src_alignments,gt_alignment* const alignment_src,...);
+#define gt_alignment_union_alignment_maps(alignment_src_A,alignment_src_B) \
+        gt_alignment_union_alignment_maps_va(2,alignment_src_A,alignment_src_B)
 GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_v(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_alignments,gt_alignment* const alignment_src,va_list v_args);
 GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_va(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_alignments,gt_alignment* const alignment_src,...);
-GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_va(
-    const uint64_t num_src_alignments,gt_alignment* const alignment_src,...);
-#define gt_alignment_union_alignment_maps(alignment_src_A,alignment_src_B) \
-        gt_alignment_union_alignment_maps_fx_va(gt_map_cmp,2,alignment_src_A,alignment_src_B)
 #define gt_alignment_union_alignment_maps_fx(gt_map_cmp_fx,alignment_src_A,alignment_src_B) \
         gt_alignment_union_alignment_maps_fx_va(gt_map_cmp_fx,2,alignment_src_A,alignment_src_B)
 

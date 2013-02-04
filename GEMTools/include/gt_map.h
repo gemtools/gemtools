@@ -84,19 +84,16 @@ GT_INLINE void gt_map_delete(gt_map* const map);
  */
 GT_INLINE char* gt_map_get_seq_name(gt_map* const map);
 GT_INLINE void gt_map_set_seq_name(gt_map* const map,char* const seq_name,const uint64_t length);
-
 GT_INLINE uint64_t gt_map_get_position(gt_map* const map);
 GT_INLINE void gt_map_set_position(gt_map* const map,const uint64_t position);
-
 GT_INLINE gt_strand gt_map_get_strand(gt_map* const map);
 GT_INLINE void gt_map_set_strand(gt_map* const map,const gt_strand strand);
-// Single block attributes (NOTE: To retrieve length/distance/score over all block use global methods)
-GT_INLINE uint64_t gt_map_get_length(gt_map* const map); // Indel taken into account to calculate the length
 GT_INLINE uint64_t gt_map_get_base_length(gt_map* const map); // Length of the base read (no indels)
 GT_INLINE void gt_map_set_base_length(gt_map* const map,const uint64_t length);
 
+// Local metrics (over first blocks)
+GT_INLINE uint64_t gt_map_get_length(gt_map* const map); // Indel taken into account to calculate the length
 GT_INLINE uint64_t gt_map_get_distance(gt_map* const map);
-
 GT_INLINE int64_t gt_map_get_score(gt_map* const map);
 GT_INLINE void gt_map_set_score(gt_map* const map,const int64_t score);
 
@@ -142,24 +139,28 @@ GT_INLINE void gt_map_set_misms_string(gt_map* const map,char* misms_string,cons
 /*
  * High-level Procedures
  */
+// Global metrics (over all blocks)
+GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_global_score(gt_map* const map);
+// Begin/End Position
+GT_INLINE uint64_t gt_map_get_begin_position(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_end_position(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_global_end_position(gt_map* const map);
 // Trim helpers
 GT_INLINE uint64_t gt_map_get_left_trim_length(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_right_trim_length(gt_map* const map);
 // Bases aligned
 GT_INLINE uint64_t gt_map_get_bases_aligned(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_global_bases_aligned(gt_map* const map);
-// Global metrics (over all blocks)
-GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map);
-GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map);
-GT_INLINE uint64_t gt_map_get_global_score(gt_map* const map);
+// Distance
+GT_INLINE uint64_t gt_map_get_levenshtein_distance(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_global_levenshtein_distance(gt_map* const map);
 // Vector based ( Metrics out of a set of maps )
 GT_INLINE uint64_t gt_map_vector_get_length(gt_vector* const maps);
 GT_INLINE uint64_t gt_map_vector_get_distance(gt_vector* const maps);
 GT_INLINE uint64_t gt_map_vector_get_score(gt_vector* const maps);
-// Distance procedures
-GT_INLINE uint64_t gt_map_get_levenshtein_distance(gt_map* const map);
-GT_INLINE uint64_t gt_map_get_global_levenshtein_distance(gt_map* const map);
-// Map compare
+// Map compare functions
 GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2);
 GT_INLINE int64_t gt_map_cmp_strict(gt_map* const map_1,gt_map* const map_2);
 GT_INLINE int64_t gt_map_cmp_false(gt_map* const map_1,gt_map* const map_2);

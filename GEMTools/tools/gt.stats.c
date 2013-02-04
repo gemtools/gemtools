@@ -343,8 +343,13 @@ void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const
   // Bases.trimmed(%)
   fprintf(stderr,"%2.3f,",total_bases_mmaps?100.0*(float)stats->maps_error_profile->total_bases_trimmed/(float)total_bases_mmaps:0.0);
   // #Uniq-0, %Uniq-0
-  fprintf(stderr,"%" PRIu64 ",",stats->uniq[UNIQ_RANGE_0]);
-  fprintf(stderr,"%2.3f\n",eff_num_reads?100.0*(float)stats->uniq[UNIQ_RANGE_0]/(float)eff_num_reads:0.0);
+  register const uint64_t all_uniq = stats->uniq[UNIQ_RANGE_0]+
+      stats->uniq[UNIQ_RANGE_1]+stats->uniq[UNIQ_RANGE_2]+
+      stats->uniq[UNIQ_RANGE_3]+stats->uniq[UNIQ_RANGE_10]+
+      stats->uniq[UNIQ_RANGE_50]+stats->uniq[UNIQ_RANGE_100]+
+      stats->uniq[UNIQ_RANGE_500]+stats->uniq[UNIQ_RANGE_BEHOND];
+  fprintf(stderr,"%" PRIu64 ",",all_uniq);
+  fprintf(stderr,"%2.3f\n",eff_num_reads?100.0*(float)all_uniq/(float)eff_num_reads:0.0);
 }
 
 /*

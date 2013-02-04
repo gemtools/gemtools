@@ -43,6 +43,15 @@ GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_
 /*
  * Memory usage helper functions
  */
+GT_INLINE void* gt_malloc_(uint64_t const num_elements,uint64_t const size_element) {
+  register void* const allocated_mem = malloc(num_elements*size_element);
+  gt_cond_fatal_error(!allocated_mem,MEM_HANDLER);
+  return allocated_mem;
+}
+
+/*
+ * Print's template helpers
+ */
 GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v_args) {
   GT_NULL_CHECK(template); GT_NULL_CHECK(v_args);
   // Copy to avoid spoiling v_args

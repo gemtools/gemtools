@@ -106,6 +106,22 @@
 #define GT_MAP_SKIP_SPLICE '*'
 
 /*
+ * Parsing attributes
+ */
+typedef struct {
+  bool read_paired; // Forces to read paired reads
+  uint64_t max_parsed_maps; // Maximum number of maps to be parsed
+  gt_string* src_text; // Src text line parsed
+} gt_map_parser_attr;
+
+#define GT_MAP_PARSER_ATTR_DEFAULT(force_read_paired) { .read_paired=force_read_paired, .max_parsed_maps=GT_ALL, .src_text=NULL }
+GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr* const map_parser_attr);
+GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attr* const map_parser_attr);
+GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attr* const map_parser_attr,const bool is_paired);
+GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attr* const map_parser_attr,const uint64_t max_parsed_maps);
+GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attr* const map_parser_attr,gt_string* const src_text);
+
+/*
  * Lazy parsing:
  *   PARSE_READ         Parses TAG,READ,QUALITY,COUNTERS
  *   PARSE_READ__MAPS   Parses TAG,READ,QUALITY,COUNTERS,MAPS
@@ -146,27 +162,18 @@ GT_INLINE gt_status gt_input_map_parser_get_template(
 GT_INLINE gt_status gt_input_map_parser_get_alignment(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment);
 
-GT_INLINE gt_status gt_input_map_parser_get_template__src_text(
-    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_string* const src_text);
-GT_INLINE gt_status gt_input_map_parser_get_alignment__src_text(
-    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_string* const src_text);
+GT_INLINE gt_status gt_input_map_parser_get_template_g(
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_map_parser_attr* const map_parser_attr);
+GT_INLINE gt_status gt_input_map_parser_get_alignment_g(
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_map_parser_attr* const map_parser_attr);
 
-GT_INLINE gt_status gt_input_map_parser_get_template_limited(
-    gt_buffered_input_file* const buffered_map_input,gt_template* const template,const uint64_t num_mmaps);
-GT_INLINE gt_status gt_input_map_parser_get_alignment_limited(
-    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,const uint64_t num_maps);
-
-#define gt_input_map_parser_synch_blocks(buffered_input1,buffered_input2,mutex) gt_input_map_parser_synch_blocks_va(mutex,2,buffered_input1,buffered_input2)
-GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
-    pthread_mutex_t* const input_mutex,uint64_t num_map_inputs,
-    gt_buffered_input_file* const buffered_map_input,va_list v_args);
+GT_INLINE gt_status gt_input_map_parser_synch_blocks(
+    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,pthread_mutex_t* const input_mutex);
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
-    pthread_mutex_t* const input_mutex,uint64_t num_map_inputs,
-    gt_buffered_input_file* const buffered_map_input,...);
-
-
+    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    const uint64_t num_map_inputs,gt_buffered_input_file* const buffered_map_input,...);
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
-    pthread_mutex_t* const input_mutex,gt_buffered_input_file* const buffered_map_input_master,
-    gt_buffered_input_file* const buffered_map_input_slave,const bool read_paired); // Used to merge files in parallel
+    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    gt_buffered_input_file* const buffered_map_input_master,gt_buffered_input_file* const buffered_map_input_slave); // Used to merge files in parallel
 
 #endif /* GT_INPUT_MAP_PARSER_H_ */
