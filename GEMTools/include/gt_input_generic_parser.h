@@ -38,7 +38,10 @@ typedef struct {
   uint64_t max_matches;
 } gt_generic_parser_attr;
 
+
 #define GENERIC_PARSER_ATTR_DEFAULT(parse_paired) { .sam_parser_attr.sam_soap_style=false, .max_matches=GT_ALL, .paired_read=parse_paired }
+
+GT_INLINE gt_generic_parser_attr* gt_generic_parser_attr_new(bool const sam_soap_style, uint64_t const max_matches, bool const paired_read);
 
 GT_INLINE gt_status gt_input_generic_parser_get_alignment(
     gt_buffered_input_file* const buffered_input,gt_alignment* const alignment,gt_generic_parser_attr* const attributes);

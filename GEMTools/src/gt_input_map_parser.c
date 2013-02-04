@@ -312,7 +312,8 @@ GT_INLINE gt_status gt_input_map_parser_reload_buffer(
 GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* const tag) {
   // Delimit the tag
   register char* const tag_begin = *text_line;
-  GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
+  //GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
+  GT_READ_UNTIL(text_line,**text_line==TAB);
   if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
   register uint64_t tag_length = *text_line-tag_begin;
   // Copy string
@@ -454,7 +455,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(char** const text_line,gt_ma
   GT_MAP_CHECK(map);
   gt_map_clear_misms(map);
   // Parse Misms
-  register uint64_t last_position = 0, last_cut_point = 0;  
+  register uint64_t last_position = 0, last_cut_point = 0;
   register const uint64_t global_length = gt_map_get_base_length(map);
   while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=GT_MAP_SEP &&
          !GT_IS_EOL(text_line) && (**text_line)!=GT_MAP_SCORE_GEMv0) {

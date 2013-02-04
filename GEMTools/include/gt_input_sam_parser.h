@@ -70,6 +70,7 @@ typedef struct {
 
 #define SAM_PARSER_ATTR_DEFAULT { .sam_soap_style=false }
 
+GT_INLINE gt_sam_parser_attr* gt_sam_parser_attr_new(bool const sam_soap_style);
 /*
  * SAM File basics
  */
