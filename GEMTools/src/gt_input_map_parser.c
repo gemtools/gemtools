@@ -530,7 +530,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(char** const text_line,gt_ma
         // Swap maps & Reset length,position
         map = next_map;
       }
-    } else { // ?¿ Parsing error
+    } else { // ? Parsing error
       return GT_IMP_PE_MISMS_BAD_CHARACTER;
     }
   }

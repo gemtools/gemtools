@@ -38,7 +38,7 @@ GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment) {
   gt_string_clear(alignment->qualities);
   alignment->maps_txt = NULL;
   gt_attribute_clear(alignment->attributes);
-  gt_alignment_dictionary_delete(alignment->alg_dictionary);
+  if (alignment->alg_dictionary!=NULL) gt_alignment_dictionary_delete(alignment->alg_dictionary);
   alignment->alg_dictionary = NULL;
 }
 GT_INLINE void gt_alignment_clear(gt_alignment* const alignment) {
@@ -56,7 +56,7 @@ GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   gt_vector_delete(alignment->counters);
   gt_vector_delete(alignment->maps);
   gt_attribute_delete(alignment->attributes);
-  gt_alignment_dictionary_delete(alignment->alg_dictionary);
+  if (alignment->alg_dictionary!=NULL) gt_alignment_dictionary_delete(alignment->alg_dictionary);
   free(alignment);
 }
 
