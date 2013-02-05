@@ -200,32 +200,13 @@ GT_INLINE gt_status gt_input_fasta_parse_tag(char** const text_line,gt_string* c
     return GT_IFP_PE_TAG_BAD_BEGINNING;
   }
   GT_NEXT_CHAR(text_line);
-  // Parse the tag
-  register char* const tag_begin = *text_line;
-  GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
-  register uint64_t tag_length = *text_line-tag_begin;
-  // Copy string
-  gt_string_set_nstring(tag,tag_begin,tag_length);
-  // Skip TABs and Spaces
-  GT_READ_UNTIL(text_line,**text_line!=TAB && **text_line!=SPACE);
-  // Place cursor at beginning of the next field & read attributes
-  while (gt_expect_false(!GT_IS_EOL(text_line))) {
-    if (**text_line==HASH) { // GT-Attribute. Eg. @READ/1 #TRIM_R:20
-      // TODO
-      GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
-    } else {
-      /* CASAVAv1.8 ::= @{FIRST_BLOCK} {SECOND_BLOCK}
-       *   FIRST_BLOCK ::= <instrument-name>:<run ID>:<flowcell ID>:<lane-number>:<tile-number>:<x-pos>:<y-pos>
-       *   SECOND_BLOCK ::= <read number>:<is filtered>:<control number>:<barcode sequence>
-       * Eg. @EAS139:136:FC706VJ:2:5:1000:12850 1:Y:18:ATCACG
-       */
-      // TODO
-      GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
-    }
-    // Skip TABs and Spaces
-    GT_READ_UNTIL(text_line,**text_line!=TAB && **text_line!=SPACE);
+  gt_input_parse_tag(text_line, tag, attributes);
+  if (GT_IS_EOL(text_line)){
+    GT_NEXT_CHAR(text_line);
   }
-  GT_NEXT_CHAR(text_line);
+
+  // jump over end of line
+  //GT_NEXT_CHAR(text_line);
   return 0;
 }
 
@@ -278,6 +259,7 @@ GT_INLINE gt_status gt_ifp_parse_read(
     const bool has_qualitites,gt_string* const qualities,gt_shash* const attributes) {
   // Parse TAG
   register gt_status error_code;
+
   if ((error_code=gt_input_fasta_parse_tag(text_line,tag,attributes))) return error_code;
   // Parse READ
   if ((error_code=gt_input_fasta_parse_read_s(text_line,read))) return error_code;
@@ -319,6 +301,7 @@ GT_INLINE gt_status gt_ifp_parse_fasta_fastq_read(
   register char* const line_start = buffered_fasta_input->cursor;
   register const uint64_t line_num = buffered_fasta_input->current_line_num;
   // Parse read
+
   if ((error_code=gt_ifp_parse_read(&(buffered_fasta_input->cursor),tag,read,fasta_format==F_FASTQ,qualities,attributes))) {
     gt_input_fasta_parser_prompt_error(buffered_fasta_input,line_num,buffered_fasta_input->cursor-line_start,error_code);
     gt_input_fasta_parser_next_record(buffered_fasta_input,line_start);

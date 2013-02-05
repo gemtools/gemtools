@@ -10,6 +10,54 @@
 
 #define GT_OUTPUT_MAP_COMPACT_COUNTERS_ZEROS_TH 5
 
+GT_INLINE gt_output_map_attributes* gt_output_map_attributes_new(){
+	gt_output_map_attributes* attr = malloc(sizeof(gt_output_map_attributes));
+	gt_cond_fatal_error(!attr,MEM_HANDLER);
+	gt_output_map_attributes_reset_defaults(attr);
+	return attr;
+}
+
+GT_INLINE void gt_output_map_attributes_delete(gt_output_map_attributes* attributes){
+	free(attributes);
+}
+
+
+GT_INLINE void gt_output_map_attributes_reset_defaults(gt_output_map_attributes* const attributes){
+	attributes->print_scores = true;
+	attributes->print_extra = true;
+	attributes->print_casava = true;
+	attributes->max_printable_maps = GT_ALL;
+}
+
+GT_INLINE bool gt_output_map_attributes_is_print_scores(gt_output_map_attributes* const attributes){
+	return attributes->print_scores;
+}
+GT_INLINE void gt_output_map_attributes_set_print_scores(gt_output_map_attributes* const attributes, bool print_scores){
+	attributes->print_scores = print_scores;
+}
+
+GT_INLINE bool gt_output_map_attributes_is_print_extra(gt_output_map_attributes* const attributes){
+	return attributes->print_extra;
+}
+GT_INLINE void gt_output_map_attributes_set_print_extra(gt_output_map_attributes* const attributes, bool print_extra){
+	attributes->print_extra = print_extra;
+}
+
+GT_INLINE bool gt_output_map_attributes_is_print_casava(gt_output_map_attributes* const attributes){
+	return attributes->print_casava;
+}
+GT_INLINE void gt_output_map_attributes_set_print_casava(gt_output_map_attributes* const attributes, bool print_casava){
+	attributes->print_casava = print_casava;
+}
+
+GT_INLINE uint64_t gt_output_map_attributes_get_max_printable_maps(gt_output_map_attributes* const attributes){
+	return attributes->max_printable_maps;
+}
+GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_attributes* const attributes, uint64_t max_printable_maps){
+	attributes->max_printable_maps = max_printable_maps;
+}
+
+
 /*
  * MAP building block printers
  */
@@ -277,15 +325,15 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps_sorted(
  * Specific High-level MAP Printers {Alignment/Template}
  */
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,max_printable_maps,print_scores
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores);
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,attributes
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template,gt_template* const template,gt_output_map_attributes* const  attributes);
 GT_INLINE gt_status gt_output_map_gprint_template(
-    gt_generic_printer* const gprinter,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores) {
+    gt_generic_printer* const gprinter,gt_template* const template, gt_output_map_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   register gt_status error_code;
   // Print TAG
-  gt_gprintf(gprinter,"%s",gt_template_get_tag(template));
+  gt_output_print_tag(gprinter, template->tag, template->attributes, attributes);
   // Print READ(s)
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register uint64_t i = 0;
@@ -311,24 +359,25 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   // Print MAPS
   gt_gprintf(gprinter,"\t");
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-    error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,max_printable_maps,print_scores); // _sorted
+    error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,gt_output_map_attributes_get_max_printable_maps(attributes), gt_output_map_attributes_is_print_scores(attributes)); // _sorted
     gt_gprintf(gprinter,"\n");
     return error_code;
   } GT_TEMPLATE_END_REDUCTION;
-  error_code = gt_output_map_gprint_template_maps_sorted(gprinter,template,max_printable_maps,print_scores); // _sorted
+  error_code = gt_output_map_gprint_template_maps_sorted(gprinter,template,gt_output_map_attributes_get_max_printable_maps(attributes), gt_output_map_attributes_is_print_scores(attributes)); // _sorted
   gt_gprintf(gprinter,"\n");
   return error_code;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,max_printable_maps,print_scores
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment,gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores);
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,attributes
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment,gt_alignment* const alignment, gt_output_map_attributes*  const attributes);
 GT_INLINE gt_status gt_output_map_gprint_alignment(
-    gt_generic_printer* const gprinter,gt_alignment* const alignment,const uint64_t max_printable_maps,const bool print_scores) {
+    gt_generic_printer* const gprinter,gt_alignment* const alignment, gt_output_map_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_ALIGNMENT_CHECK(alignment);
   register gt_status error_code;
   // Print TAG
-  gt_gprintf(gprinter,"%s",gt_alignment_get_tag(alignment));
+  //gt_gprintf(gprinter,"%s",gt_alignment_get_tag(alignment));
+  gt_output_print_tag(gprinter, alignment->tag, alignment->attributes, attributes);
   // Print READ(s)
   gt_gprintf(gprinter,"\t%s",gt_alignment_get_read(alignment));
   // Print QUALITY
@@ -344,7 +393,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   }
   // Print MAPS
   gt_gprintf(gprinter,"\t");
-  error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,max_printable_maps,print_scores); // _sorted
+  error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,gt_output_map_attributes_get_max_printable_maps(attributes), gt_output_map_attributes_is_print_scores(attributes)); // _sorted
   gt_gprintf(gprinter,"\n");
   return error_code;
 }
@@ -354,21 +403,46 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
  * GEM printer
  */
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,max_printable_maps,print_scores
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_gem_template,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores);
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,attributes
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_gem_template,gt_template* const template, gt_output_map_attributes*  const attributes);
 GT_INLINE gt_status gt_output_map_gprint_gem_template(
-    gt_generic_printer* const gprinter,gt_template* const template,const uint64_t max_printable_maps,const bool print_scores) {
+    gt_generic_printer* const gprinter,gt_template* const template, gt_output_map_attributes*  const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   if (gt_template_get_num_mmaps(template)>0) {
-    return gt_output_map_gprint_template(gprinter,template,max_printable_maps,print_scores);
+    return gt_output_map_gprint_template(gprinter,template, attributes);
   } else {
     register gt_status error_code = 0;
     GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
-      if ((error_code=gt_output_map_gprint_alignment(gprinter,alignment,max_printable_maps,print_scores))) return error_code;
+      if ((error_code=gt_output_map_gprint_alignment(gprinter,alignment,attributes))) return error_code;
     }
     return error_code;
   }
+}
+
+GT_INLINE void gt_output_print_tag(gt_generic_printer* const gprinter, gt_string* const tag, gt_shash* const attributes, gt_output_map_attributes* const output_attributes){
+	//gt_gprintf(gprinter,"%s",gt_template_get_tag(template));
+	// PRIgts needed as this calls gt_string_get_string downstream, which returns the
+	// full buffer not trimmed to length
+	gt_gprintf(gprinter,PRIgts, PRIgts_content(tag));
+
+	// check if we have casava attributes
+	if(gt_output_map_attributes_is_print_casava(output_attributes) && gt_shash_is_contained(attributes, GT_TAG_CASAVA)){
+		// print casava
+		gt_gprintf(gprinter," %s", gt_string_get_string(gt_shash_get(attributes, GT_TAG_CASAVA, gt_string)));
+	}else{
+	    // append /1 /2 if paired
+	    if(gt_shash_is_contained(attributes, GT_TAG_PAIR)){
+	  	    int64_t p = *gt_shash_get(attributes, GT_TAG_PAIR, int64_t);
+		    if(p > 0){
+			    gt_gprintf(gprinter,"/%d", p);
+		    }
+	    }
+	}
+	if(gt_output_map_attributes_is_print_extra(output_attributes) && gt_shash_is_contained(attributes, GT_TAG_EXTRA)){
+	    // print additional
+	    gt_gprintf(gprinter," %s", gt_string_get_string(gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)));
+	}
 }
 
 

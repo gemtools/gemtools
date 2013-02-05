@@ -9,15 +9,18 @@
 
 gt_template* source;
 gt_template* target;
+gt_output_map_attributes* output_attributes;
 
 void gt_template_utils_setup(void) {
   source = gt_template_new();
   target = gt_template_new();
+  output_attributes = gt_output_map_attributes_new();
 }
 
 void gt_template_utils_teardown(void) {
   gt_template_delete(source);
   gt_template_delete(target);
+  gt_output_map_attributes_delete(output_attributes);
 }
 
 START_TEST(gt_test_template_merge)
@@ -30,10 +33,10 @@ START_TEST(gt_test_template_merge)
   // merge into source
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, source, GT_ALL, true);
+  gt_output_map_sprint_template(string, source, output_attributes);
   // convert to string
   char * line = gt_string_get_string(string);
-  fail_unless(gt_streq(line,"ID\tACGT\t####\t1+1\tchr1:-:20:4,chr9:+:50:2C1\n"));
+  fail_unless(gt_streq(line,"ID\tACGT\t####\t1+1\tchr1:-:20:4,chr9:+:50:2C1\n"), line);
 }
 END_TEST
 
@@ -49,7 +52,7 @@ START_TEST(gt_test_template_merge_hang)
   // merge into source
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, source, GT_ALL, true);
+  gt_output_map_sprint_template(string, source, output_attributes);
   // convert to string
   char * line = gt_string_get_string(string);
   fail_unless(gt_streq(line,"HWI-962:71:D0PEYACXX:4:1101:18640:2354/2\tCGCGCGGGAGCCAGCAGGAGCACCAGCTGCGCAGGCAGGTTGAACTGCTGGCTTATAAAGTAGAGCAGGAGAAGT\t"
@@ -76,7 +79,7 @@ START_TEST(gt_test_template_merge_error)
   // merge into source
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, source, GT_ALL, true);
+  gt_output_map_sprint_template(string, source, output_attributes);
   // convert to string
   char * line = gt_string_get_string(string);
   fail_unless(gt_streq(line,
@@ -107,7 +110,7 @@ START_TEST(gt_test_template_merge_inconsistent)
   gt_template_recalculate_counters(source);
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, source, GT_ALL, true);
+  gt_output_map_sprint_template(string, source, output_attributes);
   // convert to string
   char * line = gt_string_get_string(string);
   fail_unless(gt_streq(line,
@@ -128,7 +131,7 @@ START_TEST(gt_test_template_to_string)
   fail_unless(gt_input_map_parse_template(
       "ID\tACGT\t####\t1\tchr1:-:20:4",source)==0);
   gt_string* string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, source, GT_ALL, true);
+  gt_output_map_sprint_template(string, source, output_attributes);
   // convert to string
   char * line = gt_string_get_string(string);
   fail_unless(gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4\n"));
@@ -144,7 +147,7 @@ START_TEST(gt_test_template_copy)
       "ID\tACGT\t####\t1\tchr1:-:20:4",source)==0);
   gt_template* copy = gt_template_copy(source, false, false);
   gt_string* string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
   char * line = gt_string_get_string(string);
   fail_unless(gt_streq(line,"ID\tACGT\t####\t0\t-\n"));
@@ -154,7 +157,7 @@ START_TEST(gt_test_template_copy)
   gt_string_clear(string);
   copy = gt_template_copy(source, true, false);
   string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
   line = gt_string_get_string(string);
   fail_unless(gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4\n"));
@@ -167,7 +170,7 @@ START_TEST(gt_test_template_copy)
   gt_string_clear(string);
   copy = gt_template_copy(source, true, false);
   string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
   line = gt_string_get_string(string);
   fail_unless(gt_streq(line,"ID\tACGT\t####\t2\tchr1:-:20:4,chr2:-:40:4\n"));
@@ -177,7 +180,7 @@ START_TEST(gt_test_template_copy)
   gt_string_clear(string);
   copy = gt_template_copy(source, true, true);
   string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
   line = gt_string_get_string(string);
   fail_unless(gt_streq(line,"ID\tACGT\t####\t2\tchr1:-:20:4,chr2:-:40:4\n"));

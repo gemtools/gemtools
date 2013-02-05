@@ -9,10 +9,11 @@
 
 // Include Suites
 #include "gt_suite_input_map_parser.c"
+#include "gt_suite_input_tag_parser.c"
 
 int main(void) {
   SRunner *sr = srunner_create(gt_input_map_parser_suite());
-  //srunner_add_suite(sr,gt_ihash_suite());
+  srunner_add_suite (sr, gt_input_tag_parser_suite());
 
   // add logging to xml
   srunner_set_xml(sr, "reports/check-test-parsers.xml");

@@ -8,14 +8,14 @@
 
 #include "gt_input_generic_parser.h"
 
-GT_INLINE gt_generic_parser_attr* gt_generic_parser_attr_new(bool const sam_soap_style, uint64_t const max_matches, bool const paired_read){
+GT_INLINE gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool const paired_reads){
   gt_generic_parser_attr* attr = malloc(sizeof(gt_generic_parser_attr));
   gt_cond_fatal_error(!attr,MEM_HANDLER);
-  attr->max_matches = max_matches;
-  attr->paired_read = paired_read;
-  attr->sam_parser_attr = *(gt_sam_parser_attr_new(sam_soap_style));
+  gt_input_generic_parser_attributes_reset_defaults(attr);
+  gt_input_generic_parser_attributes_set_paired(attr, paired_reads);
   return attr;
 }
+
 /*
  * Accessors
  */
