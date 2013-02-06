@@ -112,7 +112,8 @@ GT_INLINE gt_status gt_map_realign_levenshtein(
   // Clear map misms
   gt_map_clear_misms(map);
   // Allocate DP matrix
-  register uint64_t* dp_array = gt_calloc((pattern_length+1)*(sequence_length+1),uint64_t);
+  ++pattern_length; ++sequence_length; // Adjust limits of DP matrix
+  register uint64_t* dp_array = gt_calloc(pattern_length*sequence_length,uint64_t);
   register uint64_t min_val = UINT32_MAX;
   register uint64_t i, j, i_pos = UINT64_MAX;
   // Calculate DP-Matrix

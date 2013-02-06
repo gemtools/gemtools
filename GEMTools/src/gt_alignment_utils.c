@@ -128,7 +128,7 @@ GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,
   if (gt_alignment_get_not_unique_flag(alignment)) return true;
   register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
   GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
-    if (counter_pos>=max_allowed_strata) return false;
+    if (counter_pos>max_allowed_strata) return false;
     else if (*counter!=0) return true;
   }
   return false;

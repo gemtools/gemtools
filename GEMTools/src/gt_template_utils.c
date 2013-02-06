@@ -257,7 +257,7 @@ GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,con
   if (gt_template_get_not_unique_flag(template)) return true;
   register gt_vector* vector = gt_template_get_counters_vector(template);
   GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
-    if ((counter_pos+1)>=max_allowed_strata) return false;
+    if (counter_pos>max_allowed_strata) return false;
     else if (*counter!=0) return true;
   }
   return false;
