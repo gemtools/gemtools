@@ -114,6 +114,15 @@ def test_template_to_sequence():
     template.parse("A/1\tAAA\t\t0\t-\n")
     assert template.to_fasta() == ">A/1\nAAA", "Not '%s'" % template.to_sequence()
 
+
+def test_template_merge():
+    template_1 = gt.Template()
+    template_1.parse("A/1\tAAA\t###\t0\t-\n")
+    template_2 = gt.Template()
+    template_2.parse("A/1\tAAA\t###\t1\tchr1:+:50:3")
+    template_1.merge(template_2)
+    assert template_1.to_map() == "A/1\tAAA\t###\t1\tchr1:+:50:3", "Not '%s'" % template_1.to_map()
+
 #
 #def test_template_counters_list():
 #    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
