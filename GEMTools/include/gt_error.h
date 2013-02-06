@@ -195,7 +195,8 @@ extern FILE* gt_error_stream;
 // Sequence Archive/Segmented Sequence errors
 #define GT_ERROR_SEGMENTED_SEQ_IDX_OUT_OF_RANGE "Error accessing segmented sequence. Index %"PRIu64" out out range [0,%"PRIu64")"
 #define GT_ERROR_CDNA_IT_OUT_OF_RANGE "Error seeking sequence. Index %"PRIu64" out out range [0,%"PRIu64")"
-
+#define GT_ERROR_SEQ_ARCHIVE_NOT_FOUND "Sequence not found in reference archive"
+#define GT_ERROR_SEQ_ARCHIVE_OUT_OF_RANGE "Requested sequence goes beyond boundaries"
 
 /*
  * Parsing FASTQ File format errors

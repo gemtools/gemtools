@@ -15,6 +15,17 @@
 #include "gt_map.h"
 #include "gt_compact_dna_string.h"
 
+/*
+ * Codes gt_status
+ */
+#define GT_SEQ_ARCHIVE_OK 0
+
+#define GT_SEQ_ARCHIVE_NOT_FOUND 10
+#define GT_SEQ_ARCHIVE_OUT_OF_RANGE 11
+
+/*
+ * Data types
+ */
 typedef struct {
   gt_string* seq_name;
   gt_vector* blocks; /* (gt_compact_dna_string*) */
@@ -69,6 +80,9 @@ GT_INLINE void gt_sequence_archive_delete(gt_sequence_archive* const seq_archive
 GT_INLINE void gt_sequence_archive_add_sequence(gt_sequence_archive* const seq_archive,gt_segmented_sequence* const sequence);
 GT_INLINE void gt_sequence_archive_remove_sequence(gt_sequence_archive* const seq_archive,char* const seq_id);
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_sequence(gt_sequence_archive* const seq_archive,char* const seq_id);
+GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
+    gt_sequence_archive* const seq_archive,char* const seq_id,
+    const uint64_t position,const uint64_t length,gt_string* const string);
 
 GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int (*gt_cmp_string)(char*,char*));
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive);
@@ -81,6 +95,7 @@ GT_INLINE void gt_sequence_archive_new_iterator(
 GT_INLINE bool gt_sequence_archive_iterator_eos(gt_sequence_archive_iterator* const seq_archive_iterator);
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_next(gt_sequence_archive_iterator* const seq_archive_iterator);
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_previous(gt_sequence_archive_iterator* const seq_archive_iterator);
+
 
 /*
  * SegmentedSEQ Constructor
@@ -98,7 +113,7 @@ GT_INLINE char gt_segmented_sequence_get_char_at(gt_segmented_sequence* const se
 GT_INLINE void gt_segmented_sequence_set_char_at(gt_segmented_sequence* const sequence,const uint64_t position,const char character);
 GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const sequence,char* const string,const uint64_t length);
 
-GT_INLINE void gt_segmented_sequence_get_sequence(
+GT_INLINE gt_status gt_segmented_sequence_get_sequence(
     gt_segmented_sequence* const sequence,const uint64_t position,const uint64_t length,gt_string* const string);
 /*
  * SegmentedSEQ Iterator

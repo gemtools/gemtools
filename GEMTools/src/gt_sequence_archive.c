@@ -54,6 +54,16 @@ GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_sequence(gt_sequence_ar
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
   return gt_shash_get(seq_archive->sequences,seq_id,gt_segmented_sequence);
 }
+GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
+    gt_sequence_archive* const seq_archive,char* const seq_id,
+    const uint64_t position,const uint64_t length,gt_string* const string) {
+  register gt_segmented_sequence* seg_seq = gt_sequence_archive_get_sequence(seq_archive,seq_id);
+  if (seg_seq==NULL) {
+    gt_error(SEQ_ARCHIVE_NOT_FOUND);
+    return GT_SEQ_ARCHIVE_NOT_FOUND;
+  }
+  return gt_segmented_sequence_get_sequence(seg_seq,position,length,string);
+}
 
 
 int gt_sequence_archive_lexicographical_sort_fx(char *a,char *b) {
@@ -220,7 +230,7 @@ GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const 
   sequence->sequence_total_length = current_length;
 }
 
-GT_INLINE void gt_segmented_sequence_get_sequence(
+GT_INLINE gt_status gt_segmented_sequence_get_sequence(
     gt_segmented_sequence* const sequence,const uint64_t position,const uint64_t length,gt_string* const string) {
   GT_SEGMENTED_SEQ_CHECK(sequence);
   GT_SEGMENTED_SEQ_POSITION_CHECK(sequence,position);
@@ -237,6 +247,12 @@ GT_INLINE void gt_segmented_sequence_get_sequence(
     ++i;
   }
   gt_string_append_eos(string);
+  if (i==length) {
+    return GT_SEQ_ARCHIVE_OK;
+  } else {
+    gt_error(SEQ_ARCHIVE_OUT_OF_RANGE);
+    return GT_SEQ_ARCHIVE_OUT_OF_RANGE;
+  }
 }
 
 /*

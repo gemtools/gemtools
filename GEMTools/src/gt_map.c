@@ -192,6 +192,10 @@ GT_INLINE gt_misms* gt_map_get_misms(gt_map* const map,uint64_t offset) {
   GT_MAP_CHECK(map);
   return gt_vector_get_elm(map->mismatches,offset,gt_misms);
 }
+GT_INLINE void gt_map_set_misms(gt_map* const map,gt_misms* misms,uint64_t offset) {
+  GT_MAP_CHECK(map);
+  gt_vector_set_elm(map->mismatches,offset,gt_misms,*misms);
+}
 GT_INLINE uint64_t gt_map_get_num_misms(gt_map* const map) {
   GT_MAP_CHECK(map);
   return gt_vector_get_used(map->mismatches);

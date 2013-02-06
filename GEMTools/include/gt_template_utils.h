@@ -105,4 +105,12 @@ GT_INLINE gt_template* gt_template_intersect_template_mmaps_fx(
 GT_INLINE gt_template* gt_template_intersect_template_mmaps(
     gt_template* const template_A,gt_template* const template_B);
 
+/*
+ * Template realignment
+ */
+GT_INLINE void gt_template_realign_hamming(gt_template* const template,gt_sequence_archive* const sequence_archive);
+GT_INLINE void gt_template_realign_levenshtein(gt_template* const template,gt_sequence_archive* const sequence_archive);
+GT_INLINE void gt_template_realign_weighted(
+    gt_template* const template,gt_sequence_archive* const sequence_archive,int32_t (*gt_weigh_fx)(char*,char*));
+
 #endif /* GT_TEMPLATE_UTILS_H_ */

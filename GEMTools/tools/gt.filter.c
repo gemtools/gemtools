@@ -3,7 +3,7 @@
  * FILE: gt.filter.c
  * DATE: 02/08/2012
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
- * DESCRIPTION: Application to filter {MAP,SAM} files and output the filtered result
+ * DESCRIPTION: Application to filter {MAP,SAM,FASTQ} files and output the filtered result
  */
 
 #include <getopt.h>
@@ -15,6 +15,7 @@ typedef struct {
   /* I/O */
   char* name_input_file;
   char* name_output_file;
+  char* name_reference_file;
   bool mmap_input;
   bool paired_end;
   /* Filter */
@@ -22,6 +23,8 @@ typedef struct {
   bool best_map;
   uint64_t max_matches;
   bool make_counters;
+  bool realign_hamming;
+  bool realign_levenshtein;
   /* Misc */
   uint64_t num_threads;
   bool verbose;
@@ -30,6 +33,7 @@ typedef struct {
 gt_stats_args parameters = {
     .name_input_file=NULL,
     .name_output_file=NULL,
+    .name_reference_file=NULL,
     .mmap_input=false,
     .paired_end=false,
     /* Filter */
@@ -37,18 +41,40 @@ gt_stats_args parameters = {
     .best_map=false,
     .max_matches=GT_ALL,
     .make_counters=false,
+    .realign_hamming=false,
+    .realign_levenshtein=false,
     /* Misc */
     .num_threads=1,
     .verbose=false,
 };
 
-void gt_alignment_filter(gt_alignment *alignment_dst,gt_alignment *alignment_src) {
-  GT_ALIGNMENT_ITERATE(alignment_src,map) {
-    register const bool check_sm = !parameters.no_split_maps || gt_map_get_num_blocks(map)==1;
-    if (check_sm) {
-      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
-      if (parameters.best_map) return;
+void gt_template_filter(gt_template *template_dst,gt_template *template_src) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+    GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      if (!parameters.no_split_maps || gt_map_get_num_blocks(map)==1) {
+        gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+        if (parameters.best_map) return;
+      }
     }
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+  GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
+    // Check SM contained
+    if (parameters.no_split_maps) {
+      register bool has_sm;
+      GT_MULTIMAP_ITERATE(mmap,map,end_p) {
+        has_sm = gt_map_get_num_blocks(map)>1;
+        if (has_sm) break;
+      }
+      if (has_sm) continue;
+    }
+    // Add the mmap
+    register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+    gt_template_add_mmap(template_dst,mmap_copy,mmap_attr);
+    free(mmap_copy);
+    // Skip the rest if best
+    if (parameters.best_map) return;
   }
 }
 
@@ -59,6 +85,20 @@ void gt_filter_read__write() {
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
+  // Open reference file
+  register gt_sequence_archive* sequence_archive;
+  if (parameters.name_reference_file!=NULL && (parameters.realign_hamming || parameters.realign_levenshtein)) {
+    sequence_archive = gt_sequence_archive_new();
+    register gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
+    fprintf(stderr,"Loading reference file ...");
+    if (gt_input_multifasta_parser_get_archive(reference_file,sequence_archive)!=GT_IFP_OK) {
+      fprintf(stderr,"\n");
+      gt_fatal_error_msg("Error parsing reference file '%s'\n",parameters.name_reference_file);
+    }
+    gt_input_file_close(reference_file);
+    fprintf(stderr," done! \n");
+  }
+
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
   {
@@ -68,24 +108,36 @@ void gt_filter_read__write() {
 
     gt_status error_code;
     gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
+
+    // Limit max-matches
     generic_parser_attr.map_parser_attr.max_parsed_maps = parameters.max_matches;
+
     gt_template* template = gt_template_new();
     while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       }
 
-      if (parameters.make_counters) gt_template_recalculate_counters(template);
+      // First realign
+      if (parameters.realign_levenshtein) {
+        gt_template_realign_levenshtein(template,sequence_archive);
+      } else if (parameters.realign_hamming) {
+        gt_template_realign_hamming(template,sequence_archive);
+      }
 
-//      // DO STH
-//      gt_alignment *alignment_best = gt_alignment_copy(alignment,false);
-//      gt_alignment_filter(alignment_best,alignment);
+      // Pick up best-map || erase splitmaps
+      if (parameters.best_map || parameters.no_split_maps) {
+        gt_template *template_best = gt_template_copy(template,false,false);
+        gt_template_filter(template_best,template);
+      }
+
+      // Make counters
+      if (parameters.make_counters) {
+        gt_template_recalculate_counters(template);
+      }
 
       // Print template
-      error_code=gt_output_map_bofprint_template(buffered_output,template,GT_ALL,true);
-      if (error_code) {
-        gt_error_msg("Fatal error dumping results. '%s':%"PRIu64"\n",gt_template_get_tag(template),buffered_input->current_line_num-1);
-      }
+      gt_output_map_bofprint_template(buffered_output,template,GT_ALL,true);
     }
 
     // Clean
@@ -104,6 +156,7 @@ void usage() {
                   "         [I/O]\n"
                   "           --input|-i [FILE]\n"
                   "           --output|-o [FILE]\n"
+                  "           --reference|-r [FILE]\n"
                   "           --mmap-input\n"
                   "           --paired-end|p\n"
                   "         [Filter]\n"
@@ -111,6 +164,8 @@ void usage() {
                   "           --best-map\n"
                   "           --max-matches <number>\n"
                   "           --make-counters <number>\n"
+                  "           --hamming-realign\n"
+                  "           --levenshtein-realign\n"
                   "         [Misc]\n"
                   "           --threads|t\n"
                   "           --verbose|v\n"
@@ -122,6 +177,7 @@ void parse_arguments(int argc,char** argv) {
     /* I/O */
     { "input", required_argument, 0, 'i' },
     { "output", required_argument, 0, 'o' },
+    { "reference", required_argument, 0, 'r' },
     { "mmap-input", no_argument, 0, 1 },
     { "paired-end", no_argument, 0, 'p' },
     /* Filter */
@@ -129,14 +185,16 @@ void parse_arguments(int argc,char** argv) {
     { "best-map", no_argument, 0, 3 },
     { "max-matches", required_argument, 0, 4 },
     { "make-counters", no_argument, 0, 5 },
+    { "hamming-realign", no_argument, 0, 6 },
+    { "levenshtein-realign", no_argument, 0, 7 },
     /* Misc */
-    { "threads", no_argument, 0, 't' },
+    { "threads", required_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:o:d:D:t:phv",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:o:r:pt:hv",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     /* I/O */
@@ -145,6 +203,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'o':
       parameters.name_output_file = optarg;
+      break;
+    case 'r':
+      parameters.name_reference_file = optarg;
       break;
     case 1:
       parameters.mmap_input = true;
@@ -165,6 +226,12 @@ void parse_arguments(int argc,char** argv) {
     case 5:
       parameters.make_counters = true;
       break;
+    case 6:
+      parameters.realign_hamming = true;
+      break;
+    case 7:
+      parameters.realign_levenshtein = true;
+      break;
     /* Misc */
     case 't':
       parameters.num_threads = atol(optarg);
@@ -179,6 +246,12 @@ void parse_arguments(int argc,char** argv) {
     default:
       gt_fatal_error_msg("Option not recognized");
     }
+  }
+  /*
+   * Parameters check
+   */
+  if (parameters.realign_hamming || parameters.realign_levenshtein) {
+    if (parameters.name_reference_file==NULL) gt_error_msg("Reference file required to realign");
   }
 }
 

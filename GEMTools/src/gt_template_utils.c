@@ -472,3 +472,39 @@ GT_INLINE gt_template* gt_template_intersect_template_mmaps(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_B);
   return gt_template_intersect_template_mmaps_fx(gt_mmap_cmp,gt_map_cmp,template_A,template_B);
 }
+
+/*
+ * Template realignment
+ */
+GT_INLINE void gt_template_realign_hamming(gt_template* const template,gt_sequence_archive* const sequence_archive) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+    gt_alignment_realign_hamming(alignment,sequence_archive);
+  }
+  if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
+}
+GT_INLINE void gt_template_realign_levenshtein(gt_template* const template,gt_sequence_archive* const sequence_archive) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+    gt_alignment_realign_levenshtein(alignment,sequence_archive);
+  }
+  if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
+}
+GT_INLINE void gt_template_realign_weighted(
+    gt_template* const template,gt_sequence_archive* const sequence_archive,int32_t (*gt_weigh_fx)(char*,char*)) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  GT_NULL_CHECK(gt_weigh_fx);
+  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+    gt_alignment_realign_weighted(alignment,sequence_archive,gt_weigh_fx);
+  }
+  if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
+}
+
+
+
+
+
+

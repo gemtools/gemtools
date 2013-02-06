@@ -43,9 +43,11 @@ GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_
 /*
  * Memory usage helper functions
  */
-GT_INLINE void* gt_malloc_(uint64_t const num_elements,uint64_t const size_element) {
-  register void* const allocated_mem = malloc(num_elements*size_element);
+GT_INLINE void* gt_malloc_(uint64_t const num_elements,const uint64_t size_element,const bool init_mem,const int init_value) {
+  register const uint64_t total_memory = num_elements*size_element;
+  register void* const allocated_mem = malloc(total_memory);
   gt_cond_fatal_error(!allocated_mem,MEM_HANDLER);
+  if (gt_expect_false(init_mem)) memset(allocated_mem,init_value,total_memory);
   return allocated_mem;
 }
 

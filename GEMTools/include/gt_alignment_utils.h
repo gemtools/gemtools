@@ -13,6 +13,7 @@
 #include "gt_commons.h"
 #include "gt_alignment.h"
 #include "gt_counters_utils.h"
+#include "gt_map_align.h"
 
 #include "gt_output_map.h"
 
@@ -87,5 +88,13 @@ GT_INLINE gt_alignment* gt_alignment_intersect_alignment_maps_fx(
     gt_alignment* const alignment_src_A,gt_alignment* const alignment_src_B);
 GT_INLINE gt_alignment* gt_alignment_intersect_alignment_maps(
     gt_alignment* const alignment_src_A,gt_alignment* const alignment_src_B);
+
+/*
+ * Alignment realignment
+ */
+GT_INLINE void gt_alignment_realign_hamming(gt_alignment* const alignment,gt_sequence_archive* const sequence_archive);
+GT_INLINE void gt_alignment_realign_levenshtein(gt_alignment* const alignment,gt_sequence_archive* const sequence_archive);
+GT_INLINE void gt_alignment_realign_weighted(
+    gt_alignment* const alignment,gt_sequence_archive* const sequence_archive,int32_t (*gt_weigh_fx)(char*,char*));
 
 #endif /* GT_ALIGNMENT_UTILS_H_ */

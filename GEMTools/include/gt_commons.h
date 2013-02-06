@@ -141,10 +141,11 @@ GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_
 /*
  * Memory usage helper functions
  */
-#define gt_malloc(num_elements,size_element) gt_malloc_(num_elements,sizeof(size_element))
+#define gt_malloc(num_elements,type) gt_malloc_(num_elements,sizeof(type),false,0)
 #define gt_malloc_int64() gt_malloc(1,uint64_t)
+#define gt_calloc(num_elements,type) gt_malloc_(num_elements,sizeof(type),true,0)
 
-GT_INLINE void* gt_malloc_(uint64_t const num_elements,uint64_t const size_element);
+GT_INLINE void* gt_malloc_(uint64_t const num_elements,const uint64_t size_element,const bool init_mem,const int init_value);
 
 /*
  * Print's template helpers

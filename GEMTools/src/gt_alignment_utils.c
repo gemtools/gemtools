@@ -330,3 +330,32 @@ GT_INLINE gt_alignment* gt_alignment_intersect_alignment_maps(
   return gt_alignment_intersect_alignment_maps_fx(gt_map_cmp,alignment_src_A,alignment_src_B);
 }
 
+/*
+ * Alignment realignment
+ */
+GT_INLINE void gt_alignment_realign_hamming(gt_alignment* const alignment,gt_sequence_archive* const sequence_archive) {
+  GT_ALIGNMENT_CHECK(alignment);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  GT_ALIGNMENT_ITERATE(alignment,map) {
+    gt_map_realign_hamming_sa(map,alignment->read,sequence_archive);
+  }
+  gt_alignment_recalculate_counters(alignment);
+}
+GT_INLINE void gt_alignment_realign_levenshtein(gt_alignment* const alignment,gt_sequence_archive* const sequence_archive) {
+  GT_ALIGNMENT_CHECK(alignment);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  GT_ALIGNMENT_ITERATE(alignment,map) {
+    gt_map_realign_levenshtein_sa(map,alignment->read,sequence_archive);
+  }
+  gt_alignment_recalculate_counters(alignment);
+}
+GT_INLINE void gt_alignment_realign_weighted(
+    gt_alignment* const alignment,gt_sequence_archive* const sequence_archive,int32_t (*gt_weigh_fx)(char*,char*)) {
+  GT_ALIGNMENT_CHECK(alignment);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  GT_NULL_CHECK(gt_weigh_fx);
+  GT_ALIGNMENT_ITERATE(alignment,map) {
+    gt_map_realign_weighted_sa(map,alignment->read,sequence_archive,gt_weigh_fx);
+  }
+  gt_alignment_recalculate_counters(alignment);
+}
