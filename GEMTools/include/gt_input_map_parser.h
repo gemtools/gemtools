@@ -16,7 +16,7 @@
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
 #include "gt_input_parser.h"
-//#include "gt_input_fasta_parser.h"
+#include "gt_input_fasta_parser.h"
 
 #include "gt_buffered_output_file.h"
 

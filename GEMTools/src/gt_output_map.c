@@ -60,10 +60,11 @@ GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_att
 /*
  * TAG building block printers
  */
+
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,attributes,output_attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_tag,gt_string* const tag,gt_shash* const attributes,gt_output_map_attributes* const output_attributes);
-GT_INLINE void gt_output_map_gprint_tag(gt_generic_printer* const gprinter,gt_string* const tag,gt_shash* const attributes,gt_output_map_attributes* const output_attributes) {
+GT_INLINE gt_status gt_output_map_gprint_tag(gt_generic_printer* const gprinter,gt_string* const tag,gt_shash* const attributes,gt_output_map_attributes* const output_attributes) {
   //gt_gprintf(gprinter,"%s",gt_template_get_tag(template));
   // PRIgts needed as this calls gt_string_get_string downstream, which returns the
   // full buffer not trimmed to length
@@ -86,6 +87,7 @@ GT_INLINE void gt_output_map_gprint_tag(gt_generic_printer* const gprinter,gt_st
     // print additional
     gt_gprintf(gprinter," %s", gt_string_get_string(gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)));
   }
+  return 0;
 }
 
 /*
@@ -363,7 +365,7 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   GT_TEMPLATE_CHECK(template);
   register gt_status error_code;
   // Print TAG
-  gt_output_print_tag(gprinter, template->tag, template->attributes, attributes);
+  gt_output_map_gprint_tag(gprinter, template->tag, template->attributes, attributes);
   // Print READ(s)
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register uint64_t i = 0;
@@ -407,7 +409,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   register gt_status error_code;
   // Print TAG
   //gt_gprintf(gprinter,"%s",gt_alignment_get_tag(alignment));
-  gt_output_print_tag(gprinter, alignment->tag, alignment->attributes, attributes);
+  gt_output_map_gprint_tag(gprinter, alignment->tag, alignment->attributes, attributes);
   // Print READ(s)
   gt_gprintf(gprinter,"\t%s",gt_alignment_get_read(alignment));
   // Print QUALITY

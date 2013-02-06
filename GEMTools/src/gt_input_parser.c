@@ -1,8 +1,9 @@
 /*
- * gt_input_tag_parser.c
- *
- *  Created on: Feb 4, 2013
- *      Author: thasso
+ * PROJECT: GEM-Tools library
+ * FILE: gt_input_tag_parser.c
+ * DATE: 01/06/2012
+ * AUTHOR(S): Thasso Griebel <thasso.griebel@gmail.com>
+ * DESCRIPTION: // TODO
  */
 
 #include "gt_input_parser.h"
@@ -34,9 +35,10 @@ GT_INLINE gt_status gt_input_parse_tag(char** const text_line, gt_string* const 
 			gt_string_set_length(tag,tag_length-2);
 			*pair = 1;
 		} else if (tag_end=='2') {
-		    gt_string_set_length(tag,tag_length-2);
-		    *pair = 2;
+      gt_string_set_length(tag,tag_length-2);
+      *pair = 2;
 		}
+		gt_string_append_eos(tag);
 	}
 
 	if (gt_expect_true(**text_line==SPACE)) {

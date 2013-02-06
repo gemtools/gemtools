@@ -54,7 +54,7 @@ GT_INLINE void gt_output_fasta_attributes_set_foramt(gt_output_fasta_attributes*
  */
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS is_fasta,tag,attributes,output_attributes
-GT_INLINE void gt_output_gprint_fasta_tag(gt_generic_printer* const gprinter,bool const is_fasta,gt_string* const tag,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes) {
+GT_INLINE gt_status gt_output_fasta_gprint_tag(gt_generic_printer* const gprinter,bool const is_fasta,gt_string* const tag,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes) {
   //gt_gprintf(gprinter,"%s",gt_template_get_tag(template));
   // PRIgts needed as this calls gt_string_get_string downstream, which returns the
   // full buffer not trimmed to length
@@ -81,6 +81,7 @@ GT_INLINE void gt_output_gprint_fasta_tag(gt_generic_printer* const gprinter,boo
       gt_gprintf(gprinter," %s", gt_string_get_string(gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)));
   }
   gt_gprintf(gprinter, "\n");
+  return 0;
 }
 
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
@@ -91,7 +92,7 @@ GT_INLINE gt_status gt_output_fasta_gprint_fasta(
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
   GT_STRING_CHECK(read);
-  gt_output_print_fasta_tag(gprinter, true, tag, attributes, output_attributes);
+  gt_output_fasta_gprint_tag(gprinter,true,tag,attributes,output_attributes);
   //gt_gprintf(gprinter,">"PRIgts"\n",PRIgts_content(tag));
   gt_gprintf(gprinter,PRIgts"\n",PRIgts_content(read));
   // TODO attributes
@@ -107,7 +108,7 @@ GT_INLINE gt_status gt_output_fasta_gprint_fastq(
   GT_STRING_CHECK(tag);
   GT_STRING_CHECK(read);
   //gt_gprintf(gprinter,"@"PRIgts"\n",PRIgts_content(tag));
-  gt_output_print_fasta_tag(gprinter, false, tag, attributes, output_attributes);
+  gt_output_fasta_gprint_tag(gprinter, false, tag, attributes, output_attributes);
   gt_gprintf(gprinter,PRIgts"\n",PRIgts_content(read));
   if (!gt_string_is_null(qualities)) {
     gt_gprintf(gprinter,"+\n"PRIgts"\n",PRIgts_content(qualities));

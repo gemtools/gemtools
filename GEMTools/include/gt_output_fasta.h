@@ -48,7 +48,7 @@ GT_INLINE void gt_output_fasta_attributes_set_format(gt_output_fasta_attributes*
 /*
  * FASTA building block printers
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_fasta_tag,bool const is_fasta,gt_string* const tag,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_tag,bool const is_fasta,gt_string* const tag,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_fasta,gt_string* const tag,gt_string* const read,gt_shash* attributes, gt_output_fasta_attributes* const output_attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_fastq,gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_shash* attributes, gt_output_fasta_attributes* const output_attributes);
 /*

@@ -26,6 +26,7 @@ typedef struct {
   /* [Output] */
   bool output_attributes;
   bool verbose;
+  bool compact;
   bool quiet;
   /* [Misc] */
   uint64_t num_threads;
