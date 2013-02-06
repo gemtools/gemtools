@@ -21,7 +21,7 @@ LOG_STDERR = 2
 log_output = LOG_NOTHING
 logging.basicConfig(format='%(asctime)-15s %(levelname)s: %(message)s', level=logging.WARN)
 
-_trim_qualities = False
+
 default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
 extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
     ("GC", "AG"), ("CT", "GC"),
@@ -43,7 +43,16 @@ __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\
 
 
 class execs_dict(dict):
-    """Helper dictionary that resolves bundled binaries"""
+    """Helper dictionary that resolves bundled binaries
+    based on the configuration. We check first for GEM_PATH
+    environment variable. If its set, and points to a directory with
+    the executable, the path to that executable is returned.
+    Next, we check the use_bundled_executable flag. If that is true(default)
+    the path to the bundled executable is returned.
+    If nothing is found, the plain executable name is returned and we
+    assume it can be found in PATH
+
+    """
     def __getitem__(self, item):
         # check if there is an environment variable set
         # to specify the path to the GEM executables
@@ -95,214 +104,27 @@ def loglevel(level):
         log_output = LOG_STDERR
 
 
-class Read(object):
-    """A single read. The read info covers
-    its id, the raw sequence, qualities, the mapping summary
-    and the actual mappings. Qualities, the summary, and the mappings
-    are optional.
-
-    The read can be transformed to GEM input using the to_sequence
-    method. The __str__ implementation returns the GEM representation.
-    """
-
-    __max_mappings_string = "%d" % _max_mappings
-
-    def __init__(self):
-        """Create a new empty read the is supposed to be used as a
-        container
-        """
-        self.id = None
-        self.sequence = None
-        self.qualities = None
-        self.summary = None
-        self.mappings = None
-        self.line = None
-        self.type = None
-        self.template = None
-        self.__template_initialized = False
-
-    def fill(self, other):
-        """Fill this read with the content of another read"""
-        self.id = other.id
-        self.sequence = other.sequence
-        self.qualities = other.qualities
-        self.summary = other.summary
-        self.mappings = other.mappings
-        self.line = other.line
-        self.type = other.type
-        self.__template_initialized = False
-
-    def min_mismatches(self):
-        """Parse the mismatch string and return the minimum number
-        of mismatches of the first mapping found
-        or return -1 if no mapping was found
-        """
-        ## get the mappings
-        mismatches = -1
-        if self.summary is None:
-            return -1
-        if self.summary in ["-", "*", "+", "!"]:
-            return -1
-
-        for idx, s in enumerate(utils.multisplit(self.summary, [':', '+'])):
-            try:
-                if int(s) > 0:
-                    mismatches = idx
-                    break
-            except Exception, e:
-                print "Error unable to parse from line\n%s" % (self.line)
-                raise e
-        return mismatches
-
-    def length():
-        """Return read sequence length"""
-        seq = self.sequence.split(" ")
-        return len(s)
-
-    def get_maps(self):
-        if self.summary == None or self.summary in ['-', '*']:
-            return ([0], ["-"])
-        elif self.summary in ['+', '!']:
-            return ([_max_mappings], ["-"])
-
-        sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
-        maps = self.mappings.split(',')
-        return (sums, maps)
-
-
-    def _get_template(self):
-        if self.template is None:
-            self.template = gt.Template()
-        if not self.__template_initialized:
-            try:
-                self.template.fill(self.line)
-            except Exception, e:
-                print "ERROR PARSING "+self.line
-                raise e
-        return self.template
-
-    def merge(self, other):
-        """Merge the other read into this one
-        NOTE that this currently works only
-        for GEM reads
-        """
-        line = gt.merge_templates(self._get_template(), other._get_template())
-        if line is not None and len(line) > 0:
-            self.fill(files.parse_map().line2read(line))
-
-
-    def to_map(self, no_max_mappings=False):
-
-        if not no_max_mappings or self.summary != Read.__max_mappings_string:
-            return str(self)
-        self.summary = "0"
-        l = str(self)
-        self.summary = Read.__max_mappings_string
-        return l
-
-
-    def __str__(self):
-        """Returns GEM string representation of the reads"""
-        if self.qualities is None:
-            return "%s\t%s\t%s\t%s" % (self.id,
-                                       self.sequence,
-                                       self.summary,
-                                       self.mappings)
-        else:
-            return "%s\t%s\t%s\t%s\t%s" % (self.id,
-                                           self.sequence,
-                                           self.qualities,
-                                           self.summary,
-                                           self.mappings)
-
-    def to_sequence(self):
-        """Convert to sequence format. FastQ or FastA depending
-        on qualities"""
-        ## add support for paired reads
-        isPaired = self.sequence.find(" ") >=0
-        sequence_split = None
-        append1 = ""
-        append2 = ""
-        if isPaired:
-            append1 = "/1"
-            append2 = "/2"
-            sequence_split = self.sequence.split(" ")
-
-        if self.qualities is None:
-            ## print fasta
-            if isPaired:
-                return ">%s%s\n%s\n>%s%s\n%s" % (self.id, append1, sequence_split[0], self.id, append2, sequence_split[1])
-            return ">%s\n%s" % (self.id, self.sequence)
-        else:
-            return self.to_fastq()
-
-
-    def to_fastq(self):
-        """Convert to sequence format. FastQ or FastA depending
-        on qualities"""
-        ## add support for paired reads
-        isPaired = self.sequence.find(" ") >=0
-        sequence_split = None
-        quality_split = None
-        append1 = ""
-        append2 = ""
-        if isPaired:
-            append1 = "/1"
-            append2 = "/2"
-            sequence_split = self.sequence.split(" ")
-            if self.qualities is not None:
-                quality_split = self.qualities.split(" ")
-            else:
-                quality_split = [None, None]
-        if isPaired:
-            r1 = self._to_fastq(self.id+append1, sequence_split[0], quality_split[0], _trim_qualities)
-            r2 = self._to_fastq(self.id+append2, sequence_split[1], quality_split[1], _trim_qualities)
-            return "%s\n%s" % (r1, r2)
-        return "%s" % self._to_fastq(self.id, self.sequence, self.qualities, _trim_qualities)
-
-
-    def _to_fastq(self, id, sequence, qualities, trim_qualities=False):
-        """Convert to Fastq and fakes qualities if they are not present"""
-        if len(sequence) <= 0:
-            raise ValueError("Sequence length is < 0 for : \n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
-
-        ## do a sanity check for sequence and quality lengths
-        if qualities is None or len(qualities) == 0:
-            ## fake the qualities
-            qualities = '[' * len(sequence)
-
-        if len(sequence) != len(qualities) and qualities is not None:
-            if trim_qualities:
-                ql = len(qualities)
-                sl = len(sequence)
-                if ql < sl:
-                    # extend qualities
-                    qualities = "%s%s" % (qualities, ('[' * (sl - ql)))
-                else:
-                    # cut qualities
-                    qualities = qualities[:(sl - ql)]
-            else:
-                raise ValueError(
-                    "Different sequence and quality sizes for :\n%s\n%s\n%s" % (id, sequence, qualities))
-        return "@%s\n%s\n+\n%s" % (id, sequence, qualities)
-
-
-    def length(self):
-        if self.sequence.find(" ") >=0:
-            return len(self.sequence.split(" ")[0])
-        return len(self.sequence)
-
-
 def _prepare_index_parameter(index, gem_suffix=True):
+    """Prepares the index file and checks that the index
+    exists. The function throws a IOError if the index file
+    can not be found.
+
+    index      -- the path to the index file
+    gem_suffix -- if true, the function ensures that the index ends in .gem,
+                  otherwise, it ensures that the .gem suffix is removed.
+
+    """
     if index is None:
         raise ValueError("No valid GEM index specified!")
     if not isinstance(index, basestring):
         raise ValueError("GEM index must be a string")
     file_name = index
+
     if not file_name.endswith(".gem"):
         file_name = file_name + ".gem"
+
     if not os.path.exists(file_name):
-        raise ValueError("Index file not found : %s" % file_name)
+        raise IOError("Index file not found : %s" % file_name)
 
     if gem_suffix:
         if not index.endswith(".gem"):
@@ -314,11 +136,14 @@ def _prepare_index_parameter(index, gem_suffix=True):
 
 
 def _prepare_splice_consensus_parameter(splice_consensus):
-    """
-    Convert the splice consensus tuple to
+    """Convert the splice consensus tuple to
     valid gem parameter input.
+
     If the given splice_consensus is None, the
     default splice consensus is used
+
+    splice_consensus -- if string, it is just passed on, if its a list of tuples like ("A", "G") it
+                        is translated into gem representation
     """
     if splice_consensus is None:
         splice_consensus = default_splice_consensus
@@ -331,61 +156,57 @@ def _prepare_splice_consensus_parameter(splice_consensus):
 
 
 def _prepare_quality_parameter(quality):
+    """Prepare and returnn the quality parameter for gem runs. If the
+    input is None, qualities are disabled, if it is a string and
+    valid parameter it is returned as is. Otherwise it as to be 33
+    or 64 and will be translated to a valid gem parameter
+
+    quality -- the quality offset, 33|64, None to ignore or a string that
+                is either offset-33|offset-64|ignore
+    """
     ## check quality
     if quality is not None and quality in ["offset-33", "offset-64", "ignore"]:
         return quality
     if quality is not None and quality not in ["none", "ignore"]:
-        quality = "offset-%d" % quality
+        i = int(quality)
+        if i not in [33, 64]:
+            raise ValueError("%s is not a valid quality value, try None, 33 or 64" % (str(quality)))
+        quality = "offset-%d" % int(quality)
     else:
         quality = 'ignore'
 
     return quality
 
 
-def _write_sequence_file(input, tmpdir=None):
-    """Takes a Read sequence and writes it to a tempfile
-    in fastq or fasta format
-    """
-    (fifo, inputfile) = tempfile.mkstemp(suffix=".fastq", prefix="mapper_input", dir=tmpdir)
-    fifo = open(inputfile, 'w')
-    ## the splitmapper does not support fifo or piping from stdin
-    ## so we have to write a tmp file
-    count = 0
-    try:
-        for l in input:
-            fifo.write(l.to_fastq())
-            fifo.write("\n")
-            count += 1
-        fifo.close()
-    except:
-        fifo.close()
-        ## kill the process
-        os.unlink(inputfile)
-        raise
-    return inputfile, count
+def _prepare_output(process, output=None, quality=None):
+    """Creates a new gem.gemtools.Inputfile from the given process.
+    If output is specivied, the function blocks and waits for the process to finish
+    successfully before the InputFile is created on the specified output.
 
+    Otherwise, a stream based InputFile is created using the process stdout
+    stream.
 
-def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False, quality=None, raw=False):
-    """If output is not None, this waits for the process to
-    finish and opens a ReadIterator
-    on the output file using the given type.
-    If output is not given, this opens a ReadIterator on the
-    stdout stream of the process.
+    If quality is specified it is passed on to the input file.
+
+    process -- the process
+    output  -- output file name or None when process stdout should be used
+    quality -- optional quality that is passed to the InputFile
     """
     if output is not None:
         # we are writing to a file
         # wait for the process to finish
         if process is not None and process.wait() != 0:
-            raise ValueError("%s execution failed!" % name)
-        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
+            raise ValueError("Execution failed!")
+        return gt.InputFile(file_name=output, quality=quality, process=process)
     else:
         ## running in async mode, return iterator on
         ## the output stream
-        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
+        return gt.InputFile(stream=process.stdout, quality=quality, process=process)
 
 
 def validate_executables():
-    """Validate the gem executables
+    """Validate the gem executables and
+    print the paths to the executables in use
     """
     for exe, path in executables.items():
         path = executables[exe]

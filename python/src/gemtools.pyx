@@ -171,24 +171,59 @@ cdef class OutputFile:
         self.close()
 
 
-cdef class InputFile:
+cdef class InputFile(TemplateIterator):
     """GEMTools input file. The input file extends TemplateIterator
     and can be used directly to iterate templates. To access the underlying
     alignment, use the alignments() function to get an alignment iterator.
     """
-    cdef readonly char* file_name
-    cdef readonly bool paired_reads
+    cdef readonly object file_name
+    cdef readonly bool force_paired_reads
     cdef readonly bool mmap_file
+    cdef TemplateIterator iterator
+    cdef readonly object process
+    cdef readonly object stream
+    cdef readonly object quality
 
-    def __init__(self, file_name, bool mmap_file=True, bool paired_reads=False):
-        self.file_name = file_name
-        self.paired_reads = paired_reads
+
+    def __init__(self,
+        file_name=None,
+        object stream=None,
+        bool mmap_file=True,
+        bool force_paired_reads=False,
+        object quality=None,
+        object process=None
+        ):
+        if file_name is not None:
+            self.file_name = file_name
+        else:
+            self.file_name = None
+
+        self.force_paired_reads = force_paired_reads
         self.mmap_file = mmap_file
-        if file_name.endswith(".gz") or file_name.endswith(".bz2"):
+        self.process = process
+        self.stream = stream
+        self.raw = raw
+        self.quality = quality
+        if file_name is None or file_name.endswith(".gz") or file_name.endswith(".bz2"):
             self.mmap_file = False
 
     cdef gt_input_file* _input_file(self):
-        return gt_input_file_open(self.file_name, self.mmap_file)
+        if self.file_name is not None:
+            return gt_input_file_open(<char*>self.file_name, self.mmap_file)
+        else:
+            if self.stream is not None:
+                return gt_input_stream_open(PyFile_AsFile(self.stream))
+
+    cdef gt_status _next(self):
+        if self.iterator is None:
+            self.iterator = self._templates()
+        return self.iterator._next()
+
+    def raw_stream(self):
+        if self.stream is not None:
+            return self.stream
+        else:
+            return open(self.file_name, "rb")
 
     def templates(self):
         return self._templates()
@@ -207,7 +242,7 @@ cdef class InputFileTemplateIterator(TemplateIterator):
 
     def __cinit__(self, InputFile input_file):
         self.input_file = input_file._input_file()
-        cdef gt_generic_parser_attr* gp = gt_input_generic_parser_attributes_new(False)
+        cdef gt_generic_parser_attr* gp = gt_input_generic_parser_attributes_new(input_file.force_paired_reads)
         self.parser_attr = gp
         self.template = Template()
         #
@@ -277,6 +312,10 @@ cdef class Template:
             gt_template_set_tag(self.template, value, len(value))
 
     property blocks:
+        def __get__(self):
+            return gt_template_get_num_blocks(self.template)
+
+    property num_alignments:
         def __get__(self):
             return gt_template_get_num_blocks(self.template)
 

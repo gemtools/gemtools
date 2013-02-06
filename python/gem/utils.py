@@ -1,5 +1,11 @@
 #!/usr/bin/env python
-"""Gem tools utilities
+"""Gem tools utilities and methods
+to start external gem processes
+
+In addition, the utilities class currently hosts
+the command environment. If you want
+to create a new gemtools command, create a subclass
+of gem.utils.Command.
 """
 from Queue import Queue
 import os
@@ -16,171 +22,106 @@ import sys
 import datetime
 import time
 
+
 class Timer(object):
-    """Helper class to take runtimes"""
+    """Helper class to take runtimes
+    To use this, create a new instance. The timer is
+    started at creation time. Call stop() to stop
+    timing. The time is logged to info level by default.
+
+    For example:
+
+        timer = Timer()
+        ...<long running process>
+        time.stop("Process finished in %s")
+    """
     def __init__(self):
+        """Create a new time and initialie it
+        with current time"""
         self.start_time = time.time()
 
-    def stop(self, message):
+    def stop(self, message, loglevel="info"):
+        """Stop timing and print result to logger.
+        NOTE you have to add a "%s" into your message string to
+        print the time
+        """
         end = datetime.timedelta(seconds=int(time.time() - self.start_time))
         if message is not None:
-            logging.info(message % (str(end)))
+            if loglevel is not None:
+                ll = loglevel.upper()
+                if ll == "info":
+                    logging.info(message % (str(end)))
+                elif ll == "warning":
+                    logging.warning(message % (str(end)))
+                elif ll == "error":
+                    logging.error(message % (str(end)))
+                elif ll == "debug":
+                    logging.error(message % (str(end)))
+
 
 class CommandException(Exception):
+    """Exception thrown by gemtools commands"""
     pass
 
 
 class Command(object):
     """Command base class to be registered
-    with the gem tools main command
+    with the gemtools main command. The command
+    implementation has to implement two methods.
+
+    register() which is called with the argparse parser to
+    register new command line options, and
+    run() wich is called with the parsed arguments.
     """
     def register(self, parser):
+        """Add new command line options to the passed
+        argparse parser
+
+        parser -- the argparse parser
+        """
         pass
+
     def run(self, args):
+        """Run the command
+
+        args -- the parsed arguments"""
         pass
 
 
-class ProcessWrapper(object):
-    def __init__(self, _parent, _threads, stdout=None):
-        self._parent = _parent
-        self._threads = _threads
-        self.stdout = _parent.stdout
-        self.stderr = _parent.stderr
-        self.stdin = _parent.stdin
-        if stdout is not None:
-            self.stdout = stdout
+# complement translation
+__complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
 
-    def wait(self):
-        if self._threads is not None:
-            for t in self._threads:
-                t.join()
-        return self._parent.wait()
-
-
-class StreamWrapper(object):
-    def __init__(self):
-        self.queue = Queue()
-        self.__closed = False
-        self.__written = 0
-        self.__read = 0
-
-    def write(self, e):
-        self.__written += 1
-        self.queue.put(e)
-
-
-    def readline(self, timeout=None):
-        if self.__closed and self.__read == self.__written:
-            return None
-
-        if timeout is None:
-            timeout = 1
-        line = None
-        try:
-            line = self.queue.get(timeout=timeout)
-        except Exception, e:
-            if not self.__closed:
-                if timeout > 30:
-                    raise e
-                else:
-                    return self.readline(timeout=timeout*2)
-        self.__read += 1
-        return line
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        line = self.readline()
-        if line is None:
-            raise StopIteration()
-        return line
-
-    def close(self):
-        self.__closed = True
-
-
-def read_to_sequence(read):
-    """
-    Transform the Read to a fasta/fastq seqeucen
-    @param read: the read
-    @type read: Read
-    @return: fasta/q sequence representation
-    @rtype: string
-    """
-    return "%s\n" % read.to_sequence()
-
-
-def read_to_map(read):
-    """
-    Transform the Read to a gem map line
-    @param read: the read
-    @type read: Read
-    @return: fasta/q sequence representation
-    @rtype: string
-    """
-    if read.type == "map" and read.line is not None:
-        return "%s\n" % read.line
-    return "%s\n" % str(read)
-
-
-def __parse_error_output(stream, name="Tool"):
-    """Parse the GEM error output stream and
-    if 'error' occurs exists"""
-    logging.debug("Error thread started for %s %s" % (name, stream))
-    for line in stream:
-        line = line.rstrip()
-        if re.search("error", line):
-            logging.error("%s raised an error !\n%s\n" % (name, line))
-            exit(1)
-    logging.debug("Error thread method finished for %s %s" % (name, stream))
-
-
-complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
 
 def reverseComplement(sequence):
-    """Returns the reverse complement of the given sequence"""
-    return sequence.translate(complement)[::-1]
+    """Returns the reverse complement of the given DNA/RNA sequence"""
+    return sequence.translate(__complement)[::-1]
 
 
-def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None
-              , raw_stream=False, path=None):
+def run_tools(tools, input=None, output=None, write_map=False, clean_id=True, append_extra=True, name=""):
     """
-    Run the tools defined in the tools list using a new process per tools.
-    The input is a ReadIterator and the method checks
-    if the input comes from a file and can be used directly. If that
-    is the case, the input file is passed to the
-    parameters using '-i' parameter. If its not the case, a new Thread
-    is used to pipe the input to the tool.
-    IF multiple tools are specified the stdout and stdin streams are connected
-    automatically
+    Run the tools defined in the tools list using a new process per tool.
+    The input must be a gem.gemtools.TemplateIterator that is used to get
+    the input templates and write their string representation to the
+    first process.
 
+    The parameters 'write_map', clean_id', and 'append_extra' can be used to configure the
+    output stream. If write_map is True, the output will be written
+    in gem format, otherwise, it is transformed to fasta/fastq.
+    If clean_id is set to True, the read pair information is always encoded as /1 /2 and
+    any casava 1.8 information is dropped. If append_extra is set to False, no additional
+    information will be printed to the read tag
 
-    @param params: the parameter list
-    @type params: list
-    @param input: optional input sequence that is passed through stdin
-    @type input: sequence
-    @param output: a string that is used as a log file for stdout of the process or None
-    @type output: sequence
-    @param name: optional name of the executied tool
-    @type name: string
-    @param name: optional transformation function that is used if
-    @type name: string
-    @param logfile: optional path to the log file
-    @type logfile: string
-    @raise: ValueError in case the execution failed
+    If output is a string or an open file handle, the
+    stdout of the final process is piped to that file.
 
+    tools        -- the list of tools to run. This is a list of lists.
+    input        -- the input TemplateIterator
+    output       -- optional output file name or open, writable file handle
+    write_map    -- if true, write input in gem format
+    clean_id     -- it true, /1 /2 pair identifiers are enforced
+    append_extra -- if false, no additional information is printed in tag
+    name         -- optional name for this process group
     """
-
-    ## helper function to append a logger thread per process
-    def append_logger(process, logfile):
-        if logfile is None:
-            tools_name = None
-            if name:
-                tools_name = name
-            logging.debug("Appending stderr read thread to watch for errors in %s" % process)
-            err_thread = Thread(target=__parse_error_output, args=(process.stderr, tools_name,))
-            err_thread.start()
 
     process_in = None
     process_out = None
@@ -188,7 +129,7 @@ def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_seq
 
     ## handle input stream
     if input is not None:
-        if raw_stream and isinstance(input, gem.files.ReadIterator):
+        if isinstance(input, gem.files.ReadIterator):
             process_in = input.stream
         else:
             process_in = subprocess.PIPE
