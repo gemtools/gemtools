@@ -54,18 +54,31 @@ GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_sequence(gt_sequence_ar
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
   return gt_shash_get(seq_archive->sequences,seq_id,gt_segmented_sequence);
 }
+
+/*
+ * SequenceARCHIVE High-level Retriever
+ */
 GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
-    gt_sequence_archive* const seq_archive,char* const seq_id,
+    gt_sequence_archive* const seq_archive,char* const seq_id,const gt_strand strand,
     const uint64_t position,const uint64_t length,gt_string* const string) {
+  // Retrieve the segmented sequence
   register gt_segmented_sequence* seg_seq = gt_sequence_archive_get_sequence(seq_archive,seq_id);
   if (seg_seq==NULL) {
     gt_error(SEQ_ARCHIVE_NOT_FOUND);
     return GT_SEQ_ARCHIVE_NOT_FOUND;
   }
-  return gt_segmented_sequence_get_sequence(seg_seq,position,length,string);
+  // Get the actual sequence string
+  register gt_status error_code;
+  if (!(error_code=gt_segmented_sequence_get_sequence(seg_seq,position,length,string))) return error_code;
+  // RC if needed
+  if (strand==REVERSE) gt_dna_string_reverse_complement(string);
+  return 0;
 }
 
 
+/*
+ * SequenceARCHIVE sorting functions
+ */
 int gt_sequence_archive_lexicographical_sort_fx(char *a,char *b) {
   /*
    * return (int) -1 if (a < b)

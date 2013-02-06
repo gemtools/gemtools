@@ -25,8 +25,8 @@ GT_INLINE gt_status gt_map_check_alignment_sa(
   register const uint64_t pattern_length = gt_map_get_length(map);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   register gt_status error_code;
-  if ((error_code=gt_sequence_archive_get_sequence_string(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_position(map),pattern_length,sequence))) return error_code;
+  if ((error_code=gt_sequence_archive_get_sequence_string(sequence_archive,gt_map_get_seq_name(map),
+      gt_map_get_strand(map),gt_map_get_position(map),pattern_length,sequence))) return error_code;
   // Realign Hamming
   return gt_map_realign_hamming(map,
       gt_string_get_string(pattern),gt_string_get_string(sequence),pattern_length);
@@ -61,19 +61,10 @@ GT_INLINE gt_status gt_map_realign_hamming_sa(
   register const uint64_t pattern_length = gt_string_get_length(pattern);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   register gt_status error_code;
-  if ((error_code=gt_sequence_archive_get_sequence_string(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_position(map),pattern_length,sequence))) return error_code;
+  if ((error_code=gt_sequence_archive_get_sequence_string(sequence_archive,gt_map_get_seq_name(map),
+      gt_map_get_strand(map),gt_map_get_position(map),pattern_length,sequence))) return error_code;
   // Realign Hamming
   return gt_map_realign_hamming(map,gt_string_get_string(pattern),gt_string_get_string(sequence),pattern_length);
-}
-
-GT_INLINE void gt_map_dp_matrix_print(uint32_t* const dp_array,const uint64_t pattern_length,const uint64_t sequence_length) {
-  register uint64_t i, j;
-  for (i=0;i<=sequence_length;++i) {
-    for (j=0;j<=pattern_length;++j) {
-// TODO
-    }
-  }
 }
 
 #define GT_DP(i,j) dp_array[i*pattern_length+j]
@@ -100,21 +91,36 @@ GT_INLINE void gt_map_dp_matrix_print(uint32_t* const dp_array,const uint64_t pa
     gt_map_get_misms(map,num_misms-1)->size+=length; \
   } \
 }
+
+GT_INLINE void gt_dp_matrix_display(uint64_t* const dp_array,const uint64_t pattern_length,const uint64_t sequence_length) {
+  register uint64_t i, j;
+  for (j=0;j<=pattern_length;++j) {
+    for (i=0;i<=sequence_length;++i) {
+      fprintf(stderr,"%lu  ",GT_DP(i,j));
+    }
+    fprintf(stderr,"\n");
+  }
+  fprintf(stderr,"\n");
+}
+
 GT_INLINE gt_status gt_map_realign_levenshtein(
-    gt_map* const map,char* const pattern,const uint64_t pattern_length,
-    char* const sequence,const uint64_t sequence_length) {
+    gt_map* const map,char* const pattern,uint64_t pattern_length,
+    char* const sequence,uint64_t sequence_length) {
   GT_MAP_CHECK(map);
   GT_NULL_CHECK(pattern); GT_ZERO_CHECK(pattern_length);
   GT_NULL_CHECK(sequence); GT_ZERO_CHECK(sequence_length);
   // Clear map misms
   gt_map_clear_misms(map);
-  register uint32_t* dp_array = gt_calloc((pattern_length+1)*(sequence_length+1),uint32_t);
-  register uint32_t min_val = UINT32_MAX;
+  // Allocate DP matrix
+  register uint64_t* dp_array = gt_calloc((pattern_length+1)*(sequence_length+1),uint64_t);
+  register uint64_t min_val = UINT32_MAX;
   register uint64_t i, j, i_pos = UINT64_MAX;
   // Calculate DP-Matrix
+  gt_dp_matrix_display(dp_array,20,20);
   for (i=0;i<=sequence_length;++i) GT_DP(i,0)=i;
   for (j=0;j<=pattern_length;++j) GT_DP(0,j)=j;
   for (i=1;i<=sequence_length;++i) {
+    gt_dp_matrix_display(dp_array,20,20);
     for (j=1;j<=pattern_length;++j) {
       register const uint32_t ins = GT_DP(i-1,j) + 1;
       register const uint32_t del = GT_DP(i,j-1) + 1;
@@ -175,7 +181,7 @@ GT_INLINE gt_status gt_map_realign_levenshtein_sa(
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   register gt_status error_code;
   if ((error_code=gt_sequence_archive_get_sequence_string(
-      sequence_archive,gt_map_get_seq_name(map),gt_map_get_position(map),
+      sequence_archive,gt_map_get_seq_name(map),gt_map_get_position(map),gt_map_get_strand(map),
       pattern_length+GT_MAP_REALIGN_EXPANSION_FACTOR*pattern_length,sequence))) return error_code;
   // Realign Levenshtein
   return gt_map_realign_levenshtein(map,gt_string_get_string(pattern),pattern_length,
@@ -197,7 +203,7 @@ GT_INLINE gt_status gt_map_realign_weighted_sa(
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   register gt_status error_code;
   if ((error_code=gt_sequence_archive_get_sequence_string(
-      sequence_archive,gt_map_get_seq_name(map),gt_map_get_position(map),
+      sequence_archive,gt_map_get_seq_name(map),gt_map_get_position(map),gt_map_get_strand(map),
       pattern_length+GT_MAP_REALIGN_EXPANSION_FACTOR*pattern_length,sequence))) return error_code;
   // Realign Weighted
   return gt_map_realign_weighted(map,gt_string_get_string(pattern),pattern_length,
