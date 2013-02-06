@@ -27,6 +27,9 @@ cdef extern from "gem_tools.h":
     ctypedef struct gt_vector:
         pass
 
+    ctypedef struct gt_string:
+        pass
+
     # input file
     ctypedef struct gt_input_file:
         pass
@@ -69,13 +72,24 @@ cdef extern from "gem_tools.h":
     ctypedef struct gt_sam_parser_attr:
         bool sam_soap_style
 
+    ctypedef struct gt_map_parser_attr:
+        bool read_paired
+        uint64_t max_parsed_maps
+        gt_string* src_text
+
     # generic parser
     ctypedef struct gt_generic_parser_attr:
         gt_sam_parser_attr sam_parser_attr
-        uint64_t max_matches
-        bool paired_read
+        gt_map_parser_attr map_parser_attr
 
-    gt_generic_parser_attr* gt_generic_parser_attr_new(bool sam_soap_style, uint64_t max_matches, bool paired_read)
+
+    gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool  paired_read)
+    void gt_input_generic_parser_attributes_reset_defaults(gt_generic_parser_attr*  attributes)
+    void gt_input_generic_parser_attributes_set_defaults(gt_generic_parser_attr*  attributes)
+    bool gt_input_generic_parser_attributes_is_paired(gt_generic_parser_attr*  attributes)
+    void gt_input_generic_parser_attributes_set_paired(gt_generic_parser_attr*  attributes, bool is_paired)
+
+
     gt_status gt_input_generic_parser_get_alignment(gt_buffered_input_file* buffered_input,gt_alignment* alignment, gt_generic_parser_attr* attributes)
     gt_status gt_input_generic_parser_get_template(gt_buffered_input_file* buffered_input,gt_template* template,gt_generic_parser_attr* attributes)
 
@@ -147,12 +161,58 @@ cdef extern from "gem_tools.h":
     bool gt_template_get_not_unique_flag(gt_template*  template)
     void gt_template_set_not_unique_flag(gt_template* template,bool is_not_unique)
 
-    # fasta printer
+    # output printer support
     enum gt_file_fasta_format:
         F_FASTA
         F_FASTQ
         F_MULTI_FASTA
-    gt_status gt_output_fasta_bofprint_template(gt_buffered_output_file* output_buffer, gt_file_fasta_format fasta_format, gt_template* template)
 
-    # map printer
-    gt_status gt_output_map_bofprint_template(gt_buffered_output_file* buffered_output_file, gt_template* template, uint64_t max_printable_maps, bool print_scores)
+
+
+    # map output attributes
+    ctypedef struct gt_output_map_attributes:
+        bool print_scores
+        uint64_t max_printable_maps
+        bool print_extra
+        bool print_casava
+
+    gt_output_map_attributes* gt_output_map_attributes_new()
+    void gt_output_map_attributes_delete(gt_output_map_attributes* attributes)
+    void gt_output_map_attributes_reset_defaults(gt_output_map_attributes* attributes)
+    bool gt_output_map_attributes_is_print_scores(gt_output_map_attributes* attributes)
+    void gt_output_map_attributes_set_print_scores(gt_output_map_attributes* attributes, bool print_scores)
+    bool gt_output_map_attributes_is_print_extra(gt_output_map_attributes* attributes)
+    void gt_output_map_attributes_set_print_extra(gt_output_map_attributes* attributes, bool print_extra)
+    bool gt_output_map_attributes_is_print_casava(gt_output_map_attributes* attributes)
+    void gt_output_map_attributes_set_print_casava(gt_output_map_attributes* attributes, bool print_casava)
+    uint64_t gt_output_map_attributes_get_max_printable_maps(gt_output_map_attributes* attributes)
+    void gt_output_map_attributes_set_max_printable_maps(gt_output_map_attributes* attributes, uint64_t max_printable_maps)
+
+    ctypedef struct gt_fasta_file_format:
+        pass
+
+    ctypedef struct gt_output_fasta_attributes:
+        bool print_extra
+        bool print_casava
+        gt_fasta_file_format* format
+
+    gt_output_fasta_attributes* gt_output_fasta_attributes_new()
+    void gt_output_fasta_attributes_delete(gt_output_fasta_attributes* attributes)
+    void gt_output_fasta_attributes_reset_defaults(gt_output_fasta_attributes* attributes)
+    bool gt_output_fasta_attributes_is_print_extra(gt_output_fasta_attributes* attributes)
+    void gt_output_fasta_attributes_set_print_extra(gt_output_fasta_attributes* attributes, bool print_extra)
+    bool gt_output_fasta_attributes_is_print_casava(gt_output_fasta_attributes* attributes)
+    void gt_output_fasta_attributes_set_print_casava(gt_output_fasta_attributes* attributes, bool print_casava)
+    gt_file_fasta_format gt_output_fasta_attributes_get_format(gt_output_fasta_attributes* attributes)
+    void gt_output_fasta_attributes_set_format(gt_output_fasta_attributes* attributes, gt_file_fasta_format format)
+
+    ## print fastq/fasta
+    gt_status gt_output_fasta_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment, gt_output_fasta_attributes* output_attributes)
+    gt_status gt_output_fasta_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template, gt_output_fasta_attributes* output_attributes)
+
+    ## print map
+    gt_status gt_output_map_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template,gt_output_map_attributes* attributes)
+    gt_status gt_output_map_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment,gt_output_map_attributes* attributes)
+
+
+

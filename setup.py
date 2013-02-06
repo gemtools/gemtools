@@ -1,14 +1,21 @@
-import os
-try:
-    import setuptools
-except:
-    from ez_setup import use_setuptools
-    use_setuptools()
+from distribute_setup import use_setuptools
+use_setuptools()
 
-from setuptools import setup, Command
-from distutils.core import Extension
+
+import os
+# try:
+#     import setuptools
+# except:
+#     from ez_setup import use_setuptools
+#     use_setuptools()
+
+# from setuptools import setup, Command
+from distutils.core import setup, Command
+from distutils.extension import Extension
+from Cython.Distutils import build_ext as _build_ext
+#from distutils.command.install import install as _install
 from setuptools.command.install import install as _install
-from setuptools.command.build_ext import build_ext as _build_ext
+#from setuptools.command.build_ext import build_ext as _build_ext
 
 
 import subprocess
@@ -17,11 +24,11 @@ import tempfile
 import shutil
 
 
-__VERSION_MAJOR="1"
-__VERSION_MINOR="6"
-__VERSION__="%s.%s" %(__VERSION_MAJOR, __VERSION_MINOR)
-__DOWNLOAD_FILE_TEMPLATE__="GEM-gemtools-%s-%s.tar.gz"
-__DOWNLOAD_URL__="http://barnaserver.com/gemtools/"
+__VERSION_MAJOR = "1"
+__VERSION_MINOR = "6"
+__VERSION__ = "%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR)
+__DOWNLOAD_FILE_TEMPLATE__ = "GEM-gemtools-%s-%s.tar.gz"
+__DOWNLOAD_URL__ = "http://barnaserver.com/gemtools/"
 
 
 def _is_i3_compliant():
@@ -29,11 +36,12 @@ def _is_i3_compliant():
     Returns true if the flags are compatible with the GEM
     i3 bundle.
     """
-    if not os.path.exists("/proc/cpuinfo"): return False
+    if not os.path.exists("/proc/cpuinfo"):
+        return False
     stream = open("/proc/cpuinfo", 'r')
     i3_flags = set(["popcnt", "ssse3", "sse4_1", "sse4_2"])
     cpu_flags = set([])
-    for line in iter(stream.readline,''):
+    for line in iter(stream.readline, ''):
         line = line.rstrip()
         if line.startswith("flags"):
             for e in line.split(":")[1].strip().split(" "):
@@ -44,46 +52,53 @@ def _is_i3_compliant():
 
 def download(type):
     file_name = __DOWNLOAD_FILE_TEMPLATE__ % (__VERSION__, type)
-    base_url = "%s/%s" % (__DOWNLOAD_URL__,file_name)
+    base_url = "%s/%s" % (__DOWNLOAD_URL__, file_name)
 
     parent_dir = os.path.split(os.path.abspath(__file__))[0]
     dirpath = "%s/%s" % (parent_dir, "downloads")
     if not os.path.exists(dirpath):
         os.makedirs(dirpath)
-    target = "%s/%s" %(dirpath, file_name)
-    keep = False
+    target = "%s/%s" % (dirpath, file_name)
     if not os.path.exists(target):
         print "Downloading %s bundle from %s to %s" % (type, base_url, target)
-        urllib.urlretrieve (base_url, target)
+        urllib.urlretrieve(base_url, target)
 
 
 class fetch(Command):
     """Fetch binaries  package"""
     description = "Fetch binaries"
     user_options = []
+
     def run(self):
         print "Fetching binaries"
         download("i3")
         download("core2")
+
     def initialize_options(self):
         pass
+
     def finalize_options(self):
         pass
+
 
 class package(Command):
     """Package distribution"""
     description = "Package distribution"
     user_options = []
+
     def run(self):
         print "Fetching binaries"
         download("i3")
         download("core2")
-        subprocess.Popen(["./dist-utils/create_distribution.sh", __VERSION__, "i3"]).wait()
-        subprocess.Popen(["./dist-utils/create_distribution.sh", __VERSION__, "core2"]).wait()
+        subprocess.Popen(["dist-utils/create_distribution.sh", __VERSION__, "i3"]).wait()
+        subprocess.Popen(["dist-utils/create_distribution.sh", __VERSION__, "core2"]).wait()
+
     def initialize_options(self):
         pass
+
     def finalize_options(self):
         pass
+
 
 def _install_bundle(install_dir, base=None):
     """Download GEM bundle and move
@@ -102,7 +117,7 @@ def _install_bundle(install_dir, base=None):
         os.mkdir(install_dir)
 
     file_name = __DOWNLOAD_FILE_TEMPLATE__ % (__VERSION__, type)
-    base_url = "%s/%s" % (__DOWNLOAD_URL__,file_name)
+    base_url = "%s/%s" % (__DOWNLOAD_URL__, file_name)
 
     if base is not None:
         dirpath = base
@@ -111,7 +126,7 @@ def _install_bundle(install_dir, base=None):
     else:
         dirpath = tempfile.mkdtemp()
 
-    target = "%s/%s" %(dirpath, file_name)
+    target = "%s/%s" % (dirpath, file_name)
     keep = False
     if os.path.exists(file_name):
         target = file_name
@@ -119,7 +134,7 @@ def _install_bundle(install_dir, base=None):
     else:
         if not os.path.exists(target):
             print "Downloading %s bundle from %s to %s" % (type, base_url, target)
-            urllib.urlretrieve (base_url, target)
+            urllib.urlretrieve(base_url, target)
 
     tar = subprocess.Popen("tar xzvf %s --exclude \"._*\"" % (os.path.abspath(target)), shell=True, cwd=dirpath)
     if tar.wait() != 0:
@@ -128,7 +143,7 @@ def _install_bundle(install_dir, base=None):
     if base is None and not keep:
         os.remove(target)
 
-    bins=[x for x in os.listdir(dirpath)]
+    bins = [x for x in os.listdir(dirpath)]
     for file in bins:
         if not file.endswith("gz"):
             print "Move bundle library: %s to %s" % (file, install_dir)
@@ -143,69 +158,66 @@ def _install_bundle(install_dir, base=None):
         os.removedirs(dirpath)
 
 
-
 ## install bundle command
 class install_bundle(Command):
     def run(self):
         parent_dir = os.path.split(os.path.abspath(__file__))[0]
         target_dir = "%s/%s" % (parent_dir, "python/gem/gembinaries")
-        _install_bundle(target_dir, base=parent_dir+"/downloads")
-
+        _install_bundle(target_dir, base=parent_dir + "/downloads")
 
 
 # hack the setup tools installation
 # to make sure bundled binaries are
 # executable after install
 class install(_install):
+
     def run(self):
         _install.run(self)
         if os.getenv("GEM_NO_BUNDLE", None) is None:
             # find target folder
             install_dir = None
             for file in self.get_outputs():
-                if file.endswith("gem/__init__.py"):
+                if file.endswith("python/gem/__init__.py"):
                     install_dir = "%s/gembinaries" % os.path.split(file)[0]
                     break
 
             _install_bundle(install_dir)
 
+
 class build_ext(_build_ext):
     def run(self):
-        process = subprocess.Popen(['make'], shell=True, cwd='GEMTools')
+        process = subprocess.Popen(['make'], shell=True, cwd='../GEMTools')
         if process.wait() != 0:
             raise ValueError("Error while compiling GEMTools")
         _build_ext.run(self)
 
 
-_commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package':package}
+_commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package': package}
 
 # extend nosetests command to
 # ensure we have the bundle installed and
 # locally
 try:
     from nose.commands import nosetests as _nosetests
+
     class nosetests(_nosetests):
         def run(self):
             parent_dir = os.path.split(os.path.abspath(__file__))[0]
             target_dir = "%s/%s" % (parent_dir, "python/gem/gembinaries")
-            _install_bundle(target_dir, base=parent_dir+"/downloads")
+            _install_bundle(target_dir, base=parent_dir + "/downloads")
             _nosetests.run(self)
     _commands['nosetests'] = nosetests
 except:
     pass
 
-gemtools = Extension('gem.gemtools',
-                    define_macros=[('MAJOR_VERSION', __VERSION_MAJOR),
-                                   ('MINOR_VERSION', __VERSION_MINOR)],
-                    include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
-                    library_dirs=['GEMTools/lib'],
-                    libraries=['z','bz2', 'gemtools'],
-                    extra_compile_args=["-fopenmp"],
-                    extra_link_args=["-fopenmp"],
-                    sources=['python/src/py_iterator.c', 'python/src/py_template_iterator.c',
-                               'python/src/py_mismatch.c', 'python/src/py_map.c', 'python/src/py_alignment.c',
-                               'python/src/py_template.c', 'python/src/gemtoolsmodule.c', 'python/src/py_mappings_iterator.c'])
-                               #'python/src/py_stats.c'])
+gemtools = Extension("gem.gemtools", sources=["src/gemtools.pyx", "src/gemapi.pxd"],
+                    include_dirs=['../GEMTools/include', '../GEMTools/resources/include/'],
+                    library_dirs=['../GEMTools/lib'],
+                    libraries=['z', 'bz2', 'gemtools'],
+                    # extra_compile_args=["-fopenmp"],
+                    # extra_link_args=["-fopenmp"]
+)
+
 
 setup(
         cmdclass=_commands,
@@ -229,10 +241,10 @@ The code for this project can be found on github:
 
 https://github.com/gemtools/gemtools
 ''',
-        package_dir={'':'python'},
+        package_dir={'': ''},
         packages=['gem'],
 #        package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("python/gem/gembinaries")]},
-        package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in ["gem-2-sam",
+        package_data={"": ["%s/%s" % ("gem/gembinaries", x) for x in ["gem-2-sam",
                                                                      "gem-indexer_bwt-dna",
                                                                      "gem-indexer_generate",
                                                                      "gem-map-2-map",
@@ -262,8 +274,8 @@ https://github.com/gemtools/gemtools
           'Programming Language :: C',
           'Topic :: Scientific/Engineering :: Bio-Informatics',
         ],
-        install_requires = ["argparse"],
-        entry_points = {
+        install_requires=["argparse"],
+        entry_points={
             'console_scripts': [
                 'gemtools = gem.commands:gemtools'
             ]

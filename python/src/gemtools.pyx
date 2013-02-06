@@ -157,15 +157,17 @@ cdef class OutputFile:
     cdef void _write_fastq(self, TemplateIterator iterator):
         """Write templated from iterator as fastq"""
         gt_buffered_input_file_attach_buffered_output(iterator.buffered_input, self.buffered_output)
+        cdef gt_output_fasta_attributes* attributes = gt_output_fasta_attributes_new()
         while(iterator._next() == GT_STATUS_OK):
-            gt_output_fasta_bofprint_template(self.buffered_output, F_FASTQ, iterator.template.template)
+            gt_output_fasta_bofprint_template(self.buffered_output, iterator.template.template, attributes)
         self.close()
 
     cdef void _write_map(self, TemplateIterator iterator, bool print_scores):
         """Write templated from iterator as fastq"""
         gt_buffered_input_file_attach_buffered_output(iterator.buffered_input, self.buffered_output)
+        cdef gt_output_map_attributes* attributes = gt_output_map_attributes_new()
         while(iterator._next() == GT_STATUS_OK):
-            gt_output_map_bofprint_template(self.buffered_output, iterator.template.template, GT_ALL, print_scores)
+            gt_output_map_bofprint_template(self.buffered_output, iterator.template.template, attributes)
         self.close()
 
 
@@ -205,7 +207,7 @@ cdef class InputFileTemplateIterator(TemplateIterator):
 
     def __cinit__(self, InputFile input_file):
         self.input_file = input_file._input_file()
-        cdef gt_generic_parser_attr* gp = gt_generic_parser_attr_new(False, GT_ALL, input_file.paired_reads)
+        cdef gt_generic_parser_attr* gp = gt_input_generic_parser_attributes_new(False)
         self.parser_attr = gp
         self.template = Template()
         #
@@ -233,7 +235,7 @@ cdef class InputFileAlignmentIterator(AlignmentIterator):
 
     def __cinit__(self, InputFile input_file):
         self.input_file = input_file._input_file()
-        cdef gt_generic_parser_attr* gp = gt_generic_parser_attr_new(False, GT_ALL, input_file.paired_reads)
+        cdef gt_generic_parser_attr* gp = gt_input_generic_parser_attributes_new(False)
         self.parser_attr = gp
         self.alignment = Alignment()
         #

@@ -15,3 +15,7 @@ dist/
 python/gem/gembinaries/
 downloads/
 setuptools-*.egg
+GEMTools/.settings/
+distribute-0.6.34-py2.7.egg
+distribute-0.6.34.tar.gz
+python/src/gemtools.c
