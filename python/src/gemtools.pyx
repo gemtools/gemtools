@@ -304,6 +304,33 @@ cdef class Template:
         def __set__(self, value):
             gt_template_set_not_unique_flag(self.template, value)
 
+    property length:
+        def __get__(self):
+            return self._length()
+
+    property read:
+        def __get__(self):
+            return self._read()
+
+    property qualities:
+        def __get__(self):
+            return self._qualities()
+
+    cdef uint64_t _length(self):
+        cdef gt_alignment* alignment = self._get_alignment(0)
+        return gt_alignment_get_read_length(alignment)
+
+    cdef char* _read(self):
+        cdef gt_alignment* alignment = self._get_alignment(0)
+        return gt_alignment_get_read(alignment)
+
+    cdef char* _qualities(self):
+        cdef gt_alignment* alignment = self._get_alignment(0)
+        return gt_alignment_get_qualities(alignment)
+
+    cdef gt_alignment* _get_alignment(self, uint64_t posistion):
+        return gt_template_get_block(self.template, posistion)
+
     cpdef uint64_t get_counter(self, uint64_t stratum):
         return gt_template_get_counter(self.template, stratum)
 
@@ -314,8 +341,66 @@ cdef class Template:
         return gt_template_get_num_mmaps(self.template)
 
     cpdef bool is_unmapped(self, uint64_t max_mismatches=GT_ALL):
-        cdef int64_t mm = self.get_min_mismatches()
-        return not gt_template_get_not_unique_flag(self.template) and ( mm < 0 or mm >= max_mismatches)
+        return gt_template_is_thresholded_mapped(self.template, max_mismatches)
+
+    def to_map(self):
+        cdef gt_string* gt = self._to_map()
+        s = ""+gt_string_get_string(gt)
+        gt_string_delete(gt)
+        return s
+
+    def to_fasta(self):
+        cdef gt_string* gt = self._to_fasta()
+        s = ""+gt_string_get_string(gt)
+        gt_string_delete(gt)
+        return s
+
+    def to_fastq(self):
+        cdef gt_string* gt = self._to_fastq()
+        s = ""+gt_string_get_string(gt)
+        gt_string_delete(gt)
+        return s
+
+    def to_sequence(self):
+        cdef gt_string* gt = self._to_sequence()
+        s = ""+gt_string_get_string(gt)
+        gt_string_delete(gt)
+        return s
+
+
+    cdef gt_string* _to_map(self):
+        cdef gt_string* s = gt_string_new(512)
+        cdef gt_output_map_attributes* attr = gt_output_map_attributes_new()
+        gt_output_map_sprint_template(s,self.template, attr)
+        gt_string_set_length(s, gt_string_get_length(s)-1)
+        gt_string_append_eos(s)
+        gt_output_map_attributes_delete(attr)
+        return s
+
+    cdef gt_string* _to_fasta(self):
+        cdef gt_string* s = gt_string_new(512)
+        cdef gt_output_fasta_attributes* attr = gt_output_fasta_attributes_new()
+        gt_output_fasta_attributes_set_format(attr, F_FASTA)
+        gt_output_fasta_sprint_template(s,self.template, attr)
+        gt_string_set_length(s, gt_string_get_length(s)-1)
+        gt_string_append_eos(s)
+        gt_output_fasta_attributes_delete(attr)
+        return s
+
+    cdef gt_string* _to_fastq(self):
+        cdef gt_string* s = gt_string_new(512)
+        cdef gt_output_fasta_attributes* attr = gt_output_fasta_attributes_new()
+        gt_output_fasta_sprint_template(s,self.template, attr)
+        gt_string_set_length(s, gt_string_get_length(s)-1)
+        gt_string_append_eos(s)
+        gt_output_fasta_attributes_delete(attr)
+        return s
+
+    cdef gt_string* _to_sequence(self):
+        if gt_template_has_qualities(self.template):
+            return self._to_fastq()
+        else:
+            return self._to_fasta()
 
     cpdef int64_t get_min_mismatches(self):
         """Return minimum number of mismatches or -1 if

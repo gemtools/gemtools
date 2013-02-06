@@ -17,6 +17,7 @@ import gem
 LOG_NOTHING = 1
 LOG_STDERR = 2
 
+# default logger configuration
 log_output = LOG_NOTHING
 logging.basicConfig(format='%(asctime)-15s %(levelname)s: %(message)s', level=logging.WARN)
 
@@ -28,18 +29,21 @@ extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
     ("GTATC", "AT"), ("AT", "GATAC")
 ]
 
+#default filter
 default_filter = "same-chromosome,same-strand"
 
 ## use the bundled executables
 use_bundled_executables = True
+
 ## max mappings to replace mapping counts for + and ! summaries
 _max_mappings = 999999999
+
 ## filter to work around GT-32 and #006 in gem-map-2-map
 __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t' + str(_max_mappings) + '\t"$5}else{print}}}']
 
 
 class execs_dict(dict):
-    """Helper dict that resolves bundled binaries"""
+    """Helper dictionary that resolves bundled binaries"""
     def __getitem__(self, item):
         # check if there is an environment variable set
         # to specify the path to the GEM executables
@@ -78,6 +82,8 @@ def loglevel(level):
     Accepts either 'debug','info','warning', 'error'
 
     Log levels debug also ensures executable output is written to stderr
+
+    level -- one of debug, info, warn, error
     """
     global log_output
     numeric_level = getattr(logging, level.upper(), None)

@@ -380,6 +380,8 @@ GT_INLINE gt_status gt_output_map_gprint_template(
     while (++i<num_blocks) {
       gt_gprintf(gprinter," %s",gt_alignment_get_qualities(gt_template_get_block(template,i)));
     }
+  }else{
+    gt_gprintf(gprinter,"\t");
   }
   // Print COUNTERS
   if (gt_expect_false(gt_template_get_not_unique_flag(template))) {
@@ -415,6 +417,8 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   // Print QUALITY
   if (gt_alignment_has_qualities(alignment)) {
     gt_gprintf(gprinter,"\t%s",gt_alignment_get_qualities(alignment));
+  }else{
+    gt_gprintf(gprinter,"\t");
   }
   // Print COUNTERS
   if (gt_expect_false(gt_alignment_get_not_unique_flag(alignment))) {

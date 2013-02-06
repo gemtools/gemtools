@@ -44,7 +44,7 @@ GT_INLINE void gt_output_fasta_attributes_set_print_casava(gt_output_fasta_attri
 GT_INLINE gt_file_fasta_format gt_output_fasta_attributes_get_format(gt_output_fasta_attributes* const attributes){
 	return attributes->format->fasta_format;
 }
-GT_INLINE void gt_output_fasta_attributes_set_foramt(gt_output_fasta_attributes* const attributes, gt_file_fasta_format format){
+GT_INLINE void gt_output_fasta_attributes_set_format(gt_output_fasta_attributes* const attributes, gt_file_fasta_format format){
 	attributes->format->fasta_format = format;
 }
 

@@ -10,7 +10,11 @@ cdef extern from "stdint.h":
 
 cdef extern from "Python.h":
     ctypedef struct FILE
+    ctypedef struct PyObject:
+        pass
     FILE* PyFile_AsFile(object)
+    PyObject* PyString_FromString(char *v)
+    PyObject* PyString_FromStringAndSize(char *v, Py_ssize_t len)
 
 cdef extern from "fileobject.h":
     ctypedef class __builtin__.file [object PyFileObject]:
@@ -27,8 +31,21 @@ cdef extern from "gem_tools.h":
     ctypedef struct gt_vector:
         pass
 
+    #gt_string
     ctypedef struct gt_string:
         pass
+
+    gt_string* gt_string_new(uint64_t initial_buffer_size)
+    void gt_string_resize(gt_string* string,uint64_t new_buffer_size)
+    void gt_string_clear(gt_string* string)
+    void gt_string_delete(gt_string* string)
+    char* gt_string_get_string(gt_string* string)
+    uint64_t gt_string_get_length(gt_string* string)
+    void gt_string_set_length(gt_string* string,uint64_t length)
+    char* gt_string_char_at(gt_string* string,uint64_t pos)
+    void gt_string_append_char(gt_string* string_dst,char character)
+    void gt_string_append_eos(gt_string* string_dst)
+
 
     # input file
     ctypedef struct gt_input_file:
@@ -163,6 +180,11 @@ cdef extern from "gem_tools.h":
     bool gt_template_has_qualities(gt_template*  template)
     bool gt_template_get_not_unique_flag(gt_template*  template)
     void gt_template_set_not_unique_flag(gt_template* template,bool is_not_unique)
+    gt_alignment* gt_template_get_block(gt_template* template, uint64_t position)
+
+    # template utils
+    bool gt_template_is_mapped(gt_template* template)
+    bool gt_template_is_thresholded_mapped(gt_template* template, uint64_t max_allowed_strata)
 
     # template merge
     cdef gt_template* gt_template_union_template_mmaps(gt_template* src_A, gt_template* src_B)
@@ -216,10 +238,10 @@ cdef extern from "gem_tools.h":
     ## print fastq/fasta
     gt_status gt_output_fasta_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment, gt_output_fasta_attributes* output_attributes)
     gt_status gt_output_fasta_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template, gt_output_fasta_attributes* output_attributes)
-
+    gt_status gt_output_fasta_sprint_template(gt_string* string,gt_template* template, gt_output_fasta_attributes* output_attributes)
     ## print map
     gt_status gt_output_map_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template,gt_output_map_attributes* attributes)
     gt_status gt_output_map_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment,gt_output_map_attributes* attributes)
-
+    gt_status gt_output_map_sprint_template(gt_string* string,gt_template* template,gt_output_map_attributes* attributes)
 
 
