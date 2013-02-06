@@ -51,6 +51,7 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
     gt_template* const template_master,gt_template* const template_slave,const gt_operation operation) {
   // Read master
   register gt_status error_code_master, error_code_slave;
+  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
   gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
   if ((error_code_master=gt_input_generic_parser_get_template(
       buffered_input_master,template_master,&generic_parser_attr))==GT_IMP_FAIL) {
@@ -71,17 +72,18 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
     do {
       if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
       if (operation==GT_MAP_SET_UNION || operation==GT_MAP_SET_DIFFERENCE) {
-        gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
+        gt_output_map_fprint_gem_template(stdout,template_master,output_attributes);
       }
     } while ((error_code_master=gt_input_generic_parser_get_template(
                 buffered_input_master,template_master,&generic_parser_attr)));
     return GT_IMP_EOF;
   }
+
   // Synch loop
   while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
     // Print non correlative master's template
     if (operation==GT_MAP_SET_UNION || operation==GT_MAP_SET_DIFFERENCE) {
-      gt_output_map_fprint_gem_template(stdout,template_master,GT_ALL,true);
+      gt_output_map_fprint_gem_template(stdout,template_master,output_attributes);
     }
     // Fetch next master's template
     if ((error_code_master=gt_input_generic_parser_get_template(
@@ -100,6 +102,8 @@ void gt_mapset_read__write() {
   if (parameters.name_input_file_2==NULL) GT_SWAP(input_file_1,input_file_2);
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
+
+  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
 
   // Parallel reading+process
   gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
@@ -127,7 +131,7 @@ void gt_mapset_read__write() {
         break;
     }
     // Print template
-    gt_output_map_fprint_gem_template(stdout,ptemplate,GT_ALL,true);
+    gt_output_map_fprint_gem_template(stdout,ptemplate,output_attributes);
     // Delete template
     gt_template_delete(ptemplate);
   }

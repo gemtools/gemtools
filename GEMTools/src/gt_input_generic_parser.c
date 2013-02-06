@@ -8,6 +8,14 @@
 
 #include "gt_input_generic_parser.h"
 
+GT_INLINE gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool const paired_reads){
+  gt_generic_parser_attr* attr = malloc(sizeof(gt_generic_parser_attr));
+  gt_cond_fatal_error(!attr,MEM_HANDLER);
+  gt_input_generic_parser_attributes_reset_defaults(attr);
+  gt_input_generic_parser_attributes_set_paired(attr, paired_reads);
+  return attr;
+}
+
 /*
  * Accessors
  */

@@ -24,7 +24,7 @@ typedef struct {
   bool mismatch_quality;
   bool splitmaps_profile;
   /* [Output] */
-  bool compact;
+  bool output_attributes;
   bool verbose;
   bool quiet;
   /* [Misc] */

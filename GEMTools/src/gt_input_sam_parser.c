@@ -28,6 +28,13 @@ typedef struct {
 
 #define GT_SAM_INIT_PENDING { .map_seq_name.allocated=0, .next_seq_name.allocated=0 }
 
+GT_INLINE gt_sam_parser_attr* gt_sam_parser_attr_new(bool const sam_soap_style){
+  gt_sam_parser_attr* attr = malloc(sizeof(gt_sam_parser_attr));
+  gt_cond_fatal_error(!attr,MEM_HANDLER);
+  attr->sam_soap_style = sam_soap_style;
+  return attr;
+}
+
 /*
  * SAM File Format test
  */

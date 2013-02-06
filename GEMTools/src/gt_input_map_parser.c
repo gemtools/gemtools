@@ -309,24 +309,13 @@ GT_INLINE gt_status gt_input_map_parser_reload_buffer(
 /*
  * MAP format. Basic building block for parsing
  */
-GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* const tag) {
+GT_INLINE gt_status gt_input_map_parse_tag(char** const text_line,gt_string* const tag, gt_shash* attributes) {
   // Delimit the tag
-  register char* const tag_begin = *text_line;
-  GT_READ_UNTIL(text_line,**text_line==TAB||**text_line==SPACE);
+  gt_input_parse_tag(text_line, tag, attributes);
   if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
-  register uint64_t tag_length = *text_line-tag_begin;
-  // Copy string
-  gt_string_set_nstring(tag,tag_begin,tag_length);
-  // Place cursor at beginning of the next field
-  if (gt_expect_false(**text_line==SPACE)) { // Drop everything beyond spaces
-    GT_READ_UNTIL(text_line,**text_line==TAB);
-    if (GT_IS_EOL(text_line)) return GT_IMP_PE_PREMATURE_EOL;
-    GT_NEXT_CHAR(text_line);
-  } else {
-    GT_NEXT_CHAR(text_line);
-  }
   return 0;
 }
+
 GT_INLINE gt_status gt_input_map_parse_read_block(char** const text_line,gt_string* const read_block) {
   // Read READ_BLOCK
   register char* const read_block_begin = *text_line;
@@ -454,7 +443,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(char** const text_line,gt_ma
   GT_MAP_CHECK(map);
   gt_map_clear_misms(map);
   // Parse Misms
-  register uint64_t last_position = 0, last_cut_point = 0;  
+  register uint64_t last_position = 0, last_cut_point = 0;
   register const uint64_t global_length = gt_map_get_base_length(map);
   while ((**text_line)!=GT_MAP_NEXT && (**text_line)!=GT_MAP_SEP &&
          !GT_IS_EOL(text_line) && (**text_line)!=GT_MAP_SCORE_GEMv0) {
@@ -1100,8 +1089,9 @@ GT_INLINE gt_status gt_imp_parse_template(
   GT_NULL_CHECK(text_line);
   GT_TEMPLATE_CHECK(template);
   register gt_status error_code;
+  register int64_t i;
   // TAG
-  if ((error_code=gt_input_map_parse_tag(text_line,template->tag))) {
+  if ((error_code=gt_input_map_parse_tag(text_line,template->tag, template->attributes))) {
     return error_code;
   }
   // READ
@@ -1113,6 +1103,48 @@ GT_INLINE gt_status gt_imp_parse_template(
     if (error_code!=GT_IMP_PE_PENDING_BLOCKS && error_code!=GT_IMP_PE_EOB) return error_code;
     ++num_blocks;
   }
+
+  // Pair information based on template pair
+  // and num_blocks
+  if(num_blocks == 1){
+	  int64_t* p = gt_malloc(1, int64_t);
+	  *p = *gt_shash_get(template->attributes, GT_TAG_PAIR, int64_t);
+	  gt_alignment* alignment = gt_template_get_block(template, 0);
+	  gt_shash_insert(alignment->attributes,GT_TAG_PAIR, p, int64_t);
+	  if(gt_shash_is_contained(template->attributes, GT_TAG_CASAVA)){
+		  gt_string* src = gt_shash_get(template->attributes, GT_TAG_CASAVA, gt_string);
+		  gt_string* dst = gt_string_new(gt_string_get_length(src));
+		  gt_string_copy(dst,src);
+		  gt_shash_insert(alignment->attributes, GT_TAG_CASAVA, dst, gt_string);
+	  }
+	  if(gt_shash_is_contained(template->attributes, GT_TAG_EXTRA)){
+		  gt_string* src = gt_shash_get(template->attributes, GT_TAG_EXTRA, gt_string);
+		  gt_string* dst = gt_string_new(gt_string_get_length(src));
+		  gt_string_copy(dst,src);
+		  gt_shash_insert(alignment->attributes, GT_TAG_EXTRA, dst, gt_string);
+	  }
+  }else if(num_blocks >= 2){
+	  for(i=0; i< num_blocks; i++){
+		  int64_t* p = gt_malloc(1, int64_t);
+		  *p = i+1;
+		  gt_alignment* alignment = gt_template_get_block(template, i);
+		  gt_shash_insert(alignment->attributes,GT_TAG_PAIR, p, int64_t);
+		  if(gt_shash_is_contained(template->attributes, GT_TAG_CASAVA)){
+			  gt_string* src = gt_shash_get(template->attributes, GT_TAG_CASAVA, gt_string);
+			  gt_string* dst = gt_string_new(gt_string_get_length(src));
+			  gt_string_copy(dst,src);
+			  gt_shash_insert(alignment->attributes, GT_TAG_CASAVA, dst, gt_string);
+		  }
+		  if(gt_shash_is_contained(template->attributes, GT_TAG_EXTRA)){
+			  gt_string* src = gt_shash_get(template->attributes, GT_TAG_EXTRA, gt_string);
+			  gt_string* dst = gt_string_new(gt_string_get_length(src));
+			  gt_string_copy(dst,src);
+			  gt_shash_insert(alignment->attributes, GT_TAG_EXTRA, dst, gt_string);
+		  }
+	  }
+  }
+
+
   // TAG Setup {Tag Splitting/Swapping}
   if (gt_expect_true(num_blocks>1)) {
     gt_template_deduce_alignments_tags(template);
@@ -1130,7 +1162,9 @@ GT_INLINE gt_status gt_imp_parse_template(
       gt_alignment* alignment = gt_template_get_block(template,i);
       error_code=gt_input_map_parse_qualities_block(text_line,alignment->qualities);
       if (gt_expect_false(gt_string_get_length(alignment->qualities)!=
-                          gt_string_get_length(alignment->read))) return GT_IMP_PE_QUAL_BAD_LENGTH;
+                          gt_string_get_length(alignment->read))){
+    	  return GT_IMP_PE_QUAL_BAD_LENGTH;
+      }
       if (error_code!=GT_IMP_PE_PENDING_BLOCKS && error_code!=GT_IMP_PE_EOB) return error_code;
     }
     if (error_code!=GT_IMP_PE_EOB) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;
@@ -1168,7 +1202,7 @@ GT_INLINE gt_status gt_imp_parse_alignment(
   GT_ALIGNMENT_CHECK(alignment);
   register gt_status error_code;
   // TAG
-  if ((error_code=gt_input_map_parse_tag(text_line,alignment->tag))) return error_code;
+  if ((error_code=gt_input_map_parse_tag(text_line,alignment->tag, alignment->attributes))) return error_code;
   // READ
   error_code=gt_input_map_parse_read_block(text_line,alignment->read);
   if (gt_expect_false(error_code==GT_IMP_PE_PENDING_BLOCKS)) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;

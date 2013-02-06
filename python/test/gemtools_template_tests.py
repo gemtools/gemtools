@@ -8,13 +8,63 @@ test_zipped_mapping = testfiles["test.map.gz"]
 test_fastq = testfiles["test.fastq"]
 
 
-#def test_template_attribute_reading():
-#    infile = gt.open_file(testfiles["paired_w_splitmap.map"])
-#    for tmpl in infile:
-#        assert tmpl.tag == "HWI-ST661:131:C051TACXX:2:1101:1653:2244"
-#        assert tmpl.num_blocks == 2
-#        assert tmpl.num_counters == 2
-#        assert tmpl.max_complete_strata == 0
+def test_template_attribute_reading_first_mapping():
+    infile = gt.InputFile(testfiles["test.map"])
+    for tmpl in infile.templates():
+        assert tmpl.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13924:124292 1:N:0:GCCAAT", tmpl.tag
+        assert tmpl.blocks == 1, tmpl.blocks
+        assert tmpl.counters == 3, tmpl.counters
+        assert tmpl.mcs == 2, tmpl.mcs
+        assert tmpl.level() == -1, tmpl.level()
+        break
+
+
+def test_template_uniqness_level():
+    infile = gt.InputFile(testfiles["test.map"])
+    levels = [t.level() for t in infile.templates()]
+    assert levels == [-1, 37, 0, -1, 0, 0, 0, 0, 0, 0], levels
+
+
+def test_template_interleave():
+    infile1 = gt.InputFile(testfiles["test.map"])
+    infile2 = gt.InputFile(testfiles["test.map"])
+    interleave = gt.interleave([infile1.templates(), infile2.templates()])
+    levels = [t.level() for t in interleave]
+    assert levels == [-1, -1, 37, 37, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], levels
+
+
+def test_template_unmapped_filter_length():
+    infile = gt.InputFile(testfiles["test.map.gz"])
+    assert 5 == len([x for x in gt.unmapped(infile.templates(), 1)])
+    assert 10 == len([x for x in gt.unmapped(infile.templates(), 0)])
+    assert 1 == len([x for x in gt.unmapped(infile.templates(), 2)])
+    assert 1 == len([x for x in gt.unmapped(infile.templates(), 3)])
+    assert 0 == len([x for x in gt.unmapped(infile.templates(), 4)])
+
+
+def test_template_unique_filter_level():
+    infile = gt.InputFile(testfiles["test.map.gz"])
+    for x in gt.unique(infile.templates(), 20):
+        print x.level()
+
+    assert 5 == len([x for x in gt.unique(infile.templates(), 0)])
+
+
+
+# def test_fastq_writer_process():
+#     infile = gt.InputFile(testfiles["test_merge_source_2.map"])
+#     outfile = gt.OutputFile()
+
+
+
+def test_iterating_alingmnets():
+    infile = gt.InputFile(testfiles["test.map"])
+    for tmpl in infile.alignments():
+        assert tmpl.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13924:124292 1:N:0:GCCAAT", tmpl.tag
+        break
+        # assert tmpl.num_blocks == 2
+        # assert tmpl.num_counters == 2
+        # assert tmpl.max_complete_strata == 0
 #
 #
 #def test_template_counters_list():
@@ -27,7 +77,7 @@ test_fastq = testfiles["test.fastq"]
 #        # test list direct list conversion
 #        assert list(tmpl.counters()) == [0, 4]
 #        assert len(tmpl.counters()) == 2
-#              
+#
 #
 #def test_template_block_list():
 #    infile = gt.open_file(testfiles["paired_w_splitmap.map"])

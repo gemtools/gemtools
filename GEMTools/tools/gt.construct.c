@@ -268,10 +268,11 @@ void gt_constructor_merge_template() {
   gt_input_map_parse_template(
       "ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1",templateB);
   // Merge into source
-  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
-  gt_output_map_fprint_template(stdout,templateB,GT_ALL,true);
+  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
+  gt_output_map_fprint_template(stdout,templateA,output_attributes);
+  gt_output_map_fprint_template(stdout,templateB,output_attributes);
   gt_template_merge_template_mmaps(templateA,templateB);
-  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
+  gt_output_map_fprint_template(stdout,templateA,output_attributes);
 
 
   /*
@@ -301,14 +302,14 @@ void gt_constructor_merge_template() {
     gt_fatal_error_msg("Error parsing B");
   }
 
-  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
-  gt_output_map_fprint_template(stdout,templateB,GT_ALL,true);
+  gt_output_map_fprint_template(stdout,templateA,output_attributes);
+  gt_output_map_fprint_template(stdout,templateB,output_attributes);
 
 //  gt_template_merge_template_mmaps(templateA,templateB);
 //  gt_output_map_fprint_template(stdout,templateA,GT_ALL,true);
 
   gt_template* tunion = gt_template_union_template_mmaps(templateA,templateB);
-  gt_output_map_fprint_template(stdout,tunion,GT_ALL,true);
+  gt_output_map_fprint_template(stdout,tunion,output_attributes);
 
   gt_template_delete(templateA);
   gt_template_delete(templateB);
@@ -325,13 +326,13 @@ void usage() {
 
 void gt_constructor_copy_template() {
   gt_template* source = gt_template_new();
-
+  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
   // test no maps no mmaps
   gt_input_map_parse_template(
       "ID\tACGT\t####\t1\tchr1:-:20:4",source);
   gt_template* copy = gt_template_copy(source, false, false);
   gt_string* string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
   char * line = gt_string_get_string(string);
   gt_streq(line,"ID\tACGT\t####\t0\t-\n");
@@ -341,7 +342,7 @@ void gt_constructor_copy_template() {
   gt_string_clear(string);
   copy = gt_template_copy(source, true, false);
   string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
   line = gt_string_get_string(string);
   gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4\n");
@@ -354,7 +355,7 @@ void gt_constructor_copy_template() {
   gt_string_clear(string);
   copy = gt_template_copy(source, true, false);
   string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
   line = gt_string_get_string(string);
   gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4,chr2:-:40:4\n");
@@ -364,7 +365,7 @@ void gt_constructor_copy_template() {
   gt_string_clear(string);
   copy = gt_template_copy(source, true, true);
   string = gt_string_new(1024);
-  gt_output_map_sprint_template(string, copy, GT_ALL, true);
+  gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
   line = gt_string_get_string(string);
   gt_streq(line,"ID\tACGT\t####\t1\tchr1:-:20:4,chr2:-:40:4\n");
@@ -485,8 +486,9 @@ void gt_constructor_template_merge_hung() {
   // merge into source
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);
+  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
   gt_output_map_fprint_counters(stderr,gt_template_get_block(source,0)->counters,UINT64_MAX,false);
-  gt_output_map_sprint_template(string, source, GT_ALL, true);
+  gt_output_map_sprint_template(string, source, output_attributes);
   // convert to string
   char * line = gt_string_get_string(string);
   printf("%s\n", line);
@@ -502,7 +504,7 @@ void gt_remove_maps_with_n_or_more_mismatches() {
   // Open file IN/OUT
   gt_input_file* input_file = gt_input_file_open("bug",false);
   gt_output_file* output_file = gt_output_stream_new(stdout, SORTED_FILE);
-
+  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
   // Parallel reading+process
   #pragma omp parallel num_threads(4)
   {
@@ -535,7 +537,7 @@ void gt_remove_maps_with_n_or_more_mismatches() {
       }
 
       // Print template
-      gt_output_map_bofprint_alignment(buffered_output,alignment_dst,GT_ALL,true);
+      gt_output_map_bofprint_alignment(buffered_output,alignment_dst,output_attributes);
       gt_alignment_delete(alignment_dst);
     }
 
@@ -619,21 +621,24 @@ void gt_filter_fastq() {
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
     gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
     gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
+    gt_output_fasta_attributes* output_attributes = gt_output_fasta_attributes_new();
 
     gt_status error_code;
     gt_dna_read* dna_read = gt_dna_read_new();
+    //gt_output_fasta_attributes_set_format(output_attributes, gt_input_fasta_get_format(input_file));
+
     while ((error_code=gt_input_fasta_parser_get_read(buffered_input,dna_read))) {
       if (error_code!=GT_IFP_OK) {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       }
-
-      gt_output_fasta_bofprint_dna_read(buffered_output,gt_input_fasta_get_format(input_file),dna_read);
+      gt_output_fasta_bofprint_dna_read(buffered_output,dna_read, output_attributes);
     }
 
     // Clean
     gt_dna_read_delete(dna_read);
     gt_buffered_input_file_close(buffered_input);
     gt_buffered_output_file_close(buffered_output);
+    gt_output_fasta_attributes_delete(output_attributes);
   }
 
   // Clean

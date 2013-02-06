@@ -11,6 +11,14 @@
 
 #include "gt_commons.h"
 
+#define GT_TAG_PAIR "pair"
+#define GT_TAG_CASAVA "casava"
+#define GT_TAG_EXTRA "extra"
+
+/*
+ * Generic tag parser
+ */
+GT_INLINE gt_status gt_input_parse_tag(char** const text_line, gt_string* const tag, gt_shash* const attributes);
 
 /*
  * Internal Building Blocks for parsing

@@ -11,16 +11,20 @@ gt_map* map;
 gt_vector* map_list;
 gt_alignment* alignment;
 gt_template* template;
+gt_output_map_attributes* output_attributes;
 
 void gt_input_map_parser_setup(void) {
   map = gt_map_new();
   map_list = gt_vector_new(10,sizeof(gt_map*));
   alignment = gt_alignment_new();
   template = gt_template_new();
+  output_attributes = gt_output_map_attributes_new();
+
 }
 
 void gt_input_map_parser_teardown(void) {
   gt_map_delete(map);
+  gt_output_map_attributes_delete(output_attributes);
 }
 
 START_TEST(gt_test_imp_string_map) // TODO

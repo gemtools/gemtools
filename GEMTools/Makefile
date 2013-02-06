@@ -30,3 +30,4 @@ setup:
 clean:
 	$(MAKE) --directory=test  clean
 	@rm -rf $(FOLDER_BIN) $(FOLDER_BUILD) $(FOLDER_LIB)
+	

@@ -99,6 +99,8 @@ GT_INLINE void gt_string_set_nstring(gt_string* const string,char* const string_
 
 GT_INLINE char* gt_string_get_string(gt_string* const string) {
   GT_STRING_CHECK(string);
+  // TODO : should we do something like this at some point ?
+  //string->buffer[string->length] = '\0';
   return string->buffer;
 }
 GT_INLINE uint64_t gt_string_get_length(gt_string* const string) {

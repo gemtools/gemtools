@@ -18,6 +18,7 @@
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
 // Input parsers
+#include "gt_input_parser.h"
 #include "gt_input_map_parser.h"
 #include "gt_input_sam_parser.h"
 #include "gt_input_fasta_parser.h"

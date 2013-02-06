@@ -105,7 +105,7 @@ void gt_filter_read__write() {
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
     gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
     gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
-
+    gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
     gt_status error_code;
     gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
 
@@ -137,7 +137,7 @@ void gt_filter_read__write() {
       }
 
       // Print template
-      gt_output_map_bofprint_template(buffered_output,template,GT_ALL,true);
+      gt_output_map_bofprint_template(buffered_output,template,output_attributes);
     }
 
     // Clean
