@@ -2,11 +2,15 @@ from distribute_setup import use_setuptools
 use_setuptools()
 
 import os
+import sys
 from setuptools import setup, Command
-from setuptools.extension import Extension
+#from setuptools.extension import Extension
+from distutils.extension import Extension
 from setuptools.command.install import install as _install
 from setuptools.command.build_py import build_py as _build_py
-from Cython.Distutils import build_ext as _build_ext
+#from setuptools.command.build_ext import build_ext as _build_ext
+#from Cython.Distutils import build_ext as _build_ext
+from distutils.command.build_ext import build_ext as _build_ext
 
 import subprocess
 import urllib
@@ -175,11 +179,39 @@ class install(_install):
 
 
 class build_ext(_build_ext):
+    """Custom implementation of the extension builder to make sure that
+    libgemtools is build and to trigger the cython build AFTER cython dependency
+    was installed."""
     def run(self):
         process = subprocess.Popen(['make'], shell=True, cwd='GEMTools')
         if process.wait() != 0:
             raise ValueError("Error while compiling GEMTools")
-        _build_ext.run(self)
+        try:
+            """Fix the extensions, the .pyx file extensions are changed
+            to .c somewhere along the line. This is a DIRTY hack and
+            at some point we have to figure a better way"""
+            for ext in self.extensions:
+                new_sources = []
+                for source in ext.sources:
+                    output_dir = os.path.dirname(source)
+                    (base, ex) = os.path.splitext(os.path.basename(source))
+                    if ex == ".c":
+                        ex = ".pyx"
+                    new_sources.append(os.path.join(output_dir, base + ex))
+                ext.sources = new_sources
+
+            # import cython, create a new instance of cythons build_ext
+            # initialize it and run it
+            from Cython.Distutils import build_ext as c_build_ext
+            cb = c_build_ext(self.distribution)
+            cb.finalize_options()
+            cb.run()
+        except ImportError:
+            sys.stderr.write("\nERROR: Unable to load Cython builder. Please make sure Cython is installed on your system.\n\n")
+            exit(1)
+
+    def build_extensions(self):
+        pass
 
 
 class build_py(_build_py):
@@ -272,6 +304,7 @@ https://github.com/gemtools/gemtools
           'Programming Language :: C',
           'Topic :: Scientific/Engineering :: Bio-Informatics',
         ],
+        setup_requires=["cython==0.18"],
         install_requires=["argparse"],
         entry_points={
             'console_scripts': [
