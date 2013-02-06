@@ -205,6 +205,7 @@ class build_ext(_build_ext):
             from Cython.Distutils import build_ext as c_build_ext
             cb = c_build_ext(self.distribution)
             cb.finalize_options()
+            cb.inplace = self.inplace
             cb.run()
         except ImportError:
             sys.stderr.write("\nERROR: Unable to load Cython builder. Please make sure Cython is installed on your system.\n\n")

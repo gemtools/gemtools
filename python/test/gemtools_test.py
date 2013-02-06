@@ -9,7 +9,6 @@ test_zipped_mapping = testfiles["test.map.gz"]
 test_fastq = testfiles["test.fastq"]
 
 
-
 def test_get_template():
     infile = gem.files.open(test_mapping)
     for read in infile:

@@ -11,7 +11,8 @@ test_fastq = testfiles["test.fastq"]
 def test_template_attribute_reading_first_mapping():
     infile = gt.InputFile(testfiles["test.map"])
     for tmpl in infile.templates():
-        assert tmpl.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13924:124292 1:N:0:GCCAAT", tmpl.tag
+        print "Template"
+        assert tmpl.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13924:124292", tmpl.tag
         assert tmpl.blocks == 1, tmpl.blocks
         assert tmpl.counters == 3, tmpl.counters
         assert tmpl.mcs == 2, tmpl.mcs
@@ -44,28 +45,28 @@ def test_template_unmapped_filter_length():
 
 def test_template_unique_filter_level():
     infile = gt.InputFile(testfiles["test.map.gz"])
-    for x in gt.unique(infile.templates(), 20):
-        print x.level()
-
-    assert 5 == len([x for x in gt.unique(infile.templates(), 0)])
-
-
+    assert 1 == len([x for x in gt.unique(infile.templates(), 20)]), "Should be length 5 buyt is: " + str([x.level() for x in gt.unique(infile.templates(), 20)])
 
 # def test_fastq_writer_process():
 #     infile = gt.InputFile(testfiles["test_merge_source_2.map"])
 #     outfile = gt.OutputFile()
 
 
-
 def test_iterating_alingmnets():
     infile = gt.InputFile(testfiles["test.map"])
     for tmpl in infile.alignments():
-        assert tmpl.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13924:124292 1:N:0:GCCAAT", tmpl.tag
+        assert tmpl.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13924:124292", tmpl.tag
         break
         # assert tmpl.num_blocks == 2
         # assert tmpl.num_counters == 2
         # assert tmpl.max_complete_strata == 0
-#
+
+
+def test_template_map_parsing():
+    template = gt.Template()
+    template.parse("A/1\tAAA\t###\t0\t-\n")
+    assert template.tag == "A"
+
 #
 #def test_template_counters_list():
 #    infile = gt.open_file(testfiles["paired_w_splitmap.map"])

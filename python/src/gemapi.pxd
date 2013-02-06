@@ -93,6 +93,9 @@ cdef extern from "gem_tools.h":
     gt_status gt_input_generic_parser_get_alignment(gt_buffered_input_file* buffered_input,gt_alignment* alignment, gt_generic_parser_attr* attributes)
     gt_status gt_input_generic_parser_get_template(gt_buffered_input_file* buffered_input,gt_template* template,gt_generic_parser_attr* attributes)
 
+    ## map template parser
+    gt_status gt_input_map_parse_template(char* string, gt_template* template)
+
     # alignment
     ctypedef struct gt_alignment:
         pass
@@ -160,6 +163,10 @@ cdef extern from "gem_tools.h":
     bool gt_template_has_qualities(gt_template*  template)
     bool gt_template_get_not_unique_flag(gt_template*  template)
     void gt_template_set_not_unique_flag(gt_template* template,bool is_not_unique)
+
+    # template merge
+    cdef gt_template* gt_template_union_template_mmaps(gt_template* src_A, gt_template* src_B)
+
 
     # output printer support
     enum gt_file_fasta_format:

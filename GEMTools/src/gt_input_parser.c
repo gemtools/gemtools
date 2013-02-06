@@ -65,15 +65,16 @@ GT_INLINE gt_status gt_input_parse_tag(char** const text_line, gt_string* const 
 		}
 		GT_READ_UNTIL(text_line, **text_line==TAB);
 		attr_length = *text_line-attr_begin;
-		gt_string* extra_string = gt_string_new(attr_length);
-		gt_string_set_nstring(extra_string, attr_begin, attr_length);
+		if(attr_length > 0){
+			gt_string* extra_string = gt_string_new(attr_length);
+			gt_string_set_nstring(extra_string, attr_begin, attr_length);
+			gt_shash_insert(attributes, GT_TAG_EXTRA, extra_string, gt_string);
+		}
 
-		// continue to next only if its not a tab
 		if(! gt_expect_false((**text_line)==TAB) && ! GT_IS_EOL(text_line)){
 			GT_NEXT_CHAR(text_line);
 		}
-		attr_begin += attr_length;
-		gt_shash_insert(attributes, GT_TAG_EXTRA, extra_string, gt_string);
+
 	}
 
 	gt_shash_insert(attributes, GT_TAG_PAIR, pair, int64_t);

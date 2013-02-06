@@ -114,10 +114,10 @@ cdef class unique(TemplateIterator):
 
     cdef gt_status _next(self):
         cdef gt_status s = self.iterator._next()
-        cdef uint64_t template_level = 0
+        cdef int64_t template_level = 0
         while( s == GT_STATUS_OK ):
             template_level = self.template.level(self.level)
-            if template_level >= self.level:
+            if template_level > 0 and template_level >= self.level:
                 return s
             s = self.iterator._next()
         return GT_STATUS_FAIL
@@ -330,13 +330,18 @@ cdef class Template:
                 return i
         return -1
 
+    cpdef merge(self, Template other):
+        """Merge the other template into this one"""
+        cdef gt_template* tmpl = gt_template_union_template_mmaps(self.template, other.template)
+        gt_template_delete(self.template)
+        self.template = tmpl
 
     cpdef int64_t level(self, uint64_t max_level=GT_ALL):
         cdef gt_template* template = self.template
         cdef uint64_t counter = 0
         cdef uint64_t c = gt_template_get_num_counters(template)
-        cdef uint64_t i, j = 0
-        cdef uint64_t level = 0
+        cdef int64_t i, j = 0
+        cdef int64_t level = 0
         for i in range(c):
             counter = gt_template_get_counter(template, i)
             if counter == 1:
@@ -345,13 +350,17 @@ cdef class Template:
                         return level
                     counter = gt_template_get_counter(template, j)
                     if counter > 0:
-                        return j-(i+1)
+                        return <int64_t> (j-(i+1))
                     else:
                         level += 1
-                return c - (i+1)
+                return <int64_t> (c - (i+1))
             elif counter > 1:
                 return -1
         return -1
+
+    cpdef parse(self, char* string):
+        gt_input_map_parse_template(string, self.template)
+        return self
 
 
 cdef class Alignment:

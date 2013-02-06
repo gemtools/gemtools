@@ -1120,7 +1120,9 @@ GT_INLINE gt_status gt_imp_parse_template(
 	  if(gt_shash_is_contained(template->attributes, GT_TAG_EXTRA)){
 		  gt_string* src = gt_shash_get(template->attributes, GT_TAG_EXTRA, gt_string);
 		  gt_string* dst = gt_string_new(gt_string_get_length(src));
-		  gt_string_copy(dst,src);
+      if(gt_string_get_length(src) > 0){
+		    gt_string_copy(dst,src);
+      }
 		  gt_shash_insert(alignment->attributes, GT_TAG_EXTRA, dst, gt_string);
 	  }
   }else if(num_blocks >= 2){
@@ -1393,10 +1395,12 @@ GT_INLINE gt_status gt_imp_get_template(
     if (src_text) gt_string_set_nstring(src_text,line_start,buffered_map_input->cursor-line_start);
     return GT_IMP_FAIL;
   }
+
   // Store source record
   if (src_text) gt_string_set_nstring(src_text,line_start,buffered_map_input->cursor-line_start);
   // Next record
   gt_input_map_parser_next_record(buffered_map_input);
+
   return GT_IMP_OK;
 }
 GT_INLINE gt_status gt_imp_get_alignment(

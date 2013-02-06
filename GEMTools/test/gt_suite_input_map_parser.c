@@ -115,10 +115,22 @@ START_TEST(gt_test_imp_string_map) // TODO
       "chr20:+:21833059:(5)5T12GCTC1AAAAG3TGCTGA1C1ACCT2AGTGT(20),"
       "chr4:+:94518781:(5)12G6CTTAT1TCAAAA1CCAGAAGT1CC2GACACT(20),"
       "chr14:-:74094161:(5)17AAACCCAA1AAGGAGGT1A1TGGAACCC1A1CGT(20)",template)==0);
+
   /*
    * Check mcs delegation for single end
    */
   fail_unless(gt_template_get_mcs(template) == 1);
+
+    /*
+   * Parsing Templates
+   */
+  fail_unless(gt_input_map_parse_template(
+      "A/1\t"
+      "AAA\t"
+      "###\t"
+      "0\t"
+      "-",template)==0);
+
 }
 END_TEST
 
