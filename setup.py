@@ -1,22 +1,12 @@
 from distribute_setup import use_setuptools
 use_setuptools()
 
-
 import os
-# try:
-#     import setuptools
-# except:
-#     from ez_setup import use_setuptools
-#     use_setuptools()
-
-# from setuptools import setup, Command
-from distutils.core import setup, Command
-from distutils.extension import Extension
-from Cython.Distutils import build_ext as _build_ext
-#from distutils.command.install import install as _install
+from setuptools import setup, Command
+from setuptools.extension import Extension
 from setuptools.command.install import install as _install
-#from setuptools.command.build_ext import build_ext as _build_ext
-
+from setuptools.command.build_py import build_py as _build_py
+from Cython.Distutils import build_ext as _build_ext
 
 import subprocess
 import urllib
@@ -186,13 +176,21 @@ class install(_install):
 
 class build_ext(_build_ext):
     def run(self):
-        process = subprocess.Popen(['make'], shell=True, cwd='../GEMTools')
+        process = subprocess.Popen(['make'], shell=True, cwd='GEMTools')
         if process.wait() != 0:
             raise ValueError("Error while compiling GEMTools")
         _build_ext.run(self)
 
 
-_commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package': package}
+class build_py(_build_py):
+    def run(self):
+        _build_py.run(self)
+        parent_dir = os.path.split(os.path.abspath(__file__))[0]
+        target_dir = "%s/%s" % (parent_dir, "python/gem/gembinaries")
+        _install_bundle(target_dir, base=parent_dir + "/downloads")
+
+
+_commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package': package, 'build_py': build_py}
 
 # extend nosetests command to
 # ensure we have the bundle installed and
@@ -210,9 +208,9 @@ try:
 except:
     pass
 
-gemtools = Extension("gem.gemtools", sources=["src/gemtools.pyx", "src/gemapi.pxd"],
-                    include_dirs=['../GEMTools/include', '../GEMTools/resources/include/'],
-                    library_dirs=['../GEMTools/lib'],
+gemtools = Extension("gem.gemtools", sources=["python/src/gemtools.pyx", "python/src/gemapi.pxd"],
+                    include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
+                    library_dirs=['GEMTools/lib'],
                     libraries=['z', 'bz2', 'gemtools'],
                     # extra_compile_args=["-fopenmp"],
                     # extra_link_args=["-fopenmp"]
@@ -241,10 +239,10 @@ The code for this project can be found on github:
 
 https://github.com/gemtools/gemtools
 ''',
-        package_dir={'': ''},
+        package_dir={'': 'python'},
         packages=['gem'],
 #        package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("python/gem/gembinaries")]},
-        package_data={"": ["%s/%s" % ("gem/gembinaries", x) for x in ["gem-2-sam",
+        package_data={"": ["%s/%s" % ("python/gem/gembinaries", x) for x in ["gem-2-sam",
                                                                      "gem-indexer_bwt-dna",
                                                                      "gem-indexer_generate",
                                                                      "gem-map-2-map",
