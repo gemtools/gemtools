@@ -21,7 +21,6 @@ SRCS=gem_tools.c \
      gt_buffered_output_file.c gt_output_file.c \
      gt_generic_printer.c gt_output_buffer.c gt_output_map.c gt_output_fasta.c \
      gt_stats.c
-#       gt_map_align.c 
 OBJS=$(addprefix $(FOLDER_BUILD)/, $(SRCS:.c=.o))
 GT_LIB=$(FOLDER_LIB)/libgemtools.a
 

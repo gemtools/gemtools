@@ -246,13 +246,15 @@ GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,uint64_t *gt_e
  */
 GT_INLINE bool gt_template_is_mapped(gt_template* const template) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  return gt_template_is_thresholded_mapped(template,UINT64_MAX);
+  register const bool unique_flag = gt_template_get_not_unique_flag(template);
+  return unique_flag || gt_template_is_thresholded_mapped(template,UINT64_MAX);
 }
 GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     return gt_alignment_is_thresholded_mapped(alignment,max_allowed_strata);
   } GT_TEMPLATE_END_REDUCTION;
+  if (gt_template_get_not_unique_flag(template)) return true;
   register gt_vector* vector = gt_template_get_counters_vector(template);
   GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
     if ((counter_pos+1)>=max_allowed_strata) return false;

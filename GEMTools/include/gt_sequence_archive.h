@@ -80,10 +80,14 @@ GT_INLINE void gt_sequence_archive_delete(gt_sequence_archive* const seq_archive
 GT_INLINE void gt_sequence_archive_add_sequence(gt_sequence_archive* const seq_archive,gt_segmented_sequence* const sequence);
 GT_INLINE void gt_sequence_archive_remove_sequence(gt_sequence_archive* const seq_archive,char* const seq_id);
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_sequence(gt_sequence_archive* const seq_archive,char* const seq_id);
+
 GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
-    gt_sequence_archive* const seq_archive,char* const seq_id,
+    gt_sequence_archive* const seq_archive,char* const seq_id,const gt_strand strand,
     const uint64_t position,const uint64_t length,gt_string* const string);
 
+/*
+ * SequenceARCHIVE sorting functions
+ */
 GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int (*gt_cmp_string)(char*,char*));
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive);
 GT_INLINE void gt_sequence_archive_karyotypic_sort(gt_sequence_archive* const seq_archive);
