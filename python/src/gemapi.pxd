@@ -181,7 +181,7 @@ cdef extern from "gem_tools.h":
     bool gt_template_get_not_unique_flag(gt_template*  template)
     void gt_template_set_not_unique_flag(gt_template* template,bool is_not_unique)
     gt_alignment* gt_template_get_block(gt_template* template, uint64_t position)
-
+    int64_t gt_template_get_pair(gt_template* template)
     # template utils
     bool gt_template_is_mapped(gt_template* template)
     bool gt_template_is_thresholded_mapped(gt_template* template, uint64_t max_allowed_strata)

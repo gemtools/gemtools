@@ -55,8 +55,10 @@ gt_output_file* gt_output_file_new(char* const file_name,const gt_output_file_ty
 gt_status gt_output_file_close(gt_output_file* const output_file) {
   GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
   register gt_status error_code = 0;
-  // Close file/stream
-  gt_cond_error(error_code|=fclose(output_file->file),FILE_CLOSE,output_file->file_name);
+  // Close filem not stream
+  if(strcmp(output_file->file_name, GT_STREAM_FILE_NAME) != 0){
+    gt_cond_error(error_code|=fclose(output_file->file),FILE_CLOSE,output_file->file_name);
+  }
   // Delete allocated buffers
   register uint64_t i;
   for (i=0;i<GT_MAX_OUTPUT_BUFFERS&&output_file->buffer[i]!=NULL;++i) {

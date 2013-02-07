@@ -2,12 +2,14 @@
 import os
 import shutil
 from nose.tools.nontrivial import with_setup
-from gem import Read
 import gem
+import gem.gemtools as gt
 from testfiles import testfiles
 
 index = testfiles["genome.gem"]
 results_dir = None
+
+
 def setup_func():
     global results_dir
     results_dir = "test_results"
@@ -19,77 +21,19 @@ def setup_func():
 def cleanup():
     shutil.rmtree(results_dir, ignore_errors=True)
 
-def test_read_to_sequence_wo_qualities():
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT"
-    assert read.to_sequence() == ">myid\nACGT"
 
-
-def test_read_to_sequence_w_qualities():
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT"
-    read.qualities = "####"
-    assert read.to_sequence() == "@myid\nACGT\n+\n####"
-
-def test_read_to_fastq_wo_qualities():
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT"
-    assert read.to_fastq() == "@myid\nACGT\n+\n[[[["
-
-def test_read_to_fastq_w_qualities_trimmed():
-    gem._trim_qualities=True
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT"
-    read.qualities = "[[[[["
-    assert read.to_fastq() == "@myid\nACGT\n+\n[[[[", read.to_fastq()
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT"
-    read.qualities = "[["
-    assert read.to_fastq() == "@myid\nACGT\n+\n[[[[", read.to_fastq()
-    gem._trim_qualities=False
-
-def test_read_paired_to_sequence_wo_qualities():
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT CGTA"
-    assert read.to_sequence() == ">myid/1\nACGT\n>myid/2\nCGTA"
-
-def test_read_paired_to_sequence_w_qualities():
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT CGTA"
-    read.qualities = "[[[[ ####"
-    assert read.to_sequence() == "@myid/1\nACGT\n+\n[[[[\n@myid/2\nCGTA\n+\n####"
-
-def test_read_paired_to_sequence_w_qualities_trimmed():
-    gem._trim_qualities=True
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT CGTA"
-    read.qualities = "[[[ ###"
-    assert read.to_sequence() == "@myid/1\nACGT\n+\n[[[[\n@myid/2\nCGTA\n+\n###["
-    read = Read()
-    read.id = "myid"
-    read.sequence = "ACGT CGTA"
-    read.qualities = "[[[[[ #####"
-    assert read.to_sequence() == "@myid/1\nACGT\n+\n[[[[\n@myid/2\nCGTA\n+\n####"
-    gem._trim_qualities=False
-
-
-def test_sam_fields_number():
-    p = gem.files.parse_map()
-    read = p.line2read("ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1")
-    sam = gem.gem2sam([read], compact=True, quality=33)
-    assert sam is not None
-    for r in sam:
-        f = r.line.split("\t")
-        assert len(f) == 17
-
+# def test_sam_fields_number():
+#     gem.loglevel('debug')
+#     p = gt.Template()
+#     read = p.parse("ID\tACGT\t####\t1:1\tchr1:-:20:4,chr9:+:50:2C1")
+#     print "STARTING GEM TO SAM"
+#     sam = gem.gem2sam(gt.SimpleTemplateIterator([read]), compact=True, quality=33)
+#     print "GOT RESULT"
+#     assert sam is not None
+#     print "ITERATOR RAW STREAM"
+#     for r in sam.raw_stream():
+#         f = r.line.split("\t")
+#         assert len(f) == 17
 
 @with_setup(setup_func, cleanup)
 def test_gem2sam_execution():
@@ -98,7 +42,7 @@ def test_gem2sam_execution():
     sam = gem.gem2sam(mappings, index, compact=True)
     assert sam is not None
     assert sam.process is not None
-    assert sam.filename is None
+    assert sam.file_name is None
     count = 0
     for read in sam:
         #print read.line.strip()
@@ -113,7 +57,7 @@ def test_gem2sam_execution_to_file():
     sam = gem.gem2sam(mappings, index, output=result, compact=True)
     assert sam is not None
     assert sam.process is not None
-    assert sam.filename == result
+    assert sam.file_name == result
     assert os.path.exists(result)
     count = 0
     for read in sam:
