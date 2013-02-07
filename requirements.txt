@@ -2,3 +2,4 @@ nose
 cython==0.18
 distribute
 argparse==1.2.1
+sphinx

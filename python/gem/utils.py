@@ -7,18 +7,14 @@ the command environment. If you want
 to create a new gemtools command, create a subclass
 of gem.utils.Command.
 """
-from Queue import Queue
-import os
-import re
-import string
 
+import os
+import string
 import subprocess
 import logging
 from threading import Thread
-
 import gem
-import sys
-
+import gem.gemtools as gt
 import datetime
 import time
 
@@ -95,6 +91,66 @@ __complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
 def reverseComplement(sequence):
     """Returns the reverse complement of the given DNA/RNA sequence"""
     return sequence.translate(__complement)[::-1]
+
+
+class ProcessWrapper(object):
+    """Class returned by run_tools that wraps around a list of processes and
+    is able to wait. The wrapper is aware of the process log files and
+    will do the cleanup around the process when after waiting.
+
+    If a process does not exit with 0, its log file is printed to logger error.
+
+    After the wait, all log files are deleted by default.
+    """
+    def __init__(self, keep_logfiles=False):
+        """Create an empty process wrapper
+
+        keep_logfiles -- if true, log files are not deleted
+        """
+        self.processlist = []
+        self.process_startup = []
+        self.logfiles = []
+        self.keep_logfiles = keep_logfiles
+
+
+    def run(self, command, input=None, output=None, env=None ):
+        process_in = subprocess.PIPE
+        if input is not None:
+            process_in = input
+
+        process_out = subprocess.PIPE
+        if output is not None:
+            process_out = output
+
+
+        logging.debug("Starting process : %s ", command[0])
+        process = subprocess.Popen(command, stdin=process_in, stdout=process_out, stderr=process_err, env=env, close_fds=True)
+
+
+    def wait(self):
+        """Wait for all processes in the process list to
+        finish. If a process is exiting with non 0, the process
+        log file is printed to logger error.
+
+        All log files are delete if keep_logfiles is False
+        """
+        try:
+            for i, process in enumerate(self.processlist):
+                exit_value = process.wait()
+                if exit_value != 0:
+                    logging.error("Process %s exited with %d!" % (self.process_startup[i][0]), exit_value)
+                    if self.logfiles[i] is not None:
+                        with open(self.logfiles[i]) as f:
+                            for line in f:
+                                logging.error("%s" % (line.strip()))
+                    return 1
+            return 0
+        finally:
+            if not self.keep_logfiles:
+                for logfile in self.logfiles:
+                    if logfile is not None and os.path.exists(logfile):
+                        logging.debug("Removing log file: %s" % (logfile))
+                        os.remove(logfile)
 
 
 def run_tools(tools, input=None, output=None, write_map=False, clean_id=True, append_extra=True, name=""):
