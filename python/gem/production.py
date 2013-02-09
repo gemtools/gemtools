@@ -48,7 +48,7 @@ class Junctions(Command):
 
     def run(self, args):
         infile = args.input
-        junctions = set(gem.junction.from_gtf(infile))
+        junctions = set([x for x in gem.junctions.from_gtf(infile)])
         logging.info("%d Junctions loaded from file" % (len(junctions)))
         gem.junctions.write_junctions(junctions, args.output)
 

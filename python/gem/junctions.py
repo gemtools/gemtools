@@ -10,7 +10,7 @@ import subprocess
 import sys
 import gem.filter
 import gem
-
+import logging
 
 class Exon(object):
     """Exons representation"""
@@ -35,7 +35,6 @@ class Exon(object):
         assert self.strand in ["+", "-"]
 
         if self.start > self.stop:
-            print "Flipping..."
             self.start, self.stop = self.stop, self.start
             if self.strand == "+": self.strand = "-"
             else: self.strand = "+"
@@ -262,24 +261,67 @@ def from_junctions(junctions_file):
     return junctions
 
 
+
 def from_gtf(annotation):
     """Extract junctions from given gtf annotation"""
+    def __get_id(tr):
+        if tr.startswith("transcript_id"):
+            t = tr.split(" ")[1]
+            if t[-1] == ";": t = t[:-1]
+            if t[0] == '"': t = t[1:]
+            if t[-1] == '"': t = t[:-1]
+            return t
+        return None
+
+    def __extract_transcript(cell, check_first=0):
+        split = [s.strip() for s in cell.split(";")]
+        t = None
+        if len(split) < check_first:
+            t = __get_id(split[check_first])
+        if t is not None:
+            return t
+        for s in split:
+            t = __get_id(s)
+            if t is not None:
+                return t
+        return None
+
     in_fd = gem.files.open_file(annotation)  ##open(annotation, 'rb')
-    trans_re = re.compile('.*transcript_id "(.*)";.*')
+    #trans_re = re.compile('.*transcript_id "(.*)";.*')
     junctions = {}
+    line_count = 0
     for line in in_fd:
+        if line.strip()[0] == '#':
+            logging.debug("Skipping comment line")
+            # skip comment
+            continue
+        line_count += 1
         split = line.split("\t")
+        if len(split) < 8:
+            logging.warning("GTF line %d has < 8 fields, skipping" % line_count)
+            continue
         if split[2] != "exon":
             continue
-        id = trans_re.match(split[8]).group(1) + split[0]
+        #id = trans_re.match(split[8]).group(1) + split[0]
+        try:
+            id = __extract_transcript(split[8].strip())
+            if id is None:
+                logging.error("Failed to extract a transcript id from line %d" % line_count)
+                continue
+            id = id + split[0]
+        except:
+            logging.error("Failed to extract a transcript id from line %d" % line_count)
+            continue
         start = int(split[3])
         end = int(split[4])
         if start != end:
             exon = Exon(split[0], id, start, end, split[6])
             junctions.setdefault(id, Junction()).append(exon)
-
-    for j in sorted(set((
+    logging.debug("Found %d raw sites, extracting unique" % (len(junctions)))
+    unique = sorted(set((
         site for sites in
         (junction.sites() for k, junction in junctions.items())
-        for site in sites))):
+        for site in sites)))
+    logging.debug("Found %d sites" % (len(unique)))
+    for j in unique:
         yield j
