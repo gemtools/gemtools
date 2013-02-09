@@ -1,14 +1,15 @@
 from gemapi cimport *
-
+import os
 
 cdef class TemplateIterator:
     """Base class for iterating template streams"""
     cdef gt_buffered_input_file* buffered_input
     cdef gt_generic_parser_attr* parser_attr
     cdef gt_input_file* input_file
-    cdef Template template
+    cdef readonly Template template
     cdef TemplateIterator source
     cdef readonly object quality
+    cdef readonly char* file_name
 
     def __iter__(self):
         return self
@@ -27,8 +28,9 @@ cdef class TemplateIterator:
         self.template = source.template
         self.source = source
         self.quality = source.quality
+        self.file_name = source.file_name
 
-    cdef gt_status _next(self):
+    cpdef gt_status _next(self):
         pass
 
     def close(self):
@@ -73,13 +75,11 @@ cdef class SimpleTemplateIterator(TemplateIterator):
         self.index = 0
         self.length = len(templates)
 
-    cdef gt_status _next(self):
+    cpdef gt_status _next(self):
         if self.index < self.length:
             self.index += 1
             self.template = self.templates[self.index]
-            print "TEMPLATE SET RETURN OKEY"
             return GT_STATUS_OK
-        print "FINISH ITERATING"
         return GT_STATUS_FAIL
 
 
@@ -90,13 +90,13 @@ cdef class interleave(TemplateIterator):
     cdef uint64_t length
 
     def __init__(self, iterators):
-        self.iterators = iterators
+        self.iterators = [i.__iter__() for i in iterators]
         self.length = len(iterators)
         self.current = 0
         cdef TemplateIterator main = <TemplateIterator> self.iterators[0]
         self._init(main)
 
-    cdef gt_status _next(self):
+    cpdef gt_status _next(self):
         cdef TemplateIterator ci = <TemplateIterator> self.iterators[self.current]
         self.template = ci.template
         cdef gt_status s = ci._next()
@@ -105,6 +105,34 @@ cdef class interleave(TemplateIterator):
             self.current = 0
         return s
 
+cdef class cat(TemplateIterator):
+    """Cat iterators"""
+    cdef object iterators
+    cdef uint64_t current
+    cdef uint64_t length
+    cdef TemplateIterator current_itereator
+
+    def __init__(self, iterators):
+        self.iterators = [i.__iter__() for i in iterators]
+        self.length = len(iterators)
+        self.current = 0
+        self.current_itereator = <TemplateIterator> self.iterators[0]
+        self._init(self.current_itereator)
+        self.template = self.current_itereator.template
+
+    cpdef gt_status _next(self):
+        cdef gt_status s = self.current_itereator._next()
+        if s != GT_STATUS_OK:
+            if self.current < self.length - 1:
+                self.current += 1
+                self.current_itereator = <TemplateIterator> self.iterators[self.current]
+                self.template = self.current_itereator.template
+                return self._next()
+            else:
+                return GT_STATUS_FAIL
+        return s
+
+
 cdef class unmapped(TemplateIterator):
     """Filter for unmapped reads or reads with mismatches >= max_mismatches"""
     cdef TemplateIterator iterator
@@ -112,11 +140,13 @@ cdef class unmapped(TemplateIterator):
 
 
     def __init__(self, iterator, int64_t max_mismatches=GT_ALL):
-        self.iterator = iterator
+        self.iterator = iterator.__iter__()
         self.max_mismatches = max_mismatches
         self._init(iterator)
+        if max_mismatches < 0:
+            max_mismatches = GT_ALL
 
-    cdef gt_status _next(self):
+    cpdef gt_status _next(self):
         cdef gt_status s = self.iterator._next()
         while( s == GT_STATUS_OK ):
             if self.template.is_unmapped(self.max_mismatches):
@@ -125,17 +155,17 @@ cdef class unmapped(TemplateIterator):
         return GT_STATUS_FAIL
 
 cdef class unique(TemplateIterator):
-    """Pairwise interleave of two streams of equal size"""
+    """Yield unique reads"""
     cdef TemplateIterator iterator
     cdef uint64_t level
 
 
     def __init__(self, iterator, uint64_t level=0):
-        self.iterator = iterator
+        self.iterator = iterator.__iter__()
         self.level = level
         self._init(iterator)
 
-    cdef gt_status _next(self):
+    cpdef gt_status _next(self):
         cdef gt_status s = self.iterator._next()
         cdef int64_t template_level = 0
         while( s == GT_STATUS_OK ):
@@ -146,27 +176,60 @@ cdef class unique(TemplateIterator):
         return GT_STATUS_FAIL
 
 
+cdef class trim(TemplateIterator):
+    """Trim reads"""
+    cdef TemplateIterator iterator
+    cdef uint64_t left
+    cdef uint64_t right
+    cdef uint64_t min_length
+    cdef bool set_extra
+
+    def __init__(self, iterator, uint64_t left=0, uint64_t right=0, uint64_t min_length=10, bool set_extra=True):
+        self.iterator = iterator.__iter__()
+        self.left = left
+        self.right = right
+        self.min_length = min_length
+        self.set_extra = set_extra
+        self._init(iterator)
+
+    cpdef gt_status _next(self):
+        if self.iterator._next() == GT_STATUS_OK:
+            if self.left > 0 or self.right > 0:
+                # trim the read
+                gt_template_trim(self.template.template, self.left, self.right, self.min_length, self.set_extra)
+            return GT_STATUS_OK
+        return GT_STATUS_FAIL
+
+
 cdef class merge(TemplateIterator):
     """Merge a master stream with a list of child streams"""
-    cdef TemplateIterator master
     cdef object children
+    cdef object states
 
-    def __init__(self, TemplateIterator master, children):
-        self._init(master)
-        self.children = []
-        # initialize children
-        for c in children:
-            i = c.__iter__()
-            children.append(i)
-
-    cdef gt_status _next(self):
-        cdef gt_status s = self.source._next()
-        while( s == GT_STATUS_OK ):
+    def __init__(self, master, children, bool init=True):
+        self._init(master.__iter__())
+        self.children = [c.__iter__() for c in children]
+        self.states = []
+        if init:
             for c in self.children:
-                if self.template.same(c.template):
-                    self.template.merge(c.template)
-                    c._next()
-            return s
+                s = c._next()
+                self.states.append(s)
+
+    cpdef merge_pairs(self, char* out_file_name, bool same_content, uint64_t threads):
+        cdef char* i1 = self.source.file_name
+        cdef char* i2 = (<TemplateIterator>self.children[0]).file_name
+        with nogil:
+            gt_merge_files(i1, i2, out_file_name, True, same_content, False, threads)
+
+    cpdef gt_status _next(self):
+        if self.source._next() == GT_STATUS_OK:
+            for i, s in enumerate(self.states):
+                other = self.children[i]
+                if s == GT_STATUS_OK and self.template.same(other.template):
+                    self.template.merge(other.template)
+                    self.states[i] = other._next()
+            return GT_STATUS_OK
+        return GT_STATUS_FAIL
 
 
 cdef class OutputFile:
@@ -184,7 +247,7 @@ cdef class OutputFile:
 
     def open_stream(self, file stream):
         self.output_file = gt_output_stream_new(PyFile_AsFile(stream), SORTED_FILE)
-        self.do_close = False
+        self.do_close = True
         self.buffered_output = gt_buffered_output_file_new(self.output_file)
         return self
 
@@ -221,7 +284,7 @@ cdef class OutputFile:
             # print the rest
             while(iterator._next() == GT_STATUS_OK):
                 gt_output_fasta_bofprint_template(self.buffered_output, iterator.template.template, attributes)
-        self.close()
+
 
     cdef void _write_map(self, TemplateIterator iterator, bool print_scores, bool clean_id, bool append_extra):
         """Write templated from iterator as fastq"""
@@ -232,10 +295,10 @@ cdef class OutputFile:
         gt_output_map_attributes_set_print_extra(attributes, append_extra)
         while(iterator._next() == GT_STATUS_OK):
             gt_output_map_bofprint_template(self.buffered_output, iterator.template.template, attributes)
-        self.close()
 
 
-cdef class InputFile(TemplateIterator):
+
+cdef class InputFile(object):
     """GEMTools input file. The input file extends TemplateIterator
     and can be used directly to iterate templates. To access the underlying
     alignment, use the alignments() function to get an alignment iterator.
@@ -243,9 +306,10 @@ cdef class InputFile(TemplateIterator):
     cdef readonly object file_name
     cdef readonly bool force_paired_reads
     cdef readonly bool mmap_file
+    cdef readonly bool delete_after_iterate
     cdef readonly object process
     cdef readonly object stream
-    cdef InputFileTemplateIterator iterator
+    cdef readonly object quality
 
     def __init__(self,
         file_name=None,
@@ -253,7 +317,8 @@ cdef class InputFile(TemplateIterator):
         bool mmap_file=True,
         bool force_paired_reads=False,
         object quality=None,
-        object process=None
+        object process=None,
+        bool delete_after_iterate=False
         ):
         if file_name is not None:
             self.file_name = file_name
@@ -265,17 +330,22 @@ cdef class InputFile(TemplateIterator):
         self.process = process
         self.stream = stream
         self.quality = quality
+        self.delete_after_iterate = delete_after_iterate
         if file_name is None or file_name.endswith(".gz") or file_name.endswith(".bz2"):
             self.mmap_file = False
-        self.iterator = self._templates()
 
     cdef gt_input_file* _input_file(self):
         if self.stream is not None:
-                return gt_input_stream_open(PyFile_AsFile(self.stream))
+            return gt_input_stream_open(PyFile_AsFile(self.stream))
         else:
             if self.file_name is not None:
                 return gt_input_file_open(<char*>self.file_name, self.mmap_file)
 
+    def clone(self):
+        if self.stream is not None:
+            raise ValueError("Can not clone a stream based input file")
+        else:
+            return InputFile(file_name=self.file_name, mmap_file=self.mmap_file, force_paired_reads=self.force_paired_reads, quality=self.quality, process=self.process, delete_after_iterate=self.delete_after_iterate)
 
     def raw_stream(self):
         if self.stream is not None:
@@ -285,9 +355,6 @@ cdef class InputFile(TemplateIterator):
 
     def __iter__(self):
         return self._templates()
-
-    cdef gt_status _next(self):
-        return self.iterator._next()
 
     def templates(self):
         return self._templates()
@@ -303,17 +370,25 @@ cdef class InputFile(TemplateIterator):
 
 
 cdef class InputFileTemplateIterator(TemplateIterator):
+    cdef bool delete_after_iterate
+    #cdef object file_name
+    cdef object process
 
     def __cinit__(self, InputFile input_file):
         self.input_file = input_file._input_file()
+        self.file_name = input_file.file_name
         cdef gt_generic_parser_attr* gp = gt_input_generic_parser_attributes_new(input_file.force_paired_reads)
         self.parser_attr = gp
         self.template = Template()
         self.quality = input_file.quality
+        self.delete_after_iterate = input_file.delete_after_iterate
+        self.file_name = input_file.file_name
+        self.process = input_file.process
         #
         #initialize the buffer
         #
         self.buffered_input = gt_buffered_input_file_new(self.input_file)
+
 
     def __dealloc__(self):
         if self.buffered_input is not NULL:
@@ -326,9 +401,16 @@ cdef class InputFileTemplateIterator(TemplateIterator):
             gt_input_file_close(self.input_file)
             self.input_file = NULL
 
-    cdef gt_status _next(self):
+    cpdef gt_status _next(self):
         """Internal iterator method"""
-        return gt_input_generic_parser_get_template(self.buffered_input, self.template.template, self.parser_attr)
+
+        cdef gt_status s = gt_input_generic_parser_get_template(self.buffered_input, self.template.template, self.parser_attr)
+        if s != GT_STATUS_OK :
+            if self.delete_after_iterate:
+                os.remove(self.file_name)
+            if self.process is not None:
+                self.process.wait()
+        return s
 
 
 cdef class InputFileAlignmentIterator(AlignmentIterator):
@@ -445,7 +527,7 @@ cdef class Template:
         return gt_template_get_num_mmaps(self.template)
 
     cpdef bool is_unmapped(self, uint64_t max_mismatches=GT_ALL):
-        return gt_template_is_thresholded_mapped(self.template, max_mismatches)
+        return not gt_template_is_thresholded_mapped(self.template, max_mismatches)
 
     def to_map(self):
         cdef gt_string* gt = self._to_map()
@@ -530,7 +612,7 @@ cdef class Template:
         return gt_template_get_pair(self.template)
 
     cpdef same(self, Template other):
-        return gt_template_get_tag(self.template) == gt_template_get_tag(other.template) and self.get_pair() == other.get_pair()
+        return strcmp(gt_template_get_tag(self.template), gt_template_get_tag(other.template)) == 0 and self.get_pair() == other.get_pair()
 
     cpdef int64_t level(self, uint64_t max_level=GT_ALL):
         cdef gt_template* template = self.template

@@ -195,8 +195,9 @@ class build_ext(_build_ext):
                 for source in ext.sources:
                     output_dir = os.path.dirname(source)
                     (base, ex) = os.path.splitext(os.path.basename(source))
-                    if ex == ".c":
+                    if not os.path.exists(source) and ex == ".c":
                         ex = ".pyx"
+
                     new_sources.append(os.path.join(output_dir, base + ex))
                 ext.sources = new_sources
 
@@ -241,12 +242,12 @@ try:
 except:
     pass
 
-gemtools = Extension("gem.gemtools", sources=["python/src/gemtools.pyx", "python/src/gemapi.pxd"],
+gemtools = Extension("gem.gemtools", sources=["python/src/gemtools_binding.c", "python/src/gemtools.pyx", "python/src/gemapi.pxd"],
                     include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
                     library_dirs=['GEMTools/lib'],
-                    libraries=['z', 'bz2', 'gemtools'],
-                    # extra_compile_args=["-fopenmp"],
-                    # extra_link_args=["-fopenmp"]
+                    libraries=['z', 'bz2', 'gemtools', 'pthread'],
+                    extra_compile_args=['-fopenmp'],
+                    extra_link_args=["-fopenmp"]
 )
 
 

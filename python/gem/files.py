@@ -37,11 +37,7 @@ def open(input):
     stream = None
     if is_string:
         if type == "bam":
-            process = subprocess.Popen(["samtools", "view", input],
-                stdout=subprocess.PIPE,
-                stderr=__builtin__.open("/dev/null", 'w'),
-                close_fds=True)
-            stream = process.stdout
+            stream = open_bam(input)
     else:
         stream = input
 
@@ -52,6 +48,21 @@ def open(input):
     else:
         it = gt.InputFile(file_name=input)
     return it
+
+
+def open_bam(input):
+    return subprocess.Popen(["samtools", "view", "-h", input],
+        stdout=subprocess.PIPE,
+        stderr=__builtin__.open("/dev/null", 'w'),
+        close_fds=True).stdout
+
+
+def open_bam_stream(input):
+    return subprocess.Popen(["samtools", "view", "-h", "-"],
+        stdout=subprocess.PIPE,
+        stdin=input,
+        #stderr=__builtin__.open("/dev/null", 'w'),
+        close_fds=True).stdout
 
 
 def _cleanup():
@@ -129,9 +140,10 @@ def __zcat():
     global __zcat_path
     if __zcat_path is not None:
         return __zcat_path
-    __zcat_path = which("zcat")
+
+    __zcat_path = which("gzcat")
     if not __zcat_path:
-        __zcat_path = which("gzcat")
+        __zcat_path = which("zcat")
     if not __zcat_path:
         raise ValueError("Unable to find a zcat|gzcat executable in PATH!")
     return __zcat_path

@@ -113,4 +113,8 @@ GT_INLINE void gt_template_realign_levenshtein(gt_template* const template,gt_se
 GT_INLINE void gt_template_realign_weighted(
     gt_template* const template,gt_sequence_archive* const sequence_archive,int32_t (*gt_weigh_fx)(char*,char*));
 
+/*
+ * Template trimming
+ */
+GT_INLINE void gt_template_trim(gt_template* const template, uint64_t const left, uint64_t const right, uint64_t const min_length, bool const set_extra);
 #endif /* GT_TEMPLATE_UTILS_H_ */

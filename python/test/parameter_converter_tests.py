@@ -28,6 +28,6 @@ def test_index_parameter():
     assert gem._prepare_index_parameter(c(".gem"), False) == c("")
 
 
-@raises(ValueError)
+@raises(IOError)
 def test_index_parameter_checks_file():
     gem._prepare_index_parameter("unknown_index", False)

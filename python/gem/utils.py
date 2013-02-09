@@ -131,18 +131,22 @@ class Process(object):
         stderr = None
         if self.parent is not None:
             stdin = self.parent.process.stdout
-        if self.logfile is not None:
-            stderr = open(self.logfile, 'wb')
         self.process_input = None
+
         if isinstance(stdin, ProcessInput):
             self.process_input = stdin
-            stdin = subprocess.PIPE
+            if self.logfile is not None:
+                stderr = self.logfile
+            self.process = self.process_input.start(self.commands, stdout=stdout, stderr=stderr, env=self.env)
+        else:
+            if self.logfile is not None:
+                stderr = open(self.logfile, 'wb')
+            if isinstance(stdout, basestring):
+                stdout = open(stdout, 'wb')
+            elif stdout is None:
+                stdout = subprocess.PIPE
 
-        self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=True)
-
-        if self.process_input is not None:
-            self.process_input.start(self.process)
-
+            self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=True)
         return self.process
 
     def __str__(self):
@@ -171,12 +175,139 @@ class Process(object):
                         logging.error("%s" % (line.strip()))
         else:
             logging.debug("Process %s finished" % (str(self)))
+        if self.process.stdin is not None:
+            self.process.stdin.close()
+        if self.process.stdout is not None:
+            self.process.stdout.close()
+        if self.process.stderr is not None:
+            self.process.stderr.close()
         return exit_value
 
     def to_bash(self):
         if isinstance(self.commands, (list, tuple)):
                 return " ".join(self.commands)
         return str(self.commands)
+
+
+class ProcessInput(object):
+    """Helper class to write templates to a target process"""
+    def __init__(self, input, write_map=False, clean_id=True, append_extra=True):
+        self.write_map = write_map
+        self.clean_id = clean_id
+        self.append_extra = append_extra
+        self.process = None
+        self.input = input
+
+    @staticmethod
+    def __write_input(iterator, clean_id, append_extra, write_map, commands, stdout, stderr, env, connection):
+        """Internal method that writes templates ot the
+        input stream of the process and puts a message on
+        the queue when done to close the stream
+        """
+        # initialize logging in the child process
+        stream = None
+        filename = None
+        fifo = False
+        try:
+            stdin = subprocess.PIPE
+            if not isinstance(stdout, basestring):
+                # it seems to be problematic to pass
+                # the file descriptors between the processes
+                # on both OSX and Linux reliably, use a named
+                # pipe
+                handle, filename = tempfile.mkstemp()
+                os.close(handle)
+                os.remove(filename)
+                os.mkfifo(filename)
+                ## send the fifo
+                connection.send(["fifo", filename])
+                ##logging.debug("Created named pipe in %s" % (filename))
+                stdout = open(filename, 'wb')
+                fifo = True
+            else:
+                filename = stdout
+                stdout = open(stdout, 'wb')
+
+            if stderr is not None:
+                stderr = open(stderr, 'wb')
+
+            process = subprocess.Popen(commands, stdin=stdin, stdout=stdout, stderr=stderr, env=env, close_fds=True)
+            connection.send(["process", process])
+
+            stream = process.stdin
+            of = gt.OutputFile(stream=stream)
+            if write_map:
+                of.write_map(iterator, clean_id, append_extra)
+            else:
+                of.write_fastq(iterator, clean_id, append_extra)
+            of.close()
+            stream.close()
+            if not fifo:
+                process.wait()
+
+            if stdout is not None:
+                stdout.close()
+            if stderr is not None:
+                stderr.close()
+            connection.send(["done", None])
+        except Exception, e:
+            connection.send(["fail", e])
+        finally:
+            if fifo:
+                os.remove(filename)
+            connection.close()
+
+    @staticmethod
+    def __proces_listener(connection):
+        """Thread function that listens to any error or log messages send
+        through the connection
+        """
+        while True:
+            (msg_type, value) = connection.recv()
+            if msg_type == "done":
+                logging.debug("Process finished")
+                connection.close()
+                break
+            if msg_type == "fail":
+                logging.error("Process failed : %s" % (str(value)))
+                connection.close()
+                break
+
+            # logging message
+            logging.log(value[0], value[1])
+
+    def start(self, commands, stdout, stderr, env, ):
+        parent_conn, child_conn = mp.Pipe()
+        iterator = self.input
+        if isinstance(iterator, gt.InputFile):
+            iterator = iterator.templates()
+
+        self.process = mp.Process(target=ProcessInput.__write_input, args=(
+            iterator, self.clean_id, self.append_extra, self.write_map,
+            commands, stdout, stderr, env,
+            child_conn,))
+        self.process.start()
+
+        (msg, value) = parent_conn.recv()
+        fifo = None
+        if msg == "fifo":
+            fifo = open(value, "rb")
+            (msg, value) = parent_conn.recv()
+
+        if msg == "process":
+            process = value
+            process.stdout = fifo
+            parent_conn.close()
+            #Thread(taget=ProcessInput.__proces_listener, args=(parent_conn,)).start()
+            return process
+
+        parent_conn.close()
+        self.process.join()
+        raise ProcessError("No process started!")
+
+    def join(self):
+        if self.process is not None and self.process._parent_pid == os.getpid():
+            self.process.join()
 
 
 class ProcessWrapper(object):
@@ -189,7 +320,7 @@ class ProcessWrapper(object):
     After the wait, all log files are deleted by default.
     """
 
-    def __init__(self, keep_logfiles=False, name=None, force_debug=False):
+    def __init__(self, keep_logfiles=False, name=None, force_debug=False, raw=None):
         """Create an empty process wrapper
 
         keep_logfiles -- if true, log files are not deleted
@@ -200,8 +331,9 @@ class ProcessWrapper(object):
         self.stdout = None
         self.stdin = None
         self.force_debug = force_debug
+        self.raw = raw
 
-    def submit(self, command, input=subprocess.PIPE, output=subprocess.PIPE, env=None):
+    def submit(self, command, input=subprocess.PIPE, output=None, env=None):
         """Run a command. The command must be list of command and its parameters.
         If input is specified, it is passed to the stdin of the subprocess instance.
         If output is specified, it is connected to the stdout of the underlying subprocess.
@@ -215,9 +347,10 @@ class ProcessWrapper(object):
             parent = self.processes[-1]
         if logging.getLogger().level is not logging.DEBUG and not self.force_debug:
             # create a temporary log file
-            (fifo, logfile) = tempfile.mkstemp(suffix='.log', prefix=self.__command_name(command), dir=".")
-            # close the file handle
-            os.close(fifo)
+            tmpfile = tempfile.NamedTemporaryFile(suffix='.log', prefix=self.__command_name(command) + ".", dir=".", delete=(not self.keep_logfiles))
+            logfile = tmpfile.name
+            tmpfile.close()
+
 
         p = Process(self, command, input=input, output=output, env=env, logfile=logfile, parent=parent)
         self.processes.append(p)
@@ -258,6 +391,10 @@ class ProcessWrapper(object):
         All log files are delete if keep_logfiles is False
         """
         try:
+            if self.raw:
+                for r in self.raw:
+                    if r is not None:
+                        r.wait()
             exit_value = 0
             for i, process in enumerate(self.processes):
                 ev = process.wait()
@@ -275,56 +412,6 @@ class ProcessWrapper(object):
         return " | ".join([p.to_bash() for p in self.processes])
 
 
-class ProcessInput(object):
-    """Helper class to write templates to a target process"""
-    def __init__(self, input, write_map=False, clean_id=True, append_extra=True):
-        self.write_map = write_map
-        self.clean_id = clean_id
-        self.append_extra = append_extra
-        self.process = None
-        self.input = input
-        self.target_process = None
-
-    def __write_input(self, process, q):
-        """Internal method that writes templates ot the
-        input stream of the process and puts a message on
-        the queue when done to close the stream
-        """
-        of = None
-        try:
-            iterator = self.input
-            if isinstance(iterator, gt.InputFile):
-                iterator = iterator.templates()
-            of = gt.OutputFile(stream=process.stdin)
-            if self.write_map:
-                of.write_map(iterator, clean_id=self.clean_id, append_extra=self.append_extra)
-            else:
-                of.write_fastq(iterator, clean_id=self.clean_id, append_extra=self.append_extra)
-        finally:
-            ## push to the queue to close the sreams
-            logging.debug("External process writer finished, sending signal")
-            q.put("Done")
-
-    def __wait_for_process(self, q, target_process):
-        """Internal method that is starte in a separate thread
-        and waits for a signal from the queue before it closes the
-        target_process input stream"""
-        q.get()
-        logging.debug("Signal received, closing input stream")
-        target_process.stdin.close()
-
-    def start(self, target_process):
-        self.target_process = target_process
-        q = mp.Queue()
-        Thread(target=ProcessInput.__wait_for_process, args=(self, q, target_process)).start()
-        self.process = mp.Process(target=ProcessInput.__write_input, args=(self, self.target_process, q,))
-        self.process.start()
-
-    def join(self):
-        if self.process is not None:
-            self.process.join()
-
-
 def _prepare_input(input, write_map=False, clean_id=True, append_extra=True):
     if isinstance(input, basestring):
         return open(input, 'rb')
@@ -336,13 +423,16 @@ def _prepare_input(input, write_map=False, clean_id=True, append_extra=True):
 
 def _prepare_output(output):
     if isinstance(output, basestring):
-        return open(output, 'wb')
-    if isinstance(output, file):
         return output
-    return subprocess.PIPE
+    if isinstance(output, file):
+        if output.name is not None and output.name is not "<fdopen>":
+            output.close()
+            return output.name
+        raise ProcessError("Can not pass raw file descriptors")
+    return None
 
 
-def run_tools(tools, input=None, output=None, write_map=False, clean_id=False, append_extra=True, name=None, keep_logfiles=False, force_debug=False, env=None):
+def run_tools(tools, input=None, output=None, write_map=False, clean_id=False, append_extra=True, name=None, keep_logfiles=False, force_debug=False, env=None, raw=False):
     """
     Run the tools defined in the tools list using a new process per tool.
     The input must be a gem.gemtools.TemplateIterator that is used to get
@@ -367,14 +457,22 @@ def run_tools(tools, input=None, output=None, write_map=False, clean_id=False, a
     append_extra -- if false, no additional information is printed in tag
     name         -- optional name for this process group
     """
-    p = ProcessWrapper(keep_logfiles=keep_logfiles, name=name, force_debug=force_debug)
+    parent_process = None
+    if raw:
+        if isinstance(input, gt.InputFile):
+            parent_process = [input.process]
+    p = ProcessWrapper(keep_logfiles=keep_logfiles, name=name, force_debug=force_debug, raw=parent_process)
 
     for i, commands in enumerate(tools):
         process_in = subprocess.PIPE
         process_out = subprocess.PIPE
         if i == 0:
             # prepare first process input
-            process_in = _prepare_input(input, write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+            if raw:
+                process_in = _prepare_input(input.raw_stream(), write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+            else:
+                process_in = _prepare_input(input, write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+
         if i == len(tools) - 1:
             # prepare last process output
             process_out = _prepare_output(output)
@@ -449,7 +547,6 @@ def find_pair(file):
                 name = name[:-1]
             return (os.path.basename(name), other)
     return (None, None)
-
 
 
 def find_in_path(program):

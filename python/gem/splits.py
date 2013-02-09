@@ -5,7 +5,7 @@ import gem
 from gem.junctions import JunctionSite
 
 
-def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, coverage=0, unique_strata=1):
+def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, coverage=0, unique_strata=1, process=None):
     """Extract denovo junctions from a split map run.
 
     gemoutput - a read iterator over gem splitmapper Output
@@ -45,6 +45,8 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
                 sites.add(e)
 
     exit_value = p.wait()
+    if process is not None:
+        process.wait()
     if exit_value != 0:
         logging.error("Error while executing junction extraction")
         exit(1)

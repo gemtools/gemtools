@@ -23,28 +23,28 @@ def test_fastq_filter_unmapped():
 
 def test_fastq_trim_right():
     reads = files.open(testfiles["reads_1.fastq"])
-    sum_length = sum(r.length() for r in filter.trim(reads, 0, 20))
-    assert sum_length == 550000
+    sum_length = sum(r.length for r in filter.trim(reads, 0, 20))
+    assert sum_length == 560000, sum_length
 
 
 def test_fastq_trim_left():
     reads = files.open(testfiles["reads_1.fastq"])
-    sum_length = sum(r.length() for r in filter.trim(reads, 20, 0))
-    assert sum_length == 550000
+    sum_length = sum(r.length for r in filter.trim(reads, 20, 0))
+    assert sum_length == 560000, sum_length
 
 
 def test_fastq_trim_both():
     reads = files.open(testfiles["reads_1.fastq"])
-    sum_length = sum(r.length() for r in filter.trim(reads, 10, 10))
-    assert sum_length == 550000
+    sum_length = sum(r.length for r in filter.trim(reads, 10, 10))
+    assert sum_length == 560000, sum_length
 
 
 def test_fastq_filtering():
     reads = files.open(testfiles["reads_1.fastq"])
     num_reads = sum(1 for r in reads.clone())
-    sum_length = sum(r.length() for r in reads.clone())
-    assert num_reads == 10000
-    assert sum_length == 750000
+    sum_length = sum(r.length for r in reads.clone())
+    assert num_reads == 10000, num_reads
+    assert sum_length == 760000, sum_length
 
 
 def test_iterating_fastq():
@@ -84,5 +84,5 @@ def test_open_gzip_file():
     assert reader is not None
     lines = reader.readlines()
     assert lines is not None
-    assert len(lines) == 40000
+    assert len(lines) == 40000, len(lines)
 

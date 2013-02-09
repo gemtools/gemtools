@@ -16,6 +16,7 @@
 #include "gt_map_align.h"
 
 #include "gt_output_map.h"
+#include "gt_input_parser.h"
 
 /*
  * Alignment's Maps operators (Update global state: counters, ...)
@@ -97,4 +98,8 @@ GT_INLINE void gt_alignment_realign_levenshtein(gt_alignment* const alignment,gt
 GT_INLINE void gt_alignment_realign_weighted(
     gt_alignment* const alignment,gt_sequence_archive* const sequence_archive,int32_t (*gt_weigh_fx)(char*,char*));
 
+/*
+ * Alignment trimming
+ */
+GT_INLINE void gt_alignment_trim(gt_alignment* const alignment, uint64_t const left, uint64_t const right, uint64_t const min_length, bool const set_extra);
 #endif /* GT_ALIGNMENT_UTILS_H_ */

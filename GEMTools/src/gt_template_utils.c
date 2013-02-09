@@ -255,6 +255,7 @@ GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,con
     return gt_alignment_is_thresholded_mapped(alignment,max_allowed_strata);
   } GT_TEMPLATE_END_REDUCTION;
   if (gt_template_get_not_unique_flag(template)) return true;
+  if(gt_template_get_num_counters(template) == 0) return false;
   register gt_vector* vector = gt_template_get_counters_vector(template);
   GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
     if (counter_pos>max_allowed_strata) return false;
@@ -506,6 +507,28 @@ GT_INLINE void gt_template_realign_weighted(
 }
 
 
+/*
+ * template trimming
+ */
+GT_INLINE void gt_template_trim(gt_template* const template, uint64_t const left, uint64_t const right, uint64_t const min_length, bool const set_extra){
+  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+    gt_alignment_trim(alignment, left, right, min_length, set_extra);
+  }
+  if(set_extra){
+    gt_alignment* first = gt_template_get_block(template, 0);
+    // transfer extra attribute
+    gt_string* alignment_extra = gt_shash_get(first->attributes, GT_TAG_EXTRA, gt_string);
+
+    if(gt_shash_is_contained(template->attributes, GT_TAG_EXTRA)){
+      gt_string* old = gt_shash_get(template->attributes, GT_TAG_EXTRA, gt_string);
+      gt_string_copy(old, alignment_extra);
+    }else{
+      gt_string* extra = gt_string_new(8+ (2*left) + (2*right));
+      gt_string_copy(extra, alignment_extra);
+      gt_shash_insert(template->attributes, GT_TAG_EXTRA, extra, gt_string);
+    }
+  }
+}
 
 
 

@@ -95,13 +95,15 @@ def loglevel(level):
     level -- one of debug, info, warn, error
     """
     global log_output
-    numeric_level = getattr(logging, level.upper(), None)
+    numeric_level = level
+    if isinstance(level, basestring):
+        numeric_level = getattr(logging, level.upper(), None)
+
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % loglevel)
+
     logging.basicConfig(level=numeric_level)
     logging.getLogger().setLevel(numeric_level)
-    if level.upper() in ["DEBUG"]:
-        log_output = LOG_STDERR
 
 
 def _prepare_index_parameter(index, gem_suffix=True):
@@ -184,7 +186,7 @@ def _prepare_quality_parameter(quality, input=None):
     return quality
 
 
-def _prepare_output(process, output=None, quality=None):
+def _prepare_output(process, output=None, quality=None, delete_after_iterate=False):
     """Creates a new gem.gemtools.Inputfile from the given process.
     If output is specivied, the function blocks and waits for the process to finish
     successfully before the InputFile is created on the specified output.
@@ -203,11 +205,15 @@ def _prepare_output(process, output=None, quality=None):
         # wait for the process to finish
         if process is not None and process.wait() != 0:
             raise ValueError("Execution failed!")
-        return gt.InputFile(file_name=output, quality=quality, process=process)
+        logging.debug("Opening output file %s" % (output))
+        if output.endswith(".bam"):
+            return gt.InputFile(stream=gem.files.open_bam(output), file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
+        return gt.InputFile(file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
     else:
+        logging.debug("Opening output stream")
         ## running in async mode, return iterator on
         ## the output stream
-        return gt.InputFile(stream=process.stdout, quality=quality, process=process)
+        return gt.InputFile(stream=process.stdout, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
 
 
 def validate_executables():
@@ -547,7 +553,8 @@ def extract_junctions(input,
         minsplit=min_split,
         maxsplit=max_split,
         coverage=coverage,
-        sites=merge_with)
+        sites=merge_with,
+        process=splitmap.process)
     return denovo_junctions
 
 
@@ -595,7 +602,7 @@ def pairalign(input, index, output=None,
         pa.append("--map-both-ends")
 
     ## run the mapper and trim away all the unused stuff from the ids
-    process = utils.run_tools(pa, input=input, output=output, name="GEM-Pair-align", write_map=True, clean_id=True, append_extra=False)
+    process = utils.run_tool(pa, input=input, output=output, name="GEM-Pair-align", write_map=True, clean_id=True, append_extra=False)
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -660,6 +667,9 @@ def score(input,
 def gem2sam(input, index=None, output=None,
     single_end=False, compact=False, threads=1,
     quality=None, check_ids=True):
+    # if output is None:
+    #     raise ValueError("You have to specify a sam output file! We are working on the piping support!")
+
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
 
@@ -680,6 +690,9 @@ def gem2sam(input, index=None, output=None,
 
     # GT-25 transform id's
     process = utils.run_tool(gem_2_sam_p, input=input, output=output, name="GEM-2-sam", write_map=True, clean_id=True, append_extra=False)
+    # if process.wait() != 0:
+    #     raise ValueError("GEM-2-SAM execution failed!")
+    # return output
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -692,19 +705,25 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
 
     tools = [sam2bam_p]
     out_name = output
+    delete_after_iterate = False
     if sorted:
         if out_name is not None:
             if out_name.endswith('.bam'):
                 out_name = out_name[:-4]
-        bam_sort = ['samtools', 'sort', '-']
-        if out_name is not None:
-            bam_sort.append(out_name)
+        else:
+            tmpfile = tempfile.NamedTemporaryFile(prefix="sorting", suffix=".bam")
+            tmpfile.close()
+            out_name = tmpfile.name[:-4]
+            delete_after_iterate = True
 
+
+        bam_sort = ['samtools', 'sort', '-']
+        bam_sort.append(out_name)
         out_name = out_name + ".bam"
         tools.append(bam_sort)
 
-    process = utils.run_tools(tools, input=input.raw_stream(), output=output, name="SAM-2-BAM")
-    return _prepare_output(process, output=out_name, quality=33)
+    process = utils.run_tools(tools, input=input, output=output, name="SAM-2-BAM", raw=True)
+    return _prepare_output(process, output=out_name, quality=33, delete_after_iterate=delete_after_iterate)
 
 
 def compute_transcriptome(max_read_length, index, junctions, substract=None):
@@ -817,20 +836,23 @@ class merger(object):
 
         self.target = target
         self.source = source
-        self.reads = []
         self.paired = paired
-        for x in self.source:
-            self.reads.append(None)
 
     def __iter__(self):
         return gt.merge(self.target, self.source)
 
-    def merge(self, output, threads=1, paired=False):
-        merger = gt.merge(self.target, self.source)
-        of = gt.OutputFile(file_name=output)
-        of.write_map(merger, clean_id=False, append_extra=True)
+    def merge(self, output, threads=1, paired=False, same_content=False):
+        if len(self.source) == 1:
+            logging.debug("Using paired merger with %d threads and same content %s" % (threads, str(same_content)))
+            merger = gt.merge(self.target, self.source, init=False)
+            merger.merge_pairs(output, same_content, threads)
+        else:
+            logging.debug("Using unpaired merger")
+            merger = gt.merge(self.target, self.source, init=True)
+            of = gt.OutputFile(file_name=output)
+            of.write_map(merger, clean_id=False, append_extra=True)
 
-        of.close()
+            of.close()
         return gt.InputFile(file_name=output)
 
 

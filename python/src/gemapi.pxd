@@ -3,6 +3,10 @@
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
+
+cdef extern from "stdlib.h":
+    int strcmp(char *a, char *b)
+
 cdef extern from "stdint.h":
     ctypedef int uint64_t
     ctypedef int int64_t
@@ -15,12 +19,14 @@ cdef extern from "Python.h":
     FILE* PyFile_AsFile(object)
     PyObject* PyString_FromString(char *v)
     PyObject* PyString_FromStringAndSize(char *v, Py_ssize_t len)
+    void PyEval_InitThreads()
 
 cdef extern from "fileobject.h":
     ctypedef class __builtin__.file [object PyFileObject]:
         pass
 
-cdef extern from "gem_tools.h":
+
+cdef extern from "gem_tools.h" nogil:
     # general
     ctypedef int gt_status
 
@@ -185,6 +191,7 @@ cdef extern from "gem_tools.h":
     # template utils
     bool gt_template_is_mapped(gt_template* template)
     bool gt_template_is_thresholded_mapped(gt_template* template, uint64_t max_allowed_strata)
+    void gt_template_trim(gt_template* template, uint64_t left, uint64_t right, uint64_t min_length, bool set_extra)
 
     # template merge
     cdef gt_template* gt_template_union_template_mmaps(gt_template* src_A, gt_template* src_B)
@@ -243,5 +250,9 @@ cdef extern from "gem_tools.h":
     gt_status gt_output_map_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template,gt_output_map_attributes* attributes)
     gt_status gt_output_map_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment,gt_output_map_attributes* attributes)
     gt_status gt_output_map_sprint_template(gt_string* string,gt_template* template,gt_output_map_attributes* attributes)
+
+
+cdef extern from "gemtools_binding.h" nogil:
+    void gt_merge_files(char* input_1, char* input_2, char*  output_file_name, bool  mmap_input, bool  same_content, bool paired_reads, uint64_t threads)
 
 

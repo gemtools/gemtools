@@ -25,9 +25,27 @@ def cleanup():
 
 
 @with_setup(setup_func, cleanup)
-def test_file_merge():
+def test_file_merge_async():
     reads_1 = files.open(testfiles["test.map"])
     reads_2 = files.open(testfiles["test.map"])
-    merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map")
+    merged = gem.merger(reads_1, [reads_2])
+    num_reads = sum(1 for r in merged)
+    assert num_reads == 10
+
+
+@with_setup(setup_func, cleanup)
+def test_file_merge_pairwise_same():
+    reads_1 = files.open(testfiles["test.map"])
+    reads_2 = files.open(testfiles["test.map"])
+    merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map", threads=8)
+    num_reads = sum(1 for r in merged)
+    assert num_reads == 10
+
+
+@with_setup(setup_func, cleanup)
+def test_file_merge_pairwise_same__content_big():
+    reads_1 = files.open(testfiles["10m.map"])
+    reads_2 = files.open(testfiles["10m.map"])
+    merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map", threads=8, same_content=True)
     num_reads = sum(1 for r in merged)
     assert num_reads == 10

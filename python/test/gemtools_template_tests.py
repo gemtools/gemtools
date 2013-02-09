@@ -36,11 +36,11 @@ def test_template_interleave():
 
 def test_template_unmapped_filter_length():
     infile = gt.InputFile(testfiles["test.map.gz"])
-    assert 9 == len([x for x in gt.unmapped(infile.templates(), 1)]), len([x for x in gt.unmapped(infile.templates(), 1)])
+    assert 1 == len([x for x in gt.unmapped(infile.templates(), 1)]), len([x for x in gt.unmapped(infile.templates(), 1)])
     assert 5 == len([x for x in gt.unmapped(infile.templates(), 0)]), len([x for x in gt.unmapped(infile.templates(), 0)])
-    assert 9 == len([x for x in gt.unmapped(infile.templates(), 2)]), len([x for x in gt.unmapped(infile.templates(), 2)])
-    assert 10 == len([x for x in gt.unmapped(infile.templates(), 3)]), len([x for x in gt.unmapped(infile.templates(), 3)])
-    assert 10 == len([x for x in gt.unmapped(infile.templates(), 4)]), len([x for x in gt.unmapped(infile.templates(), 4)])
+    assert 1 == len([x for x in gt.unmapped(infile.templates(), 2)]), len([x for x in gt.unmapped(infile.templates(), 2)])
+    assert 0 == len([x for x in gt.unmapped(infile.templates(), 3)]), len([x for x in gt.unmapped(infile.templates(), 3)])
+    assert 0 == len([x for x in gt.unmapped(infile.templates(), 4)]), len([x for x in gt.unmapped(infile.templates(), 4)])
 
 
 def test_template_unique_filter_level():
