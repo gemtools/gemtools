@@ -161,12 +161,14 @@ class Process(object):
         """Wait for the process and return its exit value. If it did not exit with
         0, print the log file to error"""
         if self.process is None:
+            logging.error("Process was not started")
             raise ProcessError("Process was not started!", self)
 
         if self.process_input is not None:
-            self.process_input.join()
-
-        exit_value = self.process.wait()
+            logging.debug("Joining input")
+            exit_value = self.process_input.join()
+        else:
+            exit_value = self.process.wait()
         if exit_value is not 0:
             logging.error("Process %s exited with %d!" % (str(self), exit_value))
             if self.logfile is not None:
@@ -175,12 +177,22 @@ class Process(object):
                         logging.error("%s" % (line.strip()))
         else:
             logging.debug("Process %s finished" % (str(self)))
+
         if self.process.stdin is not None:
-            self.process.stdin.close()
+            try:
+                self.process.stdin.close()
+            except:
+                pass
         if self.process.stdout is not None:
-            self.process.stdout.close()
+            try:
+                self.process.stdout.close()
+            except:
+                pass
         if self.process.stderr is not None:
-            self.process.stderr.close()
+            try:
+                self.process.stderr.close()
+            except:
+                pass
         return exit_value
 
     def to_bash(self):
@@ -197,6 +209,7 @@ class ProcessInput(object):
         self.append_extra = append_extra
         self.process = None
         self.input = input
+        self.connection = None
 
     @staticmethod
     def __write_input(iterator, clean_id, append_extra, write_map, commands, stdout, stderr, env, connection):
@@ -208,6 +221,7 @@ class ProcessInput(object):
         stream = None
         filename = None
         fifo = False
+        process = None
         try:
             stdin = subprocess.PIPE
             if not isinstance(stdout, basestring):
@@ -230,7 +244,6 @@ class ProcessInput(object):
 
             if stderr is not None:
                 stderr = open(stderr, 'wb')
-
             process = subprocess.Popen(commands, stdin=stdin, stdout=stdout, stderr=stderr, env=env, close_fds=True)
             connection.send(["process", process])
 
@@ -242,17 +255,18 @@ class ProcessInput(object):
                 of.write_fastq(iterator, clean_id, append_extra)
             of.close()
             stream.close()
-            if not fifo:
-                process.wait()
-
             if stdout is not None:
                 stdout.close()
             if stderr is not None:
                 stderr.close()
-            connection.send(["done", None])
         except Exception, e:
-            connection.send(["fail", e])
+            #connection.send(["fail", 1])
+            pass
         finally:
+            if process is not None:
+                connection.send(["exit", process.wait()])
+            else:
+                connection.send(["exit", 1])
             if fifo:
                 os.remove(filename)
             connection.close()
@@ -297,7 +311,7 @@ class ProcessInput(object):
         if msg == "process":
             process = value
             process.stdout = fifo
-            parent_conn.close()
+            self.connection = parent_conn
             #Thread(taget=ProcessInput.__proces_listener, args=(parent_conn,)).start()
             return process
 
@@ -307,7 +321,14 @@ class ProcessInput(object):
 
     def join(self):
         if self.process is not None and self.process._parent_pid == os.getpid():
+            (msg, exit_value) = self.connection.recv()
+            self.connection.close()
             self.process.join()
+            if msg == "exit":
+                return exit_value
+            else:
+                return 1
+        return 0
 
 
 class ProcessWrapper(object):
@@ -332,6 +353,7 @@ class ProcessWrapper(object):
         self.stdin = None
         self.force_debug = force_debug
         self.raw = raw
+        self.exit_value = None
 
     def submit(self, command, input=subprocess.PIPE, output=None, env=None):
         """Run a command. The command must be list of command and its parameters.
@@ -350,7 +372,6 @@ class ProcessWrapper(object):
             tmpfile = tempfile.NamedTemporaryFile(suffix='.log', prefix=self.__command_name(command) + ".", dir=".", delete=(not self.keep_logfiles))
             logfile = tmpfile.name
             tmpfile.close()
-
 
         p = Process(self, command, input=input, output=output, env=env, logfile=logfile, parent=parent)
         self.processes.append(p)
@@ -390,6 +411,8 @@ class ProcessWrapper(object):
 
         All log files are delete if keep_logfiles is False
         """
+        if self.exit_value is not None:
+            return self.exit_value
         try:
             if self.raw:
                 for r in self.raw:
@@ -400,7 +423,11 @@ class ProcessWrapper(object):
                 ev = process.wait()
                 if exit_value is not 0:
                     exit_value = ev
+            self.exit_value = ev
             return ev
+        except Exception, e:
+            print "An error occured while waiting for on eof the child processes:", e
+            self.exit_value = 1
         finally:
             if not self.keep_logfiles:
                 for p in self.processes:
@@ -417,8 +444,9 @@ def _prepare_input(input, write_map=False, clean_id=True, append_extra=True):
         return open(input, 'rb')
     if isinstance(input, file):
         return input
-    else:
+    elif input is not None:
         return ProcessInput(input, write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+    return None
 
 
 def _prepare_output(output):

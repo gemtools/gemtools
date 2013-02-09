@@ -9,7 +9,7 @@ cdef class TemplateIterator:
     cdef readonly Template template
     cdef TemplateIterator source
     cdef readonly object quality
-    cdef readonly char* file_name
+    cdef readonly object file_name
 
     def __iter__(self):
         return self
@@ -374,13 +374,14 @@ cdef class InputFileTemplateIterator(TemplateIterator):
 
     def __cinit__(self, InputFile input_file):
         self.input_file = input_file._input_file()
-        self.file_name = input_file.file_name
+        if input_file.file_name is not None:
+            self.file_name = input_file.file_name
+
         cdef gt_generic_parser_attr* gp = gt_input_generic_parser_attributes_new(input_file.force_paired_reads)
         self.parser_attr = gp
         self.template = Template()
         self.quality = input_file.quality
         self.delete_after_iterate = input_file.delete_after_iterate
-        self.file_name = input_file.file_name
         self.process = input_file.process
         #
         #initialize the buffer
@@ -401,7 +402,6 @@ cdef class InputFileTemplateIterator(TemplateIterator):
 
     cpdef gt_status _next(self):
         """Internal iterator method"""
-
         cdef gt_status s = gt_input_generic_parser_get_template(self.buffered_input, self.template.template, self.parser_attr)
         if s != GT_STATUS_OK :
             if self.delete_after_iterate:

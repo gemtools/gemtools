@@ -40,6 +40,7 @@ def test_gem2sam_execution():
     input = gem.files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index)
     sam = gem.gem2sam(mappings, index, compact=True)
+
     assert sam is not None
     assert sam.process is not None
     assert sam.file_name is None
