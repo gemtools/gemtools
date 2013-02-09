@@ -253,6 +253,6 @@ cdef extern from "gem_tools.h" nogil:
 
 
 cdef extern from "gemtools_binding.h" nogil:
-    void gt_merge_files(char* input_1, char* input_2, char*  output_file_name, bool  mmap_input, bool  same_content, bool paired_reads, uint64_t threads)
+    void gt_merge_files(char* input_1, char* input_2, char*  output_file_name, bool  same_content, uint64_t threads)
 
 

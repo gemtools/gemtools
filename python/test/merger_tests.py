@@ -43,9 +43,18 @@ def test_file_merge_pairwise_same():
 
 
 @with_setup(setup_func, cleanup)
-def test_file_merge_pairwise_same__content_big():
-    reads_1 = files.open(testfiles["10m.map"])
-    reads_2 = files.open(testfiles["10m.map"])
+def test_file_merge_pairwise_same_content_big():
+    reads_1 = files.open(testfiles["20t.map.gz"])
+    reads_2 = files.open(testfiles["20t.map.gz"])
     merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map", threads=8, same_content=True)
     num_reads = sum(1 for r in merged)
-    assert num_reads == 10
+    assert num_reads == 20000
+
+
+@with_setup(setup_func, cleanup)
+def test_file_merge_pairwise_same_content_big_sub():
+    reads_1 = files.open(testfiles["20t.map.gz"])
+    reads_2 = files.open(testfiles["20t_sub.map.gz"])
+    merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map", threads=8)
+    num_reads = sum(1 for r in merged)
+    assert num_reads == 20000

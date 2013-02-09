@@ -845,13 +845,12 @@ class merger(object):
         if len(self.source) == 1:
             logging.debug("Using paired merger with %d threads and same content %s" % (threads, str(same_content)))
             merger = gt.merge(self.target, self.source, init=False)
-            merger.merge_pairs(output, same_content, threads)
+            merger.merge_pairs(self.target.file_name, self.source[0].file_name, output, same_content, threads)
         else:
             logging.debug("Using unpaired merger")
             merger = gt.merge(self.target, self.source, init=True)
             of = gt.OutputFile(file_name=output)
             of.write_map(merger, clean_id=False, append_extra=True)
-
             of.close()
         return gt.InputFile(file_name=output)
 

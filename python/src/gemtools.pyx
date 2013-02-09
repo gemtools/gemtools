@@ -207,19 +207,17 @@ cdef class merge(TemplateIterator):
     cdef object states
 
     def __init__(self, master, children, bool init=True):
-        self._init(master.__iter__())
-        self.children = [c.__iter__() for c in children]
-        self.states = []
         if init:
+            self._init(master.__iter__())
+            self.children = [c.__iter__() for c in children]
+            self.states = []
             for c in self.children:
                 s = c._next()
                 self.states.append(s)
 
-    cpdef merge_pairs(self, char* out_file_name, bool same_content, uint64_t threads):
-        cdef char* i1 = self.source.file_name
-        cdef char* i2 = (<TemplateIterator>self.children[0]).file_name
+    cpdef merge_pairs(self, char* i1, char* i2, char* out_file_name, bool same_content, uint64_t threads):
         with nogil:
-            gt_merge_files(i1, i2, out_file_name, True, same_content, False, threads)
+            gt_merge_files(i1, i2, out_file_name, same_content, threads)
 
     cpdef gt_status _next(self):
         if self.source._next() == GT_STATUS_OK:
@@ -314,7 +312,7 @@ cdef class InputFile(object):
     def __init__(self,
         file_name=None,
         object stream=None,
-        bool mmap_file=True,
+        bool mmap_file=False,
         bool force_paired_reads=False,
         object quality=None,
         object process=None,
