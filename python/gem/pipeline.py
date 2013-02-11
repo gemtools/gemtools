@@ -258,7 +258,7 @@ class MappingPipeline(object):
             self.denovo_index = index_denovo_out
             return index_denovo_out
 
-        (junctions, junctions_gtf_out) = self.gtf_junctions()
+        (gtf_junctions, junctions_gtf_out) = self.gtf_junctions()
 
         timer = Timer()
         ## get de-novo junctions
@@ -268,18 +268,24 @@ class MappingPipeline(object):
         self.files.append(junctions_out + ".fa")
         self.files.append(junctions_out + ".keys")
 
-        junctions = gem.extract_junctions(
+        denovo_junctions = gem.extract_junctions(
             input,
             self.index,
             mismatches=0.04,
             threads=self.threads,
             strata_after_first=0,
-            coverage=self.junctioncoverage,
-            merge_with=junctions)
+            coverage=self.junctioncoverage
+            )
+        logging.info("Denovo Junctions %d" % len(denovo_junctions))
+        filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, 500000))
+        logging.info("Denovo Junction passing distance (500000) filter %d (%d removed)" % (
+            len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
+
+        junctions = gtf_junctions.union(filtered_denovo_junctions)
         logging.info("Total Junctions %d" % (len(junctions)))
         timer.stop("Denovo Transcripts extracted in %s")
         timer = Timer()
-        gem.junctions.write_junctions(gem.junctions.filter_by_distance(junctions, 500000), junctions_out, self.index)
+        gem.junctions.write_junctions(junctions, junctions_out, self.index)
 
         logging.info("Computing denovo transcriptome")
         (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(self.maxlength, self.index, junctions_out, junctions_gtf_out)

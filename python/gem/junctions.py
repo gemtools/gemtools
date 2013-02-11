@@ -91,17 +91,8 @@ class JunctionSite(object):
         chr_2 = s[3]
         strand_2 = s[4]
         pos_2 = long(s[5])
-
-        if pos_1 > pos_2:
-            pos_1, pos_2 = pos_2, pos_1
-            strand_1 = self.__invert(strand_1)
-            strand_2 = self.__invert(strand_2)
         desc = [chr_1, strand_1, pos_1, chr_2, strand_2, pos_2]
         return desc
-
-    def __invert(self, strand):
-        if strand == "+": return "-"
-        else: return "+"
 
 
     def __descriptor(self, start_exon, stop_exon):
@@ -211,7 +202,6 @@ def write_junctions(junctions, output=None, index=None):
     jf = sys.stdout
     if output:
         jf = open(output, 'w')
-
 
     ## write the junctions
     for junction in junctions:
