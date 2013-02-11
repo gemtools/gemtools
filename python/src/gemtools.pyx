@@ -332,6 +332,10 @@ cdef class InputFile(object):
         if file_name is None or file_name.endswith(".gz") or file_name.endswith(".bz2"):
             self.mmap_file = False
 
+    property filename:
+        def __get__(self):
+            return self.file_name
+
     cdef gt_input_file* _input_file(self):
         if self.stream is not None:
             return gt_input_stream_open(PyFile_AsFile(self.stream))

@@ -132,32 +132,57 @@ class RnaPipeline(Command):
     description = """The RNASeq pipeline alignes reads against a reference genome as well as
     agains a specified transcriptome. The transcriptome can be generated from an annotation.
     In addition, the pipeline performes a denovo-junction detection to find unknown junctions.
+
+    Input file detection: If you do not specify --single to disable read pairing, we look automatically for
+    the second pair file if you only specify one file. For that to work, the second file has to end with
+    wither .2 or _2, with the file extension .fastq or .txt (+ .gz for compressed files). For example,
+
+    gemtools rna-pipeline -f myinput_1.fastq.gz ...
+
+    will sarch for a file myinput_2.fastq.gz and use it as the second pair file.
     """
     title = "GEMTools RNASeq Pipeline"
 
     def register(self, parser):
         input_group = parser.add_argument_group('Input')
-        ## required parameters
-        input_group.add_argument('-f', '--files', dest="file", nargs="+", help='Single fastq input file or both pairs', required=True)
-        input_group.add_argument('-i', '--index', dest="index", help='Genome index', required=True)
-        input_group.add_argument('-m', '--max-read-length', dest="maxlength", help='The maximum read length', required=True)
-        input_group.add_argument('-a', '--annotation', dest="annotation", help='GTF annotation file', required=True)
-        input_group.add_argument('-r', '--transcript-index', dest="trans_index", help='Transcriptome index. If not specified it is assumed to be <gtf>.gem')
-        input_group.add_argument('-k', '--keys', dest="transcript_keys", help='Transcriptome .keys file. If not specified it is assumed to be <gtf>.junctions.keys')
 
-        ## optional parameters
-        parser.add_argument('-o', '--output-dir', dest="output", help='The output folder. If not specified the current working directory is used.')
-        parser.add_argument('-q', '--quality', dest="quality", default=33, help='Quality offset. 33 or 64, default 33')
-        parser.add_argument('--junction-coverage', dest="junctioncoverage",
-            help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable. Default 2', default=2)
-        parser.add_argument('-s', '--strata-after-best', dest="delta",
-            help='Number of strata that are examined after the best one. Default 1', default=1)
-        parser.add_argument('-g', '--no-gzip', dest="gzip", action="store_false", default=True, help="Do not compress result mapping")
-        parser.add_argument('--keep-temp', dest="rmtemp", action="store_false", default=True, help="Keep temporary files")
-        parser.add_argument('-t', '--threads', dest="threads", default=2, type=int, help="Number of threads to use")
-        parser.add_argument('--no-sam', dest="nosam", action="store_true", default=False, help="Do not create sam/bam file")
-        parser.add_argument('-n', '--name', dest="name", help="Name used for the results")
-        parser.add_argument('--extend-name', dest="extendname", action="store_true", default=False, help="Extend the name by prefixing it with the parameter combination")
+        ## required parameters
+        input_group.add_argument('-f', '--files', dest="file", nargs="+", help='''Single fastq input file or both files for a paired-end run separated by space.
+            Note that if you specify only one file, we will look for the pair counter-part
+            automatically and start a paired-end run. Add the --single-end parameter to disable
+            pairing and file search. The file search for the second pair detects pairs
+            ending in [_|.][1|2].[fastq|txt][.gz].''', required=True)
+        input_group.add_argument('-q', '--quality', dest="quality", default=33, help='Quality offset. 33, 64 or "ignore". Default 33')
+        # the index
+        input_group.add_argument('-i', '--index', dest="index", help='Path to the .gem genome index', required=True)
+        # annotation parameters
+        input_group.add_argument('-a', '--annotation', dest="annotation", help='''Path to the GTF annotation. If specified the transcriptome generated from teh annotation is
+            used in addition to denovo junctions.''')
+        input_group.add_argument('-r', '--transcript-index', dest="trans_index", help='''GTF Transcriptome index. If not specified and an annotation is given,
+            it is assumed to be <gtf>.gem. ''')
+        input_group.add_argument('-k', '--keys', dest="transcript_keys", help='''Transcriptome .keys file. If not specified and an annotation is given,
+            it is assumed to be <gtf>.junctions.keys''')
+
+        output_group = parser.add_argument_group('Output')
+        output_group.add_argument('-n', '--name', dest="name", help="Name used for the results")
+        output_group.add_argument('-o', '--output-dir', dest="output", help='Optional output folder. If not specified the current working directory is used.')
+        output_group.add_argument('--no-sam', dest="nosam", action="store_true", default=False, help="Do not create sam/bam file")
+        output_group.add_argument('-g', '--no-gzip', dest="gzip", action="store_false", default=True, help="Do not compress result mapping")
+        output_group.add_argument('--keep-temp', dest="rmtemp", action="store_false", default=True, help="Keep temporary files")
+
+        mapping_group = parser.add_argument_group('Mapping')
+        mapping_group.add_argument('-m', '--max-mismatches', dest="max_mismatches", help='Number of mismatches allowed in genome mapping step. Default 0.06', default=0.06)
+
+        transcript_group = parser.add_argument_group('Transcript Mapping')
+        transcript_group.add_argument('--junction-coverage', dest="junctioncoverage", help='A denovo junction must be covered by > coverage reads to be taken into account, 0 to disable. Default 2', default=2)
+        transcript_group.add_argument('--junction-length', dest="junctionlength", help='Maximum length of a denovo junction. Default 500000', default=500000)
+        transcript_group.add_argument('-tm', '--transcript-max-mismatches', dest="transcript_max_mismatches", help='Number of mismatches allowed in transcriptome mapping step. Defaults to allowed mismatchs in genome mapping', default=None)
+        transcript_group.add_argument('--max-read-length', dest="maxlength", default=150, help='''The maximum read length. This is used to create the denovo
+            transcriptom and acts as an upper bound. The default is 150.''', required=True)
+
+        general_group = parser.add_argument_group('General')
+        general_group.add_argument('-s', '--strata-after-best', dest="delta", help='Number of strata that are examined after the best one. Default 1', default=1)
+        general_group.add_argument('-t', '--threads', dest="threads", default=2, type=int, help="Number of threads to use")
 
     def run(self, args):
         ## parsing command line arguments
@@ -194,36 +219,45 @@ class RnaPipeline(Command):
 
         timer = gem.utils.Timer()
 
-        main_input = gem.files.open(input_file)
-        main_input2 = gem.files.open(input_file2)
+        # main_input = gem.files.open(input_file)
+        # main_input2 = gem.files.open(input_file2)
 
-        # initial mapping
-        initial_mapping = pipeline.mapping_step(interleave([main_input, main_input2]), "initial")
-        # create denovo transcriptome
-        pipeline.create_denovo_transcriptome(initial_mapping)
+        pipeline.add_step("Initial-Mapping", "mapping")
+        pipeline.add_step("Initial-Transcript-Mapping", "transcript_mapping")
+        pipeline.add_step("Merge", "merge")
+        pipeline.add_step("Pairalign", "pairaling")
 
-        ## run initial transcript mapping
-        pipeline.transcript_mapping_step(initial_mapping.clone(), "initial")
 
-        # merge
-        #pipeline.merge("step_1")
+        # # initial mapping
+        # initial_mapping = pipeline.mapping_step(interleave([main_input, main_input2]), "initial")
+        # # create denovo transcriptome
+        # pipeline.create_denovo_transcriptome(initial_mapping)
 
-        ## trim 20 mappings
-        #pipeline.mapping_step(gf(initial_split_mapping, unmapped), "trim_20", trim=(0, 20))
-        #pipeline.transcript_mapping_step(gf(initial_split_mapping, unmapped), "trim_20", trim=(0, 20))
+        # ## run initial transcript mapping
+        # pipeline.transcript_mapping_step(initial_mapping.clone(), "initial")
 
-        ## trium 5 mappings
-        #pipeline.mapping_step(gf(initial_split_mapping, unmapped), "trim_5", trim=(5, 20))
-        #pipeline.transcript_mapping_step(gf(initial_split_mapping, unmapped), "trim_5", trim=(5, 20))
 
-        ## merge everything
-        merged = pipeline.merge("merged", same_content=True)
 
-        paired_mapping = pipeline.pair_align(merged, compress=args.gzip)
 
-        if not args.nosam:
-            pipeline.create_bam(paired_mapping, sort=True)
+        # # merge
+        # #pipeline.merge("step_1")
 
-        pipeline.cleanup()
+        # ## trim 20 mappings
+        # #pipeline.mapping_step(gf(initial_split_mapping, unmapped), "trim_20", trim=(0, 20))
+        # #pipeline.transcript_mapping_step(gf(initial_split_mapping, unmapped), "trim_20", trim=(0, 20))
+
+        # ## trium 5 mappings
+        # #pipeline.mapping_step(gf(initial_split_mapping, unmapped), "trim_5", trim=(5, 20))
+        # #pipeline.transcript_mapping_step(gf(initial_split_mapping, unmapped), "trim_5", trim=(5, 20))
+
+        # ## merge everything
+        # merged = pipeline.merge("merged", same_content=True)
+
+        # paired_mapping = pipeline.pair_align(merged, compress=args.gzip)
+
+        # if not args.nosam:
+        #     pipeline.create_bam(paired_mapping, sort=True)
+
+        # pipeline.cleanup()
 
         timer.stop("Completed job in %s")

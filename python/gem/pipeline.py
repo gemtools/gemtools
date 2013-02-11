@@ -1,57 +1,146 @@
 #!/usr/bin/env
 """Pipeline utilities"""
-import sys
 import os
 import logging
 import gem
 
-from gem.filter import interleave, unmapped
-from gem.filter import filter as gf
 from gem.utils import Timer
 
 
+class PipelineError(Exception):
+    """Exception thrown by the mapping pipeline"""
+    pass
+
+
 class MappingPipeline(object):
+    """General mapping pipeline class."""
 
-    def __init__(self, name=None, index=None,
-        output_dir=None,
-        annotation=None,
-        threads=2,
-        junctioncoverage=4,
-        maxlength=100,
-        transcript_index=None,
-        transcript_keys=None,
-        quality=33,
-        delta=1,
-        remove_temp=True
-        ):
-        self.remove_temp = remove_temp
-        self.name = name
-        self.index = index
-        self.output_dir = output_dir
-        self.annotation = annotation
-        self.threads = max(threads, 1)
-        self.junctioncoverage = junctioncoverage
-        self.maxlength = maxlength
-        self.transcript_index = transcript_index
-        self.transcript_keys = transcript_keys
-        self.denovo_index = None
-        self.denovo_keys = None
-        self.delta = delta
-        self.quality = quality
-        self.junctions_file = None
-        self.mappings = []
+    def __init__(self):
         self.files = []
+        self.mappings = []
 
+        self.name = None  # target name
+        self.index = None  # genome index
+        self.output_dir = None  # Output directory
+        self.annotation = None  # GTF annotation to use
+        self.threads = 1  # number of threads
+        self.junctioncoverage = 2  # junction coverage
+        self.maxlength = 150  # max read length
+        self.transcript_index = None  # transcriptome index
+        self.transcript_keys = None  # transcriptome keys file
+        self.denovo_index = None  # the denovo index to use
+        self.denovo_keys = None  # the denovo keys to use
+        self.quality = 33  # quality offset
+        self.junctions_file = None  # file with both denovo and GTF junctions
+        self.junction_length = 500000
+
+        self.genome_mismatches = 0.06
+        self.genome_quality_threshold = 26
+        self.genome_max_decoded_matches = 20
+        self.genome_min_decoded_strata = 1
+        self.genome_min_matched_bases = 0.80
+        self.genome_max_big_indel_length = 15
+        self.genome_max_edit_distance = 0.20
+        self.genome_mismatch_alphabet = "ACGT"
+        self.genome_strata_after_best = 1
+
+        self.transcript_mismatches = self.genome_mismatches
+        self.transcript_quality_threshold = 26
+        self.transcript_max_decoded_matches = 50
+        self.transcript_min_decoded_strata = 1
+        self.transcript_min_matched_bases = 0.80
+        self.transcript_max_big_indel_length = 15
+        self.transcript_max_edit_distance = 0.20
+        self.transcript_mismatch_alphabet = "ACGT"
+        self.transcript_strata_after_best = 1
+
+        self.junction_mismatches = 0.04
+        self.junctions_max_junction_matches = 5
+        self.junctions_min_split_length = 4
+        self.junctions_max_split_length = 500000
+        self.junctions_refinement_step_size = 2
+        self.junctions_min_split_size = 15
+        self.junctions_matches_threshold = 75
+
+        self.pairing_quality_threshold = 26
+        self.pairing_max_decoded_matches = 20
+        self.pairing_min_decoded_strata = 1
+        self.pairing_min_insert_size = 0
+        self.pairing_max_insert_size = self.junctions_max_split_length
+        self.pairing_max_edit_distance = 0.30
+        self.pairing_min_matched_bases = 0.80
+        self.pairing_max_extendable_matches = 0
+        self.pairing_max_matches_per_extension = 1
+
+        self.scoring_scheme = "+U,+u,-s,-t,+1,-i,-a"
+        self.filter = (1, 2, 25)
+
+        self.compress = True
+        self.remove_temp = True
+        self.bam_mapq = 0
+        self.bam_create = True
+        self.bam_sort = True
+        self.bam_index = True
+
+        self.pipeline = []
+
+    def add_step(self, name, function, args=None, kwargs=None):
+        if name is None:
+            raise PipelineError("Please specify a name for the pipeline step")
+        if function is None:
+            raise PipelineError("Please specify a function to call")
+        try:
+            if isinstance(function, basestring):
+                getattr(self, function)
+            else:
+                function = function.__name__
+        except:
+            raise PipelineError("Unable to resolve function %s" % (function))
+
+        self.pipeline.append({
+            "name": name,
+            "function": function,
+            "args": args,
+            "kwargs": kwargs
+        })
+
+    def run(self):
+        logging.info("Running pipeline with %d steps" % (len(self.pipeline)))
+        for i, step in enumerate(self.pipeline):
+            logging.info("Step %d - %s" % (i + 1, step["name"]))
+            function = self.__get_function(step["function"])
+            args = step["args"]
+            kwargs = step["kwargs"]
+            function(*args, **kwargs)
+
+    def __get_function(self, function):
+        try:
+            return getattr(self, function)
+        except:
+            raise PipelineError("Unable to resolve function %s" % (function))
+
+    def initialize(self):
+        ## initialize defaults
         if self.output_dir is None:
+            logging.debug("Switching output directory to %s" % os.getcwd())
             self.output_dir = os.getcwd()
 
         ## check if output is specified and create folder in case it does not exists
         if not os.path.exists(self.output_dir):
+            logging.debug("Creating output directory  %s" % self.output_dir)
             os.makedirs(self.output_dir)
-        if self.transcript_index is None:
-            self.transcript_index = self.annotation + ".gem"
-        if self.transcript_keys is None and self.transcript_index is not None:
-            self.transcript_keys = self.transcript_index[:-4] + ".junctions.keys"
+
+        if self.annotation is not None:
+            if self.transcript_index is None:
+                self.transcript_index = self.annotation + ".gem"
+                logging.debug("Setting trascriptome index to %s" % (self.transcript_index))
+
+            if self.transcript_keys is None:
+                self.transcript_keys = self.transcript_index[:-4] + ".junctions.keys"
+                logging.debug("Setting trascriptome keys to %s" % (self.transcript_keys))
+
+        if self.transcript_mismatches is None:
+            self.transcript_mismatches = self.genome_mismatches
 
     def cleanup(self):
         """Delete all remaining temporary and intermediate files
@@ -75,7 +164,7 @@ class MappingPipeline(object):
 
     def _guess_input_name(self, input):
         try:
-            return input.filename
+            return input.file_name
         except Exception:
             return "STREAM"
 
@@ -92,10 +181,12 @@ class MappingPipeline(object):
             self.mappings[0].clone(),
             [m.clone() for m in self.mappings[1:]]
         ).merge(out, self.threads, same_content=same_content)
+
         if self.remove_temp:
             for m in self.mappings:
                 logging.info("Removing temporary mapping %s ", m.filename)
                 os.remove(m.filename)
+
         self.mappgins = []
         self.mappings.append(merged)
         timer.stop("Merging finished in %s")
@@ -125,48 +216,20 @@ class MappingPipeline(object):
         mapping = gem.mapper(input,
                 self.index,
                 mapping_out,
-                mismatches=0.06,
-                delta=self.delta,
+                mismatches=self.genome_mismatches,
+                quality_threshold=self.genome_quality_threshold,
+                max_decoded_matches=self.genome_max_decoded_matches,
+                min_decoded_strata=self.genome_min_decoded_strata,
+                min_matched_bases=self.genome_min_matched_bases,
+                max_big_indel_lengt=self.genome_max_big_indel_length,
+                max_edit_distance=self.genome_max_edit_distance,
+                mismatch_alphabet=self.genome_mismatch_alphabet,
+                delta=self.genome_strata_after_best,
                 trim=trim,
                 quality=self.quality,
                 threads=self.threads)
         self.mappings.append(mapping)
         timer.stop("Mapping step finished in %s")
-        return mapping
-
-    def split_mapping_step(self, input, suffix, trim=None):
-        """Single split-mapping step where the input is passed on
-        as is to the mapper. The output name is created based on
-        the dataset name in the parameters the suffix.
-
-        The function returns an opened ReadIterator on the resulting
-        mapping
-
-        input -- mapper input
-        suffix -- output name suffix
-        trim -- optional trimming options, i.e. '0,20'
-        """
-        timer = Timer()
-        mapping_out = self.create_file_name(suffix)
-        if os.path.exists(mapping_out):
-            logging.warning("Split-Mapping step target exists, skip mapping set : %s" % (mapping_out))
-            mapping = gem.files.open(mapping_out, quality=self.quality)
-            self.mappings.append(mapping)
-            return mapping
-        input_name = self._guess_input_name(input)
-        logging.debug("Split-Mapping from %s to %s" % (input_name, mapping_out))
-
-        mapping = gem.splitmapper(
-            input,
-            self.index,
-            mapping_out,
-            junctions_file=self.junctions_file,
-            trim=trim,
-            threads=self.threads,
-            quality=self.quality,
-            mismatches=0.06)
-        self.mappings.append(mapping)
-        timer.stop("Split-Mapping step finished in %s")
         return mapping
 
     def transcript_mapping_step(self, input, suffix, index=None, key=None, trim=None):
@@ -205,12 +268,18 @@ class MappingPipeline(object):
                                 indices,
                                 keys,
                                 mapping_out,
-                                mismatches=0.06,
-                                min_decoded_strata=0,
+                                mismatches=self.transcript_mismatches,
+                                quality_threshold=self.transcript_quality_threshold,
+                                max_decoded_matches=self.transcript_max_decoded_matches,
+                                min_decoded_strata=self.transcript_min_decoded_strata,
+                                min_matched_bases=self.transcript_min_matched_bases,
+                                max_big_indel_lengt=self.transcript_max_big_indel_length,
+                                max_edit_distance=self.transcript_max_edit_distance,
+                                mismatch_alphabet=self.transcript_mismatch_alphabet,
+                                delta=self.transcript_strata_after_best,
                                 trim=trim,
-                                delta=self.delta,
                                 quality=self.quality,
-                                threads=self.threads
+                                threads=self.threads,
                                 )
         self.mappings.append(mapping)
         timer.stop("Transcript-Mapping step finished in %s")
@@ -271,14 +340,21 @@ class MappingPipeline(object):
         denovo_junctions = gem.extract_junctions(
             input,
             self.index,
-            mismatches=0.04,
+            mismatches=self.junction_mismatches,
             threads=self.threads,
             strata_after_first=0,
-            coverage=self.junctioncoverage
+            coverage=self.junctioncoverage,
+            min_split=self.junctions_min_split_length,
+            max_split=self.junctions_max_split_length,
+            refinement_step_size=self.junctions_refinement_step_size,
+            min_split_size=self.junctions_min_split_size,
+            matches_threshold=self.junctions_matches_threshold,
+            max_junction_matches=self.junctions_max_junction_matches,
             )
+
         logging.info("Denovo Junctions %d" % len(denovo_junctions))
-        filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, 500000))
-        logging.info("Denovo Junction passing distance (500000) filter %d (%d removed)" % (
+        filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, self.junction_length))
+        logging.info("Denovo Junction passing distance (%d) filter %d (%d removed)" % (self.junction_length,
             len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
 
         junctions = gtf_junctions.union(filtered_denovo_junctions)
@@ -303,55 +379,49 @@ class MappingPipeline(object):
         #self.files.append(denovo_out)
         return idx
 
-    def create_denovo_junctions(self, input):
-        """Extract junctions from input and merge them with the gtf_junctions"""
+    def pair_align(self, input, final=False):
+        n = "paired"
+        if final:
+            n = ""
+        paired_out = self.create_file_name(n, final=final)
+        if os.path.exists(paired_out):
+            logging.warning("Paired alignment found, skip pairing : %s" % (paired_out))
+            mapping = gem.files.open(paired_out, quality=self.quality)
+            self.mappings.append(mapping)
+            return mapping
 
-        junctions_out = self.create_file_name("all", file_suffix="junctions")
-        if os.path.exists(junctions_out):
-            logging.warning("Junctions found, skip creating : %s" % (junctions_out))
-            self.junctions_file = junctions_out
-            return junctions_out
-
-        timer = Timer()
-        (junctions, junctions_gtf_out) = self.gtf_junctions()
-        ## get de-novo junctions
-        logging.info("Getting de-novo junctions")
-
-        junctions = gem.extract_junctions(
-            input,
-            self.index,
-            mismatches=0.04,
-            threads=self.threads,
-            strata_after_first=0,
-            coverage=self.junctioncoverage,
-            merge_with=junctions)
-        logging.info("Total Junctions %d" % (len(junctions)))
-        timer.stop("Junctions extracted in %s")
-        timer = Timer()
-        gem.junctions.write_junctions(gem.junctions.filter_by_distance(junctions, 500000), junctions_out, self.index)
-        self.junctions_file = junctions_out
-        return junctions_out
-
-    def pair_align(self, input, compress=False):
         logging.info("Running pair aligner")
         timer = Timer()
-        paired_out = self.create_file_name("", final=True)
-        out_name = paired_out
-        if compress:
-            out_name = out_name + ".gz"
-        if os.path.exists(out_name):
-            logging.warning("Pair-alignment exists, skip creating : %s" % (paired_out))
-            return gem.files.open(out_name, quality=self.quality)
 
-        paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=max(self.threads - 2, 1), quality=self.quality)
+        paired_mapping = gem.pairalign(input, self.index, None,
+          quality_threshold=self.pairing_quality_threshold,
+          max_decoded_matches=self.pairing_max_decoded_matches,
+          min_decoded_strata=self.pairing_min_decoded_strata,
+          min_insert_size=self.pairing_min_insert_size,
+          max_insert_size=self.junctions_max_split_length,
+          max_edit_distance=self.pairing_max_edit_distance,
+          min_matched_bases=self.pairing_min_matched_bases,
+          max_extendable_matches=self.pairing_max_extendable_matches,
+          max_matches_per_extension=self.pairing_max_matches_per_extension,
+          threads=max(self.threads - 2, 1),
+          quality=self.quality)
         scored = gem.score(paired_mapping, self.index, paired_out, threads=min(2, self.threads), quality=self.quality)
         timer.stop("Pair-Align and scoring finished in %s")
-        if compress:
-            logging.info("Compressing final mapping")
-            timer = Timer()
-            gem.utils.gzip(paired_out, threads=self.threads)
-            timer.stop("Results compressed in %s")
         return scored
+
+    def compress(self):
+        """Compress the final alignment"""
+        if len(self.files) > 0:
+            file_name = self.files[-1]
+            if os.path.exists(file_name + ".gz"):
+                logging.warning("Compressed file found, skipping compression: %s" % file_name)
+            else:
+                logging.info("Compressing mapping")
+                timer = Timer()
+                gem.utils.gzip(self.files[-1], threads=self.threads)
+                timer.stop("Results compressed in %s")
+        else:
+            logging.warning("No files found, skip compressions")
 
     def create_bam(self, input, sort=True):
         logging.info("Converting to sam/bam")

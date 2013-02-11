@@ -242,7 +242,7 @@ def mapper(input, index, output=None,
            max_edit_distance=0.20,
            mismatch_alphabet="ACGT",
            trim=None,
-           unique_pairing=False,
+           unique_mapping=False,
            threads=1,
            extra=None,
            key_file=None,
@@ -297,8 +297,8 @@ def mapper(input, index, output=None,
           '-T', str(threads)
     ]
 
-    if unique_pairing:
-        pa.append("--unique-pairing")
+    if unique_mapping:
+        pa.append("--unique-mapping")
 
     if max_edit_distance > 0:
         pa.append("-e")
@@ -320,7 +320,7 @@ def mapper(input, index, output=None,
     # workaround for GT-32 - filter away the !
     # build list of tools
     tools = [pa]
-    if unique_pairing:
+    if unique_mapping:
         tools.append(__awk_filter)
 
     if trim is not None:
@@ -529,6 +529,7 @@ def extract_junctions(input,
                       min_split=4,
                       max_split=2500000,
                       coverage=0,
+                      max_junction_matches=5,
                       tmpdir=None,
                       extra=None):
     ## run the splitmapper
@@ -554,6 +555,7 @@ def extract_junctions(input,
         maxsplit=max_split,
         coverage=coverage,
         sites=merge_with,
+        max_junction_matches=max_junction_matches,
         process=splitmap.process)
     return denovo_junctions
 

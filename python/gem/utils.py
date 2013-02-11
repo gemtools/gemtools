@@ -46,7 +46,7 @@ class Timer(object):
         end = datetime.timedelta(seconds=int(time.time() - self.start_time))
         if message is not None:
             if loglevel is not None:
-                ll = loglevel.upper()
+                ll = loglevel.lower()
                 if ll == "info":
                     logging.info(message % (str(end)))
                 elif ll == "warning":
