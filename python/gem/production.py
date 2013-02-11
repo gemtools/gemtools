@@ -129,17 +129,21 @@ class TranscriptIndex(Command):
 
 
 class RnaPipeline(Command):
-    description = "The RNASeq pipeline alignes reads"
-    title = "Default RNASeq Pipeline"
+    description = """The RNASeq pipeline alignes reads against a reference genome as well as
+    agains a specified transcriptome. The transcriptome can be generated from an annotation.
+    In addition, the pipeline performes a denovo-junction detection to find unknown junctions.
+    """
+    title = "GEMTools RNASeq Pipeline"
 
     def register(self, parser):
+        input_group = parser.add_argument_group('Input')
         ## required parameters
-        parser.add_argument('-f', '--files', dest="file", nargs="+", help='Single fastq input file or both pairs', required=True)
-        parser.add_argument('-i', '--index', dest="index", help='Genome index', required=True)
-        parser.add_argument('-m', '--max-read-length', dest="maxlength", help='The maximum read length', required=True)
-        parser.add_argument('-a', '--annotation', dest="annotation", help='GTF annotation file', required=True)
-        parser.add_argument('-r', '--transcript-index', dest="trans_index", help='Transcriptome index. If not specified it is assumed to be <gtf>.gem')
-        parser.add_argument('-k', '--keys', dest="transcript_keys", help='Transcriptome .keys file. If not specified it is assumed to be <gtf>.junctions.keys')
+        input_group.add_argument('-f', '--files', dest="file", nargs="+", help='Single fastq input file or both pairs', required=True)
+        input_group.add_argument('-i', '--index', dest="index", help='Genome index', required=True)
+        input_group.add_argument('-m', '--max-read-length', dest="maxlength", help='The maximum read length', required=True)
+        input_group.add_argument('-a', '--annotation', dest="annotation", help='GTF annotation file', required=True)
+        input_group.add_argument('-r', '--transcript-index', dest="trans_index", help='Transcriptome index. If not specified it is assumed to be <gtf>.gem')
+        input_group.add_argument('-k', '--keys', dest="transcript_keys", help='Transcriptome .keys file. If not specified it is assumed to be <gtf>.junctions.keys')
 
         ## optional parameters
         parser.add_argument('-o', '--output-dir', dest="output", help='The output folder. If not specified the current working directory is used.')

@@ -624,7 +624,7 @@ def validate(input,
              index,
              output=None,
              validate_score=None,  # "-s,-b,-i"
-             validate_filter=None,  # "2,25"
+             validate_filter=None,  # "1,2,25"
              threads=1, ):
     index = _prepare_index_parameter(index, gem_suffix=True)
     validate_p = [executables['gem-map-2-map'],
@@ -645,14 +645,21 @@ def score(input,
           index,
           output=None,
           scoring="+U,+u,-s,-t,+1,-i,-a",
-          filter=None,  # "2,25"
+          filter=None,  # "1,2,25"
+          quality=None,
           threads=1):
+    """Score the input. In addition, you can specify a tuple with (<score_strata_to_keep>,<max_strata_distance>,<max_alignments>) to
+    filter the result further.
+    """
+
+    quality = _prepare_quality_parameter(quality)
     index = _prepare_index_parameter(index, gem_suffix=True)
     score_p = [executables['gem-map-2-map'],
                '-I', index,
                '-s', scoring,
                '-T', str(threads)
     ]
+
     if filter is not None:
         score_p.append("-f")
         ff = filter
@@ -660,7 +667,11 @@ def score(input,
             ff = ",".join(filter)
         score_p.append(ff)
 
-    process = utils.run_tool(score_p, input=input, output=output, name="GEM-Score", write_map=True)
+    raw = False
+    if isinstance(input, gt.InputFile):
+        raw = True
+
+    process = utils.run_tool(score_p, input=input, output=output, name="GEM-Score", write_map=True, raw=raw)
     return _prepare_output(process, output=output)
 
 

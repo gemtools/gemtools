@@ -344,7 +344,7 @@ class MappingPipeline(object):
             return gem.files.open(out_name, quality=self.quality)
 
         paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=max(self.threads - 2, 1), quality=self.quality)
-        scored = gem.score(paired_mapping, self.index, paired_out, threads=min(2, self.threads))
+        scored = gem.score(paired_mapping, self.index, paired_out, threads=min(2, self.threads), quality=self.quality)
         timer.stop("Pair-Align and scoring finished in %s")
         if compress:
             logging.info("Compressing final mapping")
