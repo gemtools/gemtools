@@ -842,9 +842,32 @@ class merger(object):
         return gt.merge(self.target, self.source)
 
     def merge(self, output, threads=1, paired=False, same_content=False):
+        if same_content:
+
+            files = [self.target.file_name]
+            for f in self.source:
+                files.append(f.file_name)
+
+            compressed = False
+            for f in files:
+                if f.endswith(".gz") or f.endswith(".bz"):
+                    compressed = True
+                    break
+
+            if not compressed:
+                logging.debug("Using merger with %d threads and same content" % (threads))
+                logging.debug("Files to merge: %s" % (" ".join(files)))
+                params = [executables['gem-map-2-map'], '-T', str(threads), '-M', ",".join(files)]
+                process = utils.run_tool(params, input=None, output=output, name="GEM-Merge")
+                if process.wait() != 0:
+                    logging.error("Merging failed !")
+                    raise ValueError("Mergin failed!")
+                return gt.InputFile(file_name=output)
+
         if len(self.source) == 1:
             logging.debug("Using paired merger with %d threads and same content %s" % (threads, str(same_content)))
             logging.debug("Files to merge: %s and %s" % (self.target.file_name, self.source[0].file_name))
+
             merger = gt.merge(self.target, self.source, init=False)
             merger.merge_pairs(self.target.file_name, self.source[0].file_name, output, same_content, threads)
         else:
