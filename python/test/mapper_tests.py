@@ -35,15 +35,15 @@ def test_merging_maps():
     count = 0
     for read in merger:
         count += 1
-        if read.id == "HWI-ST661:153:D0FTJACXX:2:1102:13866:124450 1:N:0:GCCAAT":
-            assert read.summary == "0:1"
-            assert read.mappings == "chr2:-:162359617:74G"
-        elif read.id == "HWI-ST661:153:D0FTJACXX:2:1102:13753:124452 1:N:0:GCCAAT":
-            assert read.summary == "0:1"
-            assert read.mappings == "chr9:+:38397301:54G20"
-        elif read.id == "HWI-ST661:153:D0FTJACXX:2:1102:14211:124259 1:N:0:GCCAAT":
-            assert read.summary == "1"
-            assert read.mappings == "chr15:+:72492866:75"
+        if read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13866:124450":
+            assert read.to_map().split("\t")[3] == "0+1", read.to_map()
+            assert read.to_map().split("\t")[4] == "chr2:-:162359617:74G"
+        elif read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13753:124452":
+            assert read.to_map().split("\t")[3] == "0+1", read.to_map()
+            assert read.to_map().split("\t")[4] == "chr9:+:38397301:54G20"
+        elif read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:14211:124259":
+            assert read.to_map().split("\t")[3] == "1", read.to_map()
+            assert read.to_map().split("\t")[4] == "chr15:+:72492866:75"
     assert count == 10
 
 @with_setup(setup_func, cleanup)
@@ -62,9 +62,9 @@ def test_merging_maps_chr21():
     ms = 0
     for read in m:
         count += 1
-        ms += len(read.get_maps()[1])
-    assert count == 2000
-    assert ms == 3606
+        ms += read.num_maps
+    assert count == 2000, count
+    assert ms == 3590, ms
 
 @with_setup(setup_func, cleanup)
 def test_merging_maps_to_file():
@@ -76,15 +76,15 @@ def test_merging_maps_to_file():
     count = 0
     for read in merger.merge(result):
         count += 1
-        if read.id == "HWI-ST661:153:D0FTJACXX:2:1102:13866:124450 1:N:0:GCCAAT":
-            assert read.summary == "0:1"
-            assert read.mappings == "chr2:-:162359617:74G"
-        elif read.id == "HWI-ST661:153:D0FTJACXX:2:1102:13753:124452 1:N:0:GCCAAT":
-            assert read.summary == "0:1"
-            assert read.mappings == "chr9:+:38397301:54G20"
-        elif read.id == "HWI-ST661:153:D0FTJACXX:2:1102:14211:124259 1:N:0:GCCAAT":
-            assert read.summary == "1"
-            assert read.mappings == "chr15:+:72492866:75"
+        if read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13866:124450 1:N:0:GCCAAT":
+            assert read.to_map().split("\t")[3] == "0+1"
+            assert read.to_map().split("\t")[4] == "chr2:-:162359617:74G"
+        elif read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13753:124452 1:N:0:GCCAAT":
+            assert read.to_map().split("\t")[3] == "0+1"
+            assert read.to_map().split("\t")[4] == "chr9:+:38397301:54G20"
+        elif read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:14211:124259 1:N:0:GCCAAT":
+            assert read.to_map().split("\t")[3] == "1"
+            assert read.to_map().split("\t")[4] == "chr15:+:72492866:75"
     assert count == 10
     assert os.path.exists(result)
 
@@ -94,9 +94,9 @@ def test_sync_mapper_execution():
     mappings = gem.mapper(input, index, results_dir + "/result.mapping")
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.filename is not None
-    assert mappings.filename == results_dir + "/result.mapping"
-    assert sum(1 for x in mappings) == 10000
+    assert mappings.file_name is not None
+    assert mappings.file_name == results_dir + "/result.mapping"
+    assert sum(1 for x in mappings.templates()) == 10000
 
 
 @with_setup(setup_func, cleanup)
@@ -105,29 +105,29 @@ def test_async_mapper_execution():
     mappings = gem.mapper(input, index)
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.filename is None
+    assert mappings.file_name is None
     assert sum(1 for x in mappings) == 10000
 
 
-@with_setup(setup_func, cleanup)
-def test_async_mapper_pipes_with_filter():
-    def on_half_filter(reads):
-        count = 0
-        for read in reads:
-            count += 1
-            if count % 2 == 0: yield read
+# @with_setup(setup_func, cleanup)
+# def test_async_mapper_pipes_with_filter():
+#     def on_half_filter(reads):
+#         count = 0
+#         for read in reads:
+#             count += 1
+#             if count % 2 == 0: yield read
 
 
-    input = files.open(testfiles["reads_1.fastq"])
-    initial = gem.mapper(input, index)
-    mappings = gem.mapper(on_half_filter(initial), index, results_dir + "/piped_out.mapping")
+#     input = files.open(testfiles["reads_1.fastq"])
+#     initial = gem.mapper(input, index)
+#     mappings = gem.mapper(on_half_filter(initial), index, results_dir + "/piped_out.mapping")
 
-    assert mappings is not None
-    assert mappings.process is not None
-    assert mappings.filename is not None
-    assert mappings.filename == results_dir + "/piped_out.mapping"
-    assert os.path.exists(results_dir + "/piped_out.mapping")
-    assert sum(1 for x in mappings) == 5000
+#     assert mappings is not None
+#     assert mappings.process is not None
+#     assert mappings.file_name is not None
+#     assert mappings.file_name == results_dir + "/piped_out.mapping"
+#     assert os.path.exists(results_dir + "/piped_out.mapping")
+#     assert sum(1 for x in mappings) == 5000
 
 
 @with_setup(setup_func, cleanup)
@@ -137,7 +137,7 @@ def test_interleaved_mapper_run():
     mappings = gem.mapper(filter.interleave([input1, input2]), index)
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.filename is None
+    assert mappings.file_name is None
     assert sum(1 for x in mappings) == 20000
 
 
@@ -157,7 +157,7 @@ def test_sync_splitmapper_execution():
     mappings = gem.splitmapper(input, index, results_dir + "/splitmap_out.mapping")
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.filename == results_dir + "/splitmap_out.mapping"
+    assert mappings.file_name == results_dir + "/splitmap_out.mapping"
     assert os.path.exists(results_dir + "/splitmap_out.mapping")
     assert sum(1 for x in mappings) == 10000
 
@@ -168,7 +168,7 @@ def test_async_splitmapper_execution():
     mappings = gem.splitmapper(input, index)
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.filename is None
+    assert mappings.file_name is None
     assert sum(1 for x in mappings) == 10000
 
 
@@ -201,21 +201,6 @@ def test_junction_extraction_from_splitmap():
 
 
 @with_setup(setup_func, cleanup)
-def test_sync_score_and_validate_execution():
-    input = files.open(testfiles["reads_1.fastq"])
-    mappings = gem.mapper(input, index)
-    scored = gem.validate_and_score(mappings, index, results_dir + "/scored.mapping")
-    assert scored is not None
-    assert scored.process is not None
-    assert scored.filename is not None
-    assert scored.filename == results_dir + "/scored.mapping"
-    count = 0
-    for read in scored:
-        count += 1
-    assert count == 10000
-
-
-@with_setup(setup_func, cleanup)
 def test_quality_pass_on_execution():
     input = files.open(testfiles["reads_1.fastq"])
     mappings = gem.mapper(input, index, output=results_dir+"/quality_passon_mapping.map")
@@ -228,7 +213,7 @@ def test_gem2sam_execution():
     sam = gem.gem2sam(mappings, index, compact=True)
     assert sam is not None
     assert sam.process is not None
-    assert sam.filename is None
+    assert sam.file_name is None
     count = 0
     for read in sam:
         count += 1

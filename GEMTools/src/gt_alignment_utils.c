@@ -127,6 +127,7 @@ GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,
   GT_ALIGNMENT_CHECK(alignment);
   if (gt_alignment_get_not_unique_flag(alignment)) return true;
   register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
+  if(gt_alignment_get_num_counters(alignment) == 0) return false;
   GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
     if (counter_pos>max_allowed_strata) return false;
     else if (*counter!=0) return true;
@@ -414,3 +415,68 @@ GT_INLINE void gt_alignment_realign_weighted(
   }
   gt_alignment_recalculate_counters(alignment);
 }
+
+/*
+ * Alignment trimming
+ */
+
+GT_INLINE void gt_alignment_trim(gt_alignment* const alignment, uint64_t const left, uint64_t const right, uint64_t const min_length, bool const set_extra){
+  if( left == 0 && right == 0) return;
+  char* read = gt_alignment_get_read(alignment);
+  uint64_t read_length = gt_alignment_get_read_length(alignment);
+  if(read_length - left - right < min_length) return;
+
+  // trim the read
+  register uint64_t trimmed_length = read_length - (left + right);
+  register char* trimmed_read = strndup(read + left, trimmed_length);
+  gt_alignment_set_read(alignment, trimmed_read, trimmed_length);
+
+  // get trimmed parts
+  register char* left_read = 0;
+  register char* right_read = 0;
+  if(left > 0) left_read = strndup(read, left);
+  else left_read = "";
+
+  if(right > 0) right_read = strndup(read + read_length - right, right);
+  else right_read = "";
+
+  register char* trimmed_qual = 0;
+  register char* left_qual = 0;
+  register char* right_qual = 0;
+  // trim qualities
+  char* qual = gt_alignment_get_qualities(alignment);
+  if (qual != NULL) {
+    trimmed_qual = strndup(qual + left, trimmed_length);
+    gt_alignment_set_qualities(alignment, trimmed_qual, trimmed_length);
+    if(left > 0) left_qual = strndup(qual, left);
+    else left_qual = "";
+
+    if(right > 0) right_qual = strndup(qual + read_length - right, right);
+    else right_qual = "";
+  }
+
+  if(set_extra){
+    // update extra
+    gt_string* extra = gt_string_new(8+ (2*left) + (2*right));
+    if( qual != NULL){
+      gt_sprintf_append(extra, " B T %s %s %s %s", left_read, right_read, left_qual, right_qual);
+    }else{
+      gt_sprintf_append(extra, " B T %s %s    ", left_read, right_read);
+    }
+    if(gt_shash_is_contained(alignment->attributes, GT_TAG_EXTRA)){
+      gt_string* old = gt_shash_get(alignment->attributes, GT_TAG_EXTRA, gt_string);
+      gt_string_delete(old);
+    }
+    gt_shash_insert(alignment->attributes, GT_TAG_EXTRA, extra, gt_string);
+  }
+
+  // free(left_read);
+  // free(trimmed_read);
+  // free(right_read);
+  // if (qual != NULL ){
+  //   free(trimmed_qual);
+  //   free(left_qual);
+  //   free(right_qual);
+  // }
+}
+

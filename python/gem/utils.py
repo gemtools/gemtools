@@ -1,367 +1,521 @@
 #!/usr/bin/env python
-"""Gem tools utilities
-"""
-from Queue import Queue
-import os
-import re
-import string
+"""Gem tools utilities and methods
+to start external gem processes
 
+In addition, the utilities class currently hosts
+the command environment. If you want
+to create a new gemtools command, create a subclass
+of gem.utils.Command.
+"""
+
+import os
+import string
 import subprocess
 import logging
 from threading import Thread
-
 import gem
-import sys
-
+import gem.gemtools as gt
 import datetime
 import time
+import tempfile
+import multiprocessing as mp
+
 
 class Timer(object):
-    """Helper class to take runtimes"""
+    """Helper class to take runtimes
+    To use this, create a new instance. The timer is
+    started at creation time. Call stop() to stop
+    timing. The time is logged to info level by default.
+
+    For example:
+
+        timer = Timer()
+        ...<long running process>
+        time.stop("Process finished in %s")
+    """
     def __init__(self):
+        """Create a new time and initialie it
+        with current time"""
         self.start_time = time.time()
 
-    def stop(self, message):
+    def stop(self, message, loglevel="info"):
+        """Stop timing and print result to logger.
+        NOTE you have to add a "%s" into your message string to
+        print the time
+        """
         end = datetime.timedelta(seconds=int(time.time() - self.start_time))
         if message is not None:
-            logging.info(message % (str(end)))
+            if loglevel is not None:
+                ll = loglevel.upper()
+                if ll == "info":
+                    logging.info(message % (str(end)))
+                elif ll == "warning":
+                    logging.warning(message % (str(end)))
+                elif ll == "error":
+                    logging.error(message % (str(end)))
+                elif ll == "debug":
+                    logging.error(message % (str(end)))
+
 
 class CommandException(Exception):
+    """Exception thrown by gemtools commands"""
     pass
 
 
 class Command(object):
     """Command base class to be registered
-    with the gem tools main command
+    with the gemtools main command. The command
+    implementation has to implement two methods.
+
+    register() which is called with the argparse parser to
+    register new command line options, and
+    run() wich is called with the parsed arguments.
     """
     def register(self, parser):
+        """Add new command line options to the passed
+        argparse parser
+
+        parser -- the argparse parser
+        """
         pass
+
     def run(self, args):
+        """Run the command
+
+        args -- the parsed arguments"""
         pass
+
+
+# complement translation
+__complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
+
+
+def reverseComplement(sequence):
+    """Returns the reverse complement of the given DNA/RNA sequence"""
+    return sequence.translate(__complement)[::-1]
+
+
+class ProcessError(Exception):
+    """Error thrown by the process wrapper when there is a problem
+    with either starting of the process or at runtime"""
+    def __init__(self, message, process=None):
+        """Initialize the exception with a message and the process wrapper that caused the
+        exception
+
+        message -- the error message
+        process -- the underlying process wrapper
+        """
+        Exception.__init__(self, message)
+        self.process = process
+
+
+class Process(object):
+    """Single process in a pipeline of processes"""
+
+    def __init__(self, wrapper, commands, input=subprocess.PIPE, output=subprocess.PIPE, parent=None, env=None, logfile=None):
+        """"Internal process"""
+        self.wrapper = wrapper
+        self.commands = commands
+        self.input = input
+        self.output = output
+        self.env = env
+        self.process = None
+        self.logfile = logfile
+        self.parent = parent
+        self.process_input = None
+
+    def run(self):
+        """Start the process and return it"""
+        stdin = self.input
+        stdout = self.output
+        stderr = None
+        if self.parent is not None:
+            stdin = self.parent.process.stdout
+        self.process_input = None
+
+        if isinstance(stdin, ProcessInput):
+            self.process_input = stdin
+            if self.logfile is not None:
+                stderr = self.logfile
+            self.process = self.process_input.start(self.commands, stdout=stdout, stderr=stderr, env=self.env)
+        else:
+            if self.logfile is not None:
+                stderr = open(self.logfile, 'wb')
+            if isinstance(stdout, basestring):
+                stdout = open(stdout, 'wb')
+            elif stdout is None:
+                stdout = subprocess.PIPE
+
+            self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=True)
+        return self.process
+
+    def __str__(self):
+        if self.commands is None:
+            return "<process>"
+        else:
+            if isinstance(self.commands, (list, tuple)):
+                return str(self.commands[0])
+            return str(self.commands)
+
+    def wait(self):
+        """Wait for the process and return its exit value. If it did not exit with
+        0, print the log file to error"""
+        if self.process is None:
+            logging.error("Process was not started")
+            raise ProcessError("Process was not started!", self)
+
+        if self.process_input is not None:
+            logging.debug("Joining input")
+            exit_value = self.process_input.join()
+        else:
+            exit_value = self.process.wait()
+        if exit_value is not 0:
+            logging.error("Process %s exited with %d!" % (str(self), exit_value))
+            if self.logfile is not None:
+                with open(self.logfile) as f:
+                    for line in f:
+                        logging.error("%s" % (line.strip()))
+        else:
+            logging.debug("Process %s finished" % (str(self)))
+
+        if self.process.stdin is not None:
+            try:
+                self.process.stdin.close()
+            except:
+                pass
+        if self.process.stdout is not None:
+            try:
+                self.process.stdout.close()
+            except:
+                pass
+        if self.process.stderr is not None:
+            try:
+                self.process.stderr.close()
+            except:
+                pass
+        return exit_value
+
+    def to_bash(self):
+        if isinstance(self.commands, (list, tuple)):
+                return " ".join(self.commands)
+        return str(self.commands)
+
+
+class ProcessInput(object):
+    """Helper class to write templates to a target process"""
+    def __init__(self, input, write_map=False, clean_id=True, append_extra=True):
+        self.write_map = write_map
+        self.clean_id = clean_id
+        self.append_extra = append_extra
+        self.process = None
+        self.input = input
+        self.connection = None
+
+    @staticmethod
+    def __write_input(iterator, clean_id, append_extra, write_map, commands, stdout, stderr, env, connection):
+        """Internal method that writes templates ot the
+        input stream of the process and puts a message on
+        the queue when done to close the stream
+        """
+        # initialize logging in the child process
+        stream = None
+        filename = None
+        fifo = False
+        process = None
+        try:
+            stdin = subprocess.PIPE
+            if not isinstance(stdout, basestring):
+                # it seems to be problematic to pass
+                # the file descriptors between the processes
+                # on both OSX and Linux reliably, use a named
+                # pipe
+                handle, filename = tempfile.mkstemp()
+                os.close(handle)
+                os.remove(filename)
+                os.mkfifo(filename)
+                ## send the fifo
+                connection.send(["fifo", filename])
+                ##logging.debug("Created named pipe in %s" % (filename))
+                stdout = open(filename, 'wb')
+                fifo = True
+            else:
+                filename = stdout
+                stdout = open(stdout, 'wb')
+
+            if stderr is not None:
+                stderr = open(stderr, 'wb')
+            process = subprocess.Popen(commands, stdin=stdin, stdout=stdout, stderr=stderr, env=env, close_fds=True)
+            connection.send(["process", process])
+
+            stream = process.stdin
+            of = gt.OutputFile(stream=stream)
+            if write_map:
+                of.write_map(iterator, clean_id, append_extra)
+            else:
+                of.write_fastq(iterator, clean_id, append_extra)
+            of.close()
+            stream.close()
+            if stdout is not None:
+                stdout.close()
+            if stderr is not None:
+                stderr.close()
+        except Exception, e:
+            #connection.send(["fail", 1])
+            pass
+        finally:
+            if process is not None:
+                connection.send(["exit", process.wait()])
+            else:
+                connection.send(["exit", 1])
+            if fifo:
+                os.remove(filename)
+            connection.close()
+
+    @staticmethod
+    def __proces_listener(connection):
+        """Thread function that listens to any error or log messages send
+        through the connection
+        """
+        while True:
+            (msg_type, value) = connection.recv()
+            if msg_type == "done":
+                logging.debug("Process finished")
+                connection.close()
+                break
+            if msg_type == "fail":
+                logging.error("Process failed : %s" % (str(value)))
+                connection.close()
+                break
+
+            # logging message
+            logging.log(value[0], value[1])
+
+    def start(self, commands, stdout, stderr, env, ):
+        parent_conn, child_conn = mp.Pipe()
+        iterator = self.input
+        if isinstance(iterator, gt.InputFile):
+            iterator = iterator.templates()
+
+        self.process = mp.Process(target=ProcessInput.__write_input, args=(
+            iterator, self.clean_id, self.append_extra, self.write_map,
+            commands, stdout, stderr, env,
+            child_conn,))
+        self.process.start()
+
+        (msg, value) = parent_conn.recv()
+        fifo = None
+        if msg == "fifo":
+            fifo = open(value, "rb")
+            (msg, value) = parent_conn.recv()
+
+        if msg == "process":
+            process = value
+            process.stdout = fifo
+            self.connection = parent_conn
+            #Thread(taget=ProcessInput.__proces_listener, args=(parent_conn,)).start()
+            return process
+
+        parent_conn.close()
+        self.process.join()
+        raise ProcessError("No process started!")
+
+    def join(self):
+        if self.process is not None and self.process._parent_pid == os.getpid():
+            (msg, exit_value) = self.connection.recv()
+            self.connection.close()
+            self.process.join()
+            if msg == "exit":
+                return exit_value
+            else:
+                return 1
+        return 0
 
 
 class ProcessWrapper(object):
-    def __init__(self, _parent, _threads, stdout=None):
-        self._parent = _parent
-        self._threads = _threads
-        self.stdout = _parent.stdout
-        self.stderr = _parent.stderr
-        self.stdin = _parent.stdin
-        if stdout is not None:
-            self.stdout = stdout
+    """Class returned by run_tools that wraps around a list of processes and
+    is able to wait. The wrapper is aware of the process log files and
+    will do the cleanup around the process when after waiting.
+
+    If a process does not exit with 0, its log file is printed to logger error.
+
+    After the wait, all log files are deleted by default.
+    """
+
+    def __init__(self, keep_logfiles=False, name=None, force_debug=False, raw=None):
+        """Create an empty process wrapper
+
+        keep_logfiles -- if true, log files are not deleted
+        """
+        self.processes = []
+        self.keep_logfiles = keep_logfiles
+        self.name = name
+        self.stdout = None
+        self.stdin = None
+        self.force_debug = force_debug
+        self.raw = raw
+        self.exit_value = None
+
+    def submit(self, command, input=subprocess.PIPE, output=None, env=None):
+        """Run a command. The command must be list of command and its parameters.
+        If input is specified, it is passed to the stdin of the subprocess instance.
+        If output is specified, it is connected to the stdout of the underlying subprocess.
+        Environment is optional and will be passed to the process as well.
+
+        This is indened to be used in pipes and specifying output will close the pipe
+        """
+        logfile = None
+        parent = None
+        if len(self.processes) > 0:
+            parent = self.processes[-1]
+        if logging.getLogger().level is not logging.DEBUG and not self.force_debug:
+            # create a temporary log file
+            tmpfile = tempfile.NamedTemporaryFile(suffix='.log', prefix=self.__command_name(command) + ".", dir=".", delete=(not self.keep_logfiles))
+            logfile = tmpfile.name
+            tmpfile.close()
+
+        p = Process(self, command, input=input, output=output, env=env, logfile=logfile, parent=parent)
+        self.processes.append(p)
+        return p
+
+    def __command_name(self, command):
+        """Create a name for the given command. The name
+        is either based on the specified wrapper name or on
+        the first part of the command.
+
+        The process list index is always appended.
+
+        command -- the command
+        """
+        name = None
+        if self.name is not None:
+            name = self.name
+        else:
+            if isinstance(command, (list, tuple)):
+                name = command[0].split()[0]
+            else:
+                name = str(command.split()[0])
+        return "%s.%d" % (name, len(self.processes))
+
+    def start(self):
+        """Start the process pipe"""
+        logging.info("Starting:\n\t%s" % (self.to_bash_pipe()))
+        for p in self.processes:
+            p.run()
+        self.stdin = self.processes[0].process.stdin
+        self.stdout = self.processes[-1].process.stdout
 
     def wait(self):
-        if self._threads is not None:
-            for t in self._threads:
-                t.join()
-        return self._parent.wait()
+        """Wait for all processes in the process list to
+        finish. If a process is exiting with non 0, the process
+        log file is printed to logger error.
 
-
-class StreamWrapper(object):
-    def __init__(self):
-        self.queue = Queue()
-        self.__closed = False
-        self.__written = 0
-        self.__read = 0
-
-    def write(self, e):
-        self.__written += 1
-        self.queue.put(e)
-
-
-    def readline(self, timeout=None):
-        if self.__closed and self.__read == self.__written:
-            return None
-
-        if timeout is None:
-            timeout = 1
-        line = None
+        All log files are delete if keep_logfiles is False
+        """
+        if self.exit_value is not None:
+            return self.exit_value
         try:
-            line = self.queue.get(timeout=timeout)
+            if self.raw:
+                for r in self.raw:
+                    if r is not None:
+                        r.wait()
+            exit_value = 0
+            for i, process in enumerate(self.processes):
+                ev = process.wait()
+                if exit_value is not 0:
+                    exit_value = ev
+            self.exit_value = ev
+            return ev
         except Exception, e:
-            if not self.__closed:
-                if timeout > 30:
-                    raise e
-                else:
-                    return self.readline(timeout=timeout*2)
-        self.__read += 1
-        return line
+            print "An error occured while waiting for on eof the child processes:", e
+            self.exit_value = 1
+        finally:
+            if not self.keep_logfiles:
+                for p in self.processes:
+                    if p.logfile is not None and os.path.exists(p.logfile):
+                        logging.debug("Removing log file: %s" % (p.logfile))
+                        os.remove(p.logfile)
 
-    def __iter__(self):
-        return self
-
-    def next(self):
-        line = self.readline()
-        if line is None:
-            raise StopIteration()
-        return line
-
-    def close(self):
-        self.__closed = True
+    def to_bash_pipe(self):
+        return " | ".join([p.to_bash() for p in self.processes])
 
 
-def read_to_sequence(read):
+def _prepare_input(input, write_map=False, clean_id=True, append_extra=True):
+    if isinstance(input, basestring):
+        return open(input, 'rb')
+    if isinstance(input, file):
+        return input
+    elif input is not None:
+        return ProcessInput(input, write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+    return None
+
+
+def _prepare_output(output):
+    if isinstance(output, basestring):
+        return output
+    if isinstance(output, file):
+        if output.name is not None and output.name is not "<fdopen>":
+            output.close()
+            return output.name
+        raise ProcessError("Can not pass raw file descriptors")
+    return None
+
+
+def run_tools(tools, input=None, output=None, write_map=False, clean_id=False, append_extra=True, name=None, keep_logfiles=False, force_debug=False, env=None, raw=False):
     """
-    Transform the Read to a fasta/fastq seqeucen
-    @param read: the read
-    @type read: Read
-    @return: fasta/q sequence representation
-    @rtype: string
+    Run the tools defined in the tools list using a new process per tool.
+    The input must be a gem.gemtools.TemplateIterator that is used to get
+    the input templates and write their string representation to the
+    first process.
+
+    The parameters 'write_map', clean_id', and 'append_extra' can be used to configure the
+    output stream. If write_map is True, the output will be written
+    in gem format, otherwise, it is transformed to fasta/fastq.
+    If clean_id is set to True, the read pair information is always encoded as /1 /2 and
+    any casava 1.8 information is dropped. If append_extra is set to False, no additional
+    information will be printed to the read tag
+
+    If output is a string or an open file handle, the
+    stdout of the final process is piped to that file.
+
+    tools        -- the list of tools to run. This is a list of lists.
+    input        -- the input TemplateIterator
+    output       -- optional output file name or open, writable file handle
+    write_map    -- if true, write input in gem format
+    clean_id     -- it true, /1 /2 pair identifiers are enforced
+    append_extra -- if false, no additional information is printed in tag
+    name         -- optional name for this process group
     """
-    return "%s\n" % read.to_sequence()
+    parent_process = None
+    if raw:
+        if isinstance(input, gt.InputFile):
+            parent_process = [input.process]
+    p = ProcessWrapper(keep_logfiles=keep_logfiles, name=name, force_debug=force_debug, raw=parent_process)
 
-
-def read_to_map(read):
-    """
-    Transform the Read to a gem map line
-    @param read: the read
-    @type read: Read
-    @return: fasta/q sequence representation
-    @rtype: string
-    """
-    if read.type == "map" and read.line is not None:
-        return "%s\n" % read.line
-    return "%s\n" % str(read)
-
-
-def __parse_error_output(stream, name="Tool"):
-    """Parse the GEM error output stream and
-    if 'error' occurs exists"""
-    logging.debug("Error thread started for %s %s" % (name, stream))
-    for line in stream:
-        line = line.rstrip()
-        if re.search("error", line):
-            logging.error("%s raised an error !\n%s\n" % (name, line))
-            exit(1)
-    logging.debug("Error thread method finished for %s %s" % (name, stream))
-
-
-complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
-
-def reverseComplement(sequence):
-    """Returns the reverse complement of the given sequence"""
-    return sequence.translate(complement)[::-1]
-
-
-def run_tools(tools, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None
-              , raw_stream=False, path=None):
-    """
-    Run the tools defined in the tools list using a new process per tools.
-    The input is a ReadIterator and the method checks
-    if the input comes from a file and can be used directly. If that
-    is the case, the input file is passed to the
-    parameters using '-i' parameter. If its not the case, a new Thread
-    is used to pipe the input to the tool.
-    IF multiple tools are specified the stdout and stdin streams are connected
-    automatically
-
-
-    @param params: the parameter list
-    @type params: list
-    @param input: optional input sequence that is passed through stdin
-    @type input: sequence
-    @param output: a string that is used as a log file for stdout of the process or None
-    @type output: sequence
-    @param name: optional name of the executied tool
-    @type name: string
-    @param name: optional transformation function that is used if
-    @type name: string
-    @param logfile: optional path to the log file
-    @type logfile: string
-    @raise: ValueError in case the execution failed
-
-    """
-
-    ## helper function to append a logger thread per process
-    def append_logger(process, logfile):
-        if logfile is None:
-            tools_name = None
-            if name:
-                tools_name = name
-            logging.debug("Appending stderr read thread to watch for errors in %s" % process)
-            err_thread = Thread(target=__parse_error_output, args=(process.stderr, tools_name,))
-            err_thread.start()
-
-    process_in = None
-    process_out = None
-    process_err = None
-
-    ## handle input stream
-    if input is not None:
-        if raw_stream and isinstance(input, gem.files.ReadIterator):
-            process_in = input.stream
-        else:
-            process_in = subprocess.PIPE
-
-    ## handle output stream
-    if output is not None or post_transform is not None:
-        if isinstance(output, basestring):
-            process_out = open(output, 'w')
-        else:
-            process_out = output
-    else:
+    for i, commands in enumerate(tools):
+        process_in = subprocess.PIPE
         process_out = subprocess.PIPE
+        if i == 0:
+            # prepare first process input
+            if raw:
+                process_in = _prepare_input(input.raw_stream(), write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+            else:
+                process_in = _prepare_input(input, write_map=write_map, clean_id=clean_id, append_extra=append_extra)
 
-    ## handle error stream
-    logging.debug("Global logging is set to %d" % gem.log_output)
-    if logfile is not None and gem.log_output != gem.LOG_STDERR:
-        process_err = logfile
-        if isinstance(logfile, basestring):
-            process_err = open(logfile, 'w')
-    elif gem.log_output != gem.LOG_STDERR:
-        process_err = subprocess.PIPE
+        if i == len(tools) - 1:
+            # prepare last process output
+            process_out = _prepare_output(output)
+        p.submit(commands, input=process_in, output=process_out, env=env)
 
-    num_tools = len(tools)
-    first_process = None
-    current_process = None
-    last_process = None
-
-    env = None
-    if path is not None:
-        env = {'PATH': path}
-    for i, params in enumerate(tools):
-        logging.info("Starting %s :\n\t%s" % (name, " ".join(params).replace("\t", "\\t")))
-        #print "Starting %s :\n\t%s" % (name, " ".join(params))
-        p_in = process_in
-        p_out = process_out
-
-        if first_process is None:
-            ## start the first process
-            ## and set stdout to PIPE if there are more
-            if num_tools > 1 or post_transform is not None:
-                p_out = subprocess.PIPE
-            first_process = subprocess.Popen(params, stdin=p_in, stdout=p_out, stderr=process_err, close_fds=True,
-                env=env)
-            current_process = first_process
-        else:
-            ## add the next process
-            ## and set process out if it is the last one
-            p_out = process_out
-            if i < num_tools - 1 or post_transform is not None:
-                p_out = subprocess.PIPE
-            current_process = subprocess.Popen(params, stdin=current_process.stdout, stdout=p_out, stderr=process_err,
-                close_fds=True, env=env)
-        if gem.log_output != gem.LOG_STDERR:
-            append_logger(current_process, logfile)
-        last_process = current_process
-
-    ## start the input thread
-    threads = []
-    stdout = last_process.stdout
-
-    if input is not None and not raw_stream:
-        logging.debug("Starting input stream thread for %s " % (name))
-        input_thread = Thread(target=__write_input, args=(input, first_process.stdin, transform_fun))
-        input_thread.start()
-        threads.append(input_thread)
-    elif raw_stream:
-        logging.debug("Passing raw stream to process")
-
-    if post_transform is not None and isinstance(post_transform, (list, tuple)):
-        if len(post_transform) == 0:
-            post_transform = None
-
-    if post_transform is not None:
-        ## post_transform output
-        logging.debug("Starting post transform thread for %s " % (name))
-        thread_out = None
-        if output is not None and isinstance(output, basestring):
-            thread_out = open(output, 'w')
-        else:
-            thread_out = StreamWrapper()
-        stdout = thread_out
-
-        output_thread = Thread(target=__write_output, args=(last_process.stdout, thread_out, post_transform))
-        output_thread.start()
-        threads.append(output_thread)
-
-    return ProcessWrapper(last_process, threads, stdout=stdout)
+    # start the run
+    p.start()
+    return p
 
 
-def run_tool(params, input=None, output=None, name="", transform_fun=read_to_sequence, post_transform=None, logfile=None, raw_stream=False):
+def run_tool(tool, **kwargs):
     """
-    Run the tool defined in the params array using a new process.
-    The input is a ReadIterator and the method checks
-    if the input comes from a file and can be used directly. If that
-    is the case, the input file is passed to the
-    parameters using '-i' parameter. If its not the case, a new Thread
-    is used to pipe the input to the tool.
-
-
-    @param params: the parameter list
-    @type params: list
-    @param input: optional input sequence that is passed through stdin
-    @type input: sequence
-    @param output: a string that is used as a log file for stdout of the process or None
-    @type output: string
-    @param name: optional name of the executied tool
-    @type name: string
-    @param name: optional transformation function that is used if
-    @type name: string
-    @param logfile: optional path to the log file
-    @type logfile: string
-    @raise: ValueError in case the execution failed
-
+    Delegates to run_tools() with just a single tool
     """
-    return run_tools([params], input, output, name, transform_fun, post_transform, logfile, raw_stream)
-
-
-def __write_input(sequence, stream, transformer=None):
-    """
-    Write the content form the given sequence to the stream,
-    passing ith through the transformer function if specified
-
-    @param sequence: the input sequence
-    @type sequence: sequence
-    @param stream: the output stream
-    @type stream: stream
-    @param transformer: optional transformer function
-    @type transformer: function
-    """
-    for e in sequence:
-        if transformer is not None:
-            e = transformer(e)
-        try:
-            stream.write(str(e))
-        except Exception, ex:
-            logging.error("Failed to write %s to stream: %s" % (str(e), str(ex)))
-            stream.close()
-            exit(1)
-    stream.close()
-
-
-def __write_output(output, stream, transformer=None):
-    """
-    Put lines from output through transformer function and write them to
-    stream
-    @param sequence: the input sequence
-    @type sequence: sequence
-    @param stream: the output stream
-    @type stream: stream
-    @param transformer: optional transformer function
-    @type transformer: function
-    """
-    logging.info("Output thread method started for %s" % (stream))
-    transformer_list = []
-    if isinstance(transformer, (list, tuple)):
-        transformer_list.extend(transformer)
-    else:
-        transformer_list.append(transformer)
-    while True:
-        e = output.readline()
-        if e is None or len(e) == 0:
-            break
-        if transformer is not None:
-            for t in transformer_list:
-                e = t(e)
-        try:
-            stream.write(str(e))
-        except Exception, ex:
-            logging.error("Failed to write %s to stream: %s" % (str(e), str(ex)))
-            stream.close()
-            exit(1)
-    stream.close()
-    logging.info("Output thread method finished for %s" % (stream))
+    return run_tools([tool], **kwargs)
 
 
 def multisplit(s, seps):
@@ -398,19 +552,20 @@ def which(program):
         ## ignore exceptions and try path search
         return None
 
+
 def find_pair(file):
     """find another pair file or return none if it could not be
     found or a tuple of the clean name and the name of the second pair.
     """
     pairs = {
-        "0.fastq.gz" : "1.fastq.gz",
-        "1.fastq.gz" : "2.fastq.gz",
-        "1.fastq" : "2.fastq",
-        "0.fastq" : "1.fastq",
-        "0.txt.gz" : "1.txt.gz",
-        "1.txt.gz" : "2.txt.gz",
-        "1.txt" : "2.txt",
-        "0.txt" : "1.txt",
+        "0.fastq.gz": "1.fastq.gz",
+        "1.fastq.gz": "2.fastq.gz",
+        "1.fastq": "2.fastq",
+        "0.fastq": "1.fastq",
+        "0.txt.gz": "1.txt.gz",
+        "1.txt.gz": "2.txt.gz",
+        "1.txt": "2.txt",
+        "0.txt": "1.txt",
     }
     for k, v in pairs.items():
         if file.endswith(k):
@@ -420,7 +575,6 @@ def find_pair(file):
                 name = name[:-1]
             return (os.path.basename(name), other)
     return (None, None)
-
 
 
 def find_in_path(program):

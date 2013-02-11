@@ -3,6 +3,10 @@
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
+
+cdef extern from "stdlib.h":
+    int strcmp(char *a, char *b)
+
 cdef extern from "stdint.h":
     ctypedef int uint64_t
     ctypedef int int64_t
@@ -10,13 +14,19 @@ cdef extern from "stdint.h":
 
 cdef extern from "Python.h":
     ctypedef struct FILE
+    ctypedef struct PyObject:
+        pass
     FILE* PyFile_AsFile(object)
+    PyObject* PyString_FromString(char *v)
+    PyObject* PyString_FromStringAndSize(char *v, Py_ssize_t len)
+    void PyEval_InitThreads()
 
 cdef extern from "fileobject.h":
     ctypedef class __builtin__.file [object PyFileObject]:
         pass
 
-cdef extern from "gem_tools.h":
+
+cdef extern from "gem_tools.h" nogil:
     # general
     ctypedef int gt_status
 
@@ -27,8 +37,21 @@ cdef extern from "gem_tools.h":
     ctypedef struct gt_vector:
         pass
 
+    #gt_string
     ctypedef struct gt_string:
         pass
+
+    gt_string* gt_string_new(uint64_t initial_buffer_size)
+    void gt_string_resize(gt_string* string,uint64_t new_buffer_size)
+    void gt_string_clear(gt_string* string)
+    void gt_string_delete(gt_string* string)
+    char* gt_string_get_string(gt_string* string)
+    uint64_t gt_string_get_length(gt_string* string)
+    void gt_string_set_length(gt_string* string,uint64_t length)
+    char* gt_string_char_at(gt_string* string,uint64_t pos)
+    void gt_string_append_char(gt_string* string_dst,char character)
+    void gt_string_append_eos(gt_string* string_dst)
+
 
     # input file
     ctypedef struct gt_input_file:
@@ -92,6 +115,9 @@ cdef extern from "gem_tools.h":
 
     gt_status gt_input_generic_parser_get_alignment(gt_buffered_input_file* buffered_input,gt_alignment* alignment, gt_generic_parser_attr* attributes)
     gt_status gt_input_generic_parser_get_template(gt_buffered_input_file* buffered_input,gt_template* template,gt_generic_parser_attr* attributes)
+
+    ## map template parser
+    gt_status gt_input_map_parse_template(char* string, gt_template* template)
 
     # alignment
     ctypedef struct gt_alignment:
@@ -160,6 +186,16 @@ cdef extern from "gem_tools.h":
     bool gt_template_has_qualities(gt_template*  template)
     bool gt_template_get_not_unique_flag(gt_template*  template)
     void gt_template_set_not_unique_flag(gt_template* template,bool is_not_unique)
+    gt_alignment* gt_template_get_block(gt_template* template, uint64_t position)
+    int64_t gt_template_get_pair(gt_template* template)
+    # template utils
+    bool gt_template_is_mapped(gt_template* template)
+    bool gt_template_is_thresholded_mapped(gt_template* template, uint64_t max_allowed_strata)
+    void gt_template_trim(gt_template* template, uint64_t left, uint64_t right, uint64_t min_length, bool set_extra)
+
+    # template merge
+    cdef gt_template* gt_template_union_template_mmaps(gt_template* src_A, gt_template* src_B)
+
 
     # output printer support
     enum gt_file_fasta_format:
@@ -209,10 +245,14 @@ cdef extern from "gem_tools.h":
     ## print fastq/fasta
     gt_status gt_output_fasta_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment, gt_output_fasta_attributes* output_attributes)
     gt_status gt_output_fasta_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template, gt_output_fasta_attributes* output_attributes)
-
+    gt_status gt_output_fasta_sprint_template(gt_string* string,gt_template* template, gt_output_fasta_attributes* output_attributes)
     ## print map
     gt_status gt_output_map_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template,gt_output_map_attributes* attributes)
     gt_status gt_output_map_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment,gt_output_map_attributes* attributes)
+    gt_status gt_output_map_sprint_template(gt_string* string,gt_template* template,gt_output_map_attributes* attributes)
 
+
+cdef extern from "gemtools_binding.h" nogil:
+    void gt_merge_files(char* input_1, char* input_2, char*  output_file_name, bool  same_content, uint64_t threads)
 
 

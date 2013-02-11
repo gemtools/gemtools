@@ -1,20 +1,11 @@
 #!/usr/bin/env python
-#-t 200 --min-split-size 15 --refinement-step-size 2
-
-import os
-import subprocess
-import types
-import tempfile
 import re
 import logging
-
-from . import filter as gemfilters
-from threading import Thread
 import gem
-from gem.junctions import Exon, JunctionSite
-from gem.files import ReadIterator
+from gem.junctions import JunctionSite
 
-def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None, coverage=0, unique_strata=1):
+
+def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, coverage=0, unique_strata=1, process=None):
     """Extract denovo junctions from a split map run.
 
     gemoutput - a read iterator over gem splitmapper Output
@@ -31,19 +22,7 @@ def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None
         str(maxsplit),
         str(unique_strata)
     ]
-    instream = subprocess.PIPE
-    israw = False
-    if isinstance(gemoutput, ReadIterator):
-        if gemoutput.raw:
-            instream = gemoutput.stream
-            israw = True
-
-    p = subprocess.Popen(splits2junctions_p, stdin=instream, stdout=subprocess.PIPE, close_fds=True, bufsize=0)
-
-    ## start pipe thread
-    if not israw:
-        input_thread = Thread(target=_pipe_geminput, args=(gemoutput, p))
-        input_thread.start()
+    p = gem.utils.run_tool(splits2junctions_p, input=input, write_map=True)
 
     ## read from process stdout and get junctions
     if sites is None:
@@ -66,6 +45,8 @@ def extract_denovo_junctions(gemoutput, minsplit=4, maxsplit=2500000, sites=None
                 sites.add(e)
 
     exit_value = p.wait()
+    if process is not None:
+        process.wait()
     if exit_value != 0:
         logging.error("Error while executing junction extraction")
         exit(1)
@@ -80,16 +61,16 @@ def __retrieve(retriever, query):
     result = retriever.stdout.readline().rstrip()
     return result
 
+
 def __extract(delta, is_donor, chr, strand, pos):
     is_forw = strand == "+"
     #       return ((is_donor&&is_forw)||!is_forw&&!is_donor) ? chr"\t"str"\t"(pos+1)"\t"(pos+delta) :
     #                                                           chr"\t"str"\t"(pos-delta)"\t"(pos-1)
 
     if (is_donor and is_forw) or (not is_forw and not is_donor):
-        return "%s\t%s\t%d\t%d"%(chr, strand, pos+1, pos+delta)
+        return "%s\t%s\t%d\t%d" % (chr, strand, pos + 1, pos + delta)
     else:
-        return "%s\t%s\t%d\t%d"%(chr, strand, pos-delta, pos-1)
-
+        return "%s\t%s\t%d\t%d" % (chr, strand, pos - delta, pos - 1)
 
 
 def _pipe_geminput(input, process):
@@ -100,18 +81,17 @@ def _pipe_geminput(input, process):
     process.stdin.close()
 
 
-
 class append_xs_filter(object):
     ## for now, statically implemented junction sites
     # forward strand junctions
-    forward = ["GT","GC","ATATC","GTATC"]
+    forward = ["GT", "GC", "ATATC", "GTATC"]
     # reverse strand junctions
-    reverse = ["AG","AG","A.","AT"]
+    reverse = ["AG", "AG", "A.", "AT"]
 
     # forward strand reverse complements
-    forwardc = ["CT","CT",".T","AT"]
+    forwardc = ["CT", "CT", ".T", "AT"]
     # reverse strand reverse complements
-    reversec = ["AC","GC","GATAT","GATAC"]
+    reversec = ["AC", "GC", "GATAT", "GATAC"]
 
     # pattern to parse SAM cigar
     pat = re.compile("(\d+[A-Z=])")
@@ -125,7 +105,7 @@ class append_xs_filter(object):
         self.retriever = gem.utils.retriever(index_hash)
 
     def filter(self, input):
-        if input[0] == "@" :
+        if input[0] == "@":
             return input
 
         line = input.rstrip()
@@ -143,7 +123,7 @@ class append_xs_filter(object):
             if i[-1] == "N":
                 ## get junction sequence
                 ## todo : why only + strand ? because sam contains reverse complement in case of - strand ?
-                left, right = self.retriever.get_junction(split[2], "+", start+sum, int(i[:-1]))
+                left, right = self.retriever.get_junction(split[2], "+", start + sum, int(i[:-1]))
 
                 strand = None
 
@@ -152,21 +132,21 @@ class append_xs_filter(object):
                 ## to make sure this is unique
 
                 #check normal forward
-                for j,f in enumerate(append_xs_filter.forward):
-                    if re.search("^"+f, left):
-                        if re.search(append_xs_filter.reverse[j]+"$", right ):
+                for j, f in enumerate(append_xs_filter.forward):
+                    if re.search("^" + f, left):
+                        if re.search(append_xs_filter.reverse[j] + "$", right):
                             strand = "+"
                             strandplus += 1
 
                 #check reverse complement forward
-                for j,f in enumerate(append_xs_filter.forwardc):
-                    if re.search("^"+f, left):
-                        if re.search(append_xs_filter.reversec[j]+"$", right ):
+                for j, f in enumerate(append_xs_filter.forwardc):
+                    if re.search("^" + f, left):
+                        if re.search(append_xs_filter.reversec[j] + "$", right):
                             strand = "-"
                             strandminus += 1
                 # set XS to 0 for unknown/non unique site
                 #if (strandplus > 0 and strandminus == 0) or (strandplus == 0 and strandminus > 0):
                 if (strandplus == 0 and strandminus == 0) or (strandplus > 0 and strandminus > 0):
                     strand = "0"
-                split.append("XS:A:"+strand)
-                return "\t".join(split)+"\n"
+                split.append("XS:A:" + strand)
+                return "\t".join(split) + "\n"

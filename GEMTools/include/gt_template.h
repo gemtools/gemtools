@@ -12,6 +12,7 @@
 
 #include "gt_commons.h"
 #include "gt_alignment.h"
+#include "gt_input_parser.h"
 
 // Codes gt_status
 #define GT_TEMPLATE_OK 1
@@ -104,6 +105,8 @@ GT_INLINE void gt_template_delete(gt_template* const template);
 GT_INLINE char* gt_template_get_tag(gt_template* const template);
 GT_INLINE void gt_template_set_tag(gt_template* const template,char* const tag,const uint64_t length);
 GT_INLINE uint64_t gt_template_get_total_length(gt_template* const template);
+GT_INLINE int64_t gt_template_get_pair(gt_template* const template);
+
 /* Blocks (single alignments) */
 GT_INLINE uint64_t gt_template_get_num_blocks(gt_template* const template);
 GT_INLINE void gt_template_add_block(gt_template* const template,gt_alignment* const alignment);

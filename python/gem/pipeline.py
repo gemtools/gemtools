@@ -79,19 +79,19 @@ class MappingPipeline(object):
         except Exception:
             return "STREAM"
 
-    def merge(self, suffix):
+    def merge(self, suffix, same_content=False):
         """Merge current set of mappings and delete last ones"""
         out = self.create_file_name(suffix)
         if os.path.exists(out):
             logging.warning("Merge target exists, skipping merge : %s" % (out))
-            return gem.files.open(out, type="map", quality=self.quality)
+            return gem.files.open(out, quality=self.quality)
 
         logging.info("Merging %d mappings into %s" % (len(self.mappings), out))
         timer = Timer()
         merged = gem.merger(
             self.mappings[0].clone(),
             [m.clone() for m in self.mappings[1:]]
-        ).merge(out, self.threads)
+        ).merge(out, self.threads, same_content=same_content)
         if self.remove_temp:
             for m in self.mappings:
                 logging.info("Removing temporary mapping %s ", m.filename)
@@ -117,7 +117,7 @@ class MappingPipeline(object):
         mapping_out = self.create_file_name(suffix)
         if os.path.exists(mapping_out):
             logging.warning("Mapping step target exists, skip mapping set : %s" % (mapping_out))
-            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            mapping = gem.files.open(mapping_out, quality=self.quality)
             self.mappings.append(mapping)
             return mapping
         input_name = self._guess_input_name(input)
@@ -150,7 +150,7 @@ class MappingPipeline(object):
         mapping_out = self.create_file_name(suffix)
         if os.path.exists(mapping_out):
             logging.warning("Split-Mapping step target exists, skip mapping set : %s" % (mapping_out))
-            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            mapping = gem.files.open(mapping_out, quality=self.quality)
             self.mappings.append(mapping)
             return mapping
         input_name = self._guess_input_name(input)
@@ -185,7 +185,7 @@ class MappingPipeline(object):
         mapping_out = self.create_file_name(suffix + "_transcript")
         if os.path.exists(mapping_out):
             logging.warning("Transcript mapping step target exists, skip mapping set : %s" % (mapping_out))
-            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            mapping = gem.files.open(mapping_out, quality=self.quality)
             self.mappings.append(mapping)
             return mapping
         input_name = self._guess_input_name(input)
@@ -258,7 +258,7 @@ class MappingPipeline(object):
             self.denovo_index = index_denovo_out
             return index_denovo_out
 
-        (junctions, junctions_gtf_out) = self.gtf_junctions()
+        (gtf_junctions, junctions_gtf_out) = self.gtf_junctions()
 
         timer = Timer()
         ## get de-novo junctions
@@ -268,18 +268,24 @@ class MappingPipeline(object):
         self.files.append(junctions_out + ".fa")
         self.files.append(junctions_out + ".keys")
 
-        junctions = gem.extract_junctions(
+        denovo_junctions = gem.extract_junctions(
             input,
             self.index,
             mismatches=0.04,
             threads=self.threads,
             strata_after_first=0,
-            coverage=self.junctioncoverage,
-            merge_with=junctions)
+            coverage=self.junctioncoverage
+            )
+        logging.info("Denovo Junctions %d" % len(denovo_junctions))
+        filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, 500000))
+        logging.info("Denovo Junction passing distance (500000) filter %d (%d removed)" % (
+            len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
+
+        junctions = gtf_junctions.union(filtered_denovo_junctions)
         logging.info("Total Junctions %d" % (len(junctions)))
         timer.stop("Denovo Transcripts extracted in %s")
         timer = Timer()
-        gem.junctions.write_junctions(gem.junctions.filter_by_distance(junctions, 500000), junctions_out, self.index)
+        gem.junctions.write_junctions(junctions, junctions_out, self.index)
 
         logging.info("Computing denovo transcriptome")
         (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(self.maxlength, self.index, junctions_out, junctions_gtf_out)
@@ -335,7 +341,7 @@ class MappingPipeline(object):
             out_name = out_name + ".gz"
         if os.path.exists(out_name):
             logging.warning("Pair-alignment exists, skip creating : %s" % (paired_out))
-            return gem.files.open(out_name, type="map", quality=self.quality)
+            return gem.files.open(out_name, quality=self.quality)
 
         paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=max(self.threads - 2, 1), quality=self.quality)
         scored = gem.score(paired_mapping, self.index, paired_out, threads=min(2, self.threads))

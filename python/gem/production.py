@@ -29,46 +29,29 @@ class Merge(Command):
         parser.add_argument('-s', '--second', dest="second", help='Second file with a subset of the reads in the same order', required=True)
         parser.add_argument('-t', '--threads', dest="threads", default=1, help='Number of threads')
         parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+        parser.add_argument('--same', dest="same", action="store_true", default=False, help="File contain the same reads")
 
     def run(self, args):
         i1 = args.input
         i2 = args.second
-        gem.merger(gem.files.open(i1), [gem.files.open(i2)]).merge(args.output, threads=int(args.threads))
+        gem.merger(gem.files.open(i1), [gem.files.open(i2)]).merge(args.output, threads=int(args.threads), same_content=args.same)
 
 
-class Trim(Command):
-    title = "Merge .map files"
-    description = """Merge two .map files. The first file has to
-    be the master file that contains all the reads, the second file can
-    contain a subset of the reads with the same ID tags and the same order.
+class Junctions(Command):
+    title = "Extract junctions from GTF"
+    description = """Specify an input GTF to extract the junctions
     """
 
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-i', '--input', nargs="+", dest="input", help='Master file with all the reads', required=True)
-        parser.add_argument('-t', '--threads', dest="threads", default=1, help='Number of threads')
-        parser.add_argument('-l', '--left', dest="left", default=0, help='trim left')
-        parser.add_argument('-r', '--right', dest="right", default=0, help='trim right')
+        parser.add_argument('-i', '--input', dest="input", help='Input GTF file', required=True)
         parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
 
     def run(self, args):
-        i1 = args.input[0]
-        i2 = None
-        if len(args.input) > 1:
-            i2 = args.input[1]
-
-        o = sys.stdout
-        if args.output:
-            o = open(args.output, "wb")
-
-        s1 = gem.files.open(i1).stream
-        s2 = None
-        if i2 is not None:
-            s2 = gem.files.open(i2).stream
-
-        gt.trim_file(s1, s2, o, False, args.threads, args.left, args.right)
-        if args.output:
-            o.close()
+        infile = args.input
+        junctions = set([x for x in gem.junctions.from_gtf(infile)])
+        logging.info("%d Junctions loaded from file" % (len(junctions)))
+        gem.junctions.write_junctions(junctions, args.output)
 
 
 class Index(Command):
@@ -112,6 +95,7 @@ class TranscriptIndex(Command):
         <gtf>.junctions.keys  -- the translation table from transcriptome to genome coordinates
         <gtf>.gem             -- the GEM transcriptome index
     """
+
     def register(self, parser):
         ## required parameters
         parser.add_argument('-i', '--index', dest="index", help='Path to the GEM genome index', required=True)
@@ -210,7 +194,7 @@ class RnaPipeline(Command):
         main_input2 = gem.files.open(input_file2)
 
         # initial mapping
-        initial_mapping = pipeline.mapping_step(interleave([main_input, main_input2], add_id=False), "initial")
+        initial_mapping = pipeline.mapping_step(interleave([main_input, main_input2]), "initial")
         # create denovo transcriptome
         pipeline.create_denovo_transcriptome(initial_mapping)
 
@@ -229,7 +213,7 @@ class RnaPipeline(Command):
         #pipeline.transcript_mapping_step(gf(initial_split_mapping, unmapped), "trim_5", trim=(5, 20))
 
         ## merge everything
-        merged = pipeline.merge("merged")
+        merged = pipeline.merge("merged", same_content=True)
 
         paired_mapping = pipeline.pair_align(merged, compress=args.gzip)
 

@@ -17,10 +17,11 @@ import gem
 LOG_NOTHING = 1
 LOG_STDERR = 2
 
+# default logger configuration
 log_output = LOG_NOTHING
 logging.basicConfig(format='%(asctime)-15s %(levelname)s: %(message)s', level=logging.WARN)
 
-_trim_qualities = False
+
 default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
 extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
     ("GC", "AG"), ("CT", "GC"),
@@ -28,18 +29,30 @@ extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
     ("GTATC", "AT"), ("AT", "GATAC")
 ]
 
+#default filter
 default_filter = "same-chromosome,same-strand"
 
 ## use the bundled executables
 use_bundled_executables = True
+
 ## max mappings to replace mapping counts for + and ! summaries
 _max_mappings = 999999999
+
 ## filter to work around GT-32 and #006 in gem-map-2-map
 __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t' + str(_max_mappings) + '\t"$5}else{print}}}']
 
 
 class execs_dict(dict):
-    """Helper dict that resolves bundled binaries"""
+    """Helper dictionary that resolves bundled binaries
+    based on the configuration. We check first for GEM_PATH
+    environment variable. If its set, and points to a directory with
+    the executable, the path to that executable is returned.
+    Next, we check the use_bundled_executable flag. If that is true(default)
+    the path to the bundled executable is returned.
+    If nothing is found, the plain executable name is returned and we
+    assume it can be found in PATH
+
+    """
     def __getitem__(self, item):
         # check if there is an environment variable set
         # to specify the path to the GEM executables
@@ -78,225 +91,42 @@ def loglevel(level):
     Accepts either 'debug','info','warning', 'error'
 
     Log levels debug also ensures executable output is written to stderr
+
+    level -- one of debug, info, warn, error
     """
     global log_output
-    numeric_level = getattr(logging, level.upper(), None)
+    numeric_level = level
+    if isinstance(level, basestring):
+        numeric_level = getattr(logging, level.upper(), None)
+
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % loglevel)
+
     logging.basicConfig(level=numeric_level)
     logging.getLogger().setLevel(numeric_level)
-    if level.upper() in ["DEBUG"]:
-        log_output = LOG_STDERR
-
-
-class Read(object):
-    """A single read. The read info covers
-    its id, the raw sequence, qualities, the mapping summary
-    and the actual mappings. Qualities, the summary, and the mappings
-    are optional.
-
-    The read can be transformed to GEM input using the to_sequence
-    method. The __str__ implementation returns the GEM representation.
-    """
-
-    __max_mappings_string = "%d" % _max_mappings
-
-    def __init__(self):
-        """Create a new empty read the is supposed to be used as a
-        container
-        """
-        self.id = None
-        self.sequence = None
-        self.qualities = None
-        self.summary = None
-        self.mappings = None
-        self.line = None
-        self.type = None
-        self.template = None
-        self.__template_initialized = False
-
-    def fill(self, other):
-        """Fill this read with the content of another read"""
-        self.id = other.id
-        self.sequence = other.sequence
-        self.qualities = other.qualities
-        self.summary = other.summary
-        self.mappings = other.mappings
-        self.line = other.line
-        self.type = other.type
-        self.__template_initialized = False
-
-    def min_mismatches(self):
-        """Parse the mismatch string and return the minimum number
-        of mismatches of the first mapping found
-        or return -1 if no mapping was found
-        """
-        ## get the mappings
-        mismatches = -1
-        if self.summary is None:
-            return -1
-        if self.summary in ["-", "*", "+", "!"]:
-            return -1
-
-        for idx, s in enumerate(utils.multisplit(self.summary, [':', '+'])):
-            try:
-                if int(s) > 0:
-                    mismatches = idx
-                    break
-            except Exception, e:
-                print "Error unable to parse from line\n%s" % (self.line)
-                raise e
-        return mismatches
-
-    def length():
-        """Return read sequence length"""
-        seq = self.sequence.split(" ")
-        return len(s)
-
-    def get_maps(self):
-        if self.summary == None or self.summary in ['-', '*']:
-            return ([0], ["-"])
-        elif self.summary in ['+', '!']:
-            return ([_max_mappings], ["-"])
-
-        sums = [int(x) for x in utils.multisplit(self.summary, [':', '+'])]
-        maps = self.mappings.split(',')
-        return (sums, maps)
-
-
-    def _get_template(self):
-        if self.template is None:
-            self.template = gt.Template()
-        if not self.__template_initialized:
-            try:
-                self.template.fill(self.line)
-            except Exception, e:
-                print "ERROR PARSING "+self.line
-                raise e
-        return self.template
-
-    def merge(self, other):
-        """Merge the other read into this one
-        NOTE that this currently works only
-        for GEM reads
-        """
-        line = gt.merge_templates(self._get_template(), other._get_template())
-        if line is not None and len(line) > 0:
-            self.fill(files.parse_map().line2read(line))
-
-
-    def to_map(self, no_max_mappings=False):
-
-        if not no_max_mappings or self.summary != Read.__max_mappings_string:
-            return str(self)
-        self.summary = "0"
-        l = str(self)
-        self.summary = Read.__max_mappings_string
-        return l
-
-
-    def __str__(self):
-        """Returns GEM string representation of the reads"""
-        if self.qualities is None:
-            return "%s\t%s\t%s\t%s" % (self.id,
-                                       self.sequence,
-                                       self.summary,
-                                       self.mappings)
-        else:
-            return "%s\t%s\t%s\t%s\t%s" % (self.id,
-                                           self.sequence,
-                                           self.qualities,
-                                           self.summary,
-                                           self.mappings)
-
-    def to_sequence(self):
-        """Convert to sequence format. FastQ or FastA depending
-        on qualities"""
-        ## add support for paired reads
-        isPaired = self.sequence.find(" ") >=0
-        sequence_split = None
-        append1 = ""
-        append2 = ""
-        if isPaired:
-            append1 = "/1"
-            append2 = "/2"
-            sequence_split = self.sequence.split(" ")
-
-        if self.qualities is None:
-            ## print fasta
-            if isPaired:
-                return ">%s%s\n%s\n>%s%s\n%s" % (self.id, append1, sequence_split[0], self.id, append2, sequence_split[1])
-            return ">%s\n%s" % (self.id, self.sequence)
-        else:
-            return self.to_fastq()
-
-
-    def to_fastq(self):
-        """Convert to sequence format. FastQ or FastA depending
-        on qualities"""
-        ## add support for paired reads
-        isPaired = self.sequence.find(" ") >=0
-        sequence_split = None
-        quality_split = None
-        append1 = ""
-        append2 = ""
-        if isPaired:
-            append1 = "/1"
-            append2 = "/2"
-            sequence_split = self.sequence.split(" ")
-            if self.qualities is not None:
-                quality_split = self.qualities.split(" ")
-            else:
-                quality_split = [None, None]
-        if isPaired:
-            r1 = self._to_fastq(self.id+append1, sequence_split[0], quality_split[0], _trim_qualities)
-            r2 = self._to_fastq(self.id+append2, sequence_split[1], quality_split[1], _trim_qualities)
-            return "%s\n%s" % (r1, r2)
-        return "%s" % self._to_fastq(self.id, self.sequence, self.qualities, _trim_qualities)
-
-
-    def _to_fastq(self, id, sequence, qualities, trim_qualities=False):
-        """Convert to Fastq and fakes qualities if they are not present"""
-        if len(sequence) <= 0:
-            raise ValueError("Sequence length is < 0 for : \n%s\n%s\n%s" % (self.id, self.sequence, self.qualities))
-
-        ## do a sanity check for sequence and quality lengths
-        if qualities is None or len(qualities) == 0:
-            ## fake the qualities
-            qualities = '[' * len(sequence)
-
-        if len(sequence) != len(qualities) and qualities is not None:
-            if trim_qualities:
-                ql = len(qualities)
-                sl = len(sequence)
-                if ql < sl:
-                    # extend qualities
-                    qualities = "%s%s" % (qualities, ('[' * (sl - ql)))
-                else:
-                    # cut qualities
-                    qualities = qualities[:(sl - ql)]
-            else:
-                raise ValueError(
-                    "Different sequence and quality sizes for :\n%s\n%s\n%s" % (id, sequence, qualities))
-        return "@%s\n%s\n+\n%s" % (id, sequence, qualities)
-
-
-    def length(self):
-        if self.sequence.find(" ") >=0:
-            return len(self.sequence.split(" ")[0])
-        return len(self.sequence)
 
 
 def _prepare_index_parameter(index, gem_suffix=True):
+    """Prepares the index file and checks that the index
+    exists. The function throws a IOError if the index file
+    can not be found.
+
+    index      -- the path to the index file
+    gem_suffix -- if true, the function ensures that the index ends in .gem,
+                  otherwise, it ensures that the .gem suffix is removed.
+
+    """
     if index is None:
         raise ValueError("No valid GEM index specified!")
     if not isinstance(index, basestring):
         raise ValueError("GEM index must be a string")
     file_name = index
+
     if not file_name.endswith(".gem"):
         file_name = file_name + ".gem"
+
     if not os.path.exists(file_name):
-        raise ValueError("Index file not found : %s" % file_name)
+        raise IOError("Index file not found : %s" % file_name)
 
     if gem_suffix:
         if not index.endswith(".gem"):
@@ -308,11 +138,14 @@ def _prepare_index_parameter(index, gem_suffix=True):
 
 
 def _prepare_splice_consensus_parameter(splice_consensus):
-    """
-    Convert the splice consensus tuple to
+    """Convert the splice consensus tuple to
     valid gem parameter input.
+
     If the given splice_consensus is None, the
     default splice consensus is used
+
+    splice_consensus -- if string, it is just passed on, if its a list of tuples like ("A", "G") it
+                        is translated into gem representation
     """
     if splice_consensus is None:
         splice_consensus = default_splice_consensus
@@ -324,62 +157,68 @@ def _prepare_splice_consensus_parameter(splice_consensus):
     return splice_cons
 
 
-def _prepare_quality_parameter(quality):
+def _prepare_quality_parameter(quality, input=None):
+    """Prepare and returnn the quality parameter for gem runs. If the
+    input is None, qualities are disabled, if it is a string and
+    valid parameter it is returned as is. Otherwise it as to be 33
+    or 64 and will be translated to a valid gem parameter
+
+    quality -- the quality offset, 33|64, None to ignore or a string that
+                is either offset-33|offset-64|ignore
+    input   -- optional input that can be checkd for a quality parameter. This
+               currently works only for gemtools.TemplateIterator or gemtools.InputFile
+               instances
+    """
+    if quality is None and isinstance(input, (gt.TemplateIterator, gt.InputFile)):
+        quality = input.quality
+
     ## check quality
     if quality is not None and quality in ["offset-33", "offset-64", "ignore"]:
         return quality
     if quality is not None and quality not in ["none", "ignore"]:
-        quality = "offset-%d" % quality
+        i = int(quality)
+        if i not in [33, 64]:
+            raise ValueError("%s is not a valid quality value, try None, 33 or 64" % (str(quality)))
+        quality = "offset-%d" % int(quality)
     else:
         quality = 'ignore'
 
     return quality
 
 
-def _write_sequence_file(input, tmpdir=None):
-    """Takes a Read sequence and writes it to a tempfile
-    in fastq or fasta format
-    """
-    (fifo, inputfile) = tempfile.mkstemp(suffix=".fastq", prefix="mapper_input", dir=tmpdir)
-    fifo = open(inputfile, 'w')
-    ## the splitmapper does not support fifo or piping from stdin
-    ## so we have to write a tmp file
-    count = 0
-    try:
-        for l in input:
-            fifo.write(l.to_fastq())
-            fifo.write("\n")
-            count += 1
-        fifo.close()
-    except:
-        fifo.close()
-        ## kill the process
-        os.unlink(inputfile)
-        raise
-    return inputfile, count
+def _prepare_output(process, output=None, quality=None, delete_after_iterate=False):
+    """Creates a new gem.gemtools.Inputfile from the given process.
+    If output is specivied, the function blocks and waits for the process to finish
+    successfully before the InputFile is created on the specified output.
 
+    Otherwise, a stream based InputFile is created using the process stdout
+    stream.
 
-def _prepare_output(process, output=None, type="map", name="GEM", remove_after_iteration=False, quality=None, raw=False):
-    """If output is not None, this waits for the process to
-    finish and opens a ReadIterator
-    on the output file using the given type.
-    If output is not given, this opens a ReadIterator on the
-    stdout stream of the process.
+    If quality is specified it is passed on to the input file.
+
+    process -- the process
+    output  -- output file name or None when process stdout should be used
+    quality -- optional quality that is passed to the InputFile
     """
     if output is not None:
         # we are writing to a file
         # wait for the process to finish
         if process is not None and process.wait() != 0:
-            raise ValueError("%s execution failed!" % name)
-        return files.open(output, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
+            raise ValueError("Execution failed!")
+        logging.debug("Opening output file %s" % (output))
+        if output.endswith(".bam"):
+            return gt.InputFile(stream=gem.files.open_bam(output), file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
+        return gt.InputFile(file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
     else:
+        logging.debug("Opening output stream")
         ## running in async mode, return iterator on
         ## the output stream
-        return files.open(process.stdout, type=type, process=process, remove_after_iteration=remove_after_iteration, quality=quality, raw=raw)
+        return gt.InputFile(stream=process.stdout, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
 
 
 def validate_executables():
-    """Validate the gem executables
+    """Validate the gem executables and
+    print the paths to the executables in use
     """
     for exe, path in executables.items():
         path = executables[exe]
@@ -435,12 +274,9 @@ def mapper(input, index, output=None,
     extra -- list of additional parameters added to gem mapper call
     """
 
-    ## check the index
+    ## prepare inputs
     index = _prepare_index_parameter(index)
-
-    if quality is None and isinstance(input, files.ReadIterator):
-        quality = input.quality
-    quality = _prepare_quality_parameter(quality)
+    quality = _prepare_quality_parameter(quality, input)
 
     if delta >= min_decoded_strata and not force_min_decoded_strata:
         logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
@@ -496,13 +332,8 @@ def mapper(input, index, output=None,
         tools.append(convert_to_genome)
 
     ## run the mapper
-    process = None
-    if len(tools) == 1:
-        process = utils.run_tool(tools[0], input, output, "GEM-Mapper", utils.read_to_sequence)
-    else:
-        process = utils.run_tools(tools, input, output, "GEM-Mapper", utils.read_to_sequence)
-
-    return _prepare_output(process, output, type="map", name="GEM-Mapper", quality=quality)
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Mapper")
+    return _prepare_output(process, output=output, quality=quality)
 
 
 def transcript_mapper(input, indices, key_files, output=None,
@@ -558,6 +389,8 @@ def transcript_mapper(input, indices, key_files, output=None,
         output_file = output
         if len(indices) > 1:
             (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="transcript_mapping_output", dir=".")
+            os.close(fifo)
+
         output_files.append(output_file)
         outputs.append(mapper(input.clone(), index,
            key_file=key_files[i],
@@ -581,22 +414,20 @@ def transcript_mapper(input, indices, key_files, output=None,
     if len(indices) > 1:
         merged = merger(outputs[0], outputs[1:])
         if(output is not None):
-            merged.merge(output, threads=threads)
+            merged.merge(output, threads=threads, same_content=True)
             for f in output_files:
                 os.remove(f)
-            return _prepare_output(None, output, type="map", name="GEM-Mapper", quality=quality)
+            return _prepare_output(None, output=output, quality=quality)
         return merged
     else:
-        return _prepare_output(None, output, type="map", name="GEM-Mapper", quality=quality)
+        return _prepare_output(None, output=output, quality=quality)
 
 
 def splitmapper(input,
                 index,
                 output=None,
                 mismatches=0.04,
-                junctions=0.02,
-                junctions_file=None,
-                splice_consensus=None,
+                splice_consensus=extended_splice_consensus,
                 filter=default_filter,
                 refinement_step_size=2,
                 min_split_size=15,
@@ -643,16 +474,12 @@ def splitmapper(input,
           '--mismatch-alphabet', mismatch_alphabet,
           '-T', str(threads)
     ]
-    min_threads = int(round(max(1, threads/2)))
-    if junctions_file is not None:
-        pa.append("-J")
-        pa.append(os.path.abspath(junctions_file))
-        pa.append("-j")
-        pa.append(str(junctions))
+    min_threads = int(round(max(1, threads / 2)))
+
     if filter is not None:
         pa.append("-f")
         pa.append(filter)
-    if splice_cons is not None and junctions_file is None:
+    if splice_cons is not None:
         pa.append("-c")
         pa.append(splice_cons)
 
@@ -677,12 +504,9 @@ def splitmapper(input,
     original_output = output
     if post_validate:
         output = None
-    if len(tools) == 1:
-        process = utils.run_tool(tools[0], input, output, "GEM-Split-Mapper", utils.read_to_sequence)
-    else:
-        process = utils.run_tools(tools, input, output, "GEM-Split-Mapper", utils.read_to_sequence)
 
-    splitmap_out = _prepare_output(process, output, type="map", name="GEM-Split-Mapper", quality=quality)
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Split-Mapper")
+    splitmap_out = _prepare_output(process, output=output, quality=quality)
 
     if post_validate:
         return validate(splitmap_out, index, original_output, threads=threads)
@@ -692,7 +516,6 @@ def splitmapper(input,
 
 def extract_junctions(input,
                       index,
-                      junctions=0.02,
                       filter="ordered,non-zero-distance",
                       mismatches=0.04,
                       refinement_step_size=2,
@@ -706,14 +529,12 @@ def extract_junctions(input,
                       min_split=4,
                       max_split=2500000,
                       coverage=0,
-                      keep_short_indels=True,
                       tmpdir=None,
                       extra=None):
     ## run the splitmapper
     splitmap = splitmapper(input,
         index,
         output=None,
-        junctions=junctions,
         filter=filter,
         mismatches=mismatches,
         refinement_step_size=refinement_step_size,
@@ -726,41 +547,15 @@ def extract_junctions(input,
         post_validate=False,
         threads=threads,
         extra=extra)
-    ## make sure we have an output file
-    ## for the splitmap results
-    #output_file = output
-    #if output is None:
-    #    (fifo, output_file) = tempfile.mkstemp(suffix=".map", prefix="splitmap_output", dir=tmpdir)
 
-    ## helper filter to pass the read on to the junction extractor,
-    ## kill the splitmap as long as it is no short indel and
-    ## write the result to the output file
-    #def write_helper(reads):
-    #    of = open(output_file, 'w')
-    #    for read in reads:
-    #        yield read
-    #        if keep_short_indels:
-    #            gemfilter.keep_short_indel(read)
-    #            ## and write the read
-    #        of.write(str(read))
-    #        of.write("\n")
-    #    of.close()
-
-    splitmap.raw = True
     denovo_junctions = splits.extract_denovo_junctions(
-        #write_helper(splitmap),
-        splitmap,
+        splitmap.raw_stream(),  # pass the raw stream
         minsplit=min_split,
         maxsplit=max_split,
         coverage=coverage,
-        sites=merge_with)
+        sites=merge_with,
+        process=splitmap.process)
     return denovo_junctions
-    #if output is None:
-    #    ## return delete iterator
-    #    return (
-    #    files.open(output_file, type="map", process=splitmap, remove_after_iteration=True), denovo_junctions)
-    #else:
-    #    return files.open(output_file, type="map", process=splitmap), denovo_junctions
 
 
 def pairalign(input, index, output=None,
@@ -779,18 +574,8 @@ def pairalign(input, index, output=None,
               threads=1,
               extra=None):
     ## check the index
-    if index is None:
-        raise ValueError("No valid GEM index specified!")
-    if not isinstance(index, basestring):
-        raise ValueError("GEM index must be a string")
-    if not index.endswith(".gem"):
-        index = index + ".gem"
-
-    ## set default values
-    if quality is None and isinstance(input, files.ReadIterator):
-        quality = input.quality
-
-    quality = _prepare_quality_parameter(quality)
+    index = _prepare_index_parameter(index)
+    quality = _prepare_quality_parameter(quality, input)
 
     pa = [executables['gem-mapper'],
           '-p',
@@ -816,14 +601,9 @@ def pairalign(input, index, output=None,
     if map_both_ends:
         pa.append("--map-both-ends")
 
-    use_raw = False
-    if isinstance(input, files.ReadIterator):
-        if input.type == "map":
-            use_raw = True
-
-    ## run the mapper
-    process = utils.run_tool(pa, input, output, "GEM-Pair-align", utils.read_to_map, raw_stream=use_raw)
-    return _prepare_output(process, output, type="map", name="GEM-Pair-align", quality=quality)
+    ## run the mapper and trim away all the unused stuff from the ids
+    process = utils.run_tool(pa, input=input, output=output, name="GEM-Pair-align", write_map=True, clean_id=True, append_extra=False)
+    return _prepare_output(process, output=output, quality=quality)
 
 
 def realign(input,
@@ -836,18 +616,8 @@ def realign(input,
                   '-r',
                   '-T', str(threads)
     ]
-
-    quality = None
-    use_raw = False
-    if isinstance(input, files.ReadIterator):
-        quality = input.quality
-        if input.type == "map":
-            use_raw = True
-
-    process = utils.run_tool(validate_p, input, output,
-        "GEM-Validate", utils.read_to_map, raw_stream=use_raw)
-    return _prepare_output(process, output, type="map",
-        name="GEM-Validate", quality=quality)
+    process = utils.run_tool(validate_p, input=input, output=output, name="GEM-Realign", write_map=True)
+    return _prepare_output(process, output=output)
 
 
 def validate(input,
@@ -862,22 +632,13 @@ def validate(input,
                   '-v', '-r',
                   '-T', str(max(threads, 1))
     ]
-
     if validate_score is not None:
         validate_p.extend(["-s", validate_score])
-
     if validate_filter is not None:
         validate_p.extend(['-f', validate_filter])
 
-    quality = None
-    use_raw = False
-    if isinstance(input, files.ReadIterator):
-        quality = input.quality
-        if input.type == "map":
-            use_raw = True
-
-    process = utils.run_tool(validate_p, input, output, "GEM-Validate", utils.read_to_map, raw_stream=use_raw)
-    return _prepare_output(process, output, type="map", name="GEM-Validate", quality=quality)
+    process = utils.run_tool(validate_p, input=input, output=output, name="GEM-Validate", write_map=True)
+    return _prepare_output(process, output=output)
 
 
 def score(input,
@@ -899,43 +660,26 @@ def score(input,
             ff = ",".join(filter)
         score_p.append(ff)
 
-    quality = None
-    use_raw = False
-    if isinstance(input, files.ReadIterator):
-        quality = input.quality
-        if input.type == "map":
-            use_raw = True
-
-    process = utils.run_tool(score_p, input, output, "GEM-Score", utils.read_to_map, raw_stream=use_raw)
-    return _prepare_output(process, output, type="map", name="GEM-Score", quality=quality)
-
-
-def validate_and_score(input,
-                       index,
-                       output=None,
-                       scoring="+U,+u,-t,-s,-i,-a",
-                       validate_score="-s,-b,-i",
-                       validate_filter="2,25",
-                       threads=1):
-    validator = validate(input, index, None, validate_score, validate_filter, max(threads / 2, 1))
-    return score(validator, index, output=output, scoring=scoring, threads=max(threads / 2, 1))
+    process = utils.run_tool(score_p, input=input, output=output, name="GEM-Score", write_map=True)
+    return _prepare_output(process, output=output)
 
 
 def gem2sam(input, index=None, output=None,
     single_end=False, compact=False, threads=1,
     quality=None, check_ids=True):
+    # if output is None:
+    #     raise ValueError("You have to specify a sam output file! We are working on the piping support!")
+
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
+
     gem_2_sam_p = [executables['gem-2-sam'],
                    '-T', str(threads)
     ]
     if index is not None:
         gem_2_sam_p.extend(['-I', index])
 
-    if quality is None and isinstance(input, files.ReadIterator):
-        quality = input.quality
-
-    quality = _prepare_quality_parameter(quality)
+    quality = _prepare_quality_parameter(quality, input)
     if quality is not None:
         gem_2_sam_p.extend(["-q", quality])
 
@@ -945,26 +689,14 @@ def gem2sam(input, index=None, output=None,
         gem_2_sam_p.append("-c")
 
     # GT-25 transform id's
-    transform = utils.read_to_map
-    if check_ids and not single_end:
-        def t(read):
-            if check_ids and not single_end:
-                split = read.id.split()
-                if len(split) > 1:
-                    if split[1][0] in ("1", "2"):
-                        read.id = "%s/%s" % (split[0], split[1][0])
-                    else:
-                        raise ValueError("Unable to identify read id pair counter from %s" % read.id)
-            return utils.read_to_map(read)
-        transform = t
-
-    process = utils.run_tool(gem_2_sam_p, input, output, "GEM-2-SAM", transform)
-    return _prepare_output(process, output, "sam", name="GEM-2-SAM", quality=quality)
+    process = utils.run_tool(gem_2_sam_p, input=input, output=output, name="GEM-2-sam", write_map=True, clean_id=True, append_extra=False)
+    # if process.wait() != 0:
+    #     raise ValueError("GEM-2-SAM execution failed!")
+    # return output
+    return _prepare_output(process, output=output, quality=quality)
 
 
 def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
-    if isinstance(input, files.ReadIterator):
-        input.raw = True
     sam2bam_p = ['samtools', 'view', '-S', '-b']
     if mapq is not None:
         sam2bam_p.append("-q")
@@ -973,22 +705,25 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
 
     tools = [sam2bam_p]
     out_name = output
+    delete_after_iterate = False
     if sorted:
-        # we can not pipe samtools sort :(
         if out_name is not None:
             if out_name.endswith('.bam'):
                 out_name = out_name[:-4]
         else:
-            (fifo, out_name) = tempfile.mkstemp(suffix="", prefix="bam_sort", dir=tmpdir)
-        bam_sort = ['samtools', 'sort', '-', out_name]
+            tmpfile = tempfile.NamedTemporaryFile(prefix="sorting", suffix=".bam")
+            tmpfile.close()
+            out_name = tmpfile.name[:-4]
+            delete_after_iterate = True
+
+
+        bam_sort = ['samtools', 'sort', '-']
+        bam_sort.append(out_name)
         out_name = out_name + ".bam"
         tools.append(bam_sort)
-    process = utils.run_tools(tools, input, output, "SAM-2-BAM", transform_fun=lambda x: x)
-    quality = None
-    if isinstance(input, files.ReadIterator):
-        quality = input.quality
 
-    return _prepare_output(process, out_name, type="bam", name="SAM-2-BAM", remove_after_iteration=(output is None), quality=quality)
+    process = utils.run_tools(tools, input=input, output=output, name="SAM-2-BAM", raw=True)
+    return _prepare_output(process, output=out_name, quality=33, delete_after_iterate=delete_after_iterate)
 
 
 def compute_transcriptome(max_read_length, index, junctions, substract=None):
@@ -1058,7 +793,7 @@ def index(input, output, content="dna", threads=1):
     # the indexer need the other indexer tools in PATH
     path = "%s:%s" % (os.path.dirname(executables['gem-indexer']), os.getenv("PATH"))
 
-    process = utils.run_tools([indexer_p], input=None, output=None, name="gem-indexer", raw_stream=True, path=path)
+    process = utils.run_tools([indexer_p], name="gem-indexer", env={"PATH": path})
     if process.wait() != 0:
         raise ValueError("Error while executing the gem-indexer")
     return os.path.abspath("%s.gem" % output)
@@ -1073,7 +808,7 @@ def hash(input, output):
         executables['gem-retriever'],
         'hash', input, output
     ]
-    process = utils.run_tools([p], input=None, output=None, name="gem-retriever", raw_stream=True)
+    process = utils.run_tools([p], name="gem-retriever")
     if process.wait() != 0:
         raise ValueError("Error while executing the gem-retriever")
     return os.path.abspath(output)
@@ -1093,7 +828,7 @@ class merger(object):
     paired -- merging paried reads
     """
 
-    def __init__(self, target, source, exclusive=False, paired=False):
+    def __init__(self, target, source, paired=False):
         if target is None:
             raise ValueError("No target file specified")
         if source is None:
@@ -1101,78 +836,47 @@ class merger(object):
 
         self.target = target
         self.source = source
-        self.reads = []
-        self.result_read = Read()
-        self.exclusive = exclusive
         self.paired = paired
-        for x in self.source:
-            self.reads.append(None)
 
     def __iter__(self):
-        return self
+        return gt.merge(self.target, self.source)
 
-    def __get_next_read(self, stream):
-        try:
-            return stream.next()
-        except:
-            return None
+    def merge(self, output, threads=1, paired=False, same_content=False):
+        if same_content:
 
-    def next(self):
-        target_read = self.__get_next_read(self.target)
-        if not target_read:
-            raise StopIteration()
-            ## read one line from each handle
-        source_read = None
-        self.result_read.fill(target_read)
-        for i, h in enumerate(self.source):
-            source_read = self.reads[i]
-            if source_read is None:
-                source_read = self.__get_next_read(h)
-                self.reads[i] = source_read
-            if not source_read:
-                continue
+            files = [self.target.file_name]
+            for f in self.source:
+                files.append(f.file_name)
 
-            if target_read.id == source_read.id:
-                mis = source_read.min_mismatches()
-                t_mis = self.result_read.min_mismatches()
-                if t_mis < 0:
-                    self.result_read.fill(source_read)
-                else:
-                    if not self.exclusive:
-                        if mis >= 0 and mis < _max_mappings:
-                            self.result_read.merge(source_read)
-                    else:
-                        if mis >= 0 and mis < _max_mappings:
-                            self.result_read.fill(source_read)
+            compressed = False
+            for f in files:
+                if f.endswith(".gz") or f.endswith(".bz"):
+                    compressed = True
+                    break
 
-                ## read next into cache
-                self.reads[i] = self.__get_next_read(h)
-        return self.result_read
+            if not compressed:
+                logging.debug("Using merger with %d threads and same content" % (threads))
+                logging.debug("Files to merge: %s" % (" ".join(files)))
+                params = [executables['gem-map-2-map'], '-T', str(threads), '-M', ",".join(files)]
+                process = utils.run_tool(params, input=None, output=output, name="GEM-Merge")
+                if process.wait() != 0:
+                    logging.error("Merging failed !")
+                    raise ValueError("Mergin failed!")
+                return gt.InputFile(file_name=output)
 
-    def merge(self, output, threads=1, paired=False):
-        if output is not None:
-            of = open(output, 'wb')
+        if len(self.source) == 1:
+            logging.debug("Using paired merger with %d threads and same content %s" % (threads, str(same_content)))
+            logging.debug("Files to merge: %s and %s" % (self.target.file_name, self.source[0].file_name))
+
+            merger = gt.merge(self.target, self.source, init=False)
+            merger.merge_pairs(self.target.file_name, self.source[0].file_name, output, same_content, threads)
         else:
-            of = sys.stdout
-        target_is_iterator = isinstance(self.target, gem.files.ReadIterator) and self.target.filename is not None
-        source_is_iterator = isinstance(self.source[0], gem.files.ReadIterator) and self.source[0].filename is not None
-
-        if len(self.source) == 1 and target_is_iterator and source_is_iterator:
-            # merge two file
-            f1 = self.target.stream
-            f2 = self.source[0].stream
-            logging.debug("Using faster file merging with %d threads" % (threads))
-            gt.merge_files(f1, f2, of, paired, threads)
-            f1.close()
-            f2.close()
-        else:
-            for read in self:
-                of.write(str(read))
-                of.write("\n")
-        if output is not None:
+            logging.debug("Using unpaired merger")
+            merger = gt.merge(self.target, self.source, init=True)
+            of = gt.OutputFile(file_name=output)
+            of.write_map(merger, clean_id=False, append_extra=True)
             of.close()
-            return files.open(output, type="map")
-        return None
+        return gt.InputFile(file_name=output)
 
 
 def _is_i3_compliant(stream):
