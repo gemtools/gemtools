@@ -79,19 +79,19 @@ class MappingPipeline(object):
         except Exception:
             return "STREAM"
 
-    def merge(self, suffix):
+    def merge(self, suffix, same_content=False):
         """Merge current set of mappings and delete last ones"""
         out = self.create_file_name(suffix)
         if os.path.exists(out):
             logging.warning("Merge target exists, skipping merge : %s" % (out))
-            return gem.files.open(out, type="map", quality=self.quality)
+            return gem.files.open(out, quality=self.quality)
 
         logging.info("Merging %d mappings into %s" % (len(self.mappings), out))
         timer = Timer()
         merged = gem.merger(
             self.mappings[0].clone(),
             [m.clone() for m in self.mappings[1:]]
-        ).merge(out, self.threads)
+        ).merge(out, self.threads, same_content=same_content)
         if self.remove_temp:
             for m in self.mappings:
                 logging.info("Removing temporary mapping %s ", m.filename)
@@ -117,7 +117,7 @@ class MappingPipeline(object):
         mapping_out = self.create_file_name(suffix)
         if os.path.exists(mapping_out):
             logging.warning("Mapping step target exists, skip mapping set : %s" % (mapping_out))
-            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            mapping = gem.files.open(mapping_out, quality=self.quality)
             self.mappings.append(mapping)
             return mapping
         input_name = self._guess_input_name(input)
@@ -150,7 +150,7 @@ class MappingPipeline(object):
         mapping_out = self.create_file_name(suffix)
         if os.path.exists(mapping_out):
             logging.warning("Split-Mapping step target exists, skip mapping set : %s" % (mapping_out))
-            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            mapping = gem.files.open(mapping_out, quality=self.quality)
             self.mappings.append(mapping)
             return mapping
         input_name = self._guess_input_name(input)
@@ -185,7 +185,7 @@ class MappingPipeline(object):
         mapping_out = self.create_file_name(suffix + "_transcript")
         if os.path.exists(mapping_out):
             logging.warning("Transcript mapping step target exists, skip mapping set : %s" % (mapping_out))
-            mapping = gem.files.open(mapping_out, type="map", quality=self.quality)
+            mapping = gem.files.open(mapping_out, quality=self.quality)
             self.mappings.append(mapping)
             return mapping
         input_name = self._guess_input_name(input)
@@ -335,7 +335,7 @@ class MappingPipeline(object):
             out_name = out_name + ".gz"
         if os.path.exists(out_name):
             logging.warning("Pair-alignment exists, skip creating : %s" % (paired_out))
-            return gem.files.open(out_name, type="map", quality=self.quality)
+            return gem.files.open(out_name, quality=self.quality)
 
         paired_mapping = gem.pairalign(input, self.index, None, max_insert_size=100000, threads=max(self.threads - 2, 1), quality=self.quality)
         scored = gem.score(paired_mapping, self.index, paired_out, threads=min(2, self.threads))

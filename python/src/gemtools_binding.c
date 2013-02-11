@@ -6,9 +6,9 @@ GEMTools python binding utilities
 
 void gt_merge_files(char* const input_1, char* const input_2, char* const output_file_name, bool const same_content, uint64_t threads) {
 
-  char* i1 = malloc(strlen(input_1) * sizeof(char));
-  char* i2 = malloc(strlen(input_2) * sizeof(char));
-  char* out = malloc(strlen(output_file_name) * sizeof(char));
+  char* i1 = malloc(1+strlen(input_1) * sizeof(char));
+  char* i2 = malloc(1+strlen(input_2) * sizeof(char));
+  char* out = malloc(1+strlen(output_file_name) * sizeof(char));
   strcpy(i1, input_1);
   strcpy(i2, input_2);
   strcpy(out, output_file_name);

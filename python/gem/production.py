@@ -29,11 +29,12 @@ class Merge(Command):
         parser.add_argument('-s', '--second', dest="second", help='Second file with a subset of the reads in the same order', required=True)
         parser.add_argument('-t', '--threads', dest="threads", default=1, help='Number of threads')
         parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+        parser.add_argument('--same', dest="same", action="store_true", default=False, help="File contain the same reads")
 
     def run(self, args):
         i1 = args.input
         i2 = args.second
-        gem.merger(gem.files.open(i1), [gem.files.open(i2)]).merge(args.output, threads=int(args.threads))
+        gem.merger(gem.files.open(i1), [gem.files.open(i2)]).merge(args.output, threads=int(args.threads), same_content=args.same)
 
 
 class Junctions(Command):
@@ -193,7 +194,7 @@ class RnaPipeline(Command):
         main_input2 = gem.files.open(input_file2)
 
         # initial mapping
-        initial_mapping = pipeline.mapping_step(interleave([main_input, main_input2], add_id=False), "initial")
+        initial_mapping = pipeline.mapping_step(interleave([main_input, main_input2]), "initial")
         # create denovo transcriptome
         pipeline.create_denovo_transcriptome(initial_mapping)
 
@@ -212,7 +213,7 @@ class RnaPipeline(Command):
         #pipeline.transcript_mapping_step(gf(initial_split_mapping, unmapped), "trim_5", trim=(5, 20))
 
         ## merge everything
-        merged = pipeline.merge("merged")
+        merged = pipeline.merge("merged", same_content=True)
 
         paired_mapping = pipeline.pair_align(merged, compress=args.gzip)
 

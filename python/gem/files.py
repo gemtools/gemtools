@@ -14,7 +14,7 @@ __zcat_path = None
 __open_iterators = []
 
 
-def open(input):
+def open(input, quality=None):
     """
     Open the given file and return on iterator
     over Reads.
@@ -43,10 +43,10 @@ def open(input):
 
     it = None
     if stream is not None:
-        it = gt.InputFile(stream=stream)
+        it = gt.InputFile(stream=stream, quality=quality)
         __open_iterators.append(it)
     else:
-        it = gt.InputFile(file_name=input)
+        it = gt.InputFile(file_name=input, quality=quality)
     return it
 
 

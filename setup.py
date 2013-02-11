@@ -245,7 +245,7 @@ except:
 gemtools = Extension("gem.gemtools", sources=["python/src/gemtools_binding.c", "python/src/gemtools.pyx", "python/src/gemapi.pxd"],
                     include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
                     library_dirs=['GEMTools/lib'],
-                    libraries=['z', 'bz2', 'gemtools', 'pthread'],
+                    libraries=['z', 'bz2', 'gemtools'],
                     extra_compile_args=['-fopenmp'],
                     extra_link_args=["-fopenmp"]
 )
