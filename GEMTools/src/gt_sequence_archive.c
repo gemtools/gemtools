@@ -48,7 +48,8 @@ GT_INLINE void gt_sequence_archive_add_sequence(gt_sequence_archive* const seq_a
 }
 GT_INLINE void gt_sequence_archive_remove_sequence(gt_sequence_archive* const seq_archive,char* const seq_id) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-  gt_shash_remove_element(seq_archive->sequences,seq_id);
+  // TODO: Retrieve seq and deallocate by hand
+  gt_shash_remove(seq_archive->sequences,seq_id,false);
 }
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_sequence(gt_sequence_archive* const seq_archive,char* const seq_id) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
@@ -61,17 +62,61 @@ GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_sequence(gt_sequence_ar
 GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
     gt_sequence_archive* const seq_archive,char* const seq_id,const gt_strand strand,
     const uint64_t position,const uint64_t length,gt_string* const string) {
-  // Retrieve the segmented sequence
+  GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
+  GT_NULL_CHECK(seq_id);
+  GT_ZERO_CHECK(length);
+  GT_STRING_CHECK_NO_STATIC(string);
+  register gt_status error_code;
+  // Retrieve the sequence
+  register gt_segmented_sequence* seg_seq = gt_sequence_archive_get_sequence(seq_archive,seq_id);
+  if (seg_seq==NULL) return GT_SEQ_ARCHIVE_NOT_FOUND;
+  // Get the actual chunk
+  if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,position,length,string))) {
+    return error_code;
+  }
+  // RC (if needed)
+  if (strand==REVERSE) {
+    gt_dna_string_reverse_complement(string);
+  }
+  return 0;
+}
+GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
+    gt_sequence_archive* const seq_archive,char* const seq_id,const gt_strand strand,
+    const uint64_t position,const uint64_t length,const uint64_t extra_length,gt_string* const string) {
+  GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
+  GT_ZERO_CHECK(position);
+  GT_NULL_CHECK(seq_id);
+  GT_STRING_CHECK_NO_STATIC(string);
+  register gt_status error_code;
+  // Retrieve the sequence
   register gt_segmented_sequence* seg_seq = gt_sequence_archive_get_sequence(seq_archive,seq_id);
   if (seg_seq==NULL) {
-    gt_error(SEQ_ARCHIVE_NOT_FOUND);
+    gt_error(SEQ_ARCHIVE_NOT_FOUND,seq_id);
     return GT_SEQ_ARCHIVE_NOT_FOUND;
   }
-  // Get the actual sequence string
-  register gt_status error_code;
-  if (!(error_code=gt_segmented_sequence_get_sequence(seg_seq,position,length,string))) return error_code;
-  // RC if needed
-  if (strand==REVERSE) gt_dna_string_reverse_complement(string);
+  // Calculate sequence's boundaries
+  register const uint64_t sequence_total_length = seg_seq->sequence_total_length;
+  register uint64_t init_position, total_length;
+  if (position-1 >= seg_seq->sequence_total_length) { // Check position
+    gt_error(SEQ_ARCHIVE_POS_OUT_OF_RANGE,position-1);
+    return GT_SEQ_ARCHIVE_POS_OUT_OF_RANGE;
+  }
+  // Adjust init_position,total_length wrt strand
+  init_position = position-1;
+  if (strand==REVERSE) {
+    init_position = (extra_length>init_position) ? 0 : init_position-extra_length;
+  }
+  total_length = length+extra_length;
+  if (total_length >= sequence_total_length) total_length = seg_seq->sequence_total_length-1;
+  // Get the actual chunk
+  if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string))) {
+    gt_error(SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE,init_position,init_position+total_length);
+    return GT_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE;
+  }
+  // RC (if needed)
+  if (strand==REVERSE) {
+    gt_dna_string_reverse_complement(string);
+  }
   return 0;
 }
 
@@ -251,6 +296,8 @@ GT_INLINE gt_status gt_segmented_sequence_get_sequence(
   GT_ZERO_CHECK(length);
   // Clear string
   gt_string_clear(string);
+  // Check position
+  if (gt_expect_false(position >= sequence->sequence_total_length)) return GT_SEQ_ARCHIVE_POS_OUT_OF_RANGE;
   // Retrieve String
   register uint64_t i=0;
   gt_segmented_sequence_iterator sequence_iterator;
@@ -260,12 +307,7 @@ GT_INLINE gt_status gt_segmented_sequence_get_sequence(
     ++i;
   }
   gt_string_append_eos(string);
-  if (i==length) {
-    return GT_SEQ_ARCHIVE_OK;
-  } else {
-    gt_error(SEQ_ARCHIVE_OUT_OF_RANGE);
-    return GT_SEQ_ARCHIVE_OUT_OF_RANGE;
-  }
+  return (i==length) ? GT_SEQ_ARCHIVE_OK : GT_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE;
 }
 
 /*

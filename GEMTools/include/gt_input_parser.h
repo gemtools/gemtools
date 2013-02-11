@@ -3,6 +3,7 @@
  * FILE: gt_input_parser.h
  * DATE: 01/06/2012
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
+ *            Thasso Griebel <thasso.griebel@gmail.com>
  * DESCRIPTION: // TODO
  */
 
@@ -10,6 +11,7 @@
 #define GT_INPUT_PARSER_H_
 
 #include "gt_commons.h"
+#include "gt_data_attributes.h"
 
 #define GT_TAG_PAIR "pair"
 #define GT_TAG_CASAVA "casava"
@@ -18,7 +20,7 @@
 /*
  * Generic tag parser
  */
-GT_INLINE gt_status gt_input_parse_tag(char** const text_line, gt_string* const tag, gt_shash* const attributes);
+GT_INLINE gt_status gt_input_parse_tag(char** const text_line,gt_string* const tag,gt_shash* const attributes);
 
 /*
  * Internal Building Blocks for parsing
@@ -49,7 +51,5 @@ GT_INLINE gt_status gt_input_parse_tag(char** const text_line, gt_string* const 
   while (!GT_IS_EOL(text_line)) { \
     ++(*text_line); \
   }
-
-
 
 #endif /* GT_INPUT_PARSER_H_ */

@@ -80,16 +80,21 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     gt_template* const template_dst,gt_template* const template_src);
 
+GT_INLINE gt_template* gt_template_union_template_mmaps_v(
+    const uint64_t num_src_templates,gt_template* const template_src,va_list v_args);
+GT_INLINE gt_template* gt_template_union_template_mmaps_va(
+    const uint64_t num_src_templates,gt_template* const template_src,...);
+GT_INLINE gt_template* gt_template_union_template_mmaps_a(
+    gt_template** const templates,const uint64_t num_src_templates);
+#define gt_template_union_template_mmaps(template_src_A,template_src_B) \
+        gt_template_union_template_mmaps_va(2,template_src_A,template_src_B)
+
 GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_templates,gt_template* const template_src,va_list v_args);
 GT_INLINE gt_template* gt_template_union_template_mmaps_fx_va(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_templates,gt_template* const template_src,...);
-GT_INLINE gt_template* gt_template_union_template_mmaps_va(
-    const uint64_t num_src_templates,gt_template* const template_src,...);
-#define gt_template_union_template_mmaps(template_src_A,template_src_B) \
-        gt_template_union_template_mmaps_fx_va(gt_mmap_cmp,gt_map_cmp,2,template_src_A,template_src_B)
 #define gt_template_union_template_mmaps_fx(gt_mmap_cmp_fx,gt_map_cmp_fx,template_src_A,template_src_B) \
         gt_template_union_template_mmaps_fx_va(gt_mmap_cmp_fx,gt_map_cmp_fx,2,template_src_A,template_src_B)
 

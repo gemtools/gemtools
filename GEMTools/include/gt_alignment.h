@@ -61,7 +61,6 @@ struct _gt_alignment_dictionary {
   GT_HASH_CHECK(alignment->attributes)
 #define GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary) \
   GT_NULL_CHECK(alignment_dictionary); \
-  GT_ALIGNMENT_CHECK(alignment_dictionary->alignment); \
   GT_HASH_CHECK(alignment_dictionary->maps_dictionary)
 
 /*
@@ -156,11 +155,11 @@ GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const ali
 GT_INLINE bool gt_alignment_dictionary_try_add(
     gt_alignment_dictionary* const alignment_dictionary,gt_map* const map,
     const uint64_t begin_position,const uint64_t end_position,
-    uint64_t const vector_position,uint64_t* found_vector_position,
-    gt_ihash_element* ihash_element_b,gt_ihash_element* ihash_element_e);
+    uint64_t const vector_position,gt_alignment_dictionary_element** alg_dicc_elem,
+    gt_ihash_element** ihash_element_b,gt_ihash_element** ihash_element_e);
 GT_INLINE void gt_alignment_dictionary_replace(
-    gt_alignment_dictionary* const alignment_dictionary,gt_map* const new_map,gt_map* const old_map,
-    const uint64_t begin_position,const uint64_t end_position,const uint64_t found_vector_position,
-    gt_ihash_element* const ihash_element_b,gt_ihash_element* const ihash_element_e);
+    gt_alignment_dictionary* const alignment_dictionary,
+    const uint64_t begin_position,const uint64_t end_position,const uint64_t vector_position,
+    gt_alignment_dictionary_element* const alg_dicc_elem,gt_ihash_element* const ihash_element_b,gt_ihash_element* const ihash_element_e);
 
 #endif /* GT_ALIGNMENT_H_ */

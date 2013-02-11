@@ -28,6 +28,7 @@ void gt_buffered_output_file_close(gt_buffered_output_file* const buffered_outpu
     gt_buffered_output_file_dump(buffered_output_file);
     gt_output_file_release_buffer(buffered_output_file->output_file,buffered_output_file->buffer);
   }
+  free(buffered_output_file);
 }
 
 /*

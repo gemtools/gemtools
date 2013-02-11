@@ -16,22 +16,23 @@
  */
 gt_buffered_input_file* gt_buffered_input_file_new(gt_input_file* const input_file) {
   GT_NULL_CHECK(input_file);
-  gt_buffered_input_file* buffered_map_file = malloc(sizeof(gt_buffered_input_file));
-  gt_cond_fatal_error(!buffered_map_file,MEM_HANDLER);
+  gt_buffered_input_file* buffered_input_file = malloc(sizeof(gt_buffered_input_file));
+  gt_cond_fatal_error(!buffered_input_file,MEM_HANDLER);
   /* Input file */
-  buffered_map_file->input_file = input_file;
+  buffered_input_file->input_file = input_file;
   /* Block buffer and cursors */
-  buffered_map_file->block_id = UINT32_MAX;
-  buffered_map_file->block_buffer = gt_vector_new(GT_BMI_BUFFER_SIZE,sizeof(uint8_t));
-  buffered_map_file->cursor = (char*) gt_vector_get_mem(buffered_map_file->block_buffer,uint8_t);
-  buffered_map_file->current_line_num = UINT64_MAX;
+  buffered_input_file->block_id = UINT32_MAX;
+  buffered_input_file->block_buffer = gt_vector_new(GT_BMI_BUFFER_SIZE,sizeof(uint8_t));
+  buffered_input_file->cursor = (char*) gt_vector_get_mem(buffered_input_file->block_buffer,uint8_t);
+  buffered_input_file->current_line_num = UINT64_MAX;
   /* Attached output buffer */
-  buffered_map_file->buffered_output_file = NULL;
-  return buffered_map_file;
+  buffered_input_file->buffered_output_file = NULL;
+  return buffered_input_file;
 }
 gt_status gt_buffered_input_file_close(gt_buffered_input_file* const buffered_input_file) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
   gt_vector_delete(buffered_input_file->block_buffer);
+  free(buffered_input_file);
   return GT_BMI_OK;
 }
 GT_INLINE uint64_t gt_buffered_input_file_get_cursor_pos(gt_buffered_input_file* const buffered_input_file) {

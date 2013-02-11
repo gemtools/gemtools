@@ -19,7 +19,7 @@ GT_INLINE gt_status gt_merge_map_read_template_sync(
     gt_map_parser_attr* const map_parser_attr,gt_template* const template_master,gt_template* const template_slave,
     gt_buffered_output_file* buffered_output) {
   register gt_status error_code_master, error_code_slave;
-  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
+  gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
   do {
     // Read Synch blocks
     error_code_master=gt_input_map_parser_synch_blocks_by_subset(
@@ -32,10 +32,10 @@ GT_INLINE gt_status gt_merge_map_read_template_sync(
     }
     // Check slave
     if (gt_buffered_input_file_eob(buffered_input_slave)) { // Slave exhausted. Dump master & return EOF
-      gt_output_map_bofprint_gem_template(buffered_output,template_master,output_attributes);
+      gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
       while ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))) {
         if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-        gt_output_map_bofprint_gem_template(buffered_output,template_master,output_attributes);
+        gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
       }
     } else {
       // Read slave
@@ -45,7 +45,7 @@ GT_INLINE gt_status gt_merge_map_read_template_sync(
       // Synch loop
       while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
         // Print non correlative master's template
-        gt_output_map_bofprint_gem_template(buffered_output,template_master,output_attributes);
+        gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
         // Fetch next master's template
         if (gt_buffered_input_file_eob(buffered_input_master)) gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
         if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))!=GT_IMP_OK) {
@@ -57,10 +57,96 @@ GT_INLINE gt_status gt_merge_map_read_template_sync(
   } while (true);
 }
 
-GT_INLINE void gt_merge_map_files(
-    pthread_mutex_t* const input_mutex,
-    gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
-    const bool paired_end,const bool files_contain_same_reads,gt_output_file* const output_file) {
+GT_INLINE void gt_merge_synch_map_files_v(
+    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
+    gt_input_file* const input_map_master,const uint64_t num_slaves,va_list v_args) {
+  GT_NULL_CHECK(input_mutex);
+  GT_OUTPUT_FILE_CHECK(output_file);
+  GT_INPUT_FILE_CHECK(input_map_master);
+  // Setup master
+  register gt_buffered_output_file* const buffered_output_file = gt_buffered_output_file_new(output_file);
+  // Setup slaves
+  register const uint64_t total_files = num_slaves+1;
+  register uint64_t i;
+  register gt_input_file** input_map_file = gt_malloc(total_files,gt_input_file*);
+  register gt_buffered_input_file** buffered_input_file = gt_malloc(total_files,gt_buffered_input_file*);
+  register gt_template** template = gt_malloc(total_files,gt_template*);
+  // Init master (i=0)
+  template[0] = gt_template_new();
+  input_map_file[0] = input_map_master;
+  GT_INPUT_FILE_CHECK(input_map_file[0]);
+  buffered_input_file[0] = gt_buffered_input_file_new(input_map_master);
+  // Init slaves
+  for (i=1;i<total_files;++i) {
+    // Get input file slave
+    input_map_file[i] = va_arg(v_args,gt_input_file*);
+    GT_INPUT_FILE_CHECK(input_map_file[i]);
+    // Open buffered input slave
+    buffered_input_file[i] = gt_buffered_input_file_new(input_map_file[i]);
+    // Allocate template
+    template[i] = gt_template_new();
+  }
+  // Attach the writing to the first buffered_input_file
+  gt_buffered_input_file_attach_buffered_output(buffered_input_file[0],buffered_output_file);
+  /*
+   * Buffered Reading+process
+   */
+  gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
+  gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
+  register gt_status error_code_master, error_code_slave;
+  while (gt_input_map_parser_synch_blocks_a(input_mutex,buffered_input_file,total_files,&map_parser_attr)) {
+    // Read master (always guaranteed)
+    if ((error_code_master=gt_input_map_parser_get_template(buffered_input_file[0],template[0]))==GT_IMP_FAIL) {
+      gt_fatal_error_msg("Fatal error parsing file Master::%s",buffered_input_file[0]->input_file->file_name);
+    }
+    for (i=1;i<total_files;++i) {
+      // Read slave
+      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_file[i],template[i]))==GT_IMP_FAIL) {
+        gt_fatal_error_msg("Fatal error parsing file Slave::%s",buffered_input_file[i]->input_file->file_name);
+      }
+      if (error_code_master!=error_code_slave) {
+        gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>, ('%s','%s')",
+            buffered_input_file[0]->input_file->file_name,buffered_input_file[i]->input_file->file_name);
+      }
+      // Check tags
+      if (!gt_string_equals(template[0]->tag,template[i]->tag)) {
+        gt_fatal_error_msg("Files are not synchronized ('%s','%s')\n"
+            "\tDifferent TAGs found '"PRIgts"' '"PRIgts"' ",
+            buffered_input_file[0]->input_file->file_name,buffered_input_file[i]->input_file->file_name,
+            PRIgts_content(template[0]->tag),PRIgts_content(template[i]->tag));
+      }
+    }
+    // Merge maps
+    register gt_template *ptemplate = gt_template_union_template_mmaps_a(template,total_files);
+    gt_output_map_bofprint_template(buffered_output_file,ptemplate,&output_attributes); // Print template
+    gt_template_delete(ptemplate); // Delete template
+  }
+  // Clean
+  for (i=0;i<total_files;++i) {
+    gt_buffered_input_file_close(buffered_input_file[i]);
+    gt_template_delete(template[i]);
+  }
+  free(input_map_file);
+  free(buffered_input_file);
+  free(template);
+  gt_buffered_output_file_close(buffered_output_file);
+}
+
+GT_INLINE void gt_merge_synch_map_files_va(
+    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
+    gt_input_file* const input_map_master,const uint64_t num_slaves,...) {
+  GT_NULL_CHECK(input_mutex);
+  GT_OUTPUT_FILE_CHECK(output_file);
+  GT_INPUT_FILE_CHECK(input_map_master);
+  va_list v_args;
+  va_start(v_args,num_slaves);
+  gt_merge_synch_map_files_v(input_mutex,paired_end,output_file,input_map_master,num_slaves,v_args);
+  va_end(v_args);
+}
+
+GT_INLINE void gt_merge_unsynch_map_files(
+    pthread_mutex_t* const input_mutex,gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
+    const bool paired_end,gt_output_file* const output_file) {
   // Reading+process
   gt_buffered_input_file* buffered_input_master = gt_buffered_input_file_new(input_map_master);
   gt_buffered_input_file* buffered_input_slave  = gt_buffered_input_file_new(input_map_slave);
@@ -71,44 +157,17 @@ GT_INLINE void gt_merge_map_files(
   gt_template *template_slave = gt_template_new();
 
   gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
-  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
+  gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
 
-  if (files_contain_same_reads) {
-    register gt_status error_code_master, error_code_slave;
-    while (gt_input_map_parser_synch_blocks_va(input_mutex,&map_parser_attr,2,buffered_input_master,buffered_input_slave)) {
-      // Read master (always guaranteed)
-      if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))==GT_IMP_FAIL) {
-        gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-      }
-      // Read slave
-      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_slave,template_slave))==GT_IMP_FAIL) {
-        gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
-      }
-      if (error_code_master!=error_code_slave) {
-        gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
-      }
-      // Check tags
-      if (!gt_string_equals(template_master->tag,template_slave->tag)) {
-        gt_fatal_error_msg("Files are not synchronized. Different TAGs found '"PRIgts"' '"PRIgts"' ",
-            PRIgts_content(template_master->tag),PRIgts_content(template_slave->tag));
-      }
-      // Merge maps
-      register gt_template *ptemplate = gt_template_union_template_mmaps(template_master,template_slave);
-      // Print template
-      gt_output_map_bofprint_gem_template(buffered_output,ptemplate,output_attributes);
-      // Delete template
-      gt_template_delete(ptemplate);
-    }
-  } else {
-    while (gt_merge_map_read_template_sync(input_mutex,buffered_input_master,buffered_input_slave,&map_parser_attr,
-        template_master,template_slave,buffered_output)) {
-      // Merge maps
-      register gt_template *ptemplate = gt_template_union_template_mmaps(template_master,template_slave);
-      // Print template
-      gt_output_map_bofprint_gem_template(buffered_output,ptemplate,output_attributes);
-      // Delete template
-      gt_template_delete(ptemplate);
-    }
+  while (gt_merge_map_read_template_sync(input_mutex,buffered_input_master,buffered_input_slave,
+      &map_parser_attr,template_master,template_slave,buffered_output)) {
+    // Merge maps
+    // register gt_template *ptemplate = gt_template_union_template_mmaps_fx_va(gt_mmap_cmp,gt_map_cmp,2,template_master,template_slave);
+    register gt_template *ptemplate = gt_template_union_template_mmaps(template_master,template_slave);
+    // Print template
+    gt_output_map_bofprint_template(buffered_output,ptemplate,&output_attributes);
+    // Delete template
+    gt_template_delete(ptemplate);
   }
 
   // Clean

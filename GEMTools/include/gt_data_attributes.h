@@ -31,9 +31,13 @@ GT_INLINE void gt_attribute_clear(gt_shash* const attributes);
 GT_INLINE void gt_attribute_delete(gt_shash* const attributes);
 
 GT_INLINE void* gt_attribute_get(gt_shash* const attributes,char* const attribute_id);
-GT_INLINE void gt_attribute_set(
-    gt_shash* const attributes,char* const attribute_id,
-    void* const attribute,const size_t element_size);
+GT_INLINE void gt_attribute_set_string(
+    gt_shash* const attributes,char* const attribute_id,gt_string* const attribute_string);
+GT_INLINE void gt_attribute_set_(
+    gt_shash* const attributes,char* const attribute_id,void* const attribute,const size_t element_size);
+
+#define gt_attribute_set(attributes,attribute_id,attribute,element_type) \
+    gt_attribute_set_(attributes,attribute_id,(void*)attribute,sizeof(element_type))
 
 /*
  * MAP File specifics Attribute

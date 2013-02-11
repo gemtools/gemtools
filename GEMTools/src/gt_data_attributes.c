@@ -44,26 +44,26 @@ GT_INLINE void* gt_attribute_get(gt_shash* const attributes,char* const attribut
   GT_NULL_CHECK(attribute_id);
   return gt_shash_get(attributes,attribute_id,void);
 }
-GT_INLINE void gt_attribute_set(
-    gt_shash* const attributes,char* const attribute_id,
-    void* const attribute,const size_t element_size) {
+GT_INLINE void gt_attribute_set_string(
+    gt_shash* const attributes,char* const attribute_id,gt_string* const attribute_string) {
+  GT_HASH_CHECK(attributes);
+  GT_NULL_CHECK(attribute_id);
+  GT_STRING_CHECK(attribute_string);
+  // Insert attribute
+  gt_shash_insert_string(attributes,attribute_id,attribute_string);
+}
+GT_INLINE void gt_attribute_set_(
+    gt_shash* const attributes,char* const attribute_id,void* const attribute,const size_t element_size) {
   GT_HASH_CHECK(attributes);
   GT_NULL_CHECK(attribute_id);
   GT_NULL_CHECK(attribute);
   GT_ZERO_CHECK(element_size);
-  // NOTE: We do a copy of the element as to handle it ourselves from here
-  register void* attr = malloc(element_size); // Allocate attribute
-  gt_cond_fatal_error(!attr,MEM_ALLOC);
-  memcpy(attr,attribute,element_size); // Copy attribute
-  // Test attribute
-  register gt_shash_element* shash_element = gt_shash_get_shash_element(attributes,attribute_id);
-  if (gt_expect_false(shash_element!=NULL)) {
-    free(shash_element->element);
-    shash_element->element = attr;
-  } else {
-    // Insert attribute
-    gt_shash_insert_element(attributes,attribute_id,attr,element_size);
-  }
+  // We do a copy of the element as to handle it ourselves from here
+  register void* attribute_cp = malloc(element_size); // Allocate attribute
+  gt_cond_fatal_error(!attribute_cp,MEM_ALLOC);
+  memcpy(attribute_cp,attribute,element_size); // Copy attribute
+  // Insert attribute
+  gt_shash_insert_primitive(attributes,attribute_id,attribute_cp,element_size);
 }
 
 /*

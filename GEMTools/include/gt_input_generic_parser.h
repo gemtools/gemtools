@@ -27,19 +27,19 @@
 #define GT_IGP_OK 1
 
 /*
- * Attributes
+ * Parsing Attributes
  */
 typedef struct {
   gt_sam_parser_attr sam_parser_attr; /* SAM specific */
   gt_map_parser_attr map_parser_attr; /* MAP specific */
 } gt_generic_parser_attr;
-
 #define GENERIC_PARSER_ATTR_DEFAULT(force_read_paired) \
   { .sam_parser_attr=GT_SAM_PARSER_ATTR_DEFAULT, .map_parser_attr=GT_MAP_PARSER_ATTR_DEFAULT(force_read_paired) }
 
 GT_INLINE gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool const paired_read);
+GT_INLINE void gt_input_generic_parser_attributes_delete(gt_generic_parser_attr* const attributes);
+
 GT_INLINE void gt_input_generic_parser_attributes_reset_defaults(gt_generic_parser_attr* const attributes);
-GT_INLINE void gt_input_generic_parser_attributes_set_defaults(gt_generic_parser_attr* const attributes);
 GT_INLINE bool gt_input_generic_parser_attributes_is_paired(gt_generic_parser_attr* const attributes);
 GT_INLINE void gt_input_generic_parser_attributes_set_paired(gt_generic_parser_attr* const attributes,const bool is_paired);
 

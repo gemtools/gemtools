@@ -21,7 +21,8 @@
 #define GT_SEQ_ARCHIVE_OK 0
 
 #define GT_SEQ_ARCHIVE_NOT_FOUND 10
-#define GT_SEQ_ARCHIVE_OUT_OF_RANGE 11
+#define GT_SEQ_ARCHIVE_POS_OUT_OF_RANGE 11
+#define GT_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE 12
 
 /*
  * Data types
@@ -84,6 +85,10 @@ GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_sequence(gt_sequence_ar
 GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
     gt_sequence_archive* const seq_archive,char* const seq_id,const gt_strand strand,
     const uint64_t position,const uint64_t length,gt_string* const string);
+GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
+    gt_sequence_archive* const seq_archive,char* const seq_id,const gt_strand strand,
+    const uint64_t position,const uint64_t length,const uint64_t extra_length,gt_string* const string);
+
 
 /*
  * SequenceARCHIVE sorting functions

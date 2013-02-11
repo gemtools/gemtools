@@ -8,25 +8,35 @@
 
 #include "gt_input_generic_parser.h"
 
-GT_INLINE gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool const paired_reads){
-  gt_generic_parser_attr* attr = malloc(sizeof(gt_generic_parser_attr));
-  gt_cond_fatal_error(!attr,MEM_HANDLER);
-  gt_input_generic_parser_attributes_reset_defaults(attr);
-  gt_input_generic_parser_attributes_set_paired(attr, paired_reads);
-  return attr;
+/*
+ * Setup
+ */
+GT_INLINE gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool const paired_reads) {
+  gt_generic_parser_attr* attributes = malloc(sizeof(gt_generic_parser_attr));
+  gt_cond_fatal_error(!attributes,MEM_HANDLER);
+  gt_input_generic_parser_attributes_reset_defaults(attributes);
+  gt_input_generic_parser_attributes_set_paired(attributes,paired_reads);
+  return attributes;
+}
+GT_INLINE void gt_input_generic_parser_attributes_delete(gt_generic_parser_attr* const attributes) {
+  GT_NULL_CHECK(attributes);
+  free(attributes);
 }
 
 /*
  * Accessors
  */
 GT_INLINE void gt_input_generic_parser_attributes_reset_defaults(gt_generic_parser_attr* const attributes) {
+  GT_NULL_CHECK(attributes);
   gt_input_map_parser_attributes_reset_defaults(&attributes->map_parser_attr);
   gt_input_sam_parser_attributes_reset_defaults(&attributes->sam_parser_attr);
 }
 GT_INLINE bool gt_input_generic_parser_attributes_is_paired(gt_generic_parser_attr* const attributes) {
-  return attributes->map_parser_attr.read_paired;
+  GT_NULL_CHECK(attributes);
+  return gt_input_map_parser_attributes_is_paired(&attributes->map_parser_attr);
 }
 GT_INLINE void gt_input_generic_parser_attributes_set_paired(gt_generic_parser_attr* const attributes,const bool is_paired) {
+  GT_NULL_CHECK(attributes);
   gt_input_map_parser_attributes_set_paired(&attributes->map_parser_attr,is_paired);
 }
 

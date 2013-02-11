@@ -62,7 +62,7 @@ void gt_template_filter(gt_template *template_dst,gt_template *template_src) {
   GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
     // Check SM contained
     if (parameters.no_split_maps) {
-      register bool has_sm;
+      register bool has_sm = false;
       GT_MULTIMAP_ITERATE(mmap,map,end_p) {
         has_sm = gt_map_get_num_blocks(map)>1;
         if (has_sm) break;

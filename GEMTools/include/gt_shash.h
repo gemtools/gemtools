@@ -18,7 +18,11 @@
 typedef struct {
   char* key;
   void* element;
-  size_t element_size;
+  gt_hash_element_type element_type;
+  //union {
+    size_t element_size;
+    gt_hash_element_setup element_setup;
+  //};
   UT_hash_handle hh;
 } gt_shash_element;
 typedef struct {
@@ -36,25 +40,29 @@ GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element);
  * Basic (Type-unsafe) Accessors
  */
 GT_INLINE gt_shash_element* gt_shash_get_shash_element(gt_shash* const shash,char* const key);
-GT_INLINE char* gt_shash_insert_element(gt_shash* const shash,char* const key,void* const element,const size_t element_size);
+GT_INLINE char* gt_shash_insert_primitive(
+    gt_shash* const shash,char* const key,void* const element,const int64_t element_size);
+GT_INLINE char* gt_shash_insert_object(
+    gt_shash* const shash,char* const key,
+    void* const object,void* (*element_dup_fx)(),void (*element_free_fx)());
 GT_INLINE char* gt_shash_get_key(gt_shash* const shash,char* const key);
 GT_INLINE void* gt_shash_get_element(gt_shash* const shash,char* const key);
-GT_INLINE void gt_shash_remove_element(gt_shash* const shash,char* const key);
+GT_INLINE void gt_shash_remove(gt_shash* const shash,char* const key,const bool free_element);
 
 /*
  * Type-safe Accessors
  */
 #define gt_shash_get(shash,string_key,type) ((type*)gt_shash_get_element(shash,string_key))
-#define gt_shash_insert(shash,string_key,element,type) gt_shash_insert_element(shash,string_key,(void*)element,sizeof(type))
-#define gt_shash_remove(shash,string_key) gt_shash_remove_element(shash,string_key)
+#define gt_shash_insert(shash,string_key,element,type) gt_shash_insert_primitive(shash,string_key,(void*)element,sizeof(type))
+#define gt_shash_insert_string(shash,string_key,string) gt_shash_insert_object(shash,string_key,(void*)string,(void*(*)())gt_string_dup,(void(*)())gt_string_delete)
 GT_INLINE bool gt_shash_is_contained(gt_shash* const shash,char* const key);
 GT_INLINE uint64_t gt_shash_get_num_elements(gt_shash* const shash);
 
 /*
  * Miscellaneous
  */
-GT_INLINE gt_shash* gt_shash_copy(gt_shash* const shash);
-GT_INLINE void gt_shash_deep_copy(gt_shash* const shash_dst,gt_shash* const shash_src);
+GT_INLINE gt_shash* gt_shash_dup(gt_shash* const shash);
+GT_INLINE void gt_shash_copy(gt_shash* const shash_dst,gt_shash* const shash_src);
 
 /*
  * Iterator

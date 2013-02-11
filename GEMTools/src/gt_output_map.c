@@ -10,50 +10,54 @@
 
 #define GT_OUTPUT_MAP_COMPACT_COUNTERS_ZEROS_TH 5
 
-GT_INLINE gt_output_map_attributes* gt_output_map_attributes_new(){
+GT_INLINE gt_output_map_attributes* gt_output_map_attributes_new() {
 	gt_output_map_attributes* attr = malloc(sizeof(gt_output_map_attributes));
 	gt_cond_fatal_error(!attr,MEM_HANDLER);
 	gt_output_map_attributes_reset_defaults(attr);
 	return attr;
 }
-
-GT_INLINE void gt_output_map_attributes_delete(gt_output_map_attributes* attributes){
+GT_INLINE void gt_output_map_attributes_delete(gt_output_map_attributes* attributes) {
+  GT_NULL_CHECK(attributes);
 	free(attributes);
 }
-
-
-GT_INLINE void gt_output_map_attributes_reset_defaults(gt_output_map_attributes* const attributes){
+GT_INLINE void gt_output_map_attributes_reset_defaults(gt_output_map_attributes* const attributes) {
+  GT_NULL_CHECK(attributes);
 	attributes->print_scores = true;
 	attributes->print_extra = true;
 	attributes->print_casava = true;
 	attributes->max_printable_maps = GT_ALL;
 }
 
-GT_INLINE bool gt_output_map_attributes_is_print_scores(gt_output_map_attributes* const attributes){
+GT_INLINE bool gt_output_map_attributes_is_print_scores(gt_output_map_attributes* const attributes) {
+  GT_NULL_CHECK(attributes);
 	return attributes->print_scores;
 }
-GT_INLINE void gt_output_map_attributes_set_print_scores(gt_output_map_attributes* const attributes, bool print_scores){
+GT_INLINE void gt_output_map_attributes_set_print_scores(gt_output_map_attributes* const attributes,const bool print_scores) {
+  GT_NULL_CHECK(attributes);
 	attributes->print_scores = print_scores;
 }
-
-GT_INLINE bool gt_output_map_attributes_is_print_extra(gt_output_map_attributes* const attributes){
+GT_INLINE bool gt_output_map_attributes_is_print_extra(gt_output_map_attributes* const attributes) {
+  GT_NULL_CHECK(attributes);
 	return attributes->print_extra;
 }
-GT_INLINE void gt_output_map_attributes_set_print_extra(gt_output_map_attributes* const attributes, bool print_extra){
+GT_INLINE void gt_output_map_attributes_set_print_extra(gt_output_map_attributes* const attributes,const bool print_extra) {
+  GT_NULL_CHECK(attributes);
 	attributes->print_extra = print_extra;
 }
-
-GT_INLINE bool gt_output_map_attributes_is_print_casava(gt_output_map_attributes* const attributes){
+GT_INLINE bool gt_output_map_attributes_is_print_casava(gt_output_map_attributes* const attributes) {
+  GT_NULL_CHECK(attributes);
 	return attributes->print_casava;
 }
-GT_INLINE void gt_output_map_attributes_set_print_casava(gt_output_map_attributes* const attributes, bool print_casava){
+GT_INLINE void gt_output_map_attributes_set_print_casava(gt_output_map_attributes* const attributes,const bool print_casava) {
+  GT_NULL_CHECK(attributes);
 	attributes->print_casava = print_casava;
 }
-
-GT_INLINE uint64_t gt_output_map_attributes_get_max_printable_maps(gt_output_map_attributes* const attributes){
+GT_INLINE uint64_t gt_output_map_attributes_get_max_printable_maps(gt_output_map_attributes* const attributes) {
+  GT_NULL_CHECK(attributes);
 	return attributes->max_printable_maps;
 }
-GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_attributes* const attributes, uint64_t max_printable_maps){
+GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_attributes* const attributes,const uint64_t max_printable_maps) {
+  GT_NULL_CHECK(attributes);
 	attributes->max_printable_maps = max_printable_maps;
 }
 
@@ -71,21 +75,21 @@ GT_INLINE gt_status gt_output_map_gprint_tag(gt_generic_printer* const gprinter,
   gt_gprintf(gprinter,PRIgts,PRIgts_content(tag));
 
   // check if we have casava attributes
-  if (gt_output_map_attributes_is_print_casava(output_attributes) && gt_shash_is_contained(attributes, GT_TAG_CASAVA)) {
+  if (gt_output_map_attributes_is_print_casava(output_attributes) && gt_shash_is_contained(attributes,GT_TAG_CASAVA)) {
     // print casava
-    gt_gprintf(gprinter," %s", gt_string_get_string(gt_shash_get(attributes, GT_TAG_CASAVA, gt_string)));
+    gt_gprintf(gprinter," %s",gt_string_get_string(gt_shash_get(attributes,GT_TAG_CASAVA,gt_string)));
   } else {
     // append /1 /2 if paired
-    if(gt_shash_is_contained(attributes, GT_TAG_PAIR)){
-        int64_t p = *gt_shash_get(attributes, GT_TAG_PAIR, int64_t);
-      if(p > 0){
-        gt_gprintf(gprinter,"/%d", p);
+    if (gt_shash_is_contained(attributes,GT_TAG_PAIR)) {
+        int64_t p = *gt_shash_get(attributes,GT_TAG_PAIR,int64_t);
+      if (p > 0) {
+        gt_gprintf(gprinter,"/%d",p);
       }
     }
   }
-  if(gt_output_map_attributes_is_print_extra(output_attributes) && gt_shash_is_contained(attributes, GT_TAG_EXTRA)){
+  if(gt_output_map_attributes_is_print_extra(output_attributes) && gt_shash_is_contained(attributes, GT_TAG_EXTRA)) {
     // print additional
-    gt_gprintf(gprinter," %s", gt_string_get_string(gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)));
+    gt_gprintf(gprinter," %s",gt_string_get_string(gt_shash_get(attributes,GT_TAG_EXTRA,gt_string)));
   }
   return 0;
 }
@@ -391,11 +395,13 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   // Print MAPS
   gt_gprintf(gprinter,"\t");
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-    error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,gt_output_map_attributes_get_max_printable_maps(attributes), gt_output_map_attributes_is_print_scores(attributes)); // _sorted
+    error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,
+        gt_output_map_attributes_get_max_printable_maps(attributes),gt_output_map_attributes_is_print_scores(attributes)); // _sorted
     gt_gprintf(gprinter,"\n");
     return error_code;
   } GT_TEMPLATE_END_REDUCTION;
-  error_code = gt_output_map_gprint_template_maps_sorted(gprinter,template,gt_output_map_attributes_get_max_printable_maps(attributes), gt_output_map_attributes_is_print_scores(attributes)); // _sorted
+  error_code = gt_output_map_gprint_template_maps_sorted(gprinter,template,
+      gt_output_map_attributes_get_max_printable_maps(attributes), gt_output_map_attributes_is_print_scores(attributes)); // _sorted
   gt_gprintf(gprinter,"\n");
   return error_code;
 }

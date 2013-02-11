@@ -30,22 +30,28 @@ typedef struct {
   bool print_extra; // print extra information stored in attributes
   bool print_casava; // if available print casava ids, otherwise, appends /1 /2 for paird reads
 } gt_output_map_attributes;
+#define GT_OUTPUT_MAP_ATTR_DEFAULT() { \
+  .print_scores = true, \
+  .print_extra = true, \
+  .print_casava = true, \
+  .max_printable_maps = GT_ALL \
+}
 
 GT_INLINE gt_output_map_attributes* gt_output_map_attributes_new();
 GT_INLINE void gt_output_map_attributes_delete(gt_output_map_attributes* attributes);
 GT_INLINE void gt_output_map_attributes_reset_defaults(gt_output_map_attributes* const attributes);
 
 GT_INLINE bool gt_output_map_attributes_is_print_scores(gt_output_map_attributes* const attributes);
-GT_INLINE void gt_output_map_attributes_set_print_scores(gt_output_map_attributes* const attributes, bool print_scores);
+GT_INLINE void gt_output_map_attributes_set_print_scores(gt_output_map_attributes* const attributes,const bool print_scores);
 
 GT_INLINE bool gt_output_map_attributes_is_print_extra(gt_output_map_attributes* const attributes);
-GT_INLINE void gt_output_map_attributes_set_print_extra(gt_output_map_attributes* const attributes, bool print_extra);
+GT_INLINE void gt_output_map_attributes_set_print_extra(gt_output_map_attributes* const attributes,const bool print_extra);
 
 GT_INLINE bool gt_output_map_attributes_is_print_casava(gt_output_map_attributes* const attributes);
-GT_INLINE void gt_output_map_attributes_set_print_casava(gt_output_map_attributes* const attributes, bool print_casava);
+GT_INLINE void gt_output_map_attributes_set_print_casava(gt_output_map_attributes* const attributes,const bool print_casava);
 
 GT_INLINE uint64_t gt_output_map_attributes_get_max_printable_maps(gt_output_map_attributes* const attributes);
-GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_attributes* const attributes, uint64_t max_printable_maps);
+GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_attributes* const attributes,const uint64_t max_printable_maps);
 
 
 /*

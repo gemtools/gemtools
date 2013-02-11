@@ -106,28 +106,43 @@
 #define GT_MAP_SKIP_SPLICE '*'
 
 /*
- * Parsing attributes
- */
-typedef struct {
-  bool read_paired; // Forces to read paired reads
-  uint64_t max_parsed_maps; // Maximum number of maps to be parsed
-  gt_string* src_text; // Src text line parsed
-} gt_map_parser_attr;
-
-#define GT_MAP_PARSER_ATTR_DEFAULT(force_read_paired) { .read_paired=force_read_paired, .max_parsed_maps=GT_ALL, .src_text=NULL }
-GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr* const map_parser_attr);
-GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attr* const map_parser_attr);
-GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attr* const map_parser_attr,const bool is_paired);
-GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attr* const map_parser_attr,const uint64_t max_parsed_maps);
-GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attr* const map_parser_attr,gt_string* const src_text);
-
-/*
  * Lazy parsing:
  *   PARSE_READ         Parses TAG,READ,QUALITY,COUNTERS
  *   PARSE_READ__MAPS   Parses TAG,READ,QUALITY,COUNTERS,MAPS
  *   PARSE_ALL          Parses TAG,READ,QUALITY,COUNTERS,MAPS,CIGAR
  */
 typedef enum {PARSE_READ, PARSE_READ__MAPS, PARSE_ALL} gt_lazy_parse_mode;
+
+/*
+ * Parsing attributes
+ */
+typedef struct {
+  bool force_read_paired; // Forces to read paired reads
+  uint64_t max_parsed_maps; // Maximum number of maps to be parsed
+  gt_string* src_text; // Src text line parsed
+  bool skip_based_model; // Allows only mismatches & skips in the cigar string
+  bool remove_duplicates; // TODO
+  gt_lazy_parse_mode parse_mode;
+} gt_map_parser_attr;
+#define GT_MAP_PARSER_ATTR_DEFAULT(_force_read_paired) { \
+  .force_read_paired=_force_read_paired,  \
+  .max_parsed_maps=GT_ALL,  \
+  .src_text=NULL, \
+  .skip_based_model=false, \
+  .remove_duplicates=false, \
+  .parse_mode=PARSE_ALL \
+}
+
+GT_INLINE gt_map_parser_attr* gt_input_map_parser_attributes_new(const bool force_read_paired);
+GT_INLINE void gt_input_map_parser_attributes_delete(gt_map_parser_attr* const attributes);
+
+GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr* const attributes);
+GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attr* const attributes);
+GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attr* const attributes,const bool force_read_paired);
+GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attr* const attributes,const uint64_t max_parsed_maps);
+GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attr* const attributes,gt_string* const src_text);
+GT_INLINE void gt_input_map_parser_attributes_set_skip_model(gt_map_parser_attr* const attributes,const bool skip_based_model);
+GT_INLINE void gt_input_map_parser_attributes_set_duplicates_removal(gt_map_parser_attr* const attributes,const bool remove_duplicates);
 
 /*
  * MAP File basics
@@ -172,6 +187,10 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks(
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
     pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
     const uint64_t num_map_inputs,gt_buffered_input_file* const buffered_map_input,...);
+GT_INLINE gt_status gt_input_map_parser_synch_blocks_a(
+    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_map_input,
+    const uint64_t total_files,gt_map_parser_attr* const map_parser_attr);
+
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
     pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
     gt_buffered_input_file* const buffered_map_input_master,gt_buffered_input_file* const buffered_map_input_slave); // Used to merge files in parallel

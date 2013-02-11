@@ -52,8 +52,11 @@ void gt_merge_map_read__write() {
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
   {
-    gt_merge_map_files(&input_mutex,input_file_1,input_file_2,
-        parameters.paired_end,parameters.files_contain_same_reads,output_file);
+    if (parameters.files_contain_same_reads) {
+      gt_merge_synch_map_files(&input_mutex,input_file_1,input_file_2,parameters.paired_end,output_file);
+    } else {
+      gt_merge_unsynch_map_files(&input_mutex,input_file_1,input_file_2,parameters.paired_end,output_file);
+    }
   }
 
   // Clean

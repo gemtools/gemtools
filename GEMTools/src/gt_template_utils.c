@@ -312,6 +312,13 @@ GT_INLINE bool gt_template_get_next_matching_strata(
 GT_INLINE void gt_template_merge_template_mmaps(gt_template* const template_dst,gt_template* const template_src) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
+  GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_dst,template_src);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+    GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_dst,alignment_dst) {
+      gt_alignment_merge_alignment_maps(alignment_dst,alignment_src);
+    } GT_TEMPLATE_END_REDUCTION;
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  // Merge mmaps
   gt_template_merge_template_mmaps_fx(gt_mmap_cmp,gt_map_cmp,template_dst,template_src);
 }
 GT_INLINE void gt_template_merge_template_mmaps_fx(
@@ -355,6 +362,50 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
 //  }
 //}
 
+GT_INLINE gt_template* gt_template_union_template_mmaps_v(
+    const uint64_t num_src_templates,gt_template* const template_src,va_list v_args) {
+  GT_ZERO_CHECK(num_src_templates);
+  // Create new template
+  register gt_template* const template_union = gt_template_copy(template_src,false,false);
+  gt_template_merge_template_mmaps(template_union,template_src);
+  // Merge template sources into template_union
+  register uint64_t num_tmp_merged = 1;
+  while (num_tmp_merged < num_src_templates) {
+    register gt_template* template_target = va_arg(v_args,gt_template*);
+    GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_union,template_target);
+    GT_TEMPLATE_CONSISTENCY_CHECK(template_target);
+    gt_template_merge_template_mmaps(template_union,template_target);
+    ++num_tmp_merged;
+  }
+  return template_union;
+}
+GT_INLINE gt_template* gt_template_union_template_mmaps_va(
+    const uint64_t num_src_templates,gt_template* const template_src,...) {
+  GT_ZERO_CHECK(num_src_templates);
+  GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
+  va_list v_args;
+  va_start(v_args,template_src);
+  register gt_template* const template_union =
+      gt_template_union_template_mmaps_v(num_src_templates,template_src,v_args);
+  va_end(v_args);
+  return template_union;
+}
+GT_INLINE gt_template* gt_template_union_template_mmaps_a(
+    gt_template** const templates,const uint64_t num_src_templates) {
+  GT_ZERO_CHECK(num_src_templates);
+  // Create new template
+  register gt_template* const template_union = gt_template_copy(templates[0],false,false);
+  gt_template_merge_template_mmaps(template_union,templates[0]);
+  // Merge template sources into template_union
+  register uint64_t i;
+  for (i=1;i<num_src_templates;++i) {
+    GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_union,templates[i]);
+    GT_TEMPLATE_CONSISTENCY_CHECK(templates[i]);
+    gt_template_merge_template_mmaps(template_union,templates[i]);
+  }
+  return template_union;
+}
+
 GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     const uint64_t num_src_templates,gt_template* const template_src,va_list v_args) {
@@ -384,17 +435,6 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_fx_va(
   va_start(v_args,template_src);
   register gt_template* const template_union =
       gt_template_union_template_mmaps_fx_v(gt_mmap_cmp_fx,gt_map_cmp_fx,num_src_templates,template_src,v_args);
-  va_end(v_args);
-  return template_union;
-}
-GT_INLINE gt_template* gt_template_union_template_mmaps_va(
-    const uint64_t num_src_templates,gt_template* const template_src,...) {
-  GT_ZERO_CHECK(num_src_templates);
-  GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
-  va_list v_args;
-  va_start(v_args,template_src);
-  register gt_template* const template_union =
-      gt_template_union_template_mmaps_fx_v(gt_mmap_cmp,gt_map_cmp,num_src_templates,template_src,v_args);
   va_end(v_args);
   return template_union;
 }

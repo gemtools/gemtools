@@ -136,7 +136,8 @@ GT_INLINE bool gt_input_sam_parser_test_sam(
   // Check SEQ
   GT_ISP_TEST_SAM_SKIP_STRING();
   // Skip QUAL
-  GT_ISP_TEST_SAM_SKIP_STRING();
+  while (buffer_pos<buffer_size && buffer[buffer_pos]!=TAB && buffer[buffer_pos]!=EOL) ++buffer_pos;
+  if (buffer_pos==buffer_size) return false;
   return true;
 }
 
@@ -493,7 +494,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     alignment = _alignment;
   }
   if (!gt_attribute_get(alignment->attributes,GT_ATTR_SAM_FLAGS)) {
-    gt_attribute_set(alignment->attributes,GT_ATTR_SAM_FLAGS,alignment_flag,sizeof(uint64_t));
+    gt_attribute_set(alignment->attributes,GT_ATTR_SAM_FLAGS,alignment_flag,uint64_t);
   }
   /*
    * Parse RNAME (Sequence-name/Chromosome)

@@ -211,7 +211,7 @@ GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_comp
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     gt_alignment_set_mcs(alignment,max_complete_strata);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
-  gt_attribute_set(template->attributes,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,sizeof(uint64_t));
+  gt_attribute_set(template->attributes,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
 }
 GT_INLINE bool gt_template_has_qualities(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
@@ -240,7 +240,7 @@ GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool 
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     gt_alignment_set_not_unique_flag(alignment,is_not_unique);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
-  gt_attribute_set(template->attributes,GT_ATTR_NOT_UNIQUE,&is_not_unique,sizeof(bool));
+  gt_attribute_set(template->attributes,GT_ATTR_NOT_UNIQUE,&is_not_unique,bool);
 }
 
 /*
@@ -404,7 +404,7 @@ GT_INLINE void gt_template_copy_handler(gt_template* template_dst,gt_template* c
   gt_string_copy(template_dst->tag,template_src->tag);
   template_dst->maps_txt = template_src->maps_txt;
   // Copy templates' attributes
-  gt_shash_deep_copy(template_dst->attributes,template_src->attributes);
+  gt_shash_copy(template_dst->attributes,template_src->attributes);
 }
 GT_INLINE void gt_template_copy_blocks(gt_template* template_dst,gt_template* const template_src,const bool copy_maps) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
