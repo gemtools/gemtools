@@ -326,8 +326,8 @@ GT_INLINE void gt_alignment_dictionary_element_add_position(
 GT_INLINE bool gt_alignment_dictionary_try_add(
     gt_alignment_dictionary* const alignment_dictionary,gt_map* const map,
     const uint64_t begin_position,const uint64_t end_position,
-    uint64_t const vector_position,gt_alignment_dictionary_element** alg_dicc_elem,
-    gt_ihash_element** ihash_element_b,gt_ihash_element** ihash_element_e) {
+    gt_alignment_dictionary_element** alg_dicc_elem,
+    gt_ihash_element** ihash_element_b,gt_ihash_element** ihash_element_e,const uint64_t vector_position) {
   GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary);
   GT_MAP_CHECK(map);
   *alg_dicc_elem = gt_shash_get(alignment_dictionary->maps_dictionary,
@@ -349,12 +349,13 @@ GT_INLINE bool gt_alignment_dictionary_try_add(
     return true;
   }
 }
-GT_INLINE void gt_alignment_dictionary_replace(
+GT_INLINE void gt_alignment_dictionary_record_position(
     gt_alignment_dictionary* const alignment_dictionary,
-    const uint64_t begin_position,const uint64_t end_position,const uint64_t vector_position,
-    gt_alignment_dictionary_element* const alg_dicc_elem,gt_ihash_element* const ihash_element_b,gt_ihash_element* const ihash_element_e) {
+    const uint64_t begin_position,const uint64_t end_position,
+    gt_alignment_dictionary_element* const alg_dicc_elem,
+    gt_ihash_element* const ihash_element_b,gt_ihash_element* const ihash_element_e,const uint64_t vector_position) {
   GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary);
-  // Replace ihash element
+  // Add or Replace ihash element (begin)
   if (ihash_element_b!=NULL) {
     *((uint64_t*)ihash_element_b->element) = vector_position;
   } else {
@@ -362,6 +363,7 @@ GT_INLINE void gt_alignment_dictionary_replace(
     *vlpos_b = vector_position;
     gt_ihash_insert(alg_dicc_elem->begin_position,begin_position,vlpos_b,uint64_t);
   }
+  // Add or Replace ihash element (end)
   if (ihash_element_e!=NULL) {
     *((uint64_t*)ihash_element_e->element) = vector_position;
   } else {

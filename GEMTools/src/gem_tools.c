@@ -57,49 +57,31 @@ GT_INLINE gt_status gt_merge_map_read_template_sync(
   } while (true);
 }
 
-GT_INLINE void gt_merge_synch_map_files_v(
-    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
-    gt_input_file* const input_map_master,const uint64_t num_slaves,va_list v_args) {
+GT_INLINE void gt_merge_synch_map_files_(
+    pthread_mutex_t* const input_mutex,const bool paired_end,gt_buffered_output_file* const buffered_output_file,
+    gt_buffered_input_file** const buffered_input_file,const uint64_t num_files) {
   GT_NULL_CHECK(input_mutex);
-  GT_OUTPUT_FILE_CHECK(output_file);
-  GT_INPUT_FILE_CHECK(input_map_master);
-  // Setup master
-  register gt_buffered_output_file* const buffered_output_file = gt_buffered_output_file_new(output_file);
-  // Setup slaves
-  register const uint64_t total_files = num_slaves+1;
-  register uint64_t i;
-  register gt_input_file** input_map_file = gt_malloc(total_files,gt_input_file*);
-  register gt_buffered_input_file** buffered_input_file = gt_malloc(total_files,gt_buffered_input_file*);
-  register gt_template** template = gt_malloc(total_files,gt_template*);
-  // Init master (i=0)
-  template[0] = gt_template_new();
-  input_map_file[0] = input_map_master;
-  GT_INPUT_FILE_CHECK(input_map_file[0]);
-  buffered_input_file[0] = gt_buffered_input_file_new(input_map_master);
-  // Init slaves
-  for (i=1;i<total_files;++i) {
-    // Get input file slave
-    input_map_file[i] = va_arg(v_args,gt_input_file*);
-    GT_INPUT_FILE_CHECK(input_map_file[i]);
-    // Open buffered input slave
-    buffered_input_file[i] = gt_buffered_input_file_new(input_map_file[i]);
-    // Allocate template
-    template[i] = gt_template_new();
-  }
+  GT_BUFFERED_OUTPUT_FILE_CHECK(buffered_output_file);
+  GT_NULL_CHECK(buffered_input_file);
+  GT_ZERO_CHECK(num_files);
   // Attach the writing to the first buffered_input_file
   gt_buffered_input_file_attach_buffered_output(buffered_input_file[0],buffered_output_file);
-  /*
-   * Buffered Reading+process
-   */
+  // Init templates
+  register uint64_t i;
+  register gt_template** template = gt_malloc(num_files,gt_template*);
+  for (i=0;i<num_files;++i) {
+    template[i] = gt_template_new(); // Allocate template
+  }
+  // Merge loop
   gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
   gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
   register gt_status error_code_master, error_code_slave;
-  while (gt_input_map_parser_synch_blocks_a(input_mutex,buffered_input_file,total_files,&map_parser_attr)) {
+  while (gt_input_map_parser_synch_blocks_a(input_mutex,buffered_input_file,num_files,&map_parser_attr)) {
     // Read master (always guaranteed)
     if ((error_code_master=gt_input_map_parser_get_template(buffered_input_file[0],template[0]))==GT_IMP_FAIL) {
       gt_fatal_error_msg("Fatal error parsing file Master::%s",buffered_input_file[0]->input_file->file_name);
     }
-    for (i=1;i<total_files;++i) {
+    for (i=1;i<num_files;++i) {
       // Read slave
       if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_file[i],template[i]))==GT_IMP_FAIL) {
         gt_fatal_error_msg("Fatal error parsing file Slave::%s",buffered_input_file[i]->input_file->file_name);
@@ -117,18 +99,74 @@ GT_INLINE void gt_merge_synch_map_files_v(
       }
     }
     // Merge maps
-    register gt_template *ptemplate = gt_template_union_template_mmaps_a(template,total_files);
+    register gt_template *ptemplate = gt_template_union_template_mmaps_a(template,num_files);
     gt_output_map_bofprint_template(buffered_output_file,ptemplate,&output_attributes); // Print template
     gt_template_delete(ptemplate); // Delete template
   }
-  // Clean
-  for (i=0;i<total_files;++i) {
-    gt_buffered_input_file_close(buffered_input_file[i]);
+  // Free
+  for (i=0;i<num_files;++i) {
     gt_template_delete(template[i]);
   }
-  free(input_map_file);
-  free(buffered_input_file);
   free(template);
+}
+
+GT_INLINE void gt_merge_synch_map_files_a(
+    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
+    gt_input_file** const input_map_files,const uint64_t num_files) {
+  GT_NULL_CHECK(input_mutex);
+  GT_OUTPUT_FILE_CHECK(output_file);
+  GT_NULL_CHECK(input_map_files);
+  GT_ZERO_CHECK(num_files);
+  // Init Buffered Output File
+  register gt_buffered_output_file* const buffered_output_file = gt_buffered_output_file_new(output_file);
+  // Init Buffered Input Files
+  register uint64_t i;
+  register gt_buffered_input_file** buffered_input_file = gt_malloc(num_files,gt_buffered_input_file*);
+  for (i=0;i<num_files;++i) {
+    GT_INPUT_FILE_CHECK(input_map_files[i]);
+    // Open buffered input file
+    buffered_input_file[i] = gt_buffered_input_file_new(input_map_files[i]);
+  }
+  // Buffered Reading+process
+  gt_merge_synch_map_files_(input_mutex,paired_end,buffered_output_file,buffered_input_file,num_files);
+  // Clean & free
+  for (i=0;i<num_files;++i) {
+    gt_buffered_input_file_close(buffered_input_file[i]);
+  }
+  free(buffered_input_file);
+  gt_buffered_output_file_close(buffered_output_file);
+}
+
+GT_INLINE void gt_merge_synch_map_files_v(
+    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
+    gt_input_file* const input_map_master,const uint64_t num_slaves,va_list v_args) {
+  GT_NULL_CHECK(input_mutex);
+  GT_OUTPUT_FILE_CHECK(output_file);
+  GT_INPUT_FILE_CHECK(input_map_master);
+  // Setup master
+  register gt_buffered_output_file* const buffered_output_file = gt_buffered_output_file_new(output_file);
+  // Setup slaves
+  register uint64_t i;
+  register const uint64_t num_files = num_slaves+1;
+  register gt_buffered_input_file** buffered_input_file = gt_malloc(num_files,gt_buffered_input_file*);
+  // Init master (i=0)
+  GT_INPUT_FILE_CHECK(input_map_master);
+  buffered_input_file[0] = gt_buffered_input_file_new(input_map_master);
+  // Init slaves
+  for (i=1;i<num_files;++i) {
+    // Get input file slave
+    gt_input_file* input_map_file = va_arg(v_args,gt_input_file*);
+    GT_INPUT_FILE_CHECK(input_map_file);
+    // Open buffered input slave
+    buffered_input_file[i] = gt_buffered_input_file_new(input_map_file);
+  }
+  // Buffered Reading+process
+  gt_merge_synch_map_files_(input_mutex,paired_end,buffered_output_file,buffered_input_file,num_files);
+  // Clean
+  for (i=0;i<num_files;++i) {
+    gt_buffered_input_file_close(buffered_input_file[i]);
+  }
+  free(buffered_input_file);
   gt_buffered_output_file_close(buffered_output_file);
 }
 

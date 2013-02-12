@@ -168,88 +168,82 @@ GT_INLINE bool gt_alignment_get_next_matching_strata(
 GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {
   GT_ALIGNMENT_CHECK(alignment_dst);
   GT_ALIGNMENT_CHECK(alignment_src);
-  gt_alignment_merge_alignment_maps_fx(gt_map_cmp,alignment_dst,alignment_src);
-//  // Initialice new alignment dictionary
-//  if (alignment_dst->alg_dictionary == NULL) {
-//    alignment_dst->alg_dictionary = gt_alignment_dictionary_new(alignment_dst);
-//  }
-//  gt_alignment_dictionary_element* alg_dicc_elem = NULL;
-//  GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
-//    register const uint64_t vector_position = gt_vector_get_used(alignment_dst->maps);
-//    register const uint64_t begin_position = gt_map_get_position(map_src)-gt_map_get_left_trim_length(map_src);
-//    register const uint64_t end_position = gt_map_get_position(map_src)+gt_map_get_length(map_src);
-//    /*
-//     * Try add
-//     */
-//    // DEBUG fprintf(stderr,"==>> [%lu,%lu] ",begin_position,end_position); gt_output_map_fprint_map(stderr,map_src,false); fprintf(stderr,"\n");
-//    gt_ihash_element* ihash_element_b = NULL;
-//    gt_ihash_element* ihash_element_e = NULL;
-//    if (gt_alignment_dictionary_try_add(alignment_dst->alg_dictionary,map_src,
-//          begin_position,end_position,vector_position,
-//          &alg_dicc_elem,&ihash_element_b,&ihash_element_e)) {
-//      register gt_map* const map_src_cp = gt_map_copy(map_src);
-//      gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
-//      gt_alignment_add_map(alignment_dst,map_src_cp);
-//    } else {
-//      /*
-//       * Solve conflict
-//       */
-//      uint64_t found_vector_position = 0;
-//      gt_map* map_found = NULL;
-//      register bool found_candidate = false;
-//      if (ihash_element_b!=NULL) {
-//        found_vector_position = *((uint64_t*)ihash_element_b->element);
-//        map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
-//        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found)) {
-//          found_candidate = true;
-//        }
-//      }
-//      if (!found_candidate && ihash_element_e!=NULL) {
-//        found_vector_position = *((uint64_t*)ihash_element_e->element);
-//        map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
-//        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found)) {
-//          found_candidate = true;
-//        }
-//      }
-//      if (found_candidate) { // Is the same map !!
-//        register gt_map* const map_src_cp = gt_map_copy(map_src);
-//        gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,begin_position,end_position,
-//            found_vector_position,alg_dicc_elem,ihash_element_b,ihash_element_e);
-//        // Replace map
-//        gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
-//        gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
-//        gt_alignment_set_map(alignment_dst,map_src_cp,found_vector_position);
-//        gt_map_delete(map_found);
-//      } else {
-//        /*
-//         * iHash won't solve the conflict
-//         */
-//        if (gt_expect_false(gt_alignment_find_map_fx(gt_map_cmp,alignment_dst,map_src,&found_vector_position,&map_found))) {
-//          // DEBUG gt_output_map_fprint_map(stderr,map_found,false); fprintf(stderr,"\n");
-//          // DEBUG gt_output_map_fprint_map(stderr,map_src,false); fprintf(stderr,"\n\n");
-//          if (gt_expect_true(gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found))) {
-//            // Remove old map
-//            gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
-//            gt_map_delete(map_found);
-//            // Replace old map
-//            register gt_map* const map_src_cp = gt_map_copy(map_src);
-//            gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
-//            gt_alignment_set_map(alignment_dst,map_src_cp,found_vector_position);
-//            gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,found_vector_position,
-//                begin_position,end_position,alg_dicc_elem,ihash_element_b,ihash_element_e);
-//          }
-//        } else {
-//          gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,begin_position,end_position,
-//              gt_vector_get_used(alignment_dst->maps),alg_dicc_elem,ihash_element_b,ihash_element_e);
-//          // Add new map
-//          register gt_map* const map_src_cp = gt_map_copy(map_src);
-//          gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
-//          gt_alignment_add_map(alignment_dst,map_src_cp);
-//        }
-//      }
-//    }
-//  }
-//  gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst),gt_alignment_get_mcs(alignment_src)));
+  // gt_alignment_merge_alignment_maps_fx(gt_map_cmp,alignment_dst,alignment_src);
+  // Initialice new alignment dictionary
+  if (alignment_dst->alg_dictionary == NULL) {
+    alignment_dst->alg_dictionary = gt_alignment_dictionary_new(alignment_dst);
+  }
+  GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
+    gt_alignment_dictionary_element* alg_dicc_elem = NULL;
+    gt_ihash_element* ihash_element_b = NULL;
+    gt_ihash_element* ihash_element_e = NULL;
+    register const uint64_t vector_position = gt_vector_get_used(alignment_dst->maps);
+    register const uint64_t begin_position = gt_map_get_position(map_src)-gt_map_get_left_trim_length(map_src);
+    register const uint64_t end_position = gt_map_get_position(map_src)+gt_map_get_length(map_src);
+    // DEBUG fprintf(stderr,"==>> [%lu,%lu] ",begin_position,end_position); gt_output_map_fprint_map(stderr,map_src,false); fprintf(stderr,"\n");
+    // Try add
+    if (gt_alignment_dictionary_try_add(alignment_dst->alg_dictionary,map_src,
+          begin_position,end_position,&alg_dicc_elem,&ihash_element_b,&ihash_element_e,vector_position)) {
+      // Ok, is new. We add it !
+      register gt_map* const map_src_cp = gt_map_copy(map_src);
+      gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
+      gt_alignment_add_map(alignment_dst,map_src_cp);
+    } else {
+      // One occurrence (could be a duplicate). Solve conflict
+      uint64_t found_vector_position = 0;
+      gt_map* map_found = NULL;
+      register bool found_candidate = false;
+      if (ihash_element_b!=NULL) { // Check begin IDX ihash
+        found_vector_position = *((uint64_t*)ihash_element_b->element);
+        map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
+        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found)) {
+          found_candidate = true;
+        }
+      }
+      if (!found_candidate && ihash_element_e!=NULL) { // Check end IDX ihash
+        found_vector_position = *((uint64_t*)ihash_element_e->element);
+        map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
+        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found)) {
+          found_candidate = true;
+        }
+      }
+      if (found_candidate) { // Is the same map !!
+        register gt_map* const map_src_cp = gt_map_copy(map_src);
+        gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,begin_position,end_position,
+            found_vector_position,alg_dicc_elem,ihash_element_b,ihash_element_e);
+        // Replace map
+        gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
+        gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
+        gt_alignment_set_map(alignment_dst,map_src_cp,found_vector_position);
+        gt_map_delete(map_found);
+      } else {
+        // iHash won't solve the conflict. Resort to standard search
+        if (gt_expect_false(gt_alignment_find_map_fx(gt_map_cmp,alignment_dst,map_src,&found_vector_position,&map_found))) {
+          // DEBUG gt_output_map_fprint_map(stderr,map_found,false); fprintf(stderr,"\n");
+          // DEBUG gt_output_map_fprint_map(stderr,map_src,false); fprintf(stderr,"\n\n");
+          if (gt_expect_true(gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found))) {
+            // Remove old map
+            gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
+            gt_map_delete(map_found);
+            // Replace old map
+            register gt_map* const map_src_cp = gt_map_copy(map_src);
+            gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
+            gt_alignment_set_map(alignment_dst,map_src_cp,found_vector_position);
+            gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,found_vector_position,
+                begin_position,end_position,alg_dicc_elem,ihash_element_b,ihash_element_e);
+          }
+        } else {
+          gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,begin_position,end_position,
+              gt_vector_get_used(alignment_dst->maps),alg_dicc_elem,ihash_element_b,ihash_element_e);
+          // Add new map
+          register gt_map* const map_src_cp = gt_map_copy(map_src);
+          gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
+          gt_alignment_add_map(alignment_dst,map_src_cp);
+        }
+      }
+    }
+  }
+  gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst),gt_alignment_get_mcs(alignment_src)));
 }
 GT_INLINE void gt_alignment_merge_alignment_maps_fx(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
@@ -419,7 +413,6 @@ GT_INLINE void gt_alignment_realign_weighted(
 /*
  * Alignment trimming
  */
-
 GT_INLINE void gt_alignment_trim(gt_alignment* const alignment, uint64_t const left, uint64_t const right, uint64_t const min_length, bool const set_extra){
   if( left == 0 && right == 0) return;
   char* read = gt_alignment_get_read(alignment);

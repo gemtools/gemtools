@@ -155,11 +155,12 @@ GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const ali
 GT_INLINE bool gt_alignment_dictionary_try_add(
     gt_alignment_dictionary* const alignment_dictionary,gt_map* const map,
     const uint64_t begin_position,const uint64_t end_position,
-    uint64_t const vector_position,gt_alignment_dictionary_element** alg_dicc_elem,
-    gt_ihash_element** ihash_element_b,gt_ihash_element** ihash_element_e);
-GT_INLINE void gt_alignment_dictionary_replace(
+    gt_alignment_dictionary_element** alg_dicc_elem,
+    gt_ihash_element** ihash_element_b,gt_ihash_element** ihash_element_e,uint64_t const vector_position);
+GT_INLINE void gt_alignment_dictionary_record_position(
     gt_alignment_dictionary* const alignment_dictionary,
-    const uint64_t begin_position,const uint64_t end_position,const uint64_t vector_position,
-    gt_alignment_dictionary_element* const alg_dicc_elem,gt_ihash_element* const ihash_element_b,gt_ihash_element* const ihash_element_e);
+    const uint64_t begin_position,const uint64_t end_position,
+    gt_alignment_dictionary_element* const alg_dicc_elem,
+    gt_ihash_element* const ihash_element_b,gt_ihash_element* const ihash_element_e,const uint64_t vector_position);
 
 #endif /* GT_ALIGNMENT_H_ */
