@@ -91,12 +91,12 @@ GT_INLINE bool gt_alignment_find_map_fx(
   // Search for the map
   register uint64_t pos = 0;
   GT_ALIGNMENT_ITERATE(alignment,map_it) {
-   if (gt_map_cmp_fx(map_it,map)==0) {
-     *found_map_pos = pos;
-     *found_map = map_it;
-     return true;
-   }
-   ++pos;
+    if (gt_map_cmp_fx(map_it,map)==0) {
+      *found_map_pos = pos;
+      *found_map = map_it;
+      return true;
+    }
+    ++pos;
   }
   return false;
 }
@@ -168,11 +168,12 @@ GT_INLINE bool gt_alignment_get_next_matching_strata(
 GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {
   GT_ALIGNMENT_CHECK(alignment_dst);
   GT_ALIGNMENT_CHECK(alignment_src);
-  // gt_alignment_merge_alignment_maps_fx(gt_map_cmp,alignment_dst,alignment_src);
-  // Initialice new alignment dictionary
+  // Perform regular merge
   if (alignment_dst->alg_dictionary == NULL) {
-    alignment_dst->alg_dictionary = gt_alignment_dictionary_new(alignment_dst);
+    gt_alignment_merge_alignment_maps_fx(gt_map_cmp,alignment_dst,alignment_src);
+    return;
   }
+  // Perform fast iHash merge
   GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
     gt_alignment_dictionary_element* alg_dicc_elem = NULL;
     gt_ihash_element* ihash_element_b = NULL;
@@ -184,61 +185,65 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
     // Try add
     if (gt_alignment_dictionary_try_add(alignment_dst->alg_dictionary,map_src,
           begin_position,end_position,&alg_dicc_elem,&ihash_element_b,&ihash_element_e,vector_position)) {
-      // Ok, is new. We add it !
+      // (1) Ok, is new. We add it !
       register gt_map* const map_src_cp = gt_map_copy(map_src);
       gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
       gt_alignment_add_map(alignment_dst,map_src_cp);
     } else {
-      // One occurrence (could be a duplicate). Solve conflict
+      // (2) One occurrence (could be a duplicate). Solve conflict
       uint64_t found_vector_position = 0;
       gt_map* map_found = NULL;
       register bool found_candidate = false;
       if (ihash_element_b!=NULL) { // Check begin IDX ihash
         found_vector_position = *((uint64_t*)ihash_element_b->element);
         map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
-        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found)) {
+        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src)<gt_map_get_global_distance(map_found)) {
           found_candidate = true;
         }
       }
       if (!found_candidate && ihash_element_e!=NULL) { // Check end IDX ihash
         found_vector_position = *((uint64_t*)ihash_element_e->element);
         map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
-        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found)) {
+        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src)<gt_map_get_global_distance(map_found)) {
           found_candidate = true;
         }
       }
       if (found_candidate) { // Is the same map !!
         register gt_map* const map_src_cp = gt_map_copy(map_src);
-        gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,begin_position,end_position,
-            found_vector_position,alg_dicc_elem,ihash_element_b,ihash_element_e);
-        // Replace map
+        // Remove old map
         gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
+        gt_map_delete(map_found);
+        // Replace old map
         gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
         gt_alignment_set_map(alignment_dst,map_src_cp,found_vector_position);
-        gt_map_delete(map_found);
+        // Record position at IDX iHash
+        gt_alignment_dictionary_record_position(alignment_dst->alg_dictionary,begin_position,end_position,
+            alg_dicc_elem,ihash_element_b,ihash_element_e,found_vector_position);
       } else {
-        // iHash won't solve the conflict. Resort to standard search
+        // (3) iHash won't solve the conflict. Resort to standard search
         if (gt_expect_false(gt_alignment_find_map_fx(gt_map_cmp,alignment_dst,map_src,&found_vector_position,&map_found))) {
           // DEBUG gt_output_map_fprint_map(stderr,map_found,false); fprintf(stderr,"\n");
           // DEBUG gt_output_map_fprint_map(stderr,map_src,false); fprintf(stderr,"\n\n");
           if (gt_expect_true(gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found))) {
+            register gt_map* const map_src_cp = gt_map_copy(map_src);
             // Remove old map
             gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
             gt_map_delete(map_found);
             // Replace old map
-            register gt_map* const map_src_cp = gt_map_copy(map_src);
             gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
             gt_alignment_set_map(alignment_dst,map_src_cp,found_vector_position);
-            gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,found_vector_position,
-                begin_position,end_position,alg_dicc_elem,ihash_element_b,ihash_element_e);
+            // Record position at IDX iHash
+            gt_alignment_dictionary_record_position(alignment_dst->alg_dictionary,begin_position,end_position,
+                alg_dicc_elem,ihash_element_b,ihash_element_e,found_vector_position);
           }
         } else {
-          gt_alignment_dictionary_replace(alignment_dst->alg_dictionary,begin_position,end_position,
-              gt_vector_get_used(alignment_dst->maps),alg_dicc_elem,ihash_element_b,ihash_element_e);
           // Add new map
           register gt_map* const map_src_cp = gt_map_copy(map_src);
           gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
           gt_alignment_add_map(alignment_dst,map_src_cp);
+          // Record position at IDX iHash
+          gt_alignment_dictionary_record_position(alignment_dst->alg_dictionary,begin_position,end_position,
+              alg_dicc_elem,ihash_element_b,ihash_element_e,gt_vector_get_used(alignment_dst->maps)-1);
         }
       }
     }
@@ -280,6 +285,7 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_v(
   GT_ZERO_CHECK(num_src_alignments);
   // Create new alignment
   register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false);
+  alignment_union->alg_dictionary = gt_alignment_dictionary_new(alignment_union);
   gt_alignment_merge_alignment_maps(alignment_union,alignment_src);
   // Merge alignment sources into alignment_union
   register uint64_t num_alg_merged = 1;
@@ -289,6 +295,9 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_v(
     gt_alignment_merge_alignment_maps(alignment_union,alignment_target);
     ++num_alg_merged;
   }
+  // Clear
+  gt_alignment_dictionary_delete(alignment_union->alg_dictionary);
+  alignment_union->alg_dictionary = NULL;
   return alignment_union;
 }
 GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_va(
