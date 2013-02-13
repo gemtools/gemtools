@@ -25,6 +25,9 @@ cdef extern from "fileobject.h":
     ctypedef class __builtin__.file [object PyFileObject]:
         pass
 
+cdef extern from "stdarg.h":
+     ctypedef struct va_list:
+         pass
 
 cdef extern from "gem_tools.h" nogil:
     # general
@@ -253,6 +256,6 @@ cdef extern from "gem_tools.h" nogil:
 
 
 cdef extern from "gemtools_binding.h" nogil:
-    void gt_merge_files(char* input_1, char* input_2, char*  output_file_name, bool  same_content, uint64_t threads)
+    void gt_merge_files_synch(gt_output_file* output_file, uint64_t threads, uint64_t num_files, gt_input_file** files)
 
 

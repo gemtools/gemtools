@@ -5,7 +5,7 @@ import gem
 from gem.junctions import JunctionSite
 
 
-def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, coverage=0, max_junction_matches=1, process=None):
+def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, coverage=0, max_junction_matches=1, process=None, threads=1):
     """Extract denovo junctions from a split map run.
 
     gemoutput - a read iterator over gem splitmapper Output
@@ -20,7 +20,8 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
         gem.executables['splits-2-junctions'],
         str(minsplit),
         str(maxsplit),
-        str(max_junction_matches)
+        str(max_junction_matches),
+        str(threads)
     ]
     p = gem.utils.run_tool(splits2junctions_p, input=input, write_map=True)
 
@@ -34,6 +35,7 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
         if coverage > 0:
             if js.hash not in local_sites:
                 local_sites[js.hash] = js
+                local_sites[js.hash].coverage = 1
             else:
                 local_sites[js.hash].coverage += 1
         else:
@@ -41,7 +43,7 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
 
     if coverage > 0:
         for i, e in local_sites.items():
-            if e.coverage > coverage:
+            if e.coverage >= coverage:
                 sites.add(e)
 
     exit_value = p.wait()

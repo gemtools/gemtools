@@ -4,6 +4,7 @@ ability to feed data into GEM and retrieve the mappings"""
 import os
 import sys
 import logging
+import subprocess
 
 import tempfile
 import files
@@ -246,7 +247,8 @@ def mapper(input, index, output=None,
            threads=1,
            extra=None,
            key_file=None,
-           force_min_decoded_strata=False
+           force_min_decoded_strata=False,
+           compress=False
            ):
     """Start the GEM mapper on the given input.
     If input is a file handle, it is assumed to
@@ -282,6 +284,10 @@ def mapper(input, index, output=None,
         logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
             str(min_decoded_strata), str(delta + 1), str(delta)))
         min_decoded_strata = delta + 1
+    if compress and output is None:
+        raise ValueError("Compression is not supported for streams!")
+    if compress and not output.endswith(".gz"):
+        output += ".gz"
 
     ## prepare the input
     pa = [executables['gem-mapper'], '-I', index,
@@ -307,9 +313,6 @@ def mapper(input, index, output=None,
     ## extend with additional parameters
     _extend_parameters(pa, extra)
 
-    if key_file is not None:
-        threads = max(1, threads / 2)
-
     trim_c = [executables['gem-map-2-map'], '-c', '-T', str(threads)]
     if trim is not None:
         ## check type
@@ -328,8 +331,12 @@ def mapper(input, index, output=None,
 
     # convert to genome coordinates if mapping to transcriptome
     if key_file is not None:
-        convert_to_genome = [executables['transcriptome-2-genome'], key_file, str(threads)]
+        convert_to_genome = [executables['transcriptome-2-genome'], key_file, str(max(1, threads / 2))]
         tools.append(convert_to_genome)
+
+    if compress:
+        gzip = ["gzip", "-"]
+        tools.append(gzip)
 
     ## run the mapper
     process = utils.run_tools(tools, input=input, output=output, name="GEM-Mapper")
@@ -556,7 +563,9 @@ def extract_junctions(input,
         coverage=coverage,
         sites=merge_with,
         max_junction_matches=max_junction_matches,
-        process=splitmap.process)
+        process=splitmap.process,
+        threads=max(1, threads / 2)
+    )
     return denovo_junctions
 
 
@@ -574,10 +583,15 @@ def pairalign(input, index, output=None,
               unique_pairing=False,
               map_both_ends=False,
               threads=1,
+              compress=False,
               extra=None):
     ## check the index
     index = _prepare_index_parameter(index)
     quality = _prepare_quality_parameter(quality, input)
+    if compress and output is None:
+        raise ValueError("Compression is not supported for streams!")
+    if compress and not output.endswith(".gz"):
+        output += ".gz"
 
     pa = [executables['gem-mapper'],
           '-p',
@@ -603,8 +617,13 @@ def pairalign(input, index, output=None,
     if map_both_ends:
         pa.append("--map-both-ends")
 
+    tools = [pa]
+    if compress:
+        gzip = ["gzip", "-"]
+        tools.append(gzip)
+
     ## run the mapper and trim away all the unused stuff from the ids
-    process = utils.run_tool(pa, input=input, output=output, name="GEM-Pair-align", write_map=True, clean_id=True, append_extra=False)
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Pair-align", write_map=True, clean_id=True, append_extra=False)
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -649,15 +668,21 @@ def score(input,
           scoring="+U,+u,-s,-t,+1,-i,-a",
           filter=None,  # "1,2,25"
           quality=None,
+          compress=False,
           threads=1):
     """Score the input. In addition, you can specify a tuple with (<score_strata_to_keep>,<max_strata_distance>,<max_alignments>) to
     filter the result further.
     """
+    if compress and output is None:
+        raise ValueError("Compression is not supported for streams!")
+    if compress and not output.endswith(".gz"):
+        output += ".gz"
 
     quality = _prepare_quality_parameter(quality)
     index = _prepare_index_parameter(index, gem_suffix=True)
     score_p = [executables['gem-map-2-map'],
                '-I', index,
+               '-q', quality,
                '-s', scoring,
                '-T', str(threads)
     ]
@@ -666,14 +691,20 @@ def score(input,
         score_p.append("-f")
         ff = filter
         if not isinstance(filter, basestring):
-            ff = ",".join(filter)
+            ff = ",".join([str(f) for f in filter])
         score_p.append(ff)
 
     raw = False
     if isinstance(input, gt.InputFile):
         raw = True
 
-    process = utils.run_tool(score_p, input=input, output=output, name="GEM-Score", write_map=True, raw=raw)
+    tools = [score_p]
+
+    if compress:
+        gzip = ["gzip", "-"]
+        tools.append(gzip)
+
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=raw)
     return _prepare_output(process, output=output)
 
 
@@ -854,28 +885,20 @@ class merger(object):
     def __iter__(self):
         return gt.merge(self.target, self.source)
 
-    def merge(self, output, threads=1, paired=False, same_content=False):
+    def merge(self, output, threads=1, paired=False, same_content=False, compress=False):
         if same_content:
+            p = None
+            out = output
+            if compress and not output.endswith(".gz"):
+                output += ".gz"
+            if compress:
+                p = subprocess.Popen(["gzip", "-"], stdout=open(output, 'wb'), stdin=subprocess.PIPE, close_fds=True)
+                out = p.stdin
 
-            files = [self.target.file_name]
-            for f in self.source:
-                files.append(f.file_name)
-
-            compressed = False
-            for f in files:
-                if f.endswith(".gz") or f.endswith(".bz"):
-                    compressed = True
-                    break
-
-            if not compressed:
-                logging.debug("Using merger with %d threads and same content" % (threads))
-                logging.debug("Files to merge: %s" % (" ".join(files)))
-                params = [executables['gem-map-2-map'], '-T', str(threads), '-M', ",".join(files)]
-                process = utils.run_tool(params, input=None, output=output, name="GEM-Merge")
-                if process.wait() != 0:
-                    logging.error("Merging failed !")
-                    raise ValueError("Mergin failed!")
-                return gt.InputFile(file_name=output)
+            logging.debug("Using merger with %d threads and same content" % (threads))
+            merger = gt.merge(self.target, self.source, init=False)
+            merger.merge_synch(out, threads)
+            return gt.InputFile(file_name=output)
 
         if len(self.source) == 1:
             logging.debug("Using paired merger with %d threads and same content %s" % (threads, str(same_content)))

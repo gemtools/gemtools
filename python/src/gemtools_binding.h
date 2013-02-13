@@ -4,7 +4,6 @@
 
 #include "gem_tools.h"
 
-void gt_merge_files(char* const input_1, char* const input_2, char* const output_file,
-    bool const same_content,  uint64_t threads);
+void gt_merge_files_synch(gt_output_file* const output_file, uint64_t threads, const uint64_t num_files,  gt_input_file** files);
 
 #endif /* GEMTOOLS_BINDING_H */

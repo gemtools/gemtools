@@ -1,5 +1,6 @@
 from gemapi cimport *
 import os
+import sys
 
 cdef class TemplateIterator:
     """Base class for iterating template streams"""
@@ -205,6 +206,8 @@ cdef class merge(TemplateIterator):
     """Merge a master stream with a list of child streams"""
     cdef object children
     cdef object states
+    cdef object merge_master
+    cdef object merge_children
 
     def __init__(self, master, children, bool init=True):
         if init:
@@ -214,10 +217,35 @@ cdef class merge(TemplateIterator):
             for c in self.children:
                 s = c._next()
                 self.states.append(s)
+        else:
+            self.merge_master = master
+            self.merge_children = children
 
-    cpdef merge_pairs(self, char* i1, char* i2, char* out_file_name, bool same_content, uint64_t threads):
+
+    cpdef merge_synch(self, output, uint64_t threads):
+        cdef gt_output_file* output_file
+
+        if isinstance(output, basestring):
+            output_file = gt_output_file_new(<char*>output, SORTED_FILE)
+        else:
+            output_file = gt_output_stream_new(PyFile_AsFile(output), SORTED_FILE)
+
+        cdef gt_input_file* master = gt_input_file_open(self.merge_master.file_name, False)
+        cdef uint64_t num_slaves = len(self.merge_children) + 1
+        cdef gt_input_file** slaves = <gt_input_file**>malloc( num_slaves *sizeof(gt_input_file*))
+        slaves[0] = master
+        for i in range(len(self.merge_children)):
+            slaves[i+1] = gt_input_file_open(self.merge_children[i].file_name, False)
+
         with nogil:
-            gt_merge_files(i1, i2, out_file_name, same_content, threads)
+            gt_merge_files_synch(output_file, threads, num_slaves, slaves)
+
+        for i in range(num_slaves):
+            gt_input_file_close(slaves[i])
+        free(slaves)
+        gt_output_file_close(output_file)
+
+
 
     cpdef gt_status _next(self):
         if self.source._next() == GT_STATUS_OK:

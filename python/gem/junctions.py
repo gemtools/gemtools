@@ -81,7 +81,7 @@ class JunctionSite(object):
             self.descriptor = self.__descriptor_from_line(line)
 
         self.coverage = coverage
-        self.hash = hash(str(self))
+        self.hash = hash(self._unique())  # was from str(self)
 
     def __descriptor_from_line(self, line):
         s = line.split("\t")
@@ -91,9 +91,22 @@ class JunctionSite(object):
         chr_2 = s[3]
         strand_2 = s[4]
         pos_2 = long(s[5])
+        if pos_1 > pos_2:
+            pos_1, pos_2 = pos_2, pos_1
+            if strand_1 == "+":
+                strand_1 = "-"
+            else:
+                strand_1 = "+"
+            if strand_2 == "+":
+                strand_2 = "-"
+            else:
+                strand_2 = "+"
         desc = [chr_1, strand_1, pos_1, chr_2, strand_2, pos_2]
         return desc
 
+    def _unique(self):
+        d = self.descriptor
+        return "%s %d %s %d" % (d[0], min(d[2], d[5]), d[3], max(d[2], d[5]))
 
     def __descriptor(self, start_exon, stop_exon):
         desc = []
@@ -229,10 +242,12 @@ def _get_chromosomes(index):
         raise ValueError("gem-info failed")
     return sorted(set(chrs))
 
-def filter_by_distance(junctions, max_distance):
+
+def filter_by_distance(junctions, min_distance, max_distance):
     """Yields the junction sites that have a distance less than equal max_distance"""
     for j in junctions:
-        if abs(j.descriptor[2]-j.descriptor[5]) <= max_distance:
+        d = abs(j.descriptor[2] - j.descriptor[5])
+        if min_distance <= d and d <= max_distance:
             yield j
 
 
@@ -249,7 +264,6 @@ def from_junctions(junctions_file):
         for line in f:
             junctions.append(JunctionSite(line=line))
     return junctions
-
 
 
 def from_gtf(annotation):
