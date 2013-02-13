@@ -277,9 +277,14 @@ class RnaPipeline(Command):
         map_gtf = pipeline.transcripts_annotation(name="annotation_mapping")
         map_denovo = pipeline.transcripts_denovo(name="denovo_mapping")
         merged = pipeline.merge(name="merge", dependencies=[map_initial, map_gtf, map_denovo], final=pipeline.single_end)
+        last = merged
 
         if not pipeline.single_end:
             paired = pipeline.pair(name="pair", dependencies=[merged], final=True)
+            last = paired
+
+        if pipeline.bam_create:
+            pipeline.bam(name="bam", dependencies=[last], final=True)
 
         try:
             pipeline.run()

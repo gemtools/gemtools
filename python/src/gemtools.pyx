@@ -488,6 +488,10 @@ cdef class Template:
         def __set__(self, value):
             gt_template_set_tag(self.template, value, len(value))
 
+    property pair:
+        def __get__(self):
+            return gt_template_get_pair(self.template)
+
     property blocks:
         def __get__(self):
             return gt_template_get_num_blocks(self.template)
@@ -637,7 +641,7 @@ cdef class Template:
         gt_template_delete(self.template)
         self.template = tmpl
 
-    cpdef int64_t get_pair(self):
+    cpdef get_pair(self):
         """Return 0 for unpaired or 1 or 2"""
         return gt_template_get_pair(self.template)
 

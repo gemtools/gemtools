@@ -3,6 +3,7 @@
 import os
 import logging
 import gem
+import traceback
 
 from gem.utils import Timer
 
@@ -119,23 +120,37 @@ class MergeStep(PipelineStep):
         inputs = self._input()
         master = inputs[0]
         slaves = inputs[1:]
-        gem.merger(master, slaves).merge(self._output(), self.pipeline.threads, same_content=same_content, compress=self._compress())
+        mapping = gem.merger(master, slaves).merge(self._output(), self.pipeline.threads, same_content=same_content, compress=self._compress())
 
         if self.final:
-            gem.score(mapping, cfg["index"], self._final_output(),
+            gem.score(mapping, self.configuration["index"], self._final_output(),
                 filter=self.pipeline.filter,
                 threads=max(2, self.pipeline.threads / 2),
                 quality=self.pipeline.quality,
                 compress=self.pipeline.compress
             )
 
-
     def _input(self):
         """Return the output of all
         dependencies"""
         if not self.dependencies:
             raise PipelineError("You have to specify what to merge!")
-        return [self.pipeline.open_step(i) for i in self.dependencies]
+        return [self.pipeline.open_step(i) for i in self.dependencies if i >= 0]
+
+
+class CreateBamStep(PipelineStep):
+    """Mapping step"""
+
+    def files(self):
+        if self._files is None:
+            self._files = []
+            self._files.append(self.pipeline.create_file_name(self.name, file_suffix="bam", final=self.final))
+        return self._files
+
+    def run(self):
+        cfg = self.configuration
+        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality)
+        gem.sam2bam(sam, self._final_output(), sorted=cfg["sort"], mapq=cfg["mapq"])
 
 
 class MapStep(PipelineStep):
@@ -246,11 +261,15 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
         logging.info("Denovo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
             len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
 
-        logging.info("Joining with Annotation - denovo: %d annotation: %d" % (len(filtered_denovo_junctions), len(gtf_junctions)))
-        junctions = gtf_junctions.union(filtered_denovo_junctions)
+        if gtf_junctions is not None:
+            logging.info("Joining with Annotation - denovo: %d annotation: %d" % (len(filtered_denovo_junctions), len(gtf_junctions)))
+            junctions = gtf_junctions.union(filtered_denovo_junctions)
+            logging.info("Joined Junctions %d" % (len(junctions)))
+            gem.junctions.write_junctions(junctions, self.junctions_out, cfg["index"])
+        else:
+            logging.info("Skipped mergin with annotation, denovo junctions: %d" % (len(filtered_denovo_junctions)))
+            gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
 
-        logging.info("Joined Junctions %d" % (len(junctions)))
-        gem.junctions.write_junctions(junctions, self.junctions_out, cfg["index"])
 
         logging.info("Computing denovo transcriptome")
         (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(self.pipeline.max_read_length, cfg["index"], self.junctions_out, junctions_gtf_out)
@@ -348,10 +367,10 @@ class MappingPipeline(object):
         self.transcript_mismatches = None  # initialize from genom
         self.transcript_quality_threshold = None  # initialize from genome
         self.transcript_max_decoded_matches = 50  # this need to be custom
-        self.transcript_min_decoded_strata = 1  # initialize from genome ?
-        self.transcript_min_matched_bases = 0.80  # initialize from genome  ?
-        self.transcript_max_big_indel_length = 15  # initialize from genome ?
-        self.transcript_max_edit_distance = 0.20  # initialize from genome ?
+        self.transcript_min_decoded_strata = None  # initialize from genome ?
+        self.transcript_min_matched_bases = None  # initialize from genome  ?
+        self.transcript_max_big_indel_length = None  # initialize from genome ?
+        self.transcript_max_edit_distance = None  # initialize from genome ?
         self.transcript_mismatch_alphabet = None  # initialize from genome
         self.transcript_strata_after_best = None  # initialize from genome
 
@@ -444,6 +463,9 @@ class MappingPipeline(object):
 
     def transcripts_annotation(self, name=None, configuration=None, dependencies=None, final=False):
         """Create annotation based transcriptom and map"""
+        if self.annotation is None:
+            logging.info("No annotation specified, skipping annotation mapping")
+            return -1
         step = TranscriptMapStep(name, dependencies=dependencies, final=final)
         config = dotdict()
         config.denovo = False
@@ -514,11 +536,27 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
+    def bam(self, name, configuration=None, dependencies=None, final=False):
+        step = CreateBamStep(name, dependencies=dependencies, final=final)
+        config = dotdict()
+
+        config.index = self.index
+        config.mapq = self.bam_mapq
+        config.sort = self.bam_sort
+
+        if configuration is not None:
+            self.__update_dict(config, configuration)
+
+        step.prepare(len(self.steps), self, config)
+        self.steps.append(step)
+        return step.id
+
     def merge(self, name, configuration=None, dependencies=None, final=False):
         step = MergeStep(name, dependencies=dependencies, final=final)
         config = dotdict()
 
         config.same_content = True
+        config.index = self.index
 
         if configuration is not None:
             self.__update_dict(config, configuration)
@@ -548,15 +586,24 @@ class MappingPipeline(object):
                 # search for second file
                 (n, p) = gem.utils.find_pair(self.input[0])
                 if p is None:
-                    errors.append("Unable to deduce second pair input file from %s " % self.input[0])
+                    #errors.append("Unable to deduce second pair input file from %s " % self.input[0])
+                    logging.warning("No second input file specified, assuming interleaved paird end reads!")
                 else:
+                    logging.warning("Second pair input file found: %s " % p)
                     if self.name is None:
                         self.name = n
                     self.input.append(p)
-            # check input files
-            for f in self.input:
-                if f is None or not os.path.exists(f):
-                    errors.append("Input file not found: %s" % (f))
+
+            # check file counts
+            if self.single_end and len(self.input) != 1:
+                errors.append("Specify exactly one input file in single end mode")
+            elif not self.single_end and len(self.input) > 2:
+                errors.append("Paired end mode takes up to 2 input files, you specified %d" % (len(self.input)))
+            else:
+                # check input files
+                for f in self.input:
+                    if f is None or not os.path.exists(f):
+                        errors.append("Input file not found: %s" % (f))
 
         if self.name is None and self.input is not None and len(self.input) > 0:
             # get name from input files
@@ -586,7 +633,7 @@ class MappingPipeline(object):
             self.transcript_index = self.annotation + ".gem"
             if not os.path.exists(self.transcript_index):
                 errors.append("Deduced transcript index not found: %s" % (self.transcript_index))
-        elif not os.path.exists(self.transcript_index):
+        elif self.annotation is not None and not os.path.exists(self.transcript_index):
             errors.append("Transcript index not found : %s")
 
         if self.transcript_keys is None and self.transcript_index is not None:
@@ -631,10 +678,11 @@ class MappingPipeline(object):
         if self.transcript_quality_threshold is None:
             self.transcript_quality_threshold = self.genome_quality_threshold
 
-        # self.transcript_min_decoded_strata = 1  # initialize from genome ?
-        # self.transcript_min_matched_bases = 0.80  # initialize from genome  ?
-        # self.transcript_max_big_indel_length = 15  # initialize from genome ?
-        # self.transcript_max_edit_distance = 0.20  # initialize from genome ?
+        self.transcript_min_decoded_strata = self.genome_min_decoded_strata
+        self.transcript_min_matched_bases = self.genome_min_matched_bases
+        self.transcript_max_big_indel_length = self.genome_max_big_indel_length
+        self.transcript_max_edit_distance = self.genome_max_edit_distance
+
         if self.transcript_mismatch_alphabet is None:
             self.transcript_mismatch_alphabet = self.genome_mismatch_alphabet
         if self.transcript_strata_after_best is None:
@@ -646,6 +694,26 @@ class MappingPipeline(object):
 
         if self.pairing_max_insert_size is None:
             self.pairing_max_insert_size = self.junctions_max_split_length
+
+        if not self.single_end:
+            # check pairing information
+            p1 = None
+            p2 = None
+            c = 0
+            inp = self.open_input()
+            for template in self.open_input():
+                if c == 0:
+                    p1 = template.get_pair()
+                elif c == 1:
+                    p2 = template.get_pair()
+                c += 1
+                if c >= 2:
+                    inp.close()
+                    break
+            if p1 == 0 or p2 == 0 or (p1 == 1 and p2 != 2) or (p2 == 1 and p1 != 2):
+                errors.append("""Unable to get pairing information from input.
+                    Please check your read id's and make sure its either in casava >= 1.8 format or the
+                    ids end with /1 and /2""")
 
         if len(errors) > 0:
             raise PipelineError("Failed to initialize neccessary parameters:\n\n%s" % ("\n".join(errors)))
@@ -660,14 +728,14 @@ class MappingPipeline(object):
                 final_files.extend(step.files())
                 all_done = all_done & step.is_done()
         if all_done:
-            logging.info("The following files already exist. Nothing to be run!\n\n%s\n" % ("\n".join(final_files)))
+            logging.gemtools.warning("The following files already exist. Nothing to be run!\n\n%s\n" % ("\n".join(final_files)))
             return
 
         time = Timer()
         for step in self.steps:
             if not step.is_done():
                 try:
-                    logging.info("Runing pipeline step: %s" % (step.name))
+                    logging.info("Running pipeline step: %s" % (step.name))
                     t = Timer()
                     step.run()
                     t.stop(step.name + " completed in %s")
@@ -676,7 +744,12 @@ class MappingPipeline(object):
                     error = True
                     step.cleanup(force=True)
                     break
+                except PipelineError, e:
+                    logging.error("Error while executing step %s : %s" % (step.name, str(e)))
+                    error = True
+                    break
                 except Exception, e:
+                    traceback.print_exc()
                     logging.error("Error while executing step %s : %s" % (step.name, str(e)))
                     error = True
                     break
@@ -712,6 +785,9 @@ class MappingPipeline(object):
         """check if there is a .junctions file for the given annotation, if not,
         create it. Returns a tuple of the set of junctions and the output file.
         """
+        if self.annotation is None:
+            return (None, None)
+
         timer = Timer()
         gtf_junctions = self.annotation + ".junctions"
         out = None
@@ -735,13 +811,3 @@ class MappingPipeline(object):
         return (junctions, out)
 
 
-    def create_bam(self, input, sort=True):
-        logging.info("Converting to sam/bam")
-        sam_out = self.create_file_name("", file_suffix="bam", final=True)
-        if os.path.exists(sam_out):
-            logging.warning("SAM/BAM exists, skip creating : %s" % (sam_out))
-        else:
-            timer = Timer()
-            sam = gem.gem2sam(input, self.index, threads=max(1, int(self.threads / 2)))
-            gem.sam2bam(sam, sam_out, sorted=sort)
-            timer.stop("BAM file created in %s")

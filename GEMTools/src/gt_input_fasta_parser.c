@@ -346,6 +346,8 @@ GT_INLINE gt_status gt_input_fasta_parser_get_template(
   if ((error_code=gt_input_fasta_parser_get_alignment(buffered_fasta_input,alignment))!=GT_IFP_OK) {
     return error_code;
   }
+  int64_t pair = *gt_shash_get(alignment->attributes, GT_TAG_PAIR, int64_t);
+
   if (paired_read) {
     register gt_alignment* alignment = gt_template_get_block_dyn(template,1);
     if (gt_buffered_input_file_eob(buffered_fasta_input)) return GT_IFP_FAIL;
@@ -354,6 +356,8 @@ GT_INLINE gt_status gt_input_fasta_parser_get_template(
       return error_code;
     }
   }
+  // copy pairing information to tag attributs
+  gt_attribute_set(template->attributes,GT_TAG_PAIR, &pair,int64_t);
   return GT_IFP_OK;
 }
 

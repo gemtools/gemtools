@@ -15,13 +15,35 @@ import filter as gemfilter
 import gem.gemtools as gt
 import gem
 
+import multiprocessing as mp
+
 LOG_NOTHING = 1
 LOG_STDERR = 2
 
+# add custom log level
+LOG_GEMTOOLS = logging.INFO + 9
+logging.addLevelName(LOG_GEMTOOLS, "")
+logging.basicConfig(format='%(asctime)-15s %(levelname)s: %(message)s', level=logging.WARNING)
+gemtools_logger = logging.getLogger("GEMTOOLS")
+gemtools_logger.propagate = 0
+gemtools_logger.setLevel(LOG_GEMTOOLS)
+
+def log_gemtools(message, *args, **kws):
+     gemtools_logger.log(LOG_GEMTOOLS, message, *args, **kws)
+
+gemtools_logger.gt = log_gemtools
+
+logging.gemtools = gemtools_logger
+gemtools_formatter = logging.Formatter('%(levelname)s: %(message)s')
+console = logging.StreamHandler()
+
+console.setLevel(logging.DEBUG)
+console.setFormatter(gemtools_formatter)
+gemtools_logger.addHandler(console)
+
 # default logger configuration
 log_output = LOG_NOTHING
-logging.basicConfig(format='%(asctime)-15s %(levelname)s: %(message)s', level=logging.WARN)
-
+gemtools_logger.info("asadsasd")
 
 default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
 extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
@@ -724,7 +746,7 @@ def gem2sam(input, index=None, output=None,
         gem_2_sam_p.extend(['-I', index])
 
     quality = _prepare_quality_parameter(quality, input)
-    if quality is not None:
+    if quality is not None and not quality == "ignore":
         gem_2_sam_p.extend(["-q", quality])
 
     if single_end:
@@ -748,26 +770,21 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
     sam2bam_p.append('-')
 
     tools = [sam2bam_p]
-    out_name = output
-    delete_after_iterate = False
     if sorted:
-        if out_name is not None:
-            if out_name.endswith('.bam'):
-                out_name = out_name[:-4]
-        else:
-            tmpfile = tempfile.NamedTemporaryFile(prefix="sorting", suffix=".bam")
-            tmpfile.close()
-            out_name = tmpfile.name[:-4]
-            delete_after_iterate = True
-
-
-        bam_sort = ['samtools', 'sort', '-']
+        bam_sort = ['samtools', 'sort', '-o', '-']
+        suffix = ""
+        if output is not None:
+            suffix = "-"+os.path.basename(output)
+        tmpfile = tempfile.NamedTemporaryFile(prefix="sort", suffix=suffix)
+        tmpfile.close()
+        if os.path.exists(tmpfile.name):
+            os.remove(tmpfile.name)
+        out_name = os.path.basename(tmpfile.name)
         bam_sort.append(out_name)
-        out_name = out_name + ".bam"
         tools.append(bam_sort)
 
     process = utils.run_tools(tools, input=input, output=output, name="SAM-2-BAM", raw=True)
-    return _prepare_output(process, output=out_name, quality=33, delete_after_iterate=delete_after_iterate)
+    return _prepare_output(process, output=out_name, quality=33)
 
 
 def compute_transcriptome(max_read_length, index, junctions, substract=None):
@@ -885,8 +902,26 @@ class merger(object):
     def __iter__(self):
         return gt.merge(self.target, self.source)
 
+    @staticmethod
+    def __async_merge(target, source, out, threads):
+        merger = gt.merge(target, source, init=False)
+        merger.merge_synch(out, threads)
+        os.remove(out)
+
+    def merge_async(self, threads=1, paired=False, same_content=False):
+        handle, filename = tempfile.mkstemp()
+        os.close(handle)
+        os.remove(filename)
+        os.mkfifo(filename)
+        process = mp.Process(target=merger.__async_merge, args=(self.target, self.source, filename, threads))
+        process.start()
+        return gt.InputFile(file_name=filename)
+
     def merge(self, output, threads=1, paired=False, same_content=False, compress=False):
         if same_content:
+            if output is None:
+                return self.merge_async(threads=threads, paired=paired, same_content=same_content)
+
             p = None
             out = output
             if compress and not output.endswith(".gz"):
