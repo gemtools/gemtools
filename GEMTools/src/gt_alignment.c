@@ -297,6 +297,7 @@ GT_INLINE void gt_alignment_dictionary_element_delete(gt_alignment_dictionary_el
   GT_NULL_CHECK(alg_dicc_elem);
   gt_ihash_delete(alg_dicc_elem->begin_position,true);
   gt_ihash_delete(alg_dicc_elem->end_position,true);
+  free(alg_dicc_elem);
 }
 GT_INLINE gt_alignment_dictionary* gt_alignment_dictionary_new(gt_alignment* const alignment) {
   gt_alignment_dictionary* alignment_dictionary = malloc(sizeof(gt_alignment_dictionary));
@@ -310,6 +311,7 @@ GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const ali
   GT_SHASH_BEGIN_ELEMENT_ITERATE(alignment_dictionary->maps_dictionary,alg_dicc_elem,gt_alignment_dictionary_element) {
     gt_alignment_dictionary_element_delete(alg_dicc_elem);
   } GT_SHASH_END_ITERATE;
+  gt_shash_delete(alignment_dictionary->maps_dictionary,false);
   free(alignment_dictionary);
 }
 GT_INLINE void gt_alignment_dictionary_element_add_position(

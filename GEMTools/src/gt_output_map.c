@@ -73,7 +73,6 @@ GT_INLINE gt_status gt_output_map_gprint_tag(gt_generic_printer* const gprinter,
   // PRIgts needed as this calls gt_string_get_string downstream, which returns the
   // full buffer not trimmed to length
   gt_gprintf(gprinter,PRIgts,PRIgts_content(tag));
-
   // check if we have casava attributes
   if (gt_output_map_attributes_is_print_casava(output_attributes) && gt_shash_is_contained(attributes,GT_TAG_CASAVA)) {
     // print casava
@@ -367,9 +366,12 @@ GT_INLINE gt_status gt_output_map_gprint_template(
     gt_generic_printer* const gprinter,gt_template* const template, gt_output_map_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_output_map_gprint_alignment(gprinter,alignment,attributes);
+  } GT_TEMPLATE_END_REDUCTION;
   register gt_status error_code;
   // Print TAG
-  gt_output_map_gprint_tag(gprinter, template->tag, template->attributes, attributes);
+  gt_output_map_gprint_tag(gprinter,template->tag,template->attributes,attributes);
   // Print READ(s)
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register uint64_t i = 0;
@@ -396,12 +398,6 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   }
   // Print MAPS
   gt_gprintf(gprinter,"\t");
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-    error_code = gt_output_map_gprint_alignment_maps_sorted(gprinter,alignment,
-        gt_output_map_attributes_get_max_printable_maps(attributes),gt_output_map_attributes_is_print_scores(attributes)); // _sorted
-    gt_gprintf(gprinter,"\n");
-    return error_code;
-  } GT_TEMPLATE_END_REDUCTION;
   error_code = gt_output_map_gprint_template_maps_sorted(gprinter,template,
       gt_output_map_attributes_get_max_printable_maps(attributes), gt_output_map_attributes_is_print_scores(attributes)); // _sorted
   gt_gprintf(gprinter,"\n");
@@ -440,7 +436,6 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   return error_code;
 }
 
-
 /*
  * GEM printer
  */
@@ -461,7 +456,4 @@ GT_INLINE gt_status gt_output_map_gprint_gem_template(
     return error_code;
   }
 }
-
-
-
 

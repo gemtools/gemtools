@@ -112,7 +112,7 @@ START_TEST(gt_test_template_merge_inconsistent)
   gt_string* string = gt_string_new(1024);
   gt_output_map_sprint_template(string, source, output_attributes);
   // convert to string
-  char * line = gt_string_get_string(string);
+  char* line = gt_string_get_string(string);
   fail_unless(gt_streq(line,
       "ID/1\t"	
       "GAGAGAACAGGCCTCTGAGCCCAAGCCAAGCCATCGCATCCCCTGTGACTTGCCCGTATATATGCCCAGATGGCCTGAAGTAACTGAAGAATCACAAAAGA\t"
