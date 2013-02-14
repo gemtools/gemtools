@@ -189,7 +189,10 @@ GT_INLINE gt_status gt_map_realign_levenshtein_sa(
   register const uint64_t extra_length = GT_MAP_REALIGN_EXPANSION_FACTOR*pattern_length;
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
       gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
-      pattern_length,extra_length,sequence))) return error_code;
+      pattern_length,extra_length,sequence))) {
+    gt_string_delete(sequence); // Free
+    return error_code;
+  }
   // Realign Levenshtein
   error_code = gt_map_realign_levenshtein(map,
       gt_string_get_string(pattern),pattern_length,

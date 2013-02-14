@@ -106,23 +106,21 @@ void gt_example_map_parsing() {
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,GT_EXAMPLE_MMAP_FILE);
 
   // Buffered reading of the file
+  gt_map_parser_attr map_parser_attributes = GT_MAP_PARSER_ATTR_DEFAULT(false);
   gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
   gt_template* template = gt_template_new();
-  gt_string* text = gt_string_new(0);
   gt_status error_code;
-  while ((error_code=gt_input_map_parser_get_template(buffered_input,template))) {
+  gt_input_map_parser_attributes_set_skip_model(&map_parser_attributes,true);
+  while ((error_code=gt_input_map_parser_get_template_g(buffered_input,template,&map_parser_attributes))) {
     if (error_code!=GT_IMP_OK) {
-      printf(">>> "PRIgts"\n",PRIgts_content(text));
+      gt_error_msg("Parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       continue;
     }
 
-    // Print source text
-    //printf("<< "PRIgts"\n",PRIgts_content(text));
-    // Print template's content
-    //gt_example_display_template(template);
+    gt_example_display_template(template);
     // Output the same line (parsed + printed)
-    //printf(">> ");
-    //gt_output_map_fprint_template(stdout,template,GT_ALL,false);
+    gt_output_map_attributes output_map_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
+    gt_output_map_fprint_template(stdout,template,&output_map_attributes);
   }
   gt_buffered_input_file_close(buffered_input);
 
@@ -167,27 +165,27 @@ void gt_example_map_string_parsing() {
    */
   register gt_vector* map_list = gt_vector_new(10,sizeof(gt_map*));
   // Parse multiple old split-map
-  error_code+=gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list,1);
-  error_code+=gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list,1);
-  error_code+=gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list,1);
-  error_code+=gt_input_map_parse_map_list("[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,1);
-  error_code+=gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list,1);
+  error_code+=gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list);
+  error_code+=gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list);
+  error_code+=gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list);
+  error_code+=gt_input_map_parse_map_list("[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list);
+  error_code+=gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list);
   error_code+=gt_input_map_parse_map_list(
       "chrM:F6598<+1>16@0/0,[23]=chr6:R31322884~chr6:R31237276,"
-      "[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,GT_ALL);
+      "[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list);
   // Parse multiple old SE-map
-  error_code+=gt_input_map_parse_map_list("chr1:F8926499@0/0,chr12:R7027116G39A42@77/2",map_list,GT_ALL);
+  error_code+=gt_input_map_parse_map_list("chr1:F8926499@0/0,chr12:R7027116G39A42@77/2",map_list);
   // Parse multiple new SE-map
   error_code+=gt_input_map_parse_map_list(
       "chrX:-:155255234:1T36A37,chrY:-:59358240:1T36A37:200,"
       "chr15:-:102516664:1>1-28>5+8A37,chr16:+:64108:3>1-30>1+1>4+3A37,"
-      "chr9:+:14540:3>1-34A33A2>1-",map_list,GT_ALL);
+      "chr9:+:14540:3>1-34A33A2>1-",map_list);
   // Parse multiple new PE-map
   error_code+=gt_input_map_parse_map_list(
       "chr15:-:102516742:(3)3GCA67::chr15:+:102516611:76:::7936,"
       "chr16:+:64114:1>1-26>1+1>4+47::chr16:-:64196:68A6T:::12224,"
       "chr1:+:16731:(5)35>92*16(20),chrY:-:59355959:(5)6G4G24>1-3A1CA1AAA1>1-1(20),"
-      "chrX:-:155252953:(5)6G4G24>1-3A1CA1AAA1>1-1(20)",map_list,GT_ALL);
+      "chrX:-:155252953:(5)6G4G24>1-3A1CA1AAA1>1-1(20)",map_list);
 
   /*
    * Parsing counters
@@ -402,27 +400,27 @@ void gt_constructor_parse_again() {
    */
   // Parse multiple old split-map
   gt_input_map_parse_map("[26]=chr7:R1203797~chr7:R1203108",map);
-  gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list,1);
-  gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list,1);
-  gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list,1);
-  gt_input_map_parse_map_list("[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,1);
-  gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list,1);
+  gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list);
+  gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list);
+  gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list);
+  gt_input_map_parse_map_list("[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list);
+  gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list);
   gt_input_map_parse_map_list(
       "chrM:F6598<+1>16@0/0,[23]=chr6:R31322884~chr6:R31237276,"
-      "[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,GT_ALL);
+      "[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list);
   // Parse multiple old SE-map
-  gt_input_map_parse_map_list("chr1:F8926499@0/0,chr12:R7027116G39A42@77/2",map_list,GT_ALL);
+  gt_input_map_parse_map_list("chr1:F8926499@0/0,chr12:R7027116G39A42@77/2",map_list);
   // Parse multiple new SE-map
   gt_input_map_parse_map_list(
       "chrX:-:155255234:1T36A37,chrY:-:59358240:1T36A37:200,"
       "chr15:-:102516664:1>1-28>5+8A37,chr16:+:64108:3>1-30>1+1>4+3A37,"
-      "chr9:+:14540:3>1-34A33A2>1-",map_list,GT_ALL);
+      "chr9:+:14540:3>1-34A33A2>1-",map_list);
   // Parse multiple new PE-map
   gt_input_map_parse_map_list(
       "chr15:-:102516742:(3)3GCA67::chr15:+:102516611:76:::7936,"
       "chr16:+:64114:1>1-26>1+1>4+47::chr16:-:64196:68A6T:::12224,"
       "chr1:+:16731:(5)35>92*16(20),chrY:-:59355959:(5)6G4G24>1-3A1CA1AAA1>1-1(20),"
-      "chrX:-:155252953:(5)6G4G24>1-3A1CA1AAA1>1-1(20)",map_list,GT_ALL);
+      "chrX:-:155252953:(5)6G4G24>1-3A1CA1AAA1>1-1(20)",map_list);
 
   /*
    * Parsing counters
@@ -718,7 +716,9 @@ int main(int argc,char** argv) {
   //gt_dummy_example();
 
   //gt_filter_fastq();
-  gt_load_reference__dump_it();
+  //gt_load_reference__dump_it();
+
+  gt_example_map_parsing();
 
   return 0;
 }

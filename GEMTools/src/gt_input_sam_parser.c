@@ -584,7 +584,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     // Here we should check that the read if the same as previous occurrences
     // Was disabled due to wrong SAM outputs produced some mappers when trimming
     if (gt_string_is_null(alignment->read)) {
-      gt_string_set_nstring(alignment->read,seq_read,read_length);
+      gt_dna_string_set_nstring(alignment->read,seq_read,read_length);
       if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
         gt_dna_string_reverse_complement(alignment->read);
       }

@@ -124,6 +124,7 @@ typedef struct {
   bool remove_duplicates; // TODO
   gt_lazy_parse_mode parse_mode;
 } gt_map_parser_attr;
+
 #define GT_MAP_PARSER_ATTR_DEFAULT(_force_read_paired) { \
   .force_read_paired=_force_read_paired,  \
   .max_parsed_maps=GT_ALL,  \
@@ -161,9 +162,13 @@ GT_INLINE gt_status gt_input_map_parser_reload_buffer(
  */
 GT_INLINE gt_status gt_input_map_parse_template(char* const string,gt_template* const template);
 GT_INLINE gt_status gt_input_map_parse_alignment(char* const string,gt_alignment* const alignment);
+
 GT_INLINE gt_status gt_input_map_parse_counters(char* const string,gt_vector* const counters,gt_shash* const attributes);
+
 GT_INLINE gt_status gt_input_map_parse_map(char* const string,gt_map* const map);
-GT_INLINE gt_status gt_input_map_parse_map_list(char* const string,gt_vector* const maps,const uint64_t num_maps);
+GT_INLINE gt_status gt_input_map_parse_map_list(char* const string,gt_vector* const maps);
+GT_INLINE gt_status gt_input_map_parse_map_g(char* const string,gt_map* const map,gt_map_parser_attr* const map_parser_attr);
+GT_INLINE gt_status gt_input_map_parse_map_list_g(char* const string,gt_vector* const maps,gt_map_parser_attr* const map_parser_attr);
 
 /*
  * MAP High-level Parsers

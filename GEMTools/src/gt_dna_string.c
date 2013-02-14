@@ -24,7 +24,8 @@ const char gt_dna_normalized[256] =
 const char gt_complement_table[256] =
 {
   [0 ... 255] = '~',
-  ['A'] = 'T', ['C'] = 'G', ['G'] = 'C',  ['T'] = 'A', ['N'] = 'N'
+  ['A'] = 'T', ['C'] = 'G', ['G'] = 'C',  ['T'] = 'A', ['N'] = 'N',
+  ['a'] = 'T', ['c'] = 'G', ['g'] = 'C',  ['t'] = 'A', ['n'] = 'N'
 };
 const bool gt_iupac_code[256] =
 {
@@ -66,6 +67,28 @@ GT_INLINE char gt_dna_string_get_char_at(gt_dna_string* const dna_string,const u
 }
 GT_INLINE void gt_dna_string_set_char_at(gt_dna_string* const dna_string,const uint64_t pos,const char character) {
   // TODO
+}
+
+GT_INLINE void gt_dna_string_set_string(gt_dna_string* const dna_string,char* const dna_string_src) {
+  GT_NULL_CHECK(dna_string);
+  register const uint64_t length = strlen(dna_string_src);
+  gt_string_set_nstring(dna_string,dna_string_src,length);
+}
+
+GT_INLINE void gt_dna_string_set_nstring(gt_dna_string* const dna_string,char* const dna_string_src,const uint64_t length) {
+  GT_STRING_CHECK(dna_string);
+  GT_NULL_CHECK(dna_string_src);
+  if (gt_expect_true(dna_string->allocated>0)) {
+    gt_string_resize(dna_string,length+1);
+    register uint64_t i;
+    for (i=0;i<length;++i) {
+      dna_string->buffer[i] = gt_get_dna_normalized(dna_string_src[i]);
+    }
+    dna_string->buffer[length] = EOS;
+  } else {
+    dna_string->buffer = dna_string_src;
+  }
+  dna_string->length = length;
 }
 
 GT_INLINE void gt_dna_string_reverse_complement(gt_dna_string* const dna_string) {
