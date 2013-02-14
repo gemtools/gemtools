@@ -23,9 +23,10 @@ class PipelineError(Exception):
 
 class PipelineStep(object):
     """General mapping pipeline step"""
-    def __init__(self, name, dependencies=None, final=False):
+    def __init__(self, name, dependencies=None, final=False, description=""):
         self.id = None
         self.name = name
+        self.description = description
         self.pipeline = None
         self.dependencies = []
         self._files = None
@@ -50,7 +51,7 @@ class PipelineStep(object):
         if force or (not self.final and self.pipeline.remove_temp):
             for f in self.files():
                 if os.path.exists(f):
-                    logging.debug("Remove temporary file %s" % f)
+                    logging.gemtools.debug("Remove temporary file %s" % f)
                     os.remove(f)
 
 
@@ -255,26 +256,26 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             max_junction_matches=cfg["max_junction_matches"]
         )
 
-        logging.info("Found Denovo Junctions %d with coverage >= %d" % (len(denovo_junctions), cfg["coverage"]))
+        logging.gemtools.info("Found Denovo Junctions %d with coverage >= %d" % (len(denovo_junctions), cfg["coverage"]))
 
         filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, cfg["min_split_length"], cfg["max_split_length"]))
-        logging.info("Denovo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
+        logging.gemtools.info("Denovo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
             len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
 
         if gtf_junctions is not None:
-            logging.info("Joining with Annotation - denovo: %d annotation: %d" % (len(filtered_denovo_junctions), len(gtf_junctions)))
+            logging.gemtools.info("Joining with Annotation - denovo: %d annotation: %d" % (len(filtered_denovo_junctions), len(gtf_junctions)))
             junctions = gtf_junctions.union(filtered_denovo_junctions)
-            logging.info("Joined Junctions %d" % (len(junctions)))
+            logging.gemtools.info("Joined Junctions %d" % (len(junctions)))
             gem.junctions.write_junctions(junctions, self.junctions_out, cfg["index"])
         else:
-            logging.info("Skipped mergin with annotation, denovo junctions: %d" % (len(filtered_denovo_junctions)))
+            logging.gemtools.info("Skipped mergin with annotation, denovo junctions: %d" % (len(filtered_denovo_junctions)))
             gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
 
 
-        logging.info("Computing denovo transcriptome")
+        logging.gemtools.info("Computing denovo transcriptome")
         (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(self.pipeline.max_read_length, cfg["index"], self.junctions_out, junctions_gtf_out)
 
-        logging.info("Indexing denovo transcriptome")
+        logging.gemtools.info("Indexing denovo transcriptome")
         gem.index(denovo_transcriptome, self.index_denovo_out, threads=self.pipeline.threads)
         return (self.index_denovo_out, self.denovo_keys)
 
@@ -356,7 +357,7 @@ class MappingPipeline(object):
         self.genome_mismatches = 0.06
         self.genome_quality_threshold = 26
         self.genome_max_decoded_matches = 20
-        self.genome_min_decoded_strata = 1
+        self.genome_min_decoded_strata = 2
         self.genome_min_matched_bases = 0.80
         self.genome_max_big_indel_length = 15
         self.genome_max_edit_distance = 0.20
@@ -414,9 +415,9 @@ class MappingPipeline(object):
             if v is not None:
                 target[k] = v
 
-    def map(self, name, configuration=None, dependencies=None, final=False):
+    def map(self, name, configuration=None, dependencies=None, final=False, description=""):
         """Add mapping step"""
-        step = MapStep(name, final=final, dependencies=dependencies)
+        step = MapStep(name, final=final, dependencies=dependencies, description=description)
         config = dotdict()
 
         config.index = self.index
@@ -438,9 +439,9 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def pair(self, name, configuration=None, dependencies=None, final=False):
+    def pair(self, name, configuration=None, dependencies=None, final=False, description=""):
         """Add mapping step"""
-        step = PairalignStep(name, dependencies=dependencies, final=final)
+        step = PairalignStep(name, dependencies=dependencies, final=final, description=description)
         config = dotdict()
 
         config.index = self.index
@@ -461,12 +462,12 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def transcripts_annotation(self, name=None, configuration=None, dependencies=None, final=False):
+    def transcripts_annotation(self, name=None, configuration=None, dependencies=None, final=False, description=""):
         """Create annotation based transcriptom and map"""
         if self.annotation is None:
-            logging.info("No annotation specified, skipping annotation mapping")
+            logging.gemtools.info("No annotation specified, skipping annotation mapping")
             return -1
-        step = TranscriptMapStep(name, dependencies=dependencies, final=final)
+        step = TranscriptMapStep(name, dependencies=dependencies, final=final, description=description)
         config = dotdict()
         config.denovo = False
         config.annotation = self.annotation
@@ -490,9 +491,9 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def transcripts_denovo(self, name=None, configuration=None, dependencies=None, final=False):
+    def transcripts_denovo(self, name=None, configuration=None, dependencies=None, final=False, description=""):
         """Create annotation based transcriptom and map"""
-        step = TranscriptMapStep(name, dependencies=dependencies, final=final)
+        step = TranscriptMapStep(name, dependencies=dependencies, final=final, description=description)
         config = dotdict()
         config.denovo = True
         config.index = self.denovo_index
@@ -515,8 +516,8 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def create_transcriptome(self, name, configuration=None, dependencies=None, final=False):
-        step = CreateDenovoTranscriptomeStep(name, dependencies=dependencies, final=final)
+    def create_transcriptome(self, name, configuration=None, dependencies=None, final=False, description="Create denovo transcript index"):
+        step = CreateDenovoTranscriptomeStep(name, dependencies=dependencies, final=final, description=description)
         config = dotdict()
 
         config.index = self.index
@@ -536,8 +537,8 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def bam(self, name, configuration=None, dependencies=None, final=False):
-        step = CreateBamStep(name, dependencies=dependencies, final=final)
+    def bam(self, name, configuration=None, dependencies=None, final=False, description="Create BAM file"):
+        step = CreateBamStep(name, dependencies=dependencies, final=final, description=description)
         config = dotdict()
 
         config.index = self.index
@@ -551,8 +552,8 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def merge(self, name, configuration=None, dependencies=None, final=False):
-        step = MergeStep(name, dependencies=dependencies, final=final)
+    def merge(self, name, configuration=None, dependencies=None, final=False, description="Merge alignments"):
+        step = MergeStep(name, dependencies=dependencies, final=final, description=description)
         config = dotdict()
 
         config.same_content = True
@@ -587,9 +588,9 @@ class MappingPipeline(object):
                 (n, p) = gem.utils.find_pair(self.input[0])
                 if p is None:
                     #errors.append("Unable to deduce second pair input file from %s " % self.input[0])
-                    logging.warning("No second input file specified, assuming interleaved paird end reads!")
+                    logging.gemtools.warning("No second input file specified, assuming interleaved paird end reads!")
                 else:
-                    logging.warning("Second pair input file found: %s " % p)
+                    logging.gemtools.warning("Second pair input file found: %s " % p)
                     if self.name is None:
                         self.name = n
                     self.input.append(p)
@@ -661,17 +662,6 @@ class MappingPipeline(object):
         if self.bam_mapq > 254:
             errors.append("Invalid mapq filter: %s" % (self.bam_mapq))
 
-        # genome mapping parameter
-        self.genome_mismatches = 0.06
-        self.genome_quality_threshold = 26
-        self.genome_max_decoded_matches = 20
-        self.genome_min_decoded_strata = 1
-        self.genome_min_matched_bases = 0.80
-        self.genome_max_big_indel_length = 15
-        self.genome_max_edit_distance = 0.20
-        self.genome_mismatch_alphabet = "ACGT"
-        self.genome_strata_after_best = 1
-
         # transcript mapping parameter
         if self.transcript_mismatches is None:
             self.transcript_mismatches = self.genome_mismatches
@@ -695,7 +685,7 @@ class MappingPipeline(object):
         if self.pairing_max_insert_size is None:
             self.pairing_max_insert_size = self.junctions_max_split_length
 
-        if not self.single_end:
+        if not self.single_end and len(errors) == 0:
             # check pairing information
             p1 = None
             p2 = None
@@ -718,6 +708,33 @@ class MappingPipeline(object):
         if len(errors) > 0:
             raise PipelineError("Failed to initialize neccessary parameters:\n\n%s" % ("\n".join(errors)))
 
+    def log_parameter(self):
+        """Print selected parameters"""
+        printer = logging.gemtools.gt
+
+        printer("------------ Input Parameter ------------")
+        printer("Input File(s)    : %s", self.input)
+        printer("Index            : %s", self.index)
+        printer("Annotation       : %s", self.annotation)
+        printer("Transcript Index : %s", self.transcript_index)
+        printer("")
+        printer("Compress output  : %s", self.compress)
+        printer("Create BAM       : %s", self.bam_create)
+        printer("Sort BAM         : %s", self.bam_sort)
+        printer("Keep Temporary   : %s", not self.remove_temp)
+        printer("")
+        printer("------------ Pipeline Steps  ------------")
+        for i, s in enumerate(self.steps):
+            printer("%-2d - %20s : %s", i, s.name, s.description)
+
+        for i, s in enumerate(self.steps):
+            printer("")
+            printer("------------ {:^20} ------------".format(s.name))
+            for k, v in s.configuration.items():
+                printer("%25s : %s", k, str(v))
+
+        exit(1)
+
     def run(self):
         error = False
         # check final steps
@@ -728,36 +745,36 @@ class MappingPipeline(object):
                 final_files.extend(step.files())
                 all_done = all_done & step.is_done()
         if all_done:
-            logging.gemtools.warning("The following files already exist. Nothing to be run!\n\n%s\n" % ("\n".join(final_files)))
+            logging.gemtools.gemtools.warning("The following files already exist. Nothing to be run!\n\n%s\n" % ("\n".join(final_files)))
             return
 
         time = Timer()
         for step in self.steps:
             if not step.is_done():
                 try:
-                    logging.info("Running pipeline step: %s" % (step.name))
+                    logging.gemtools.info("Running pipeline step: %s" % (step.name))
                     t = Timer()
                     step.run()
                     t.stop(step.name + " completed in %s")
                 except KeyboardInterrupt:
-                    logging.warning("Job step canceled, forcing cleanup!")
+                    logging.gemtools.warning("Job step canceled, forcing cleanup!")
                     error = True
                     step.cleanup(force=True)
                     break
                 except PipelineError, e:
-                    logging.error("Error while executing step %s : %s" % (step.name, str(e)))
+                    logging.gemtools.error("Error while executing step %s : %s" % (step.name, str(e)))
                     error = True
                     break
                 except Exception, e:
                     traceback.print_exc()
-                    logging.error("Error while executing step %s : %s" % (step.name, str(e)))
+                    logging.gemtools.error("Error while executing step %s : %s" % (step.name, str(e)))
                     error = True
                     break
             else:
-                logging.warning("Skipping step %s" % (step.name))
+                logging.gemtools.warning("Skipping step %s" % (step.name))
         # do celanup if not in error state
         if not error:
-            logging.debug("Cleanup after run")
+            logging.gemtools.debug("Cleanup after run")
             for step in self.steps:
                 step.cleanup()
         time.stop("Completed in %s")
@@ -793,20 +810,20 @@ class MappingPipeline(object):
         out = None
         junctions = None
         if os.path.exists(gtf_junctions):
-            logging.info("Loading existing junctions from %s" % (gtf_junctions))
+            logging.gemtools.info("Loading existing junctions from %s" % (gtf_junctions))
             out = gtf_junctions
             junctions = set(gem.junctions.from_junctions(gtf_junctions))
         else:
             out = self.create_file_name("gtf", file_suffix="junctions")
             if os.path.exists(out):
-                logging.info("Loading existing junctions from %s" % (out))
+                logging.gemtools.info("Loading existing junctions from %s" % (out))
                 junctions = set(gem.junctions.from_junctions(out))
             else:
-                logging.info("Extracting junctions from %s" % (self.annotation))
+                logging.gemtools.info("Extracting junctions from %s" % (self.annotation))
                 junctions = set(gem.junctions.from_gtf(self.annotation))
                 gem.junctions.write_junctions(junctions, out, self.index)
 
-        logging.info("%d Junctions from GTF" % (len(junctions)))
+        logging.gemtools.info("%d Junctions from GTF" % (len(junctions)))
         timer.stop("GTF-Junctions prepared in %s")
         return (junctions, out)
 

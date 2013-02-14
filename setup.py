@@ -1,6 +1,16 @@
 from distribute_setup import use_setuptools
 use_setuptools()
 
+#
+# make sur ewe use gcc on mac os x
+# for openmp support
+#
+import platform
+if platform.system() == "Darwin":
+    from distutils import sysconfig
+    sysconfig._config_vars['CC'] = "gcc"
+    sysconfig._config_vars['LDSHARED'] = "gcc -Wl,-F. -bundle -undefined dynamic_lookup"
+
 import os
 import sys
 from setuptools import setup, Command
