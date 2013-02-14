@@ -19,12 +19,12 @@ import multiprocessing as mp
 
 LOG_NOTHING = 1
 LOG_STDERR = 2
-
+LOG_FORMAT = '%(asctime)-15s %(levelname)s: %(message)s'
 # add custom log level
-LOG_GEMTOOLS = logging.INFO + 9
+LOG_GEMTOOLS = logging.WARNING
 logging.addLevelName(LOG_GEMTOOLS, "")
-logging.basicConfig(format='%(asctime)-15s %(levelname)s: %(message)s', level=logging.WARNING)
-gemtools_logger = logging.getLogger("GEMTOOLS")
+logging.basicConfig(format=LOG_FORMAT, level=logging.WARNING)
+gemtools_logger = logging.getLogger("gemtools")
 gemtools_logger.propagate = 0
 gemtools_logger.setLevel(LOG_GEMTOOLS)
 
@@ -34,16 +34,32 @@ def log_gemtools(message, *args, **kws):
 gemtools_logger.gt = log_gemtools
 
 logging.gemtools = gemtools_logger
-gemtools_formatter = logging.Formatter('%(levelname)s: %(message)s')
-console = logging.StreamHandler()
 
+
+class GemtoolsFormatter(logging.Formatter):
+    info_fmt = "%(message)s"
+
+    def __init__(self, fmt="%(levelno)s: %(msg)s"):
+        logging.Formatter.__init__(self, fmt)
+
+    def format(self, record):
+        format_orig = self._fmt
+        if record.levelno == LOG_GEMTOOLS:
+            self._fmt = GemtoolsFormatter.info_fmt
+        result = logging.Formatter.format(self, record)
+        self._fmt = format_orig
+        return result
+
+gemtools_formatter = GemtoolsFormatter('%(levelname)s: %(message)s')
+console = logging.StreamHandler()
 console.setLevel(logging.DEBUG)
 console.setFormatter(gemtools_formatter)
 gemtools_logger.addHandler(console)
+logging.gemtools.level = logging.WARNING
 
 # default logger configuration
 log_output = LOG_NOTHING
-gemtools_logger.info("asadsasd")
+
 
 default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
 extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
@@ -127,6 +143,7 @@ def loglevel(level):
 
     logging.basicConfig(level=numeric_level)
     logging.getLogger().setLevel(numeric_level)
+    logging.gemtools.level = numeric_level
 
 
 def _prepare_index_parameter(index, gem_suffix=True):

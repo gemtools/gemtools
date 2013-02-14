@@ -189,7 +189,7 @@ class RnaPipeline(Command):
         mapping_group.add_argument('--max-decoded-matches', dest="genome_max_decoded_matches", metavar="mdm",
             default=None, help='Maximum decoded matches. Default 20')
         mapping_group.add_argument('--min-decoded-strata', dest="genome_min_decoded_strata", metavar="mds",
-            default=None, help='Minimum decoded strata. Default to 1')
+            default=None, help='Minimum decoded strata. Default to 2')
         mapping_group.add_argument('--min-matched-bases', dest="genome_min_matched_bases", metavar="mmb",
             default=None, help='Minimum ratio of bases that must be matched. Default 0.8')
         mapping_group.add_argument('--max-big-indel-length', dest="genome_max_big_indel_length", metavar="mbi",
@@ -210,7 +210,7 @@ class RnaPipeline(Command):
         transcript_mapping_group.add_argument('--transcript-max-decoded-matches', dest="transcript_max_decoded_matches", metavar="mdm",
             default=None, help='Maximum decoded matches. Default 20')
         transcript_mapping_group.add_argument('--transcript-min-decoded-strata', dest="transcript_min_decoded_strata", metavar="mds",
-            default=None, help='Minimum decoded strata. Default to 1')
+            default=None, help='Minimum decoded strata. Default to 2')
         transcript_mapping_group.add_argument('--transcript-min-matched-bases', dest="transcript_min_matched_bases", metavar="mmb",
             default=None, help='Minimum ratio of bases that must be matched. Default 0.8')
         transcript_mapping_group.add_argument('--transcript-max-big-indel-length', dest="transcript_max_big_indel_length", metavar="mbi",
@@ -252,7 +252,7 @@ class RnaPipeline(Command):
         pairing_group.add_argument('--pairing-max-decoded-matches', dest="pairing_max_decoded_matches", metavar="pdm",
             default=None, help='Maximum decoded matches. Default 20')
         pairing_group.add_argument('--pairing-min-decoded-strata', dest="pairing_min_decoded_strata", metavar="pds",
-            default=None, help='Minimum decoded strata. Default to 1')
+            default=None, help='Minimum decoded strata. Default to 2')
         pairing_group.add_argument('--pairing-min-insert-size', dest="pairing_min_insert_size", metavar="is",
             default=None, help='Minimum insert size allowed for pairing. Default 0')
         pairing_group.add_argument('--pairing-max-insert-size', dest="pairing_max_insert_size", metavar="is",
@@ -267,27 +267,29 @@ class RnaPipeline(Command):
 
         ## initialize pipeline and check values
         try:
+            logging.gemtools.info("Initializing parameter")
             pipeline.initialize()
         except PipelineError, e:
-            sys.stderr.write("\n" + e.message + "\n")
+            sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
 
         # define pipeline steps
-        map_initial = pipeline.map(name="initial")
-        map_gtf = pipeline.transcripts_annotation(name="annotation_mapping")
-        map_denovo = pipeline.transcripts_denovo(name="denovo_mapping")
+        map_initial = pipeline.map(name="initial", description="Map to index")
+        map_gtf = pipeline.transcripts_annotation(name="annotation_mapping", description="Map to transcript-index")
+        map_denovo = pipeline.transcripts_denovo(name="denovo_mapping", description="Map to denovo transcript-index")
         merged = pipeline.merge(name="merge", dependencies=[map_initial, map_gtf, map_denovo], final=pipeline.single_end)
         last = merged
 
         if not pipeline.single_end:
-            paired = pipeline.pair(name="pair", dependencies=[merged], final=True)
+            paired = pipeline.pair(name="pair", dependencies=[merged], final=True, description="Pair alignments")
             last = paired
 
         if pipeline.bam_create:
             pipeline.bam(name="bam", dependencies=[last], final=True)
 
+        pipeline.log_parameter()
         try:
             pipeline.run()
         except PipelineError, e:
-            sys.stderr.write("\n" + e.message + "\n")
+            sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
