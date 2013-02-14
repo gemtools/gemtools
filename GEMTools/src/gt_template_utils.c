@@ -223,9 +223,9 @@ GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,uint64_t *gt_e
     block[1]=map_it;
     length[1]+=gt_map_get_base_length(block[1]);
   } GT_END_MAP_BLOCKS_ITERATOR;
-  if(gt_string_equals(block[0]->seq_name,block[1]->seq_name)) {
-    if(block[0]->strand!=block[1]->strand) {
-      if(block[0]->strand==FORWARD) x=1+block[1]->position+length[1]-(block[0]->position+length[0]-gt_map_get_base_length(block[0]));
+  if (gt_string_equals(block[0]->seq_name,block[1]->seq_name)) {
+    if (block[0]->strand!=block[1]->strand) {
+      if (block[0]->strand==FORWARD) x=1+block[1]->position+length[1]-(block[0]->position+length[0]-gt_map_get_base_length(block[0]));
       else x=1+block[0]->position+length[0]-(block[1]->position+length[1]-gt_map_get_base_length(block[1]));
     } else {
       *gt_error=GT_TEMPLATE_INSERT_SIZE_SAME_STRAND;

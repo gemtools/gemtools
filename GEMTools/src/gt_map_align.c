@@ -191,9 +191,11 @@ GT_INLINE gt_status gt_map_realign_levenshtein_sa(
       gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
       pattern_length,extra_length,sequence))) return error_code;
   // Realign Levenshtein
-  return gt_map_realign_levenshtein(map,
+  error_code = gt_map_realign_levenshtein(map,
       gt_string_get_string(pattern),pattern_length,
       gt_string_get_string(sequence),gt_string_get_length(sequence));
+  gt_string_delete(sequence); // Free
+  return error_code;
 }
 GT_INLINE gt_status gt_map_realign_weighted(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,

@@ -69,9 +69,12 @@ GT_INLINE void gt_template_delete(gt_template* const template) {
  * Accessors
  */
 GT_INLINE int64_t gt_template_get_pair(gt_template* const template){
-  return *gt_shash_get(template->attributes, GT_TAG_PAIR, int64_t);
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_pair(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  return *gt_shash_get(template->attributes,GT_TAG_PAIR,int64_t);
 }
-
 GT_INLINE char* gt_template_get_tag(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {

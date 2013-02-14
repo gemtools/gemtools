@@ -25,12 +25,16 @@ typedef struct {
   bool make_counters;
   bool realign_hamming;
   bool realign_levenshtein;
+  /* Hidden */
+  bool error_plot;
+  bool insert_size_plot;
   /* Misc */
   uint64_t num_threads;
   bool verbose;
 } gt_stats_args;
 
 gt_stats_args parameters = {
+    /* I/O */
     .name_input_file=NULL,
     .name_output_file=NULL,
     .name_reference_file=NULL,
@@ -43,6 +47,9 @@ gt_stats_args parameters = {
     .make_counters=false,
     .realign_hamming=false,
     .realign_levenshtein=false,
+    /* Hidden */
+    .error_plot = false,
+    .insert_size_plot = false,
     /* Misc */
     .num_threads=1,
     .verbose=false,
@@ -102,12 +109,12 @@ void gt_filter_read__write() {
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
   {
+    gt_status error_code;
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
     gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
     gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
-    gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
-    gt_status error_code;
     gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
+    gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
 
     // Limit max-matches
     generic_parser_attr.map_parser_attr.max_parsed_maps = parameters.max_matches;
@@ -118,26 +125,44 @@ void gt_filter_read__write() {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       }
 
-      // First realign
-      if (parameters.realign_levenshtein) {
-        gt_template_realign_levenshtein(template,sequence_archive);
-      } else if (parameters.realign_hamming) {
-        gt_template_realign_hamming(template,sequence_archive);
-      }
+      // Hidden options (aborts the rest)
+      if (parameters.error_plot || parameters.insert_size_plot) {
 
-      // Pick up best-map || erase splitmaps
-      if (parameters.best_map || parameters.no_split_maps) {
-        gt_template *template_best = gt_template_copy(template,false,false);
-        gt_template_filter(template_best,template);
-      }
+        if (parameters.error_plot) {
+          GT_TEMPLATE_ITERATE_(template,mmap) {
+            fprintf(stdout,"%lu\n",gt_map_get_global_levenshtein_distance(*mmap));
+          }
+        } else if (parameters.insert_size_plot && gt_template_get_num_blocks(template)>1) {
+          GT_TEMPLATE_ITERATE_(template,mmap) {
+            uint64_t error_code;
+            fprintf(stdout,"%lu\n",gt_template_get_insert_size(mmap,&error_code));
+          }
+        }
 
-      // Make counters
-      if (parameters.make_counters) {
-        gt_template_recalculate_counters(template);
-      }
+      } else {
 
-      // Print template
-      gt_output_map_bofprint_template(buffered_output,template,output_attributes);
+        // First realign
+        if (parameters.realign_levenshtein) {
+          gt_template_realign_levenshtein(template,sequence_archive);
+        } else if (parameters.realign_hamming) {
+          gt_template_realign_hamming(template,sequence_archive);
+        }
+
+        // Pick up best-map || erase splitmaps
+        if (parameters.best_map || parameters.no_split_maps) {
+          gt_template *template_best = gt_template_copy(template,false,false);
+          gt_template_filter(template_best,template);
+        }
+
+        // Make counters
+        if (parameters.make_counters) {
+          gt_template_recalculate_counters(template);
+        }
+
+        // Print template
+        gt_output_map_bofprint_template(buffered_output,template,&output_attributes);
+
+      }
     }
 
     // Clean
@@ -187,6 +212,9 @@ void parse_arguments(int argc,char** argv) {
     { "make-counters", no_argument, 0, 5 },
     { "hamming-realign", no_argument, 0, 6 },
     { "levenshtein-realign", no_argument, 0, 7 },
+    /* Hidden */
+    { "error-plot", no_argument, 0, 20 },
+    { "insert-size-plot", no_argument, 0, 21 },
     /* Misc */
     { "threads", required_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
@@ -231,6 +259,13 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 7:
       parameters.realign_levenshtein = true;
+      break;
+    /* Hidden */
+    case 20:
+      parameters.error_plot = true;
+      break;
+    case 21:
+      parameters.insert_size_plot = true;
       break;
     /* Misc */
     case 't':

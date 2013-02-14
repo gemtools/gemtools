@@ -170,6 +170,11 @@ GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bo
   GT_ALIGNMENT_CHECK(alignment);
   gt_attribute_set(alignment->attributes,GT_ATTR_NOT_UNIQUE,&is_not_unique,bool);
 }
+GT_INLINE int64_t gt_alignment_get_pair(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return *((int64_t*)gt_attribute_get(alignment->attributes,GT_TAG_PAIR));
+}
+
 
 /*
  * Maps Handlers

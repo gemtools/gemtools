@@ -101,5 +101,6 @@ GT_INLINE void gt_alignment_realign_weighted(
 /*
  * Alignment trimming
  */
-GT_INLINE void gt_alignment_trim(gt_alignment* const alignment, uint64_t const left, uint64_t const right, uint64_t const min_length, bool const set_extra);
+GT_INLINE void gt_alignment_trim(gt_alignment* const alignment,uint64_t const left,uint64_t const right,uint64_t const min_length,bool const set_extra);
+
 #endif /* GT_ALIGNMENT_UTILS_H_ */

@@ -11,6 +11,7 @@
 
 #include "gt_commons.h"
 #include "gt_map.h"
+#include "gt_input_parser.h"
 #include "gt_data_attributes.h"
 
 // Alignment itself
@@ -112,6 +113,7 @@ GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,uint64_t max_complete_strata);
 GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique);
 GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment);
+GT_INLINE int64_t gt_alignment_get_pair(gt_alignment* const alignment);
 
 /*
  * Maps Handlers

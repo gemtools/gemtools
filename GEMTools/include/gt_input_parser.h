@@ -17,6 +17,11 @@
 #define GT_TAG_CASAVA "casava"
 #define GT_TAG_EXTRA "extra"
 
+#define GT_PAIR_SE 0
+#define GT_PAIR_BOTH 3
+#define GT_PAIR_PE_1 1
+#define GT_PAIR_PE_2 2
+
 /*
  * Generic tag parser
  */

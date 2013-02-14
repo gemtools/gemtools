@@ -78,7 +78,7 @@ extern FILE* gt_error_stream;
   do { \
   register FILE* const error_stream=gt_error_get_stream(); \
   fprintf(error_stream, \
-    "Fatal error (%s:%d,%s)\n "gt_error_msg"\n", \
+    "Error (%s:%d,%s)\n "gt_error_msg"\n", \
      GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
   fflush(error_stream); \
   } while (0)
@@ -89,8 +89,13 @@ extern FILE* gt_error_stream;
   _gt_error_begin_block(gt_error_name,##args) \
   _gt_error_end_block__exit(1)
 #define gt_error(gt_error_name,args...) \
-  _gt_error_begin_block(gt_error_name,##args) \
-  _gt_error_end_block()
+  do { \
+    register FILE* const error_stream=gt_error_get_stream(); \
+    fprintf(error_stream, \
+      "Fatal error (%s:%d,%s)\n "GT_ERROR_##gt_error_name"\n", \
+       GT_ERROR_BASENAME(__FILE__),__LINE__,__func__,##args); \
+    fflush(error_stream); \
+  } while (0)
 /*
  * Exception handlers (conditional error handlers)
  */
@@ -197,7 +202,7 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_CDNA_IT_OUT_OF_RANGE "Error seeking sequence. Index %"PRIu64" out out range [0,%"PRIu64")"
 #define GT_ERROR_SEQ_ARCHIVE_NOT_FOUND "Sequence '%s' not found in reference archive"
 #define GT_ERROR_SEQ_ARCHIVE_POS_OUT_OF_RANGE "Requested position '%"PRIu64"' out of sequence boundaries"
-#define GT_ERROR_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE "Requested sequence string [%"PRIu64",%"PRIu64") out of sequence boundaries"
+#define GT_ERROR_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE "Requested sequence string [%"PRIu64",%"PRIu64") out of sequence '%s' boundaries"
 
 /*
  * Parsing FASTQ File format errors

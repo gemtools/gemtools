@@ -577,6 +577,8 @@ void gt_load_reference__dump_it() {
   }
   fprintf(stderr,"\n");
 
+  // TEST 1
+
 //  // Dump the content of the reference file
 //  gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
 //  while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
@@ -588,19 +590,21 @@ void gt_load_reference__dump_it() {
 //    if (seq->sequence_total_length) fprintf(stderr,"\n");
 //  }
 
-  // Dump the content of the reference file (using Iterators)
-  gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
-  while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
-    fprintf(stderr,">%s\n",seq->seq_name->buffer);
-    gt_segmented_sequence_iterator sequence_iterator;
-    gt_segmented_sequence_new_iterator(seq,0,GT_ST_FORWARD,&sequence_iterator);
-    if (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
-      while (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
-        fprintf(stderr,"%c",gt_segmented_sequence_iterator_next(&sequence_iterator));
-      }
-      fprintf(stderr,"\n");
-    }
-  }
+  // TEST 2
+
+//  // Dump the content of the reference file (using Iterators)
+//  gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
+//  while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
+//    fprintf(stderr,">%s\n",seq->seq_name->buffer);
+//    gt_segmented_sequence_iterator sequence_iterator;
+//    gt_segmented_sequence_new_iterator(seq,0,GT_ST_FORWARD,&sequence_iterator);
+//    if (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
+//      while (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
+//        fprintf(stderr,"%c",gt_segmented_sequence_iterator_next(&sequence_iterator));
+//      }
+//      fprintf(stderr,"\n");
+//    }
+//  }
 
   // Freedom !!
   gt_sequence_archive_delete(sequence_archive);
@@ -714,7 +718,7 @@ int main(int argc,char** argv) {
   //gt_dummy_example();
 
   //gt_filter_fastq();
-  gt_debug_mem_leak();
+  gt_load_reference__dump_it();
 
   return 0;
 }

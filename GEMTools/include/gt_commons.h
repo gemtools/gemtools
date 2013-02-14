@@ -9,6 +9,14 @@
 #ifndef GT_COMMONS_H_
 #define GT_COMMONS_H_
 
+/*
+ * SETUP
+ */
+#define _GNU_SOURCE
+
+/*
+ * GENERAL HEADERS
+ */
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -34,6 +42,10 @@
 #include <assert.h>
 
 #include <pthread.h>
+
+/*
+ * COMMONS
+ */
 
 // Data constants
 #define UINT64_ZEROS 0x0000000000000000ul

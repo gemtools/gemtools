@@ -110,7 +110,7 @@ GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
   if (total_length >= sequence_total_length) total_length = seg_seq->sequence_total_length-1;
   // Get the actual chunk
   if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string))) {
-    gt_error(SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE,init_position,init_position+total_length);
+    gt_error(SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE,init_position,init_position+total_length,seq_id);
     return GT_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE;
   }
   // RC (if needed)
