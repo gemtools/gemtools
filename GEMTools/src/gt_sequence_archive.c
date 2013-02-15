@@ -217,8 +217,8 @@ GT_INLINE void gt_segmented_sequence_clear(gt_segmented_sequence* const sequence
 }
 GT_INLINE void gt_segmented_sequence_delete(gt_segmented_sequence* const sequence) {
   GT_SEGMENTED_SEQ_CHECK(sequence);
-  GT_VECTOR_ITERATE(sequence->blocks,block,block_num,uint64_t*) {
-    if (*block) free(*block);
+  GT_VECTOR_ITERATE(sequence->blocks,block,block_num,gt_compact_dna_string*) {
+    if (*block) gt_cdna_string_delete(*block);
   }
   gt_vector_delete(sequence->blocks);
   gt_string_delete(sequence->seq_name);

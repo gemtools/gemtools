@@ -78,7 +78,6 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
                 buffered_input_master,template_master,&generic_parser_attr)));
     return GT_IMP_EOF;
   }
-
   // Synch loop
   while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
     // Print non correlative master's template
@@ -174,13 +173,13 @@ void parse_arguments(int argc,char** argv) {
     parameters.operation = GT_MAP_SET_DIFFERENCE;
   } else {
     if (argv[1][0]=='I' || argv[1][0]=='i') {
-      fprintf(stderr,"\tAssuming 'Intersection' ...");
+      fprintf(stderr,"\tAssuming 'Intersection' ...\n");
       parameters.operation = GT_MAP_SET_INTERSECTION;
     } else if (argv[1][0]=='U' || argv[1][0]=='u') {
-      fprintf(stderr,"\tAssuming 'Union' ...");
+      fprintf(stderr,"\tAssuming 'Union' ...\n");
       parameters.operation = GT_MAP_SET_UNION;
     } else if (argv[1][0]=='D' || argv[1][0]=='d') {
-      fprintf(stderr,"\tAssuming 'Difference' ...");
+      fprintf(stderr,"\tAssuming 'Difference' ...\n");
       parameters.operation = GT_MAP_SET_DIFFERENCE;
     } else {
       gt_fatal_error_msg("Unknown operation '%s'\n",argv[1]);

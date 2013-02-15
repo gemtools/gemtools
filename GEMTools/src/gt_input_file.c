@@ -252,9 +252,10 @@ GT_INLINE size_t gt_input_file_next_record(
       GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL &&
       GT_INPUT_FILE_CURRENT_CHAR(input_file)!=DOS_EOL)) {
     if (current_pfield==0) {
-      ++length_first_field;
       if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==TAB)) {
         ++current_pfield; ++(*num_tabs);
+      } else {
+        ++length_first_field;
       }
     } else if (current_pfield==1) {
       if (gt_expect_false(GT_INPUT_FILE_CURRENT_CHAR(input_file)==SPACE)) {

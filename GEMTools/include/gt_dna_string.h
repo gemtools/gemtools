@@ -70,12 +70,11 @@ GT_INLINE bool gt_dna_string_is_dna_string(gt_dna_string* const dna_string);
 GT_INLINE char gt_dna_string_get_char_at(gt_dna_string* const dna_string,const uint64_t pos); // TODO
 GT_INLINE void gt_dna_string_set_char_at(gt_dna_string* const dna_string,const uint64_t pos,const char character); // TODO
 
-#define gt_dna_string_set_string gt_string_set_string /* TODO */
-#define gt_dna_string_set_nstring gt_string_set_nstring /* TODO */
 #define gt_dna_string_get_string gt_string_get_string
 #define gt_dna_string_get_length gt_string_get_length
 
-#define gt_dna_string_append_string gt_string_append_string /* TODO */
+GT_INLINE void gt_dna_string_set_string(gt_dna_string* const dna_string,char* const dna_string_src);
+GT_INLINE void gt_dna_string_set_nstring(gt_dna_string* const dna_string,char* const dna_string_src,const uint64_t length);
 
 GT_INLINE void gt_dna_string_reverse_complement(gt_dna_string* const dna_string);
 GT_INLINE void gt_dna_string_reverse_complement_copy(gt_dna_string* const dna_string_dst,gt_dna_string* const dna_string_src);

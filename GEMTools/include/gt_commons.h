@@ -12,7 +12,7 @@
 /*
  * SETUP
  */
-#define _GNU_SOURCE
+#define _GNU_SOURCE 1
 
 /*
  * GENERAL HEADERS

@@ -93,7 +93,7 @@ void gt_filter_read__write() {
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
   // Open reference file
-  register gt_sequence_archive* sequence_archive;
+  register gt_sequence_archive* sequence_archive = NULL;
   if (parameters.name_reference_file!=NULL && (parameters.realign_hamming || parameters.realign_levenshtein)) {
     sequence_archive = gt_sequence_archive_new();
     register gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
@@ -127,20 +127,27 @@ void gt_filter_read__write() {
 
       // Hidden options (aborts the rest)
       if (parameters.error_plot || parameters.insert_size_plot) {
-
         if (parameters.error_plot) {
-          GT_TEMPLATE_ITERATE_(template,mmap) {
-            fprintf(stdout,"%lu\n",gt_map_get_global_levenshtein_distance(*mmap));
+          if (parameters.best_map)  {
+            uint64_t best_distance = UINT64_MAX;
+            GT_TEMPLATE_ITERATE_(template,mmap) {
+              register const uint64_t dist = gt_map_get_global_levenshtein_distance(*mmap);
+              if (dist < best_distance) best_distance = dist;
+            }
+            if (best_distance < UINT64_MAX) fprintf(stdout,"%lu\n",best_distance);
+          } else {
+            GT_TEMPLATE_ITERATE_(template,mmap) {
+              fprintf(stdout,"%lu\n",gt_map_get_global_levenshtein_distance(*mmap));
+            }
           }
         } else if (parameters.insert_size_plot && gt_template_get_num_blocks(template)>1) {
+          uint64_t error_code;
           GT_TEMPLATE_ITERATE_(template,mmap) {
-            uint64_t error_code;
             fprintf(stdout,"%lu\n",gt_template_get_insert_size(mmap,&error_code));
+            if (parameters.best_map) break;
           }
         }
-
       } else {
-
         // First realign
         if (parameters.realign_levenshtein) {
           gt_template_realign_levenshtein(template,sequence_archive);
@@ -161,7 +168,6 @@ void gt_filter_read__write() {
 
         // Print template
         gt_output_map_bofprint_template(buffered_output,template,&output_attributes);
-
       }
     }
 
@@ -169,6 +175,7 @@ void gt_filter_read__write() {
     gt_template_delete(template);
     gt_buffered_input_file_close(buffered_input);
     gt_buffered_output_file_close(buffered_output);
+    if (sequence_archive != NULL) gt_sequence_archive_delete(sequence_archive);
   }
 
   // Clean
