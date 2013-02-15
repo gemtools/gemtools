@@ -187,14 +187,20 @@ GT_INLINE gt_status gt_input_map_parser_get_template_g(
 GT_INLINE gt_status gt_input_map_parser_get_alignment_g(
     gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_map_parser_attr* const map_parser_attr);
 
+/*
+ * Synch read of blocks
+ */
 GT_INLINE gt_status gt_input_map_parser_synch_blocks(
-    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,pthread_mutex_t* const input_mutex);
+    gt_buffered_input_file* const buffered_input1,gt_buffered_input_file* const buffered_input2,pthread_mutex_t* const input_mutex);
+GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
+    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    uint64_t num_inputs,gt_buffered_input_file* const buffered_input,va_list v_args);
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
     pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
-    const uint64_t num_map_inputs,gt_buffered_input_file* const buffered_map_input,...);
+    const uint64_t num_inputs,gt_buffered_input_file* const buffered_input,...);
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_a(
-    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_map_input,
-    const uint64_t total_files,gt_map_parser_attr* const map_parser_attr);
+    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_input,
+    const uint64_t num_inputs,gt_map_parser_attr* const map_parser_attr);
 
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
     pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,

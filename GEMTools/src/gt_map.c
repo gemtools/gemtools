@@ -367,9 +367,40 @@ GT_INLINE uint64_t gt_map_vector_get_score(gt_vector* const maps) {
 /*
  * Map compare functions
  */
+GT_INLINE int64_t gt_map_sm_cmp(gt_map* const map_1,gt_map* const map_2) {
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
+  register const int64_t end_distance = ((int64_t)gt_map_get_end_position(map_1)) - (int64_t)(gt_map_get_end_position(map_2));
+  if (begin_distance==0 && end_distance==0) {
+    if (map_1->next_block==NULL && map_2->next_block==NULL) return 0;
+    if (map_1->next_block!=NULL && map_2->next_block!=NULL) return gt_map_sm_cmp(map_1->next_block->map,map_2->next_block->map);
+    return 1;
+  } else {
+    return 1;
+  }
+}
 GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
-  return gt_map_range_cmp(map_1,map_2,0);
+  register int64_t cmp_tags = gt_string_cmp(map_1->seq_name,map_2->seq_name);
+  if (cmp_tags!=0) {
+    return cmp_tags;
+  } else {
+    if (map_1->strand==map_2->strand) {
+      if (map_1->next_block==NULL && map_2->next_block==NULL) {
+        register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
+        if (begin_distance==0) return 0;
+        register const int64_t end_distance = ((int64_t)gt_map_get_end_position(map_1)) - (int64_t)(gt_map_get_end_position(map_2));
+        if (end_distance==0) return 0;
+        return 1;
+      } else if (map_1->next_block!=NULL && map_2->next_block!=NULL) {
+        return gt_map_sm_cmp(map_1,map_2);
+      } else {
+        return 1;
+      }
+    } else {
+      return 1;
+    }
+  }
 }
 GT_INLINE int64_t gt_map_cmp_strict(gt_map* const map_1,gt_map* const map_2) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
@@ -388,35 +419,43 @@ GT_INLINE int64_t gt_map_cmp_true(gt_map* const map_1,gt_map* const map_2) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   return 0;
 }
-#define GT_MAP_RANGE_CMP_NEXT_MAPS(map_1,map_2,range_tolerated) \
-  if (map_1->next_block==NULL && map_2->next_block!=NULL) return INT64_MAX; \
-  if (map_1->next_block!=NULL && map_2->next_block==NULL) return INT64_MIN; \
-  if (map_1->next_block==NULL && map_2->next_block==NULL) return 0; \
-  return gt_map_range_cmp(map_1->next_block->map,map_2->next_block->map,range_tolerated)
+GT_INLINE int64_t gt_map_range_sm_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated,const uint64_t num_maps_left) {
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
+  register const int64_t end_distance = ((int64_t)gt_map_get_end_position(map_1)) - (int64_t)(gt_map_get_end_position(map_2));
+  if (GT_ABS(begin_distance)<=range_tolerated && GT_ABS(end_distance)<=range_tolerated) {
+    return (num_maps_left==1) ? 0 : gt_map_range_sm_cmp(map_1->next_block->map,map_2->next_block->map,range_tolerated,num_maps_left-1);
+  } else {
+    return GT_ABS(begin_distance)+GT_ABS(end_distance);
+  }
+}
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   register int64_t cmp_tags = gt_string_cmp(map_1->seq_name,map_2->seq_name);
   if (cmp_tags!=0) {
     return cmp_tags;
   } else {
-    if (map_1->strand==map_2->strand) { // TODO: Should take into account new/old format trim-based position offset
-      // Cmp BEGIN position
-      register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
-      if (GT_ABS(begin_distance)<=range_tolerated) {
-        GT_MAP_RANGE_CMP_NEXT_MAPS(map_1,map_2,range_tolerated);
+    if (map_1->strand==map_2->strand) {
+      register const uint64_t num_blocks_map_1 = gt_map_get_num_blocks(map_1);
+      register const uint64_t num_blocks_map_2 = gt_map_get_num_blocks(map_2);
+      if (num_blocks_map_1==num_blocks_map_2) {
+        if (num_blocks_map_1==1) { // Standard Mapping
+          register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
+          if (GT_ABS(begin_distance)<=range_tolerated) return 0;
+          register const int64_t end_distance = ((int64_t)gt_map_get_end_position(map_1)) - (int64_t)(gt_map_get_end_position(map_2));
+          if (GT_ABS(end_distance)<=range_tolerated) return 0;
+          return GT_ABS(begin_distance)+GT_ABS(end_distance);
+        } else { // Split Maps Involved
+          return gt_map_range_sm_cmp(map_1,map_2,range_tolerated,num_blocks_map_1);
+        }
+      } else {
+        // Different splits
+        return (num_blocks_map_1-num_blocks_map_2);
       }
-      // Cmp END position
-      register const int64_t end_distance = ((int64_t)gt_map_get_end_position(map_1)) - (int64_t)(gt_map_get_end_position(map_2));
-      if (GT_ABS(end_distance)<=range_tolerated) {
-        GT_MAP_RANGE_CMP_NEXT_MAPS(map_1,map_2,range_tolerated);
-      }
-      // Maps are different, return the one that begins first
-      return begin_distance;
     } else {
       return map_1->strand==FORWARD ? 1 : -1;
     }
   }
-
 }
 GT_INLINE int64_t gt_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps) {
   GT_NULL_CHECK(map_1); GT_NULL_CHECK(map_2);

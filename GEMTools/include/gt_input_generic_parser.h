@@ -51,5 +51,17 @@ GT_INLINE gt_status gt_input_generic_parser_get_alignment(
 GT_INLINE gt_status gt_input_generic_parser_get_template(
     gt_buffered_input_file* const buffered_input,gt_template* const template,gt_generic_parser_attr* const attributes);
 
+/*
+ * Synch read of blocks
+ */
+GT_INLINE gt_status gt_input_generic_parser_synch_blocks_v(
+    pthread_mutex_t* const input_mutex,gt_generic_parser_attr* const attributes,uint64_t num_inputs,
+    gt_buffered_input_file* const buffered_input,va_list v_args);
+GT_INLINE gt_status gt_input_generic_parser_synch_blocks_va(
+    pthread_mutex_t* const input_mutex,gt_generic_parser_attr* const attributes,
+    const uint64_t num_inputs,gt_buffered_input_file* const buffered_input,...);
+GT_INLINE gt_status gt_input_generic_parser_synch_blocks_a(
+    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_input,
+    const uint64_t num_inputs,gt_generic_parser_attr* const attributes);
 
 #endif /* GT_INPUT_GENERIC_PARSER_H_ */

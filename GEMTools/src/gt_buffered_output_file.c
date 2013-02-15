@@ -8,7 +8,7 @@
 
 #include "gt_buffered_output_file.h"
 
-#define GT_BUFFERED_OUTPUT_FILE_FORCE_DUMP_SIZE GT_BUFFER_SIZE_32M
+#define GT_BUFFERED_OUTPUT_FILE_FORCE_DUMP_SIZE GT_BUFFER_SIZE_64M
 
 /*
  * Setup
