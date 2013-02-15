@@ -73,5 +73,16 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
  */
 GT_INLINE uint64_t gt_input_fasta_tag_chomp_end_info(gt_string* const tag);
 
+/*
+ * Synch read of blocks
+ */
+GT_INLINE gt_status gt_input_fasta_parser_synch_blocks(
+    gt_buffered_input_file* const buffered_input1,gt_buffered_input_file* const buffered_input2,pthread_mutex_t* const input_mutex);
+GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_v(
+    pthread_mutex_t* const input_mutex,uint64_t num_inputs,gt_buffered_input_file* const buffered_input,va_list v_args);
+GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_va(
+    pthread_mutex_t* const input_mutex,const uint64_t num_inputs,gt_buffered_input_file* const buffered_input,...);
+GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_a(
+    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_input,const uint64_t num_inputs);
 
 #endif /* GT_INPUT_FASTA_PARSER_H_ */

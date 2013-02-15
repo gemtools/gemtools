@@ -56,27 +56,27 @@ START_TEST(gt_test_imp_string_map) // TODO
    */
   // Parse multiple old split-map
   fail_unless(gt_input_map_parse_map("[26]=chr7:R1203797~chr7:R1203108",map)!=0);
-  fail_unless(gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list,1)==0);
-  fail_unless(gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list,1)==0);
-  fail_unless(gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list,1)==0);
-  fail_unless(gt_input_map_parse_map_list("[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,1)==0);
-  fail_unless(gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list,1)==0);
+  fail_unless(gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list)==0);
+  fail_unless(gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list)==0);
+  fail_unless(gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list)==0);
+  fail_unless(gt_input_map_parse_map_list("[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list)==0);
+  fail_unless(gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list)==0);
   fail_unless(gt_input_map_parse_map_list(
       "chrM:F6598<+1>16@0/0,[23]=chr6:R31322884~chr6:R31237276,"
-      "[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list,GT_ALL)==0);
+      "[70-71]=chr1:F188862944~chr19:F[53208292-53208293]",map_list)==0);
   // Parse multiple old SE-map
-  fail_unless(gt_input_map_parse_map_list("chr1:F8926499@0/0,chr12:R7027116G39A42@77/2",map_list,GT_ALL)==0);
+  fail_unless(gt_input_map_parse_map_list("chr1:F8926499@0/0,chr12:R7027116G39A42@77/2",map_list)==0);
   // Parse multiple new SE-map
   fail_unless(gt_input_map_parse_map_list(
       "chrX:-:155255234:1T36A37,chrY:-:59358240:1T36A37:200,"
       "chr15:-:102516664:1>1-28>5+8A37,chr16:+:64108:3>1-30>1+1>4+3A37,"
-      "chr9:+:14540:3>1-34A33A2>1-",map_list,GT_ALL)==0);
+      "chr9:+:14540:3>1-34A33A2>1-",map_list)==0);
   // Parse multiple new PE-map
   fail_unless(gt_input_map_parse_map_list(
       "chr15:-:102516742:(3)3GCA67::chr15:+:102516611:76:::7936,"
       "chr16:+:64114:1>1-26>1+1>4+47::chr16:-:64196:68A6T:::12224,"
       "chr1:+:16731:(5)35>92*16(20),chrY:-:59355959:(5)6G4G24>1-3A1CA1AAA1>1-1(20),"
-      "chrX:-:155252953:(5)6G4G24>1-3A1CA1AAA1>1-1(20)",map_list,GT_ALL)==0);
+      "chrX:-:155252953:(5)6G4G24>1-3A1CA1AAA1>1-1(20)",map_list)==0);
 
   /*
    * Parsing counters

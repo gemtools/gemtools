@@ -8,8 +8,8 @@
 
 #include "gt_input_map_parser.h"
 
-#define GT_IMP_NUM_LINES          GT_NUM_LINES_20K
-#define GT_IMP_SUBSET_NUM_LINES   GT_NUM_LINES_20K
+#define GT_IMP_NUM_LINES          GT_NUM_LINES_10K
+#define GT_IMP_SUBSET_NUM_LINES   GT_NUM_LINES_10K
 #define GT_IMP_NUM_INIT_TAG_CHARS 200
 
 /*
@@ -1522,45 +1522,43 @@ GT_INLINE gt_status gt_input_map_parser_get_alignment_g(
   return gt_imp_get_alignment(buffered_map_input,alignment,map_parser_attr);
 }
 
+/*
+ * Synch read of blocks
+ */
 GT_INLINE gt_status gt_input_map_parser_synch_blocks(
-    gt_buffered_input_file* const buffered_map_input1,gt_buffered_input_file* const buffered_map_input2,pthread_mutex_t* const input_mutex) {
+    gt_buffered_input_file* const buffered_input1,gt_buffered_input_file* const buffered_input2,pthread_mutex_t* const input_mutex) {
   gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(true);
-  return gt_input_map_parser_synch_blocks_va(input_mutex,&map_parser_attr,2,buffered_map_input1,buffered_map_input2);
+  return gt_input_map_parser_synch_blocks_va(input_mutex,&map_parser_attr,2,buffered_input1,buffered_input2);
 }
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
     pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
-    uint64_t num_map_inputs,gt_buffered_input_file* const buffered_map_input,va_list v_args) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
+    uint64_t num_inputs,gt_buffered_input_file* const buffered_input,va_list v_args) {
+  GT_NULL_CHECK(input_mutex);
+  GT_NULL_CHECK(map_parser_attr);
+  GT_ZERO_CHECK(num_inputs);
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed (synch)
-  if (gt_buffered_input_file_eob(buffered_map_input)) {
-    /*
-     * Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
-     */
-    if (buffered_map_input->buffered_output_file!=NULL) {
-      gt_buffered_output_file_dump(buffered_map_input->buffered_output_file);
+  if (gt_buffered_input_file_eob(buffered_input)) {
+    // Dump buffer if BOF it attached to the input, and get new out block (always FIRST)
+    if (buffered_input->buffered_output_file!=NULL) {
+      gt_buffered_output_file_dump(buffered_input->buffered_output_file);
     }
-    /*
-     * Read synch blocks
-     */
+    // Read synch blocks & Reload all the 'buffered_input' files
     GT_BEGIN_MUTEX_SECTION(*input_mutex) {
-      // Reload main 'buffered_map_input' file
-      if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,
+      if ((error_code=gt_input_map_parser_reload_buffer(buffered_input,
           map_parser_attr->force_read_paired,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
         GT_END_MUTEX_SECTION(*input_mutex);
         return error_code;
       }
-      --num_map_inputs;
-      // Reload the rest of the 'buffered_map_input' files
-      while (num_map_inputs>0) {
-        register gt_buffered_input_file* buffered_map_input_file = va_arg(v_args,gt_buffered_input_file*);
-        GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
-        if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input_file,
+      // Reload the rest of the 'buffered_input' files
+      while ((--num_inputs)>0) {
+        register gt_buffered_input_file* remaining_buffered_input = va_arg(v_args,gt_buffered_input_file*);
+        GT_BUFFERED_INPUT_FILE_CHECK(remaining_buffered_input);
+        if ((error_code=gt_input_map_parser_reload_buffer(remaining_buffered_input,
             map_parser_attr->force_read_paired,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
           GT_END_MUTEX_SECTION(*input_mutex);
           return error_code;
         }
-        --num_map_inputs;
       }
     } GT_END_MUTEX_SECTION(*input_mutex);
   }
@@ -1568,39 +1566,39 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
 }
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
     pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
-    const uint64_t num_map_inputs,gt_buffered_input_file* const buffered_map_input,...) {
+    const uint64_t num_inputs,gt_buffered_input_file* const buffered_input,...) {
   GT_NULL_CHECK(input_mutex);
   GT_NULL_CHECK(map_parser_attr);
-  GT_ZERO_CHECK(num_map_inputs);
+  GT_ZERO_CHECK(num_inputs);
   va_list v_args;
-  va_start(v_args,buffered_map_input);
+  va_start(v_args,buffered_input);
   register gt_status error_code =
-      gt_input_map_parser_synch_blocks_v(input_mutex,map_parser_attr,num_map_inputs,buffered_map_input,v_args);
+      gt_input_map_parser_synch_blocks_v(input_mutex,map_parser_attr,num_inputs,buffered_input,v_args);
   va_end(v_args);
   return error_code;
 }
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_a(
-    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_map_input,
-    const uint64_t total_files,gt_map_parser_attr* const map_parser_attr) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input[0]);
+    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_input,
+    const uint64_t num_inputs,gt_map_parser_attr* const map_parser_attr) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input[0]);
   register gt_status error_code;
   // Check the end_of_block. Reload buffer if needed (synch)
-  if (gt_buffered_input_file_eob(buffered_map_input[0])) {
+  if (gt_buffered_input_file_eob(buffered_input[0])) {
     /*
      * Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
      */
-    if (buffered_map_input[0]->buffered_output_file!=NULL) {
-      gt_buffered_output_file_dump(buffered_map_input[0]->buffered_output_file);
+    if (buffered_input[0]->buffered_output_file!=NULL) {
+      gt_buffered_output_file_dump(buffered_input[0]->buffered_output_file);
     }
     /*
      * Read synch blocks
      */
     GT_BEGIN_MUTEX_SECTION(*input_mutex) {
       register uint64_t i;
-      for (i=0;i<total_files;++i) {
-        // Reload the 'buffered_map_input' files
-        GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input[i]);
-        if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input[i],
+      for (i=0;i<num_inputs;++i) {
+        // Reload the 'buffered_input' files
+        GT_BUFFERED_INPUT_FILE_CHECK(buffered_input[i]);
+        if ((error_code=gt_input_map_parser_reload_buffer(buffered_input[i],
             map_parser_attr->force_read_paired,GT_IMP_NUM_LINES))!=GT_IMP_OK) {
           GT_END_MUTEX_SECTION(*input_mutex);
           return error_code;

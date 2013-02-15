@@ -442,3 +442,78 @@ GT_INLINE uint64_t gt_input_fasta_tag_chomp_end_info(gt_string* const tag) {
     return UINT64_MAX;
   }
 }
+
+/*
+ * Synch read of blocks
+ */
+GT_INLINE gt_status gt_input_fasta_parser_synch_blocks(
+    gt_buffered_input_file* const buffered_input1,gt_buffered_input_file* const buffered_input2,pthread_mutex_t* const input_mutex) {
+  return gt_input_fasta_parser_synch_blocks_va(input_mutex,2,buffered_input1,buffered_input2);
+}
+GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_v(
+    pthread_mutex_t* const input_mutex,uint64_t num_inputs,gt_buffered_input_file* const buffered_input,va_list v_args) {
+  GT_NULL_CHECK(input_mutex);
+  GT_ZERO_CHECK(num_inputs);
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input);
+  register gt_status error_code;
+  // Check the end_of_block. Reload buffer if needed (synch)
+  if (gt_buffered_input_file_eob(buffered_input)) {
+    // Dump buffer if BOF it attached to the input, and get new out block (always FIRST)
+    if (buffered_input->buffered_output_file!=NULL) {
+      gt_buffered_output_file_dump(buffered_input->buffered_output_file);
+    }
+    // Read synch blocks & Reload all the 'buffered_fasta_input' files
+    GT_BEGIN_MUTEX_SECTION(*input_mutex) {
+      if ((error_code=gt_input_fasta_parser_reload_buffer(buffered_input))!=GT_IFP_OK) {
+        GT_END_MUTEX_SECTION(*input_mutex);
+        return error_code;
+      }
+      while ((--num_inputs) > 0) {
+        register gt_buffered_input_file* remaining_buffered_input = va_arg(v_args,gt_buffered_input_file*);
+        GT_BUFFERED_INPUT_FILE_CHECK(remaining_buffered_input);
+        if ((error_code=gt_input_fasta_parser_reload_buffer(remaining_buffered_input))!=GT_IFP_OK) {
+          GT_END_MUTEX_SECTION(*input_mutex);
+          return error_code;
+        }
+      }
+    } GT_END_MUTEX_SECTION(*input_mutex);
+  }
+  return GT_IFP_OK;
+}
+GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_va(
+    pthread_mutex_t* const input_mutex,const uint64_t num_inputs,gt_buffered_input_file* const buffered_input,...) {
+  GT_NULL_CHECK(input_mutex);
+  GT_ZERO_CHECK(num_inputs);
+  va_list v_args;
+  va_start(v_args,buffered_input);
+  register gt_status error_code = gt_input_fasta_parser_synch_blocks_v(input_mutex,num_inputs,buffered_input,v_args);
+  va_end(v_args);
+  return error_code;
+}
+GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_a(
+    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_input,const uint64_t num_inputs) {
+  GT_NULL_CHECK(input_mutex);
+  GT_NULL_CHECK(buffered_input);
+  GT_ZERO_CHECK(num_inputs);
+  register gt_status error_code;
+  // Check the end_of_block. Reload buffer if needed (synch)
+  if (gt_buffered_input_file_eob(buffered_input[0])) {
+    // Dump buffer if BOF it attached to the input, and get new out block (always FIRST)
+    GT_BUFFERED_INPUT_FILE_CHECK(buffered_input[0]);
+    if (buffered_input[0]->buffered_output_file!=NULL) {
+      gt_buffered_output_file_dump(buffered_input[0]->buffered_output_file);
+    }
+    // Read synch blocks & Reload all the 'buffered_input' files
+    GT_BEGIN_MUTEX_SECTION(*input_mutex) {
+      register uint64_t i;
+      for (i=0;i<num_inputs;++i) {
+        GT_BUFFERED_INPUT_FILE_CHECK(buffered_input[i]);
+        if ((error_code=gt_input_fasta_parser_reload_buffer(buffered_input[i]))!=GT_IFP_OK) {
+          GT_END_MUTEX_SECTION(*input_mutex);
+          return error_code;
+        }
+      }
+    } GT_END_MUTEX_SECTION(*input_mutex);
+  }
+  return GT_IFP_OK;
+}

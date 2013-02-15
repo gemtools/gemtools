@@ -12,7 +12,7 @@
 #include "gt_commons.h"
 #include "gt_output_buffer.h"
 
-#define GT_MAX_OUTPUT_BUFFERS 10
+#define GT_MAX_OUTPUT_BUFFERS 20
 
 typedef enum { SORTED_FILE, UNSORTED_FILE } gt_output_file_type;
 typedef struct {

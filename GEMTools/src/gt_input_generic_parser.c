@@ -89,3 +89,62 @@ GT_INLINE gt_status gt_input_generic_parser_get_template(
   }
   return error_code;
 }
+
+
+/*
+ * Synch read of blocks
+ */
+GT_INLINE gt_status gt_input_generic_parser_synch_blocks_v(
+    pthread_mutex_t* const input_mutex,gt_generic_parser_attr* const attributes,uint64_t num_inputs,
+    gt_buffered_input_file* const buffered_input,va_list v_args) {
+  gt_status error_code = GT_IGP_FAIL;
+  switch (buffered_input->input_file->file_format) {
+    case MAP:
+      return gt_input_map_parser_synch_blocks_v(input_mutex,
+          &attributes->map_parser_attr,num_inputs,buffered_input,v_args);
+      break;
+    case SAM:
+      gt_fatal_error(SELECTION_NOT_IMPLEMENTED);
+      break;
+    case FASTA:
+      return gt_input_fasta_parser_synch_blocks_v(input_mutex,num_inputs,buffered_input,v_args);
+      break;
+    default:
+      gt_fatal_error_msg("File type not supported");
+      break;
+  }
+  return error_code;
+}
+GT_INLINE gt_status gt_input_generic_parser_synch_blocks_va(
+    pthread_mutex_t* const input_mutex,gt_generic_parser_attr* const attributes,
+    const uint64_t num_inputs,gt_buffered_input_file* const buffered_input,...) {
+  GT_NULL_CHECK(input_mutex);
+  GT_NULL_CHECK(attributes);
+  GT_ZERO_CHECK(num_inputs);
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input);
+  va_list v_args;
+  va_start(v_args,buffered_input);
+  register gt_status error_code = gt_input_generic_parser_synch_blocks_v(input_mutex,attributes,num_inputs,buffered_input,v_args);
+  va_end(v_args);
+  return error_code;
+}
+GT_INLINE gt_status gt_input_generic_parser_synch_blocks_a(
+    pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_input,
+    const uint64_t num_inputs,gt_generic_parser_attr* const attributes) {
+  gt_status error_code = GT_IGP_FAIL;
+  switch (buffered_input[0]->input_file->file_format) {
+    case MAP:
+      return gt_input_map_parser_synch_blocks_a(input_mutex,buffered_input,num_inputs,&attributes->map_parser_attr);
+      break;
+    case SAM:
+      gt_fatal_error(SELECTION_NOT_IMPLEMENTED);
+      break;
+    case FASTA:
+      return gt_input_fasta_parser_synch_blocks_a(input_mutex,buffered_input,num_inputs);
+      break;
+    default:
+      gt_fatal_error_msg("File type not supported");
+      break;
+  }
+  return error_code;
+}
