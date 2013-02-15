@@ -12,7 +12,6 @@ import os
 import string
 import subprocess
 import logging
-from threading import Thread
 import gem
 import gem.gemtools as gt
 import datetime
@@ -37,24 +36,25 @@ class Timer(object):
         """Create a new time and initialie it
         with current time"""
         self.start_time = time.time()
+        self.end = None
 
     def stop(self, message, loglevel="info"):
         """Stop timing and print result to logger.
         NOTE you have to add a "%s" into your message string to
         print the time
         """
-        end = datetime.timedelta(seconds=int(time.time() - self.start_time))
+        self.end = datetime.timedelta(seconds=int(time.time() - self.start_time))
         if message is not None:
             if loglevel is not None:
                 ll = loglevel.lower()
                 if ll == "info":
-                    logging.info(message % (str(end)))
+                    logging.info(message % (str(self.end)))
                 elif ll == "warning":
-                    logging.warning(message % (str(end)))
+                    logging.warning(message % (str(self.end)))
                 elif ll == "error":
-                    logging.error(message % (str(end)))
+                    logging.error(message % (str(self.end)))
                 elif ll == "debug":
-                    logging.error(message % (str(end)))
+                    logging.error(message % (str(self.end)))
 
 
 class CommandException(Exception):
@@ -137,6 +137,7 @@ class Process(object):
             self.process_input = stdin
             if self.logfile is not None:
                 stderr = self.logfile
+            logging.debug("Starging mp process input")
             self.process = self.process_input.start(self.commands, stdout=stdout, stderr=stderr, env=self.env)
         else:
             if self.logfile is not None:
@@ -145,7 +146,7 @@ class Process(object):
                 stdout = open(stdout, 'wb')
             elif stdout is None:
                 stdout = subprocess.PIPE
-
+            logging.debug("Starging standart subprocess")
             self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=True)
         return self.process
 

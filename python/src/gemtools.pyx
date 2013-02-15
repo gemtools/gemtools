@@ -296,6 +296,7 @@ cdef class OutputFile:
 
     cdef void _write_fastq(self, TemplateIterator iterator, bool clean_id, bool append_extra):
         """Write templated from iterator as fastq"""
+
         gt_buffered_input_file_attach_buffered_output(iterator.buffered_input, self.buffered_output)
         cdef gt_output_fasta_attributes* attributes = gt_output_fasta_attributes_new()
         gt_output_fasta_attributes_set_print_extra(attributes, append_extra)
@@ -307,6 +308,7 @@ cdef class OutputFile:
 
             ## print the first one
             gt_output_fasta_bofprint_template(self.buffered_output, iterator.template.template, attributes)
+
             # print the rest
             while(iterator._next() == GT_STATUS_OK):
                 gt_output_fasta_bofprint_template(self.buffered_output, iterator.template.template, attributes)
@@ -370,6 +372,20 @@ cdef class InputFile(object):
         else:
             if self.file_name is not None:
                 return gt_input_file_open(<char*>self.file_name, self.mmap_file)
+
+    def raw_sequence_stream(self):
+        """Return true if this is a file based
+        input file, uncompressed and fastq/q format
+        """
+        if self.stream is not None:
+            print "STREAM IS NOT NONE?!"
+            return False
+        cdef gt_input_file* infile = self._input_file()
+        valid = False
+        if infile.file_type == REGULAR_FILE and infile.file_format == FASTA:
+            valid = True
+        gt_input_file_close(infile)
+        return valid
 
     def clone(self):
         if self.stream is not None:

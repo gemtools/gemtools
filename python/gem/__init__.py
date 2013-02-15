@@ -11,9 +11,10 @@ import files
 from . import utils
 import pkg_resources
 import splits
-import filter as gemfilter
+import gem.filter as gemfilter
 import gem.gemtools as gt
 import gem
+import __builtin__
 
 import multiprocessing as mp
 
@@ -35,6 +36,7 @@ gemtools_logger.gt = log_gemtools
 
 logging.gemtools = gemtools_logger
 
+__parallel_samtools = None
 
 class GemtoolsFormatter(logging.Formatter):
     info_fmt = "%(message)s"
@@ -374,11 +376,14 @@ def mapper(input, index, output=None,
         tools.append(convert_to_genome)
 
     if compress:
-        gzip = ["gzip", "-"]
+        gzip = _compressor(threads=max(1, threads / 2))
         tools.append(gzip)
 
+    raw = False
+    if isinstance(input, gt.InputFile) and input.raw_sequence_stream():
+        raw = True
     ## run the mapper
-    process = utils.run_tools(tools, input=input, output=output, name="GEM-Mapper")
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Mapper", raw=raw)
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -551,7 +556,13 @@ def splitmapper(input,
     if post_validate:
         output = None
 
-    process = utils.run_tools(tools, input=input, output=output, name="GEM-Split-Mapper")
+    raw = False
+    if isinstance(input, gt.InputFile) and input.raw_sequence_stream():
+        raw = False
+        pa.append("-i")
+        pa.append(input.filename)
+        input = None
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Split-Mapper", raw=raw)
     splitmap_out = _prepare_output(process, output=output, quality=quality)
 
     if post_validate:
@@ -658,11 +669,15 @@ def pairalign(input, index, output=None,
 
     tools = [pa]
     if compress:
-        gzip = ["gzip", "-"]
+        gzip = _compressor(threads=max(1, threads / 2))
         tools.append(gzip)
 
+    raw = False
+    if isinstance(input, gt.InputFile):
+        raw = True
+
     ## run the mapper and trim away all the unused stuff from the ids
-    process = utils.run_tools(tools, input=input, output=output, name="GEM-Pair-align", write_map=True, clean_id=True, append_extra=False)
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Pair-align", write_map=True, clean_id=True, append_extra=False, raw=raw)
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -740,7 +755,7 @@ def score(input,
     tools = [score_p]
 
     if compress:
-        gzip = ["gzip", "-"]
+        gzip = _compressor(threads=max(1, threads / 2))
         tools.append(gzip)
 
     process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=raw)
@@ -779,8 +794,28 @@ def gem2sam(input, index=None, output=None,
     return _prepare_output(process, output=output, quality=quality)
 
 
-def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
-    sam2bam_p = ['samtools', 'view', '-S', '-b']
+def _check_samtools(command, threads=1, extend=None):
+    """Return based on threads and existence of parallel samtools"""
+    global __parallel_samtools
+    if threads == 1:
+        p = [executables["samtools"], command]
+    else:
+        if __parallel_samtools is None:
+            (s, e) = subprocess.Popen([executables["samtools"], "view"], stderr=subprocess.PIPE, stdout=subprocess.PIPE).communicate()
+            f = __builtin__.filter(lambda x: x.startswith("-@"), [l.strip() for l in e.split("\n")])
+            __parallel_samtools = len(f) > 0
+
+        if __parallel_samtools:
+            p = [executables["samtools"], command, "-@", str(threads)]
+        else:
+            p = [executables["samtools"], command]
+    if extend is not None:
+        p.extend(extend)
+    return p
+
+
+def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1, sort_memory="768M"):
+    sam2bam_p = _check_samtools("view", threads=threads, extend=["-S", "-b"])
     if mapq is not None:
         sam2bam_p.append("-q")
         sam2bam_p.append(str(mapq))
@@ -788,10 +823,10 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
 
     tools = [sam2bam_p]
     if sorted:
-        bam_sort = ['samtools', 'sort', '-o', '-']
+        bam_sort = _check_samtools("sort", threads=threads, extend=["-m", str(sort_memory), "-o", "-"])
         suffix = ""
         if output is not None:
-            suffix = "-"+os.path.basename(output)
+            suffix = "-" + os.path.basename(output)
         tmpfile = tempfile.NamedTemporaryFile(prefix="sort", suffix=suffix)
         tmpfile.close()
         if os.path.exists(tmpfile.name):
@@ -802,6 +837,21 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None):
 
     process = utils.run_tools(tools, input=input, output=output, name="SAM-2-BAM", raw=True)
     return _prepare_output(process, output=out_name, quality=33)
+
+
+def bamIndex(input, output=None):
+    in_name = input
+    if not isinstance(input, basestring):
+        in_name = input.file
+    bam_p = ['samtools', 'index', in_name]
+    if output is None:
+        output = in_name + ".bai"
+    bam_p.append(output)
+    tools = [bam_p]
+    process = utils.run_tools(tools, input=None, output=None, name="BAM-Index")
+    if process.wait() != 0:
+        raise ValueError("BAM indexing failed!")
+    return output
 
 
 def compute_transcriptome(max_read_length, index, junctions, substract=None):
@@ -892,6 +942,16 @@ def hash(input, output):
     return os.path.abspath(output)
 
 
+def _compressor(threads=1):
+    """Returns compressor configuration
+    for compressing streams"""
+    pigz = gem.utils.which("pigz")
+    if threads == 1 or pigz is None:
+        return ["gzip", "-"]
+    else:
+        return [pigz, "-p", str(threads), "-"]
+
+
 class merger(object):
     """Merge all mappings from the source files into the target file.
     The target file must contain all available mappings and the sort order
@@ -944,7 +1004,7 @@ class merger(object):
             if compress and not output.endswith(".gz"):
                 output += ".gz"
             if compress:
-                p = subprocess.Popen(["gzip", "-"], stdout=open(output, 'wb'), stdin=subprocess.PIPE, close_fds=True)
+                p = subprocess.Popen(_compressor(threads=max(1, threads / 2)), stdout=open(output, 'wb'), stdin=subprocess.PIPE, close_fds=True)
                 out = p.stdin
 
             logging.debug("Using merger with %d threads and same content" % (threads))

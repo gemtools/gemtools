@@ -152,8 +152,7 @@ class RnaPipeline(Command):
             Note that if you specify only one file, we will look for the pair counter-part
             automatically and start a paired-end run. Add the --single-end parameter to disable
             pairing and file search. The file search for the second pair detects pairs
-            ending in [_|.][1|2].[fastq|txt][.gz].''',
-            required=True)
+            ending in [_|.][1|2].[fastq|txt][.gz].''')
         general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
             default=33, help='Quality offset. 33, 64 or "ignore" to disable qualities. Default 33')
         general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
@@ -179,6 +178,13 @@ class RnaPipeline(Command):
         general_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=True, help="Do not compress result mapping")
         general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=True, help="Keep temporary files")
         general_group.add_argument('--single-end', dest="single_end", action="store_true", default=False, help="Single end reads")
+        general_group.add_argument('--no-config', dest="write_config", action="store_false", default=True, help="Do not write the configuration file")
+        general_group.add_argument('--dry', dest="dry", action="store_true", default=False, help="Print and write configuration but do not start the pipeline")
+        general_group.add_argument('--load', dest="load_configuration", default=None, metavar="cfg", help="Load pipeline configuration from file")
+        general_group.add_argument('--run', dest="run_steps", type=int, default=None, nargs="+", metavar="cfg", help="Run given pipeline steps idenfified by the step id")
+        general_group.add_argument('--sort-memory', dest="sort_memory", default="768M", metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default 768M")
+        general_group.add_argument('--direct-input', dest="direct_input", default=False, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
+        general_group.add_argument('--force', dest="force", default=False, action="store_true", help="Force running all steps and skip checking for completed steps")
 
         # genome mapping parameter
         mapping_group = parser.add_argument_group('General Mapping Parameter')
@@ -262,6 +268,9 @@ class RnaPipeline(Command):
         ## parsing command line arguments
         pipeline = MappingPipeline()
 
+        if args.load_configuration is not None:
+            pipeline.load(args.load_configuration)
+
         ## update parameter
         pipeline.update(vars(args))
 
@@ -274,18 +283,27 @@ class RnaPipeline(Command):
             exit(1)
 
         # define pipeline steps
-        map_initial = pipeline.map(name="initial", description="Map to index")
-        map_gtf = pipeline.transcripts_annotation(name="annotation_mapping", description="Map to transcript-index")
-        map_denovo = pipeline.transcripts_denovo(name="denovo_mapping", description="Map to denovo transcript-index")
-        merged = pipeline.merge(name="merge", dependencies=[map_initial, map_gtf, map_denovo], final=pipeline.single_end)
-        last = merged
+        input_dep = []
+        if not pipeline.direct_input and (len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz", pipeline.input))) > 0):
+            input_dep.append(pipeline.prepare_input(name="prepare"))
 
+        map_initial = pipeline.map(name="initial", description="Map to index", dependencies=input_dep)
+        map_gtf = pipeline.transcripts_annotation(name="annotation-mapping", dependencies=input_dep, description="Map to transcript-index")
+        map_denovo = pipeline.transcripts_denovo(name="denovo-mapping", dependencies=input_dep, description="Map to denovo transcript-index")
+        merged = -1
         if not pipeline.single_end:
-            paired = pipeline.pair(name="pair", dependencies=[merged], final=True, description="Pair alignments")
-            last = paired
+            merged = pipeline.merge_and_pair(name="merge_and_pair", dependencies=[map_initial, map_gtf, map_denovo], final=True)
+        else:
+            merged = pipeline.merge(name="merge", dependencies=[map_initial, map_gtf, map_denovo], final=True)
+
+        # if not pipeline.single_end:
+        #     paired = pipeline.pair(name="pair", dependencies=[merged], final=True, description="Pair alignments")
+        #     last = paired
 
         if pipeline.bam_create:
-            pipeline.bam(name="bam", dependencies=[last], final=True)
+            bam = pipeline.bam(name="bam", dependencies=[merged], final=True)
+            if pipeline.bam_index:
+                pipeline.index_bam(name="index-bam", dependencies=[bam], final=True)
 
         pipeline.log_parameter()
         try:

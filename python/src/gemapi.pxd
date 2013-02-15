@@ -56,13 +56,29 @@ cdef extern from "gem_tools.h" nogil:
     void gt_string_append_eos(gt_string* string_dst)
 
 
+    # ctypedef struct gt_file_format:
+    #     pass
+    # ctypedef struct gt_file_type:
+    #     pass
+
+    enum gt_file_format:
+        FASTA
+        MAP
+        SAM
+        FILE_FORMAT_UNKNOWN
+
+    enum gt_file_type:
+        STREAM
+        REGULAR_FILE
+        MAPPED_FILE
+        GZIPPED_FILE
+        BZIPPED_FILE
+
     # input file
     ctypedef struct gt_input_file:
-        pass
-    ctypedef struct gt_file_format:
-        pass
-    ctypedef struct gt_file_type:
-        pass
+        gt_file_type file_type
+        gt_file_format file_format
+
     gt_input_file* gt_input_stream_open(FILE* stream)
     gt_input_file* gt_input_file_open(char* file_name,bool mmap_file)
     gt_status gt_input_file_close(gt_input_file* input_file)
