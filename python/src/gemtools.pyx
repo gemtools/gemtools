@@ -34,6 +34,16 @@ cdef class TemplateIterator:
     cpdef gt_status _next(self):
         pass
 
+    cpdef write(self, output, bool clean_id=False, bool append_extra=True, bool write_map=False, uint64_t threads=1):
+        cdef OutputFile of
+        if isinstance(output, basestring):
+            of = OutputFile(file_name=output)
+        else:
+            of = OutputFile(stream=output)
+        of.write_fastq(self, clean_id=clean_id, append_extra=append_extra)
+        if isinstance(output, basestring):
+            of.close()
+
     def close(self):
         pass
 
@@ -105,6 +115,24 @@ cdef class interleave(TemplateIterator):
         if self.current >= self.length:
             self.current = 0
         return s
+
+    cpdef write_fastq(self, output, bool clean_id, bool append_extra, uint64_t threads):
+        cdef OutputFile of
+        if isinstance(output, basestring):
+            of = OutputFile(file_name=output)
+        else:
+            of = OutputFile(stream=output)
+
+        cdef gt_output_file* output_file = of.output_file
+        cdef uint64_t num_inputs = len(self.iterators)
+        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        for i in range(num_inputs):
+            inputs[i] = (<TemplateIterator> self.iterators[i]).input_file
+        with nogil:
+            gt_write_sequence_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads)
+        #if isinstance(output, basestring):
+        of.close()
+
 
 cdef class cat(TemplateIterator):
     """Cat iterators"""
@@ -264,22 +292,24 @@ cdef class OutputFile:
     cdef gt_buffered_output_file* buffered_output
     cdef bool do_close
 
-    def __init__(self,file_name=None, file stream=None):
+    def __init__(self,file_name=None, file stream=None, init_buffer=True):
         self.do_close = True
         if file_name is not None:
-            self.open_file(<char*> file_name)
+            self.open_file(<char*> file_name, init_buffer=init_buffer)
         elif stream is not None:
-            self.open_stream(stream)
+            self.open_stream(stream, init_buffer=init_buffer)
 
-    def open_stream(self, file stream):
+    def open_stream(self, file stream, init_buffer=True):
         self.output_file = gt_output_stream_new(PyFile_AsFile(stream), SORTED_FILE)
         self.do_close = True
-        self.buffered_output = gt_buffered_output_file_new(self.output_file)
+        if init_buffer:
+            self.buffered_output = gt_buffered_output_file_new(self.output_file)
         return self
 
-    def open_file(self, char* file_name):
+    def open_file(self, char* file_name, init_buffer=True):
         self.output_file = gt_output_file_new(file_name, SORTED_FILE)
-        self.buffered_output = gt_buffered_output_file_new(self.output_file)
+        if init_buffer:
+            self.buffered_output = gt_buffered_output_file_new(self.output_file)
         return self
 
     def close(self):
@@ -288,30 +318,21 @@ cdef class OutputFile:
         if self.do_close:
             gt_output_file_close(self.output_file)
 
-    def write_fastq(self, iterator, clean_id=False, append_extra=True):
-        self._write_fastq(iterator, clean_id, append_extra)
+    def write_fastq(self, iterator, clean_id=False, append_extra=True, threads=1):
+        self._write_fastq(iterator, clean_id, append_extra, threads)
 
-    def write_map(self, iterator, print_scores=True, clean_id=False, append_extra=True):
+    def write_map(self, iterator, print_scores=True, clean_id=False, append_extra=True, threads=1):
         self._write_map(iterator, print_scores, clean_id, append_extra)
 
-    cdef void _write_fastq(self, TemplateIterator iterator, bool clean_id, bool append_extra):
+    cdef void _write_fastq(self, TemplateIterator iterator, bool clean_id, bool append_extra, uint64_t threads):
         """Write templated from iterator as fastq"""
+        cdef gt_output_file* output_file = self.output_file
+        cdef uint64_t num_inputs = 1
+        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        inputs[0] = (<TemplateIterator> iterator).input_file
+        with nogil:
+            gt_write_sequence_stream(output_file, inputs, num_inputs, append_extra, clean_id, False, threads)
 
-        gt_buffered_input_file_attach_buffered_output(iterator.buffered_input, self.buffered_output)
-        cdef gt_output_fasta_attributes* attributes = gt_output_fasta_attributes_new()
-        gt_output_fasta_attributes_set_print_extra(attributes, append_extra)
-        gt_output_fasta_attributes_set_print_casava(attributes, not clean_id)
-        if(iterator._next() == GT_STATUS_OK):
-            ## check fastq / fasta by qualities
-            if not iterator.template.has_qualities:
-                gt_output_fasta_attributes_set_format(attributes, F_FASTA)
-
-            ## print the first one
-            gt_output_fasta_bofprint_template(self.buffered_output, iterator.template.template, attributes)
-
-            # print the rest
-            while(iterator._next() == GT_STATUS_OK):
-                gt_output_fasta_bofprint_template(self.buffered_output, iterator.template.template, attributes)
 
 
     cdef void _write_map(self, TemplateIterator iterator, bool print_scores, bool clean_id, bool append_extra):
@@ -373,12 +394,14 @@ cdef class InputFile(object):
             if self.file_name is not None:
                 return gt_input_file_open(<char*>self.file_name, self.mmap_file)
 
+    cpdef write_fastq(self, output, bool clean_id, bool append_extra, uint64_t threads):
+        self._templates().write_fastq(output, clean_id, append_extra, threads)
+
     def raw_sequence_stream(self):
         """Return true if this is a file based
         input file, uncompressed and fastq/q format
         """
         if self.stream is not None:
-            print "STREAM IS NOT NONE?!"
             return False
         cdef gt_input_file* infile = self._input_file()
         valid = False
@@ -451,12 +474,30 @@ cdef class InputFileTemplateIterator(TemplateIterator):
     cpdef gt_status _next(self):
         """Internal iterator method"""
         cdef gt_status s = gt_input_generic_parser_get_template(self.buffered_input, self.template.template, self.parser_attr)
+
         if s != GT_STATUS_OK :
             if self.delete_after_iterate:
                 os.remove(self.file_name)
             if self.process is not None:
                 self.process.wait()
         return s
+
+    cpdef write_fastq(self, output, bool clean_id, bool append_extra, uint64_t threads):
+        cdef OutputFile of
+        if isinstance(output, basestring):
+            of = OutputFile(file_name=output)
+        else:
+            of = OutputFile(stream=output)
+
+        cdef gt_output_file* output_file = of.output_file
+        cdef uint64_t num_inputs = 1
+        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        inputs[0] = self.input_file
+        with nogil:
+            gt_write_sequence_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads)
+        #if isinstance(output, basestring):
+        of.close()
+
 
 
 cdef class InputFileAlignmentIterator(AlignmentIterator):

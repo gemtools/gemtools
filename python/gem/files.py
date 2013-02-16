@@ -51,10 +51,16 @@ def open(input, quality=None):
 
 
 def open_bam(input):
-    return subprocess.Popen(["samtools", "view", "-h", input],
-        stdout=subprocess.PIPE,
-        stderr=__builtin__.open("/dev/null", 'w'),
-        close_fds=True).stdout
+    if isinstance(input, basestring):
+       return subprocess.Popen(["samtools", "view", "-h", input],
+            stdout=subprocess.PIPE,
+            stderr=__builtin__.open("/dev/null", 'w'),
+            close_fds=True).stdout
+    return subprocess.Popen(["samtools", "view", "-h", "-"],
+            stdout=subprocess.PIPE,
+            stdin=input,
+            stderr=__builtin__.open("/dev/null", 'w'),
+            close_fds=True).stdout
 
 
 def open_bam_stream(input):

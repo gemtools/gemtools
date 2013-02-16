@@ -228,7 +228,7 @@ def _prepare_quality_parameter(quality, input=None):
     return quality
 
 
-def _prepare_output(process, output=None, quality=None, delete_after_iterate=False):
+def _prepare_output(process, output=None, quality=None, delete_after_iterate=False, bam=False):
     """Creates a new gem.gemtools.Inputfile from the given process.
     If output is specivied, the function blocks and waits for the process to finish
     successfully before the InputFile is created on the specified output.
@@ -248,11 +248,13 @@ def _prepare_output(process, output=None, quality=None, delete_after_iterate=Fal
         if process is not None and process.wait() != 0:
             raise ValueError("Execution failed!")
         logging.debug("Opening output file %s" % (output))
-        if output.endswith(".bam"):
+        if output.endswith(".bam") or bam:
             return gt.InputFile(stream=gem.files.open_bam(output), file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
         return gt.InputFile(file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
     else:
         logging.debug("Opening output stream")
+        if bam:
+            return gt.InputFile(stream=gem.files.open_bam(process.stdout), quality=quality, process=process, delete_after_iterate=delete_after_iterate)
         ## running in async mode, return iterator on
         ## the output stream
         return gt.InputFile(stream=process.stdout, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
@@ -381,7 +383,11 @@ def mapper(input, index, output=None,
 
     raw = False
     if isinstance(input, gt.InputFile) and input.raw_sequence_stream():
-        raw = True
+        raw = False
+        pa.append("-i")
+        pa.append(input.filename)
+        input = None
+
     ## run the mapper
     process = utils.run_tools(tools, input=input, output=output, name="GEM-Mapper", raw=raw)
     return _prepare_output(process, output=output, quality=quality)
@@ -562,6 +568,7 @@ def splitmapper(input,
         pa.append("-i")
         pa.append(input.filename)
         input = None
+
     process = utils.run_tools(tools, input=input, output=output, name="GEM-Split-Mapper", raw=raw)
     splitmap_out = _prepare_output(process, output=output, quality=quality)
 
@@ -822,6 +829,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1,
     sam2bam_p.append('-')
 
     tools = [sam2bam_p]
+    out_name = output
     if sorted:
         bam_sort = _check_samtools("sort", threads=threads, extend=["-m", str(sort_memory), "-o", "-"])
         suffix = ""
@@ -836,7 +844,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1,
         tools.append(bam_sort)
 
     process = utils.run_tools(tools, input=input, output=output, name="SAM-2-BAM", raw=True)
-    return _prepare_output(process, output=out_name, quality=33)
+    return _prepare_output(process, output=output, quality=33, bam=True)
 
 
 def bamIndex(input, output=None):

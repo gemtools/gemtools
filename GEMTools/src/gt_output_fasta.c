@@ -66,7 +66,7 @@ GT_INLINE gt_status gt_output_fasta_gprint_tag(gt_generic_printer* const gprinte
   // check if we have casava attributes
   if(gt_output_fasta_attributes_is_print_casava(output_attributes) && gt_shash_is_contained(attributes, GT_TAG_CASAVA)){
     // print casava
-    gt_gprintf(gprinter," %s", gt_string_get_string(gt_shash_get(attributes, GT_TAG_CASAVA, gt_string)));
+    gt_gprintf(gprinter, " "PRIgts, PRIgts_content(gt_shash_get(attributes, GT_TAG_CASAVA, gt_string)));
   }else{
       // append /1 /2 if paired
       if(gt_shash_is_contained(attributes, GT_TAG_PAIR)){
@@ -78,7 +78,7 @@ GT_INLINE gt_status gt_output_fasta_gprint_tag(gt_generic_printer* const gprinte
   }
   if(gt_output_fasta_attributes_is_print_extra(output_attributes) && gt_shash_is_contained(attributes, GT_TAG_EXTRA)){
       // print additional
-      gt_gprintf(gprinter," %s", gt_string_get_string(gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)));
+      gt_gprintf(gprinter, " "PRIgts, PRIgts_content(gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)));
   }
   gt_gprintf(gprinter, "\n");
   return 0;

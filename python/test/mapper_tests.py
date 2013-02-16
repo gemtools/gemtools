@@ -7,11 +7,14 @@ from gem import files
 from gem import filter
 from gem import junctions
 from testfiles import testfiles
+import gem.gemtools as gt
+import sys
 
 __author__ = 'Thasso Griebel <thasso.griebel@gmail.com>'
 
 index = testfiles["genome.gem"]
 results_dir = None
+
 
 def setup_func():
     global results_dir
@@ -45,6 +48,7 @@ def test_merging_maps():
             assert read.to_map().split("\t")[3] == "1", read.to_map()
             assert read.to_map().split("\t")[4] == "chr15:+:72492866:75"
     assert count == 10
+
 
 @with_setup(setup_func, cleanup)
 def test_merging_maps_chr21():
@@ -128,6 +132,42 @@ def test_async_mapper_execution():
 #     assert mappings.file_name == results_dir + "/piped_out.mapping"
 #     assert os.path.exists(results_dir + "/piped_out.mapping")
 #     assert sum(1 for x in mappings) == 5000
+
+
+@with_setup(setup_func, cleanup)
+def test_writing_fastq():
+    gem.loglevel("debug")
+    output = results_dir + "/print_fastq.out"
+    input1 = files.open(testfiles["reads_1.fastq"])
+    input1.write_fastq(output, False, True, 1)
+    s = 0
+    with open(output) as f:
+        for l in f:
+            s += 1
+    assert s == 40000
+
+
+@with_setup(setup_func)
+def test_writing_fastq_interleaved():
+    output = results_dir + "/print_fastq.out"
+    input1 = files.open(testfiles["reads_1.fastq"])
+    input2 = files.open(testfiles["reads_2.fastq"])
+    filter.interleave([input1, input2]).write_fastq(output, False, True, 8)
+    s = 0
+    with open(output) as f:
+        for l in f:
+            s += 1
+    assert s == 80000, s
+
+
+@with_setup(setup_func, cleanup)
+def test_interleaveaving():
+    input1 = files.open(testfiles["reads_1.fastq"])
+    input2 = files.open(testfiles["reads_2.fastq"])
+    s = 0
+    for t in filter.interleave([input1, input2]):
+        s += 1
+    assert s == 20000
 
 
 @with_setup(setup_func, cleanup)

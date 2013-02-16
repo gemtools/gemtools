@@ -147,7 +147,7 @@ class Process(object):
             elif stdout is None:
                 stdout = subprocess.PIPE
             logging.debug("Starging standart subprocess")
-            self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=True)
+            self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=False)
         return self.process
 
     def __str__(self):
@@ -245,16 +245,16 @@ class ProcessInput(object):
 
             if stderr is not None:
                 stderr = open(stderr, 'wb')
-            process = subprocess.Popen(commands, stdin=stdin, stdout=stdout, stderr=stderr, env=env, close_fds=True)
+            process = subprocess.Popen(commands, stdin=stdin, stdout=stdout, stderr=stderr, env=env, close_fds=False)
             connection.send(["process", process])
-
             stream = process.stdin
-            of = gt.OutputFile(stream=stream)
             if write_map:
+                of = gt.OutputFile(stream=stream)
                 of.write_map(iterator, clean_id, append_extra)
+                of.close()
             else:
-                of.write_fastq(iterator, clean_id, append_extra)
-            of.close()
+                iterator.write_fastq(stream, clean_id, append_extra, 1)
+
             stream.close()
             if stdout is not None:
                 stdout.close()
@@ -271,25 +271,6 @@ class ProcessInput(object):
             if fifo:
                 os.remove(filename)
             connection.close()
-
-    @staticmethod
-    def __proces_listener(connection):
-        """Thread function that listens to any error or log messages send
-        through the connection
-        """
-        while True:
-            (msg_type, value) = connection.recv()
-            if msg_type == "done":
-                logging.debug("Process finished")
-                connection.close()
-                break
-            if msg_type == "fail":
-                logging.error("Process failed : %s" % (str(value)))
-                connection.close()
-                break
-
-            # logging message
-            logging.log(value[0], value[1])
 
     def start(self, commands, stdout, stderr, env, ):
         parent_conn, child_conn = mp.Pipe()
@@ -313,7 +294,6 @@ class ProcessInput(object):
             process = value
             process.stdout = fifo
             self.connection = parent_conn
-            #Thread(taget=ProcessInput.__proces_listener, args=(parent_conn,)).start()
             return process
 
         parent_conn.close()
