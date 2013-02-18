@@ -3,19 +3,35 @@ import os
 import sys
 
 cdef class TemplateIterator:
-    """Base class for iterating template streams"""
+    """Base class for iterating template streams.
+    The base implementation can also write to
+    stream, but rather slow. If a specific implementation
+    can speed up the writing, override the write() method.
+
+    NOTE that the __next__ implementation reuses the
+    iterators Template instance.
+    """
+    # the buffered input file
     cdef gt_buffered_input_file* buffered_input
+    # parser attributes
     cdef gt_generic_parser_attr* parser_attr
+    # the source input file
     cdef gt_input_file* input_file
+    # the template instance that is used to iterate templates
     cdef readonly Template template
+    # optional source iterator
     cdef TemplateIterator source
+    # the quality offset of the input
     cdef readonly object quality
-    cdef readonly object file_name
+    # the source file name
+    cdef readonly object filename
 
     def __iter__(self):
+        """Returns self"""
         return self
 
     def __next__(self):
+        """Fill the template instance and return it"""
         if self._next() == GT_STATUS_OK:
             return self.template
         else:
@@ -29,51 +45,42 @@ cdef class TemplateIterator:
         self.template = source.template
         self.source = source
         self.quality = source.quality
-        self.file_name = source.file_name
+        self.filename = source.filename
 
     cpdef gt_status _next(self):
+        """Implement this to read the next template from a
+        stream
+        """
         pass
 
+    cpdef write_stream(self, output_file, write_map=False, clean_id=False, append_extra=True, threads=1):
+        """Write the content of the this template iterator to the output file.
+
+        output_file   -- the target output file
+        write_map     -- if true, write map, otherwise write fasta/q sequence
+        clean_id      -- clean id's and ensure /1 /2 endings for paired reads
+        append_extra  -- append any additional information to the read id
+        threads       -- number of threads to use (if supported by the iterator)
+        """
+
     cpdef write(self, output, bool clean_id=False, bool append_extra=True, bool write_map=False, uint64_t threads=1):
-        cdef OutputFile of
-        if isinstance(output, basestring):
-            of = OutputFile(file_name=output)
+        """Override this if there is a faster implementation"""
+        cdef OutputFile of = OutputFile(output)
+
+        if write_map:
+            of.write_map(self, clean_id=clean_id, append_extra=append_extra)
         else:
-            of = OutputFile(stream=output)
-        of.write_fastq(self, clean_id=clean_id, append_extra=append_extra)
+            of.write_fastq(self, clean_id=clean_id, append_extra=append_extra)
         if isinstance(output, basestring):
             of.close()
 
     def close(self):
-        pass
+        """Close the template iterator. If a source is
+        set, this closes the source iterator.
+        """
+        if self.source is not None:
+            self.source.close()
 
-cdef class AlignmentIterator:
-    """Base class to iterate alignments"""
-    cdef gt_buffered_input_file* buffered_input
-    cdef gt_generic_parser_attr* parser_attr
-    cdef gt_input_file* input_file
-    cdef Alignment alignment
-    cdef AlignmentIterator source
-
-    def __iter__(self):
-        return self
-
-    cdef _init(self, AlignmentIterator source):
-        """Initialize from another alignment iterator"""
-        self.input_file = source.input_file
-        self.buffered_input = source.buffered_input
-        self.parser_attr = source.parser_attr
-        self.template = source.template
-        self.source = source
-
-    def __next__(self):
-        if self._next() == GT_STATUS_OK:
-            return self.alignment
-        else:
-            raise StopIteration()
-
-    cdef gt_status _next(self):
-        pass
 
 cdef class SimpleTemplateIterator(TemplateIterator):
     """Simple iterator that iterates a list of templates"""
@@ -287,63 +294,80 @@ cdef class merge(TemplateIterator):
 
 
 cdef class OutputFile:
-    """Wrapper around gt_output_file"""
+    """The OutputFile can write content to a file or
+    or a stream.
+    """
+    # the target output file
     cdef gt_output_file* output_file
+    # buffered output
     cdef gt_buffered_output_file* buffered_output
-    cdef bool do_close
+    # the target
+    cdef readonly object target
 
-    def __init__(self,file_name=None, file stream=None, init_buffer=True):
-        self.do_close = True
-        if file_name is not None:
-            self.open_file(<char*> file_name, init_buffer=init_buffer)
-        elif stream is not None:
-            self.open_stream(stream, init_buffer=init_buffer)
+    def __init__(self, target):
+        """Initialize the output file from the given target. The
+        target can be either a string a stream. If init_buffer is
+        true, the output buffer is initialized
 
-    def open_stream(self, file stream, init_buffer=True):
+        target      -- the target file or stream
+        init_buffer -- if true, the buffered output will be initialized, default True
+        """
+        self.target = target
+        if isinstance(target, basestring):
+            self._open_file(<char*> target)
+        else:
+            self._open_stream(stream)
+
+        if init_buffer:
+            self.buffered_output = gt_buffered_output_file_new(self.output_file)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef init_buffer(self):
+        """Ensure that the output buffer is initialized"""
+        if self.buffered_output is NULL:
+            self.buffered_output = gt_buffered_output_file_new(self.output_file)
+
+    cpdef _open_stream(self, file stream, init_buffer=True):
+        """Initialize this instance from a stream
+
+        stream      -- the output stream
+        init_buffer -- if true, initialize the output buffer
+        """
         self.output_file = gt_output_stream_new(PyFile_AsFile(stream), SORTED_FILE)
-        self.do_close = True
-        if init_buffer:
-            self.buffered_output = gt_buffered_output_file_new(self.output_file)
-        return self
 
-    def open_file(self, char* file_name, init_buffer=True):
+    cpdef def _open_file(self, char* file_name, init_buffer=True):
+        """Initialize this instance from a file
+
+        file_name   -- the output file name
+        init_buffer -- if true, initialize the output buffer
+        """
         self.output_file = gt_output_file_new(file_name, SORTED_FILE)
-        if init_buffer:
-            self.buffered_output = gt_buffered_output_file_new(self.output_file)
-        return self
 
-    def close(self):
+    cpdef close(self):
+        """Close the output file"""
         if self.buffered_output is not NULL:
             gt_buffered_output_file_close(self.buffered_output)
-        if self.do_close:
+            gt_buffered_output_file_delete(self.buffered_output)
+            self.buffered_output = NULL
+        if self.output_file is not NULL:
             gt_output_file_close(self.output_file)
+            gt_output_file_delete(self.output_file)
+            self.output_file = NULL
 
-    def write_fastq(self, iterator, clean_id=False, append_extra=True, threads=1):
-        self._write_fastq(iterator, clean_id, append_extra, threads)
+    cpdef write_stream(self, iterator, write_map=False, clean_id=False, append_extra=True, threads=1):
+        """Write the content of the given template iterator to this output
+        file.
 
-    def write_map(self, iterator, print_scores=True, clean_id=False, append_extra=True, threads=1):
-        self._write_map(iterator, print_scores, clean_id, append_extra)
-
-    cdef void _write_fastq(self, TemplateIterator iterator, bool clean_id, bool append_extra, uint64_t threads):
-        """Write templated from iterator as fastq"""
-        cdef gt_output_file* output_file = self.output_file
-        cdef uint64_t num_inputs = 1
-        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        inputs[0] = (<TemplateIterator> iterator).input_file
+        iterator      -- the template iterator providing the source templates
+        write_map     -- if true, write map, otherwise write fasta/q sequence
+        clean_id      -- clean id's and ensure /1 /2 endings for paired reads
+        append_extra  -- append any additional information to the read id
+        threads       -- number of threads to use (if supported by the iterator)
+        """
         with nogil:
-            gt_write_sequence_stream(output_file, inputs, num_inputs, append_extra, clean_id, False, threads)
-
-
-
-    cdef void _write_map(self, TemplateIterator iterator, bool print_scores, bool clean_id, bool append_extra):
-        """Write templated from iterator as fastq"""
-        gt_buffered_input_file_attach_buffered_output(iterator.buffered_input, self.buffered_output)
-        cdef gt_output_map_attributes* attributes = gt_output_map_attributes_new()
-        gt_output_map_attributes_set_print_scores(attributes, print_scores)
-        gt_output_map_attributes_set_print_casava(attributes, not clean_id)
-        gt_output_map_attributes_set_print_extra(attributes, append_extra)
-        while(iterator._next() == GT_STATUS_OK):
-            gt_output_map_bofprint_template(self.buffered_output, iterator.template.template, attributes)
+            iterator.write(self, clean_id=clean_id, append_extra=append_extra, write_map=write_map, threads=threads)
 
 
 
@@ -352,58 +376,54 @@ cdef class InputFile(object):
     and can be used directly to iterate templates. To access the underlying
     alignment, use the alignments() function to get an alignment iterator.
     """
-    cdef readonly object file_name
+    cdef readonly object source
+    # the source file name if specified
+    cdef readonly char* filename
+    # force reading paired reads
     cdef readonly bool force_paired_reads
+    # memory map the file
     cdef readonly bool mmap_file
+    # delete the file after iteraation
     cdef readonly bool delete_after_iterate
+    # the process that creates the content of the file or stream
     cdef readonly object process
-    cdef readonly object stream
+    # the quality offset
     cdef readonly object quality
 
-    def __init__(self,
-        file_name=None,
-        object stream=None,
-        bool mmap_file=False,
-        bool force_paired_reads=False,
-        object quality=None,
-        object process=None,
-        bool delete_after_iterate=False
-        ):
-        if file_name is not None:
-            self.file_name = file_name
-        else:
-            self.file_name = None
+    def __init__(self, source, bool mmap_file=False, bool force_paired_reads=False, object quality=None, object process=None, bool delete_after_iterate=False):
+        """Initialize a new input file on the source. The source can be either a file name
+        or a stream.
 
+        """
+        self.source = source
         self.force_paired_reads = force_paired_reads
         self.mmap_file = mmap_file
         self.process = process
-        self.stream = stream
         self.quality = quality
         self.delete_after_iterate = delete_after_iterate
-        if file_name is None or file_name.endswith(".gz") or file_name.endswith(".bz2"):
-            self.mmap_file = False
 
-    property filename:
-        def __get__(self):
-            return self.file_name
+        if isinstance(source, basestring):
+            self.filename = <char*> source
 
-    cdef gt_input_file* _input_file(self):
-        if self.stream is not None:
-            return gt_input_stream_open(PyFile_AsFile(self.stream))
+        # make sure memory mapping is disabled for compressed files and
+        # # streams
+        if self.filename is None or self.filename.endswith(".gz") or self.filename.endswith(".bz2"):
+                self.mmap_file = False
+
+    cdef gt_input_file* open(self):
+        """Open a new gt_input_file"""
+        if self.filename is not None:
+            return gt_input_file_open(self.filename, self.mmap_file)
         else:
-            if self.file_name is not None:
-                return gt_input_file_open(<char*>self.file_name, self.mmap_file)
-
-    cpdef write_fastq(self, output, bool clean_id, bool append_extra, uint64_t threads):
-        self._templates().write_fastq(output, clean_id, append_extra, threads)
+            return gt_input_stream_open(PyFile_AsFile(self.source))
 
     def raw_sequence_stream(self):
         """Return true if this is a file based
         input file, uncompressed and fastq/q format
         """
-        if self.stream is not None:
+        if self.filename is None:
             return False
-        cdef gt_input_file* infile = self._input_file()
+        cdef gt_input_file* infile = self.open()
         valid = False
         if infile.file_type == REGULAR_FILE and infile.file_format == FASTA:
             valid = True
@@ -411,36 +431,40 @@ cdef class InputFile(object):
         return valid
 
     def clone(self):
-        if self.stream is not None:
+        """If this is a file based, this returns a new
+        instance of the input file, otherwise an
+        exception is thrown as we can not
+        clone stream based inputs.
+        """
+        if self.filename is None:
             raise ValueError("Can not clone a stream based input file")
         else:
-            return InputFile(file_name=self.file_name, mmap_file=self.mmap_file, force_paired_reads=self.force_paired_reads, quality=self.quality, process=self.process, delete_after_iterate=self.delete_after_iterate)
+            return InputFile(self.source, mmap_file=self.mmap_file, force_paired_reads=self.force_paired_reads, quality=self.quality, process=self.process, delete_after_iterate=self.delete_after_iterate)
 
     def raw_stream(self):
-        if self.stream is not None:
-            return self.stream
+        """Return the raw stream on this input file.
+        In case this is stream based, the stream is returned,
+        otherwise a new file handle is opened on
+        the input file.
+        """
+        if self.filename is None:
+            return PyFile_AsFile(self.source)
         else:
             return open(self.file_name, "rb")
 
     def __iter__(self):
+        """Returns a new template iterator in the input"""
         return self._templates()
 
-    def templates(self):
-        return self._templates()
-
-    cdef InputFileTemplateIterator _templates(self):
+    cpdef InputFileTemplateIterator templates(self):
+        """Returns a new template iterator in the input"""
         return InputFileTemplateIterator(self)
-
-    def alignments(self):
-        return self._alignments()
-
-    cdef InputFileAlignmentIterator _alignments(self):
-        return InputFileAlignmentIterator(self)
 
 
 cdef class InputFileTemplateIterator(TemplateIterator):
+    # delete the source file after iteration
     cdef bool delete_after_iterate
-    #cdef object file_name
+    # underlying process
     cdef object process
 
     def __cinit__(self, InputFile input_file):
@@ -497,36 +521,6 @@ cdef class InputFileTemplateIterator(TemplateIterator):
             gt_write_sequence_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads)
         #if isinstance(output, basestring):
         of.close()
-
-
-
-cdef class InputFileAlignmentIterator(AlignmentIterator):
-
-    def __cinit__(self, InputFile input_file):
-        self.input_file = input_file._input_file()
-        cdef gt_generic_parser_attr* gp = gt_input_generic_parser_attributes_new(False)
-        self.parser_attr = gp
-        self.alignment = Alignment()
-        #
-        #initialize the buffer
-        #
-        self.buffered_input = gt_buffered_input_file_new(self.input_file)
-
-    def __dealloc__(self):
-        if self.buffered_input is not NULL:
-            gt_buffered_input_file_close(self.buffered_input)
-            self.buffered_input = NULL
-        if self.parser_attr is not NULL:
-            free(self.parser_attr)
-            self.parser_attr = NULL
-        if self.input_file is not NULL:
-            gt_input_file_close(self.input_file)
-            self.input_file = NULL
-
-
-    cdef gt_status _next(self):
-        """Internal iterator method"""
-        return gt_input_generic_parser_get_alignment(self.buffered_input, self.alignment.alignment, self.parser_attr)
 
 
 cdef class Template:
@@ -730,21 +724,3 @@ cdef class Template:
     cpdef parse(self, char* string):
         gt_input_map_parse_template(string, self.template)
         return self
-
-
-cdef class Alignment:
-    """Wrapper class around alignments"""
-    cdef gt_alignment* alignment
-
-    def __cinit__(self):
-        self.alignment = gt_alignment_new()
-
-    def __dealloc__(self):
-        gt_alignment_delete(self.alignment)
-
-    property tag:
-        def __get__(self):
-            return gt_alignment_get_tag(self.alignment)
-        def __set__(self, value):
-            gt_alignment_set_tag(self.alignment, value, len(value))
-
