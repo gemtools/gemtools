@@ -203,10 +203,12 @@ class Process(object):
         exit_value = self.process.wait()
         logging.debug("Process '%s' finished with %d", str(self), exit_value)
         if exit_value is not 0:
+            logging.error("Process '%s' finished with %d", str(self), exit_value)
             if self.logfile is not None:
                 with open(self.logfile) as f:
                     for line in f:
                         logging.error("%s" % (line.strip()))
+            raise ProcessError("Process '%s' finished with %d", str(self), exit_value)
         return exit_value
 
     def to_bash(self):

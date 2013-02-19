@@ -730,7 +730,8 @@ def score(input,
           filter=None,  # "1,2,25"
           quality=None,
           compress=False,
-          threads=1):
+          threads=1,
+          raw=False):
     """Score the input. In addition, you can specify a tuple with (<score_strata_to_keep>,<max_strata_distance>,<max_alignments>) to
     filter the result further.
     """
@@ -755,9 +756,9 @@ def score(input,
             ff = ",".join([str(f) for f in filter])
         score_p.append(ff)
 
-    raw = False
-    if isinstance(input, gt.InputFile):
+    if raw or isinstance(input, gt.InputFile):
         raw = True
+        #input = input.raw_stream()
 
     tools = [score_p]
 

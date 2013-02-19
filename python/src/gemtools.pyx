@@ -131,14 +131,17 @@ cdef class interleave(object):
     cdef int64_t i
     # number of iterators
     cdef int64_t length
+    # number of threads
+    cdef int64_t threads
     # interleave
     cdef bool interleave
 
-    def __init__(self, files, interleave=True):
+    def __init__(self, files, interleave=True, uint64_t threads=1):
         self.files = files
         self.i = 0
         self.length = len(files)
         self.interleave = interleave
+        self.threads = threads
 
     def __iter__(self):
         # initialize iterators
@@ -183,20 +186,29 @@ cdef class interleave(object):
         cdef bool clean_id = output.clean_id
         cdef bool append_extra = output.append_extra
         cdef bool interleave = self.interleave
+        cdef uint64_t use_threads = max(threads, self.threads)
         for i in range(num_inputs):
             inputs[i] = (<InputFile> self.files[i])._open()
         with nogil:
-            gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, threads, write_map)
+            gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
         output.close()
         for i in range(num_inputs):
             gt_input_file_close(inputs[i])
         free(inputs)
 
+    cpdef close(self):
+        try:
+            for f in self.files:
+                f.close()
+        except Exception:
+            pass
+
 
 
 cdef class cat(interleave):
-    def __init__(self, files):
-        interleave.__init__(self, files, interleave=False)
+
+    def __init__(self, files, uint64_t threads=1):
+        interleave.__init__(self, files, interleave=False, threads=threads)
 
 
 cdef class merge(object):
@@ -500,6 +512,18 @@ cdef class InputFile(object):
         output.close()
         gt_input_file_close(inputs[0])
         free(inputs)
+
+    cpdef close(self):
+        if self.buffered_input is not NULL:
+            gt_buffered_input_file_close(self.buffered_input)
+            self.buffered_input = NULL
+        if self.parser_attr is not NULL:
+            free(self.parser_attr)
+            self.parser_attr = NULL
+        if self.input_file is not NULL:
+            gt_input_file_close(self.input_file)
+            self.input_file = NULL
+
 
 
 

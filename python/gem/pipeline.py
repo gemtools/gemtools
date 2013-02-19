@@ -134,8 +134,8 @@ class PrepareInputStep(PipelineStep):
 
     def run(self):
         """Merge current set of mappings and delete last ones"""
-        outfile = gt.OutputFile(file_name=self._final_output())
-        outfile.write_fastq(self._input(), clean_id=True, append_extra=False)
+        outfile = gt.OutputFile(self._final_output(), clean_id=True, append_extra=False)
+        self._input().write_stream(outfile, write_map=False)
         outfile.close()
 
 
@@ -199,7 +199,8 @@ class MergeAndPairStep(PipelineStep):
                 filter=self.pipeline.filter,
                 threads=self.pipeline.threads,  # max(2, self.pipeline.threads / 2),
                 quality=self.pipeline.quality,
-                compress=self.pipeline.compress)
+                compress=self.pipeline.compress,
+                raw=True)
 
     def _input(self):
         """Return the output of all
@@ -324,9 +325,8 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
         """Create the denovo transcriptome"""
         cfg = self.configuration
         (gtf_junctions, junctions_gtf_out) = self.pipeline.gtf_junctions()
-
         denovo_junctions = gem.extract_junctions(
-            self.pipeline.open_input(),
+            self._input(),
             cfg["index"],
             mismatches=cfg["mismatches"],
             threads=self.pipeline.threads,
@@ -372,7 +372,7 @@ class TranscriptMapStep(PipelineStep):
             # denovo transcript mapping
             if config["index"] is None or not os.path.exists(config["index"]):
                 # add denovo transript step
-                create_step_id = pipeline.create_transcriptome("denovo-index")
+                create_step_id = pipeline.create_transcriptome("denovo-index", dependencies=self.dependencies)
                 self.dependencies.append(create_step_id)
                 self.configuration["create_index"] = create_step_id
                 if config["index"] is None:
@@ -390,7 +390,7 @@ class TranscriptMapStep(PipelineStep):
             cfg["keys"] = step.denovo_keys
 
         gem.mapper(
-            self.pipeline.open_input(),
+            self._input(),
             cfg["index"],
             self.files()[0],
             mismatches=cfg["mismatches"],
@@ -407,6 +407,22 @@ class TranscriptMapStep(PipelineStep):
             quality=self.pipeline.quality,
             threads=self.pipeline.threads
         )
+
+    def _input(self, raw=False):
+        """Return pipeline input if this step
+        has no dependencies or the
+        output of the last dependency
+        """
+        if self.configuration["denovo"]:
+            if self.dependencies is None or len(self.dependencies) == 1:
+                return self.pipeline.open_input()
+            return self.pipeline.open_step(self.dependencies[0], raw=raw)
+        else:
+            return PipelineStep._input(self, raw=raw)
+
+
+
+
 
 
 class MappingPipeline(object):
@@ -587,6 +603,7 @@ class MappingPipeline(object):
     def transcripts_denovo(self, name=None, configuration=None, dependencies=None, final=False, description=""):
         """Create annotation based transcriptom and map"""
         step = TranscriptMapStep(name, dependencies=dependencies, final=final, description=description)
+
         config = dotdict()
         config.denovo = True
         config.index = self.denovo_index
@@ -710,7 +727,7 @@ class MappingPipeline(object):
         if len(self.input) == 1:
             return gem.files.open(self.input[0])
         else:
-            return gem.filter.interleave([gem.files.open(f) for f in self.input])
+            return gem.filter.interleave([gem.files.open(f) for f in self.input], threads=max(1, self.threads / 2))
 
     def open_step(self, id, raw=False):
         """Open the original input files"""
@@ -848,7 +865,7 @@ class MappingPipeline(object):
             p2 = None
             c = 0
             inp = self.open_input()
-            for template in self.open_input():
+            for template in inp:
                 if c == 0:
                     p1 = template.get_pair()
                 elif c == 1:
