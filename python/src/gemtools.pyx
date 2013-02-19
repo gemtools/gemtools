@@ -117,11 +117,6 @@ cdef class filter(object):
         write_map     -- if true, write map, otherwise write fasta/q sequence
         threads       -- number of threads to use (if supported by the iterator)
         """
-        cdef uint64_t num_inputs = 1
-        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        cdef bool clean_id = self.clean_id
-        cdef bool append_extra = self.append_extra
-
         for t in self:
             output.write(t, write_map=write_map)
 
@@ -190,9 +185,13 @@ cdef class interleave(object):
         cdef bool interleave = self.interleave
         for i in range(num_inputs):
             inputs[i] = (<InputFile> self.files[i])._open()
-        #with nogil:
-        gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, threads, write_map)
+        with nogil:
+            gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, threads, write_map)
         output.close()
+        for i in range(num_inputs):
+            gt_input_file_close(inputs[i])
+        free(inputs)
+
 
 
 cdef class cat(interleave):
@@ -251,8 +250,8 @@ cdef class merge(object):
         for i in range(num_inputs):
             inputs[i] = (<InputFile> self.inputs[i])._open()
 
-        #with nogil:
-        gt_merge_files_synch(output_file, threads, num_inputs, inputs);
+        with nogil:
+            gt_merge_files_synch(output_file, threads, num_inputs, inputs);
         output.close()
 
 
@@ -474,11 +473,10 @@ cdef class InputFile(object):
     cpdef gt_status _next(self):
         """Internal iterator method"""
         cdef gt_status s = gt_input_generic_parser_get_template(self.buffered_input, self.template.template, self.parser_attr)
-        # if s != GT_STATUS_OK:
-            # print "WAIT>>>"
-            # # if self.process is not None:
-            # #     self.process.wait()
-            # print "DONE>>>"
+        if s != GT_STATUS_OK:
+            if self.process is not None:
+                # if this is a stream based process, make sure we clean up
+                self.process.wait()
         return s
 
     cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1):
@@ -497,8 +495,8 @@ cdef class InputFile(object):
         cdef bool append_extra = output.append_extra
         inputs[0] = self._open()
 
-        #with nogil:
-        gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
+        with nogil:
+            gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
         output.close()
         gt_input_file_close(inputs[0])
         free(inputs)

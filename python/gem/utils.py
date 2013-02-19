@@ -243,26 +243,24 @@ class ProcessInput(object):
         the queue when done to close the stream
         """
         outfile = gt.OutputFile(self.process.stdin, clean_id=self.clean_id, append_extra=self.append_extra)
-        # ww = open("grr.map", "w")
-        # for l in self.input:
-        #     print "WRITING >>>>>>"
-        #     ww.write(l.to_map())
-        #     ww.write("\n")
-        # ww.close()
-
         logging.debug("Preparing process input stream -- clean_id: %s, append_extra: %s, write_map:%s" % (str(self.clean_id), str(self.append_extra), str(self.write_map)))
         self.input.write_stream(outfile, write_map=self.write_map, threads=1)
 
+        try:
+            if self.input.process is not None:
+                self.input.process.wait()
+        except Exception:
+            pass
+
         self.process.stdin.close()
         outfile.close()
-
         logging.debug("Writing input finished")
 
     def write(self, process):
         self.process = process
-        self.thread = Thread(target=ProcessInput.__write_input, args=(self,))
+        self.thread = mp.Process(target=ProcessInput.__write_input, args=(self,))
         self.thread.start()
-        #self.__write_input()
+        self.process.stdin.close()
 
     def wait(self):
         if self.thread is not None:
