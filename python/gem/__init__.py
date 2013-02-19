@@ -211,7 +211,7 @@ def _prepare_quality_parameter(quality, input=None):
                currently works only for gemtools.TemplateIterator or gemtools.InputFile
                instances
     """
-    if quality is None and isinstance(input, (gt.TemplateIterator, gt.InputFile)):
+    if quality is None and isinstance(input, (gt.InputFile)):
         quality = input.quality
 
     ## check quality
@@ -228,7 +228,7 @@ def _prepare_quality_parameter(quality, input=None):
     return quality
 
 
-def _prepare_output(process, output=None, quality=None, delete_after_iterate=False, bam=False):
+def _prepare_output(process, output=None, quality=None, bam=False):
     """Creates a new gem.gemtools.Inputfile from the given process.
     If output is specivied, the function blocks and waits for the process to finish
     successfully before the InputFile is created on the specified output.
@@ -249,15 +249,15 @@ def _prepare_output(process, output=None, quality=None, delete_after_iterate=Fal
             raise ValueError("Execution failed!")
         logging.debug("Opening output file %s" % (output))
         if output.endswith(".bam") or bam:
-            return gt.InputFile(stream=gem.files.open_bam(output), file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
-        return gt.InputFile(file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
+            return gt.InputFile(gem.files.open_bam(output), quality=quality, process=process)
+        return gt.InputFile(output, quality=quality, process=process)
     else:
         logging.debug("Opening output stream")
         if bam:
-            return gt.InputFile(stream=gem.files.open_bam(process.stdout), quality=quality, process=process, delete_after_iterate=delete_after_iterate)
+            return gt.InputFile(gem.files.open_bam(process.stdout), quality=quality, process=process)
         ## running in async mode, return iterator on
         ## the output stream
-        return gt.InputFile(stream=process.stdout, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
+        return gt.InputFile(process.stdout, quality=quality, process=process)
 
 
 def validate_executables():
@@ -719,7 +719,7 @@ def validate(input,
     if validate_filter is not None:
         validate_p.extend(['-f', validate_filter])
 
-    process = utils.run_tool(validate_p, input=input, output=output, name="GEM-Validate", write_map=True)
+    process = utils.run_tool(validate_p, input=input, output=output, name="GEM-Validate", write_map=True, raw=True)
     return _prepare_output(process, output=output)
 
 
@@ -795,9 +795,6 @@ def gem2sam(input, index=None, output=None,
 
     # GT-25 transform id's
     process = utils.run_tool(gem_2_sam_p, input=input, output=output, name="GEM-2-sam", write_map=True, clean_id=True, append_extra=False)
-    # if process.wait() != 0:
-    #     raise ValueError("GEM-2-SAM execution failed!")
-    # return output
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -985,12 +982,18 @@ class merger(object):
         self.paired = paired
 
     def __iter__(self):
-        return gt.merge(self.target, self.source)
+        files = [self.target]
+        files.extend(self.source)
+        m = gt.merge(files)
+        return m.__iter__()
 
     @staticmethod
     def __async_merge(target, source, out, threads):
-        merger = gt.merge(target, source, init=False)
-        merger.merge_synch(out, threads)
+        of = gt.OutputFile(out, clean_id=False, append_extra=True)
+        files = [target]
+        files.extend(source)
+        gt.merge(files).write_stream(of, write_map=True)
+        of.close
         os.remove(out)
 
     def merge_async(self, threads=1, paired=False, same_content=False):
@@ -1000,7 +1003,7 @@ class merger(object):
         os.mkfifo(filename)
         process = mp.Process(target=merger.__async_merge, args=(self.target, self.source, filename, threads))
         process.start()
-        return gt.InputFile(file_name=filename)
+        return gt.InputFile(filename)
 
     def merge(self, output, threads=1, paired=False, same_content=False, compress=False):
         if same_content:
@@ -1016,9 +1019,12 @@ class merger(object):
                 out = p.stdin
 
             logging.debug("Using merger with %d threads and same content" % (threads))
-            merger = gt.merge(self.target, self.source, init=False)
-            merger.merge_synch(out, threads)
-            return gt.InputFile(file_name=output)
+            files = [self.target]
+            files.extend(self.source)
+            merger = gt.merge(files)
+            out = gt.OutputFile(output)
+            merger.write_stream(out, write_map=True, threads=threads)
+            return gt.InputFile(output)
 
         if len(self.source) == 1:
             logging.debug("Using paired merger with %d threads and same content %s" % (threads, str(same_content)))
@@ -1028,11 +1034,14 @@ class merger(object):
             merger.merge_pairs(self.target.file_name, self.source[0].file_name, output, same_content, threads)
         else:
             logging.debug("Using unpaired merger")
-            merger = gt.merge(self.target, self.source, init=True)
-            of = gt.OutputFile(file_name=output)
-            of.write_map(merger, clean_id=False, append_extra=True)
+            files = [self.target]
+            files.extend(self.source)
+            merger = gt.merge(files)
+            of = gt.OutputFile(output, clean_id=False, append_extra=True)
+            for m in merger:
+                of.write(m, write_map=True)
             of.close()
-        return gt.InputFile(file_name=output)
+        return gt.InputFile(output)
 
 
 def _is_i3_compliant(stream):

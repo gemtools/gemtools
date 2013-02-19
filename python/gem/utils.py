@@ -240,22 +240,26 @@ class ProcessInput(object):
                 stdout = open(filename, 'wb')
                 fifo = True
             else:
+                print "WRITE TO FILE", stdout
                 filename = stdout
                 stdout = open(stdout, 'wb')
 
             if stderr is not None:
                 stderr = open(stderr, 'wb')
+
             process = subprocess.Popen(commands, stdin=stdin, stdout=stdout, stderr=stderr, env=env, close_fds=False)
             connection.send(["process", process])
+            print "SEND"
             stream = process.stdin
-            if write_map:
-                of = gt.OutputFile(stream=stream)
-                of.write_map(iterator, clean_id, append_extra)
-                of.close()
-            else:
-                iterator.write_fastq(stream, clean_id, append_extra, 1)
-
+            print "WRITING FROM ", iterator
+            of = gt.OutputFile(stream, clean_id=clean_id, append_extra=append_extra)
+            iterator.write_stream(of, write_map=write_map)  # todo add threads
+            print "DONE"
             stream.close()
+            print "LALALA DNONE>>>"
+            print "WAITED >>>> ", process.wait()
+            if stdin is not None:
+                stdin.close()
             if stdout is not None:
                 stdout.close()
             if stderr is not None:
@@ -264,6 +268,7 @@ class ProcessInput(object):
             #connection.send(["fail", 1])
             pass
         finally:
+            print "SEND EXIT ?"
             if process is not None:
                 connection.send(["exit", process.wait()])
             else:
@@ -275,8 +280,6 @@ class ProcessInput(object):
     def start(self, commands, stdout, stderr, env, ):
         parent_conn, child_conn = mp.Pipe()
         iterator = self.input
-        if isinstance(iterator, gt.InputFile):
-            iterator = iterator.templates()
 
         self.process = mp.Process(target=ProcessInput.__write_input, args=(
             iterator, self.clean_id, self.append_extra, self.write_map,
@@ -295,13 +298,14 @@ class ProcessInput(object):
             process.stdout = fifo
             self.connection = parent_conn
             return process
-
+        print "CLOSING"
         parent_conn.close()
         self.process.join()
         raise ProcessError("No process started!")
 
     def join(self):
         if self.process is not None and self.process._parent_pid == os.getpid():
+            print "WAIGING>>>>>"
             (msg, exit_value) = self.connection.recv()
             self.connection.close()
             self.process.join()
@@ -404,7 +408,7 @@ class ProcessWrapper(object):
                 ev = process.wait()
                 if exit_value is not 0:
                     exit_value = ev
-            self.exit_value = ev
+            self.exit_value = exit_value
             return ev
         except Exception, e:
             print "An error occured while waiting for on eof the child processes:", e

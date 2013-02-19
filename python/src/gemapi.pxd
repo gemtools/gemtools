@@ -265,13 +265,14 @@ cdef extern from "gem_tools.h" nogil:
     gt_status gt_output_fasta_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment, gt_output_fasta_attributes* output_attributes)
     gt_status gt_output_fasta_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template, gt_output_fasta_attributes* output_attributes)
     gt_status gt_output_fasta_sprint_template(gt_string* string,gt_template* template, gt_output_fasta_attributes* output_attributes)
+    gt_status gt_output_fasta_ofprint_template(gt_output_file* output_file,gt_template* template, gt_output_fasta_attributes* attributes)
+
     ## print map
     gt_status gt_output_map_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template,gt_output_map_attributes* attributes)
     gt_status gt_output_map_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment,gt_output_map_attributes* attributes)
     gt_status gt_output_map_sprint_template(gt_string* string,gt_template* template,gt_output_map_attributes* attributes)
-
+    gt_status gt_output_map_ofprint_template(gt_output_file* output_file,gt_template* template, gt_output_map_attributes* attributes)
 
 cdef extern from "gemtools_binding.h" nogil:
     void gt_merge_files_synch(gt_output_file* output_file, uint64_t threads, uint64_t num_files, gt_input_file** files)
     void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map)
-

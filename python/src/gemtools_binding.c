@@ -22,7 +22,7 @@ void gt_merge_files_synch(gt_output_file* const output_file, uint64_t threads, c
 
 void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map){
     // prepare attributes
-    
+
     gt_output_fasta_attributes* attributes = 0;
     gt_output_map_attributes* map_attributes = 0;
     if(!write_map){
@@ -43,7 +43,7 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
     gt_generic_parser_attr* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
 
 
-    if(interleave){
+    if(true){
         pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
 
         // main loop, interleave
@@ -114,7 +114,13 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
         free(buffered_input);
 
     }
-
+    printf("COMPLETE WRITING DONE >>>>>>>>>>>>>>>>\n");
     gt_output_fasta_attributes_delete(attributes);
     gt_input_generic_parser_attributes_delete(parser_attributes);
+    printf("CLOSING IN AND OUT>>>>>>>>\n");
+    register uint64_t i = 0;
+    for(i=0; i<num_inputs; i++){
+        gt_input_file_close(inputs[i]);
+    }
+    gt_output_file_close(output);
 }

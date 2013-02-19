@@ -10,7 +10,7 @@ test_fastq = testfiles["test.fastq"]
 
 def test_template_attribute_reading_first_mapping():
     infile = gt.InputFile(testfiles["test.map"])
-    for tmpl in infile.templates():
+    for tmpl in infile:
         print "Template"
         assert tmpl.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13924:124292", tmpl.tag
         assert tmpl.blocks == 1, tmpl.blocks
@@ -22,30 +22,30 @@ def test_template_attribute_reading_first_mapping():
 
 def test_template_uniqness_level():
     infile = gt.InputFile(testfiles["test.map"])
-    levels = [t.level() for t in infile.templates()]
+    levels = [t.level() for t in infile]
     assert levels == [-1, 37, 0, -1, 0, 0, 0, 0, 0, 0], levels
 
 
 def test_template_interleave():
     infile1 = gt.InputFile(testfiles["test.map"])
     infile2 = gt.InputFile(testfiles["test.map"])
-    interleave = gt.interleave([infile1.templates(), infile2.templates()])
+    interleave = gt.interleave([infile1, infile2])
     levels = [t.level() for t in interleave]
     assert levels == [-1, -1, 37, 37, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], levels
 
 
 def test_template_unmapped_filter_length():
     infile = gt.InputFile(testfiles["test.map.gz"])
-    assert 1 == len([x for x in gt.unmapped(infile.templates(), 1)]), len([x for x in gt.unmapped(infile.templates(), 1)])
-    assert 5 == len([x for x in gt.unmapped(infile.templates(), 0)]), len([x for x in gt.unmapped(infile.templates(), 0)])
-    assert 1 == len([x for x in gt.unmapped(infile.templates(), 2)]), len([x for x in gt.unmapped(infile.templates(), 2)])
-    assert 0 == len([x for x in gt.unmapped(infile.templates(), 3)]), len([x for x in gt.unmapped(infile.templates(), 3)])
-    assert 0 == len([x for x in gt.unmapped(infile.templates(), 4)]), len([x for x in gt.unmapped(infile.templates(), 4)])
+    assert 1 == len([x for x in gt.unmapped(infile, 1)]), len([x for x in gt.unmapped(infile, 1)])
+    assert 5 == len([x for x in gt.unmapped(infile, 0)]), len([x for x in gt.unmapped(infile, 0)])
+    assert 1 == len([x for x in gt.unmapped(infile, 2)]), len([x for x in gt.unmapped(infile, 2)])
+    assert 0 == len([x for x in gt.unmapped(infile, 3)]), len([x for x in gt.unmapped(infile, 3)])
+    assert 0 == len([x for x in gt.unmapped(infile, 4)]), len([x for x in gt.unmapped(infile, 4)])
 
 
 def test_template_unique_filter_level():
     infile = gt.InputFile(testfiles["test.map.gz"])
-    assert 1 == len([x for x in gt.unique(infile.templates(), 20)]), "Should be length 5 buyt is: " + str([x.level() for x in gt.unique(infile.templates(), 20)])
+    assert 1 == len([x for x in gt.unique(infile, 20)]), "Should be length 5 buyt is: " + str([x.level() for x in gt.unique(infile, 20)])
 
 # def test_fastq_writer_process():
 #     infile = gt.InputFile(testfiles["test_merge_source_2.map"])

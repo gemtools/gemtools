@@ -35,6 +35,7 @@ def test_merging_maps():
     source_2 = files.open(testfiles["test_merge_source_2.map"])
     #result = gem.mapper(input, index, results_dir + "/merged.mapping")
     merger = gem.merger(input, [source_1, source_2])
+
     count = 0
     for read in merger:
         count += 1
@@ -98,9 +99,9 @@ def test_sync_mapper_execution():
     mappings = gem.mapper(input, index, results_dir + "/result.mapping")
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.file_name is not None
-    assert mappings.file_name == results_dir + "/result.mapping"
-    assert sum(1 for x in mappings.templates()) == 10000
+    assert mappings.filename is not None
+    assert mappings.filename == results_dir + "/result.mapping"
+    assert sum(1 for x in mappings) == 10000
 
 
 @with_setup(setup_func, cleanup)
@@ -109,7 +110,7 @@ def test_async_mapper_execution():
     mappings = gem.mapper(input, index)
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.file_name is None
+    assert mappings.filename is None
     assert sum(1 for x in mappings) == 10000
 
 
@@ -128,18 +129,17 @@ def test_async_mapper_execution():
 
 #     assert mappings is not None
 #     assert mappings.process is not None
-#     assert mappings.file_name is not None
-#     assert mappings.file_name == results_dir + "/piped_out.mapping"
+#     assert mappings.filename is not None
+#     assert mappings.filename == results_dir + "/piped_out.mapping"
 #     assert os.path.exists(results_dir + "/piped_out.mapping")
 #     assert sum(1 for x in mappings) == 5000
 
 
 @with_setup(setup_func, cleanup)
 def test_writing_fastq():
-    gem.loglevel("debug")
     output = results_dir + "/print_fastq.out"
     input1 = files.open(testfiles["reads_1.fastq"])
-    input1.write_fastq(output, False, True, 1)
+    input1.write_stream(gt.OutputFile(output), write_map=False)
     s = 0
     with open(output) as f:
         for l in f:
@@ -152,7 +152,7 @@ def test_writing_fastq_interleaved():
     output = results_dir + "/print_fastq.out"
     input1 = files.open(testfiles["reads_1.fastq"])
     input2 = files.open(testfiles["reads_2.fastq"])
-    filter.interleave([input1, input2]).write_fastq(output, False, True, 8)
+    filter.interleave([input1, input2]).write_stream(gt.OutputFile(output), write_map=False)
     s = 0
     with open(output) as f:
         for l in f:
@@ -174,10 +174,11 @@ def test_interleaveaving():
 def test_interleaved_mapper_run():
     input1 = files.open(testfiles["reads_1.fastq"])
     input2 = files.open(testfiles["reads_2.fastq"])
+
     mappings = gem.mapper(filter.interleave([input1, input2]), index)
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.file_name is None
+    assert mappings.filename is None
     assert sum(1 for x in mappings) == 20000
 
 
@@ -188,7 +189,7 @@ def test_interleaved_pair_aligner_run():
     mappings = gem.mapper(filter.interleave([input1, input2]), index)
     paired = gem.pairalign(mappings, index)
     assert paired is not None
-    assert sum(1 for x in paired) == 20000  ## test dataset does not pair at all
+    assert sum(1 for x in paired) == 20000  # test dataset does not pair at all
 
 
 @with_setup(setup_func, cleanup)
@@ -197,7 +198,7 @@ def test_sync_splitmapper_execution():
     mappings = gem.splitmapper(input, index, results_dir + "/splitmap_out.mapping")
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.file_name == results_dir + "/splitmap_out.mapping"
+    assert mappings.filename == results_dir + "/splitmap_out.mapping"
     assert os.path.exists(results_dir + "/splitmap_out.mapping")
     assert sum(1 for x in mappings) == 10000
 
@@ -208,7 +209,7 @@ def test_async_splitmapper_execution():
     mappings = gem.splitmapper(input, index)
     assert mappings is not None
     assert mappings.process is not None
-    assert mappings.file_name is None
+    assert mappings.filename is None
     assert sum(1 for x in mappings) == 10000
 
 
@@ -246,6 +247,7 @@ def test_quality_pass_on_execution():
     mappings = gem.mapper(input, index, output=results_dir+"/quality_passon_mapping.map")
     assert mappings.quality == "offset-33", "Quality should be 'offset-33' but is %s" % (str(mappings.quality))
 
+
 @with_setup(setup_func, cleanup)
 def test_gem2sam_execution():
     input = files.open(testfiles["reads_1.fastq"])
@@ -253,7 +255,8 @@ def test_gem2sam_execution():
     sam = gem.gem2sam(mappings, index, compact=True)
     assert sam is not None
     assert sam.process is not None
-    assert sam.file_name is None
+    assert sam.filename is None
+
     count = 0
     for read in sam:
         count += 1
