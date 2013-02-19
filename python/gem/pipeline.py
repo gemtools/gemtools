@@ -5,6 +5,7 @@ import logging
 import gem
 import traceback
 import json
+import multiprocessing as mp
 
 from gem.utils import Timer
 import gem.gemtools as gt
@@ -132,11 +133,19 @@ class PrepareInputStep(PipelineStep):
             self._files.append(self.pipeline.create_file_name(self.name, file_suffix="gt.fastq", final=self.final))
         return self._files
 
+    def __write(self):
+        outfile = gt.OutputFile(self._final_output(), clean_id=True, append_extra=False)
+        infile = self._input()
+        infile.write_stream(outfile, write_map=False)
+        infile.close()
+        outfile.close()
+
     def run(self):
         """Merge current set of mappings and delete last ones"""
-        outfile = gt.OutputFile(self._final_output(), clean_id=True, append_extra=False)
-        self._input().write_stream(outfile, write_map=False)
-        outfile.close()
+        p = mp.Process(target=PrepareInputStep.__write, args=(self,))
+        p.start()
+        p.join()
+
 
 
 class MergeStep(PipelineStep):
@@ -175,7 +184,7 @@ class MergeAndPairStep(PipelineStep):
         master = inputs[0]
         slaves = inputs[1:]
 
-        mapping = gem.merger(master, slaves).merge(None, self.pipeline.threads, same_content=same_content, compress=False)
+        mapping = gem.merger(master, slaves).merge(None, threads=self.pipeline.threads, same_content=same_content, compress=False)
 
         pair_mapping = gem.pairalign(
             mapping,
@@ -728,6 +737,7 @@ class MappingPipeline(object):
             return gem.files.open(self.input[0])
         else:
             return gem.filter.interleave([gem.files.open(f) for f in self.input], threads=max(1, self.threads / 2))
+
 
     def open_step(self, id, raw=False):
         """Open the original input files"""

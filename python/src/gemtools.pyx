@@ -187,6 +187,7 @@ cdef class interleave(object):
         cdef bool append_extra = output.append_extra
         cdef bool interleave = self.interleave
         cdef uint64_t use_threads = max(threads, self.threads)
+
         for i in range(num_inputs):
             inputs[i] = (<InputFile> self.files[i])._open()
         with nogil:
@@ -264,7 +265,13 @@ cdef class merge(object):
 
         with nogil:
             gt_merge_files_synch(output_file, threads, num_inputs, inputs);
+
         output.close()
+        for i in range(num_inputs):
+            gt_input_file_close(inputs[i])
+        free(inputs)
+
+
 
 
 cdef class OutputFile:
@@ -349,6 +356,8 @@ cdef class OutputFile:
         if self.output_file is not NULL:
             gt_output_file_close(self.output_file)
             self.output_file = NULL
+        if not isinstance(self.target, basestring):
+            self.target.close()
 
     cpdef write(self, Template template, write_map=True):
         """Write a single template to this otuout file.
@@ -512,6 +521,8 @@ cdef class InputFile(object):
         output.close()
         gt_input_file_close(inputs[0])
         free(inputs)
+        if self.process is not None:
+            self.process.wait()
 
     cpdef close(self):
         if self.buffered_input is not NULL:

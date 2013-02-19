@@ -284,7 +284,7 @@ class RnaPipeline(Command):
 
         # define pipeline steps
         input_dep = []
-        if not pipeline.direct_input and (len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz", pipeline.input))) > 0):
+        if not pipeline.direct_input and (len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz"), pipeline.input)) > 0):
             input_dep.append(pipeline.prepare_input(name="prepare"))
 
         map_initial = pipeline.map(name="initial", description="Map to index", dependencies=input_dep)

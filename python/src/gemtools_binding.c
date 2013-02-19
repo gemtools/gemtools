@@ -11,7 +11,6 @@ bool gt_input_file_has_qualities(gt_input_file* file){
 void gt_merge_files_synch(gt_output_file* const output_file, uint64_t threads, const uint64_t num_files,  gt_input_file** files) {
   // Mutex
   pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
-
   // Parallel reading+process
   #pragma omp parallel num_threads(threads)
   {
@@ -55,10 +54,10 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
             gt_buffered_input_file** buffered_input = malloc(num_inputs * sizeof(gt_buffered_input_file*));
 
             for(i=0; i<num_inputs; i++){
-                buffered_input[i] = gt_buffered_input_file_new(inputs[ num_inputs - i - 1 ]);
+                buffered_input[i] = gt_buffered_input_file_new(inputs[i]);
             }
             // attache first input to output
-            gt_buffered_input_file_attach_buffered_output(buffered_input[num_inputs-1], buffered_output);
+            gt_buffered_input_file_attach_buffered_output(buffered_input[0], buffered_output);
 
             gt_template* template = gt_template_new();
             gt_status status;
@@ -87,7 +86,6 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
         #pragma omp parallel num_threads(threads)
         {
             register uint64_t i = 0;
-            register uint64_t j = 0;
             register uint64_t c = 0;
             register uint32_t last_id = 0;
             gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);

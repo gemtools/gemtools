@@ -18,7 +18,6 @@ import datetime
 import time
 import tempfile
 import multiprocessing as mp
-from threading import Thread
 
 
 class Timer(object):
@@ -254,15 +253,17 @@ class ProcessInput(object):
         except Exception:
             pass
 
-        self.process.stdin.close()
         outfile.close()
+        self.process.stdin.close()
         logging.debug("Writing input finished")
 
     def write(self, process):
         self.process = process
         self.thread = mp.Process(target=ProcessInput.__write_input, args=(self,))
-        self.thread.start()
+        #self.thread = Thread(target=ProcessInput.__write_input, args=(self,))
         self.process.stdin.close()
+        self.thread.start()
+
 
     def wait(self):
         if self.thread is not None:
@@ -364,7 +365,7 @@ class ProcessWrapper(object):
             self.exit_value = exit_value
             return ev
         except Exception, e:
-            print "An error occured while waiting for on eof the child processes:", e
+            print "An error occured while waiting for on the child processes:", e
             self.exit_value = 1
         finally:
             if not self.keep_logfiles:

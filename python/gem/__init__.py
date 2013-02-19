@@ -18,6 +18,7 @@ import __builtin__
 
 import multiprocessing as mp
 
+
 LOG_NOTHING = 1
 LOG_STDERR = 2
 LOG_FORMAT = '%(asctime)-15s %(levelname)s: %(message)s'
@@ -981,6 +982,8 @@ class merger(object):
         self.target = target
         self.source = source
         self.paired = paired
+        self._output = None
+        self._input = None
 
     def __iter__(self):
         files = [self.target]
@@ -988,23 +991,26 @@ class merger(object):
         m = gt.merge(files)
         return m.__iter__()
 
-    @staticmethod
-    def __async_merge(target, source, out, threads):
-        of = gt.OutputFile(out, clean_id=False, append_extra=True)
-        files = [target]
-        files.extend(source)
-        gt.merge(files).write_stream(of, write_map=True)
-        of.close
-        os.remove(out)
+    def __async_merge(self, threads):
+        of = gt.OutputFile(self._output, clean_id=False, append_extra=True)
+        files = [self.target]
+        files.extend(self.source)
+        gt.merge(files).write_stream(of, write_map=True, threads=threads)
+        of.close()
+        self._output.close()
 
     def merge_async(self, threads=1, paired=False, same_content=False):
-        handle, filename = tempfile.mkstemp()
-        os.close(handle)
-        os.remove(filename)
-        os.mkfifo(filename)
-        process = mp.Process(target=merger.__async_merge, args=(self.target, self.source, filename, threads))
+        (r, w) = os.pipe()
+        self._input = os.fdopen(r, 'r')
+        self._output = os.fdopen(w, 'w')
+        process = mp.Process(target=merger.__async_merge, args=(self, threads))
+
+        def ww():
+            process.join()
+        process.wait = ww
         process.start()
-        return gt.InputFile(filename)
+        self._output.close()
+        return gt.InputFile(self._input, process=process)
 
     def merge(self, output, threads=1, paired=False, same_content=False, compress=False):
         if same_content:
@@ -1024,6 +1030,7 @@ class merger(object):
             files.extend(self.source)
             merger = gt.merge(files)
             out = gt.OutputFile(output)
+
             merger.write_stream(out, write_map=True, threads=threads)
             return gt.InputFile(output)
         else:
