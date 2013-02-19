@@ -161,7 +161,7 @@ def test_writing_fastq_interleaved():
 
 
 @with_setup(setup_func, cleanup)
-def test_interleaveaving():
+def test_interleaving():
     input1 = files.open(testfiles["reads_1.fastq"])
     input2 = files.open(testfiles["reads_2.fastq"])
     s = 0
@@ -256,7 +256,6 @@ def test_gem2sam_execution():
     assert sam is not None
     assert sam.process is not None
     assert sam.filename is None
-
     count = 0
     for read in sam:
         count += 1

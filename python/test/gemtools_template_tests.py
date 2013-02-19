@@ -45,18 +45,11 @@ def test_template_unmapped_filter_length():
 
 def test_template_unique_filter_level():
     infile = gt.InputFile(testfiles["test.map.gz"])
-    assert 1 == len([x for x in gt.unique(infile, 20)]), "Should be length 5 buyt is: " + str([x.level() for x in gt.unique(infile, 20)])
+    assert 1 == len([x for x in gt.unique(infile, 20)]), "Should be length 1 buyt is: " + str([x.level() for x in gt.unique(infile, 20)])
 
 # def test_fastq_writer_process():
 #     infile = gt.InputFile(testfiles["test_merge_source_2.map"])
 #     outfile = gt.OutputFile()
-
-
-def test_iterating_alingmnets():
-    infile = gt.InputFile(testfiles["test.map"])
-    for tmpl in infile.alignments():
-        assert tmpl.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13924:124292", tmpl.tag
-        break
 
 
 def test_template_map_parsing():

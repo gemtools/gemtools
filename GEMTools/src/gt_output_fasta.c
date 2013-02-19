@@ -18,7 +18,8 @@ GT_INLINE gt_output_fasta_attributes* gt_output_fasta_attributes_new(){
 }
 
 GT_INLINE void gt_output_fasta_attributes_delete(gt_output_fasta_attributes* attributes){
-	free(attributes->format);
+  GT_NULL_CHECK(attributes);
+	//free(attributes->format);
 	free(attributes);
 }
 

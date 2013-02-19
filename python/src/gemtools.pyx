@@ -100,6 +100,7 @@ cdef class filter(object):
     def __next__(self):
         cdef bool filtered = False
         while True:
+            filtered = False
             n = self.source.__next__()
             for f in self.template_filter:
                 if not f.filter(n):
@@ -107,6 +108,7 @@ cdef class filter(object):
                     break
             if not filtered:
                 return n
+
 
     cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1):
         """Write the content of this filter to the output file.
@@ -134,11 +136,14 @@ cdef class interleave(object):
     cdef int64_t i
     # number of iterators
     cdef int64_t length
+    # interleave
+    cdef bool interleave
 
-    def __init__(self, files):
+    def __init__(self, files, interleave=True):
         self.files = files
         self.i = 0
         self.length = len(files)
+        self.interleave = interleave
 
     def __iter__(self):
         # initialize iterators
@@ -147,17 +152,27 @@ cdef class interleave(object):
 
     def __next__(self):
         cdef int64_t mises = 0
-        while True:
-            try:
-                return self.files[self.i].__next__()
-            except StopIteration:
-                mises += 1
-                if mises >= self.length:
-                    raise StopIteration()
-            finally:
-                self.i += 1
-                if self.i >= self.length:
-                    self.i = 0
+        if self.interleave:
+            while True:
+                try:
+                    return self.files[self.i].__next__()
+                except StopIteration:
+                    mises += 1
+                    if mises >= self.length:
+                        raise StopIteration()
+                finally:
+                    self.i += 1
+                    if self.i >= self.length:
+                        self.i = 0
+        else:
+            while True:
+                try:
+                    return self.files[self.i].__next__()
+                except StopIteration:
+                    self.i += 1
+                    mises += 1
+                    if mises >= self.length or self.i >= self.length:
+                        raise StopIteration()
 
     cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1):
         """Write the content interleaved to the output file
@@ -172,13 +187,17 @@ cdef class interleave(object):
         cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
         cdef bool clean_id = output.clean_id
         cdef bool append_extra = output.append_extra
+        cdef bool interleave = self.interleave
         for i in range(num_inputs):
             inputs[i] = (<InputFile> self.files[i])._open()
-        with nogil:
-            gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
+        #with nogil:
+        gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, threads, write_map)
         output.close()
 
 
+cdef class cat(interleave):
+    def __init__(self, files):
+        interleave.__init__(self, files, interleave=False)
 
 
 cdef class merge(object):
@@ -232,8 +251,8 @@ cdef class merge(object):
         for i in range(num_inputs):
             inputs[i] = (<InputFile> self.inputs[i])._open()
 
-        with nogil:
-            gt_merge_files_synch(output_file, threads, num_inputs, inputs);
+        #with nogil:
+        gt_merge_files_synch(output_file, threads, num_inputs, inputs);
         output.close()
 
 
@@ -425,7 +444,7 @@ cdef class InputFile(object):
         if self.filename is None:
             raise ValueError("Can not clone a stream based input file")
         else:
-            return InputFile(self.source, mmap_file=self.mmap_file, force_paired_reads=self.force_paired_reads, quality=self.quality, process=self.process, delete_after_iterate=self.delete_after_iterate)
+            return InputFile(self.source, mmap_file=self.mmap_file, force_paired_reads=self.force_paired_reads, quality=self.quality, process=self.process)
 
     def raw_stream(self):
         """Return the raw stream on this input file.
@@ -471,7 +490,6 @@ cdef class InputFile(object):
         interleave    -- interleave muliple inputs
         threads       -- number of threads to use (if supported by the iterator)
         """
-        print "WRITING INPUT FILE TOP STREAM >>>>>>>>>"
         cdef gt_output_file* output_file = output.output_file
         cdef uint64_t num_inputs = 1
         cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
@@ -479,14 +497,11 @@ cdef class InputFile(object):
         cdef bool append_extra = output.append_extra
         inputs[0] = self._open()
 
-        with nogil:
-            with gil:
-                print "START WRITING>>>>>>>>>>>"
-            gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
-            with gil:
-                print "FINIH>>>>>>>>"
-        print "WRITING INPUT FILE TOP STREAM >>>>>>>>>DONE"
+        #with nogil:
+        gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
         output.close()
+        gt_input_file_close(inputs[0])
+        free(inputs)
 
 
 

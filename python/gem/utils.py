@@ -18,6 +18,7 @@ import datetime
 import time
 import tempfile
 import multiprocessing as mp
+from threading import Thread
 
 
 class Timer(object):
@@ -113,7 +114,19 @@ class Process(object):
     """Single process in a pipeline of processes"""
 
     def __init__(self, wrapper, commands, input=subprocess.PIPE, output=subprocess.PIPE, parent=None, env=None, logfile=None):
-        """"Internal process"""
+        """"Initialize a single process. the process takes the outer wrapper, which is basically the pipeline
+        integrating this process and the commands. Additionally, the process can have defined input and output.
+        If a parent process is given, any input setting is overwritten and the stdout of
+        the parent is used.
+
+        wrapper  -- the outer pipeline
+        commands -- the commands to be executed
+        input    -- the input
+        output   -- the output
+        parent   -- optional parent process that defines the input
+        env      -- optional environment definition
+        logfile  -- optional path to the log file
+        """
         self.wrapper = wrapper
         self.commands = commands
         self.input = input
@@ -122,32 +135,48 @@ class Process(object):
         self.process = None
         self.logfile = logfile
         self.parent = parent
-        self.process_input = None
+        self.input_writer = None
 
     def run(self):
-        """Start the process and return it"""
+        """Start the process and return it. If the input is a ProcessInput,
+        the input of this process is set to pipe and the ProcessInput is written
+        there.
+        """
         stdin = self.input
         stdout = self.output
         stderr = None
-        if self.parent is not None:
-            stdin = self.parent.process.stdout
-        self.process_input = None
+        process_input = None
 
-        if isinstance(stdin, ProcessInput):
-            self.process_input = stdin
-            if self.logfile is not None:
-                stderr = self.logfile
-            logging.debug("Starging mp process input")
-            self.process = self.process_input.start(self.commands, stdout=stdout, stderr=stderr, env=self.env)
+        # check the logfile
+        if self.logfile is not None:
+            logging.debug("Setting process log file to %s", self.logfile)
+            stderr = open(self.logfile, 'wb')
+
+        #check outout
+        if stdout is not None and isinstance(stdout, basestring):
+            logging.debug("File output detected, opening output stream to %s", stdout)
+            stdout = open(stdout, "wb")
+        elif stdout is None:
+            stdout = subprocess.PIPE
+
+        # check input
+        if self.parent is not None:
+            logging.debug("Setting process input to parent output")
+            stdin = self.parent.process.stdout
         else:
-            if self.logfile is not None:
-                stderr = open(self.logfile, 'wb')
-            if isinstance(stdout, basestring):
-                stdout = open(stdout, 'wb')
-            elif stdout is None:
-                stdout = subprocess.PIPE
-            logging.debug("Starging standart subprocess")
-            self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=False)
+            if isinstance(stdin, ProcessInput):
+                logging.debug("Process-Input detected, switching to PIPE input")
+                process_input = stdin
+                stdin = subprocess.PIPE
+
+        logging.debug("Starging subprocess")
+        self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=False)
+
+        if process_input is not None:
+            logging.debug("Starting process input writer")
+            process_input.write(self.process)
+            self.input_writer = process_input
+
         return self.process
 
     def __str__(self):
@@ -160,160 +189,84 @@ class Process(object):
 
     def wait(self):
         """Wait for the process and return its exit value. If it did not exit with
-        0, print the log file to error"""
+        0, print the log file to error
+        """
         if self.process is None:
             logging.error("Process was not started")
             raise ProcessError("Process was not started!", self)
 
-        if self.process_input is not None:
-            logging.debug("Joining input")
-            exit_value = self.process_input.join()
-        else:
-            exit_value = self.process.wait()
+        if self.input_writer is not None:
+            logging.debug("Waiting for process input writer to finish")
+            self.input_writer.wait()
+
+        # wait for the process
+        exit_value = self.process.wait()
+        logging.debug("Process '%s' finished with %d", str(self), exit_value)
         if exit_value is not 0:
-            logging.error("Process %s exited with %d!" % (str(self), exit_value))
             if self.logfile is not None:
                 with open(self.logfile) as f:
                     for line in f:
                         logging.error("%s" % (line.strip()))
-        else:
-            logging.debug("Process %s finished" % (str(self)))
-
-        if self.process.stdin is not None:
-            try:
-                self.process.stdin.close()
-            except:
-                pass
-        if self.process.stdout is not None:
-            try:
-                self.process.stdout.close()
-            except:
-                pass
-        if self.process.stderr is not None:
-            try:
-                self.process.stderr.close()
-            except:
-                pass
         return exit_value
 
     def to_bash(self):
+        """Returns the bash command representation
+        """
         if isinstance(self.commands, (list, tuple)):
                 return " ".join(self.commands)
         return str(self.commands)
 
 
 class ProcessInput(object):
-    """Helper class to write templates to a target process"""
+    """Takes a gemtools InputFile or filter and uses the write_stream() method
+    to write the content to the given process stdin.
+    """
+
     def __init__(self, input, write_map=False, clean_id=True, append_extra=True):
+        """Initialize a new ProcessInput from a gemtools.InputFile or filter
+
+        input         -- the input
+        write_map     -- write in map format, otherwise writes in fasta/q
+        clean_id      -- clean ids and ensure /1 /2 pairing ids
+        append_extra  -- include any additional infomration stored in the read ids
+        """
         self.write_map = write_map
         self.clean_id = clean_id
         self.append_extra = append_extra
         self.process = None
         self.input = input
-        self.connection = None
+        self.thread = None
 
-    @staticmethod
-    def __write_input(iterator, clean_id, append_extra, write_map, commands, stdout, stderr, env, connection):
+    def __write_input(self):
         """Internal method that writes templates ot the
         input stream of the process and puts a message on
         the queue when done to close the stream
         """
-        # initialize logging in the child process
-        stream = None
-        filename = None
-        fifo = False
-        process = None
-        try:
-            stdin = subprocess.PIPE
-            if not isinstance(stdout, basestring):
-                # it seems to be problematic to pass
-                # the file descriptors between the processes
-                # on both OSX and Linux reliably, use a named
-                # pipe
-                handle, filename = tempfile.mkstemp()
-                os.close(handle)
-                os.remove(filename)
-                os.mkfifo(filename)
-                ## send the fifo
-                connection.send(["fifo", filename])
-                ##logging.debug("Created named pipe in %s" % (filename))
-                stdout = open(filename, 'wb')
-                fifo = True
-            else:
-                print "WRITE TO FILE", stdout
-                filename = stdout
-                stdout = open(stdout, 'wb')
+        outfile = gt.OutputFile(self.process.stdin, clean_id=self.clean_id, append_extra=self.append_extra)
+        # ww = open("grr.map", "w")
+        # for l in self.input:
+        #     print "WRITING >>>>>>"
+        #     ww.write(l.to_map())
+        #     ww.write("\n")
+        # ww.close()
 
-            if stderr is not None:
-                stderr = open(stderr, 'wb')
+        logging.debug("Preparing process input stream -- clean_id: %s, append_extra: %s, write_map:%s" % (str(self.clean_id), str(self.append_extra), str(self.write_map)))
+        self.input.write_stream(outfile, write_map=self.write_map, threads=1)
 
-            process = subprocess.Popen(commands, stdin=stdin, stdout=stdout, stderr=stderr, env=env, close_fds=False)
-            connection.send(["process", process])
-            print "SEND"
-            stream = process.stdin
-            print "WRITING FROM ", iterator
-            of = gt.OutputFile(stream, clean_id=clean_id, append_extra=append_extra)
-            iterator.write_stream(of, write_map=write_map)  # todo add threads
-            print "DONE"
-            stream.close()
-            print "LALALA DNONE>>>"
-            print "WAITED >>>> ", process.wait()
-            if stdin is not None:
-                stdin.close()
-            if stdout is not None:
-                stdout.close()
-            if stderr is not None:
-                stderr.close()
-        except Exception, e:
-            #connection.send(["fail", 1])
-            pass
-        finally:
-            print "SEND EXIT ?"
-            if process is not None:
-                connection.send(["exit", process.wait()])
-            else:
-                connection.send(["exit", 1])
-            if fifo:
-                os.remove(filename)
-            connection.close()
+        self.process.stdin.close()
+        outfile.close()
 
-    def start(self, commands, stdout, stderr, env, ):
-        parent_conn, child_conn = mp.Pipe()
-        iterator = self.input
+        logging.debug("Writing input finished")
 
-        self.process = mp.Process(target=ProcessInput.__write_input, args=(
-            iterator, self.clean_id, self.append_extra, self.write_map,
-            commands, stdout, stderr, env,
-            child_conn,))
-        self.process.start()
+    def write(self, process):
+        self.process = process
+        self.thread = Thread(target=ProcessInput.__write_input, args=(self,))
+        self.thread.start()
+        #self.__write_input()
 
-        (msg, value) = parent_conn.recv()
-        fifo = None
-        if msg == "fifo":
-            fifo = open(value, "rb")
-            (msg, value) = parent_conn.recv()
-
-        if msg == "process":
-            process = value
-            process.stdout = fifo
-            self.connection = parent_conn
-            return process
-        print "CLOSING"
-        parent_conn.close()
-        self.process.join()
-        raise ProcessError("No process started!")
-
-    def join(self):
-        if self.process is not None and self.process._parent_pid == os.getpid():
-            print "WAIGING>>>>>"
-            (msg, exit_value) = self.connection.recv()
-            self.connection.close()
-            self.process.join()
-            if msg == "exit":
-                return exit_value
-            else:
-                return 1
-        return 0
+    def wait(self):
+        if self.thread is not None:
+            self.thread.join()
 
 
 class ProcessWrapper(object):

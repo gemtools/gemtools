@@ -41,10 +41,10 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
 
     // generic parser attributes
     gt_generic_parser_attr* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
+    pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+    if(interleave){
 
-    if(true){
-        pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
 
         // main loop, interleave
         #pragma omp parallel num_threads(threads)
@@ -83,44 +83,57 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
             free(buffered_input);
         }
     }else{
-        // main loop cat
-        register uint64_t i = 0;
-        register uint64_t c = 0;
-        gt_status status;
-        gt_template* template = gt_template_new();
-        gt_buffered_output_file* buffered_output;
-        gt_buffered_input_file** buffered_input = malloc(num_inputs * sizeof(gt_buffered_input_file*));
+        // main loop, cat
+        #pragma omp parallel num_threads(threads)
+        {
+            register uint64_t i = 0;
+            register uint64_t j = 0;
+            register uint64_t c = 0;
+            register uint32_t last_id = 0;
+            gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);
+            gt_buffered_input_file** buffered_input = malloc(1 * sizeof(gt_buffered_input_file*));
+            gt_buffered_input_file* current_input = 0;
+            gt_template* template = gt_template_new();
+            gt_status status = 0;
+            for(i=0; i<num_inputs;i++){
+                // create input buffer
+                if(i>0){
+                    gt_buffered_input_file_close(current_input);
+                    inputs[i]->processed_id = last_id;
+                }
+                current_input = gt_buffered_input_file_new(inputs[i]);
+                buffered_input[0] = current_input;
+                // attache the buffer
+                gt_buffered_input_file_attach_buffered_output(current_input, buffered_output);
 
-        for(i=0; i<num_inputs; i++){
-            buffered_input[i] = gt_buffered_input_file_new(inputs[i]);
-        }
-        for(i=0; i<num_inputs; i++){
-            buffered_output = gt_buffered_output_file_new(output);
-            gt_buffered_input_file_attach_buffered_output(buffered_input[i], buffered_output);
-            while((status = gt_input_generic_parser_get_template(buffered_input[i], template, parser_attributes)) == GT_STATUS_OK){
-                gt_output_fasta_bofprint_template(buffered_output, template, attributes);
-                c++;
+                // read
+                while( gt_input_generic_parser_synch_blocks_a(&input_mutex, buffered_input, 1, parser_attributes) == GT_STATUS_OK ){
+                    if( (status = gt_input_generic_parser_get_template(current_input, template, parser_attributes)) == GT_STATUS_OK){
+                        if(write_map){
+                            gt_output_map_bofprint_template(buffered_output, template, map_attributes);
+                        }else{
+                            gt_output_fasta_bofprint_template(buffered_output, template, attributes);
+                        }
+                        c++;
+                    }
+                }
+                last_id = inputs[i]->processed_id;
             }
-            gt_buffered_input_file_close(buffered_input[i]);
+            gt_buffered_input_file_close(current_input);
             gt_buffered_output_file_close(buffered_output);
+            gt_template_delete(template);
+            free(buffered_input);
         }
-        // printf("Written %d\n", c);
-
-        gt_template_delete(template);
-        // for(i=0; i<num_inputs; i++){
-        //     gt_buffered_input_file_close(buffered_input[i]);
-        // }
-        //gt_buffered_output_file_close(buffered_output);
-        free(buffered_input);
 
     }
-    printf("COMPLETE WRITING DONE >>>>>>>>>>>>>>>>\n");
+
     gt_output_fasta_attributes_delete(attributes);
+    gt_output_map_attributes_delete(map_attributes);
     gt_input_generic_parser_attributes_delete(parser_attributes);
-    printf("CLOSING IN AND OUT>>>>>>>>\n");
-    register uint64_t i = 0;
-    for(i=0; i<num_inputs; i++){
-        gt_input_file_close(inputs[i]);
-    }
-    gt_output_file_close(output);
+
+    // register uint64_t i = 0;
+    // for(i=0; i<num_inputs; i++){
+    //     gt_input_file_close(inputs[i]);
+    // }
+    // gt_output_file_close(output);
 }
