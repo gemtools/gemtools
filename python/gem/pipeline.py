@@ -1288,7 +1288,7 @@ index generated from your annotation.""")
         junctions_group.add_argument('--min-split-size', dest="junctions_min_split_size", metavar="mss", help='Minimum split length. Default 15')
         junctions_group.add_argument('--matches-threshold', dest="junctions_matches_threshold", metavar="mt", help='Maximum number canidates considered when splitting the read. Default 75')
         junctions_group.add_argument('--junction-coverage', dest="junctions_coverage", metavar="jc", help='Minimum allowed junction converage. Default %d' % self.junctions_coverage)
-        junctions_group.add_argument('--junction-consensus', dest="junctions_consensus", metavar="jc", help='Consensus used to detect junction sites. Default \'%s\'' % ",".join(["(%s,%s)" % (c[0], c[1]) for c in self.junctions_consensus]))
+        junctions_group.add_argument('--junction-consensus', dest="junctions_consensus", metavar="jc", help='Consensus used to detect junction sites. Default \'%s\'' % (",".join(["(%s,%s)" % (c[0], c[1]) for c in self.junctions_consensus])))
 
     def register_pairing(self, parser):
         """Register the pairing parameter with the
