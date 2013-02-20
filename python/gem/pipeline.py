@@ -338,7 +338,7 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
         denovo_junctions = gem.extract_junctions(
             self._input(),
             cfg["index"],
-            filter=cfg["filter"]
+            filter=cfg["filter"],
             splice_consensus=cfg["junctions_consensus"],
             mismatches=cfg["mismatches"],
             threads=self.pipeline.threads,
