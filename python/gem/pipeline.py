@@ -810,6 +810,10 @@ class MappingPipeline(object):
             self.transcript_index = self.annotation + ".gem"
             if not os.path.exists(self.transcript_index):
                 errors.append("Deduced transcript index not found: %s" % (self.transcript_index))
+                errors.append("""We look for the transcriptome index just next to your annotation, but
+could not find it there. Try to specify a path to the transcriptome index using
+[-r|--transcript-index] <index>, where index is the path to the transcriptome
+index generated from your annotation.""")
             else:
                 self.transcript_index = os.path.abspath(self.transcript_index)
         elif self.annotation is not None and not os.path.exists(self.transcript_index):
