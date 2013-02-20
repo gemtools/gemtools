@@ -150,7 +150,7 @@ class RnaPipeline(Command):
 
     def run(self, args):
         ## parsing command line arguments
-        pipeline = MappingPipeline(args=args)
+        pipeline = MappingPipeline()
 
         # load configuration
         if args.load_configuration is not None:

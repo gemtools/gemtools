@@ -803,6 +803,8 @@ class MappingPipeline(object):
 
         if self.quality is None:
             errors.append("You have to specify a quality offset (33, 64, or 'ignore' to disable)")
+        elif str(self.quality) not in ["33", "64", "ignore", "offset-33", "offset-64"]:
+            errors.append("Unknown quality offset: %s, please use 33, 64 or ignore" % (str(self.quality)))
 
         if self.output_dir is None:
             self.output_dir = os.getcwd()
@@ -850,10 +852,7 @@ index generated from your annotation.""")
         elif self.transcript_keys is not None and not os.path.exists(self.transcript_keys):
             errors.append("Transcript keys not found : %s")
         elif self.transcript_keys is not None and os.path.exists(self.transcript_keys):
-            self.transcript_keys = os.path.abspath(self.transcript_keys)
-
-        if self.quality is None or str(self.quality) not in ["33", "64", "ignore", "offset-33", "offset-64"]:
-            errors.append("Unknown quality offset: %s, please use 33, 64 or ignore" % (str(self.quality)))
+            self.transcript_keys = os.path.abspath(self.transcript_keys) 
 
         # check inpuf compression
         if self.compress_all and not self.direct_input:
@@ -1176,9 +1175,9 @@ index generated from your annotation.""")
         """
         filtering_group = parser.add_argument_group('Filtering and Scoring')
         filtering_group.add_argument('-S', '--scoring', dest="scoring_scheme", metavar="scheme", help='''The scoring scheme to use. Default %s''' % str(self.scoring_scheme))
-        filtering_group.add_argument('--filter-max-matches', dest="filter_max_matches", metavar="max_matches", help='''Maximum number of printed matches. Default %d''', default=self.filter_max_matches)
-        filtering_group.add_argument('--filter-min-strata', dest="filter_min_strata", metavar="min_strata", help='''Minimum number of printed strata. Default %d''', default=self.filter_min_strata)
-        filtering_group.add_argument('--filter-max-strata', dest="filter_max_strata", metavar="max_strata", help='''Maximum number of printed strata. Default %d''', default=self.filter_max_strata)
+        filtering_group.add_argument('--filter-max-matches', dest="filter_max_matches", metavar="max_matches", help='''Maximum number of printed matches. Default %d''' % self.filter_max_matches)
+        filtering_group.add_argument('--filter-min-strata', dest="filter_min_strata", metavar="min_strata", help='''Minimum number of printed strata. Default %d''' % self.filter_min_strata)
+        filtering_group.add_argument('--filter-max-strata', dest="filter_max_strata", metavar="max_strata", help='''Maximum number of printed strata. Default %d''' % self.filter_max_strata)
 
     def register_bam(self, parser):
         """Register all bam parameters with given
