@@ -1,5 +1,5 @@
-nose
+nose==1.2.1
 cython==0.18
-distribute
+distribute==0.6.34
 argparse==1.2.1
-sphinx
+sphinx==1.1.3

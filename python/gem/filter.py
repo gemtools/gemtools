@@ -50,8 +50,8 @@ class filter(object):
         return self.fun.next()
 
 
-def interleave(reads, exclude=-1):
-    return gt.interleave(reads)
+def interleave(reads, exclude=-1, threads=1):
+    return gt.interleave(reads, threads=threads)
 
 
 def cat(reads):

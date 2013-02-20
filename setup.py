@@ -195,7 +195,28 @@ class build_ext(_build_ext):
     def run(self):
         process = subprocess.Popen(['make'], shell=True, cwd='GEMTools')
         if process.wait() != 0:
-            raise ValueError("Error while compiling GEMTools")
+            print >> sys.stderr, """
+
+Error while compiling GEMTools. That is very unfortunate.
+
+A possible reason might be a missing dependency. Please take a look at the lines
+before this one. You need the following programs and libraries installed to compile
+the GEMTools library.
+
+Programms needed:
+    * make
+    * gcc
+
+Libraris needed:
+    * python-dev (the python headers and include files)
+    * libbz2-dev (for bz compression support)
+
+On a Debian/Ubuntu system you should be able to get all needed dependencies with:
+
+sudo apt-get install make gcc python-dev libbz2-dev
+
+"""
+            exit(1)
         try:
             """Fix the extensions, the .pyx file extensions are changed
             to .c somewhere along the line. This is a DIRTY hack and

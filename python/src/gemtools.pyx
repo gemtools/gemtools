@@ -1,296 +1,279 @@
 from gemapi cimport *
 import os
 import sys
+import multiprocessing
 
-cdef class TemplateIterator:
-    """Base class for iterating template streams.
-    The base implementation can also write to
-    stream, but rather slow. If a specific implementation
-    can speed up the writing, override the write() method.
-
-    NOTE that the __next__ implementation reuses the
-    iterators Template instance.
+cdef class TemplateFilter(object):
+    """Filter templates. Override the filter
+    method to modify the filter.
     """
-    # the buffered input file
-    cdef gt_buffered_input_file* buffered_input
-    # parser attributes
-    cdef gt_generic_parser_attr* parser_attr
-    # the source input file
-    cdef gt_input_file* input_file
-    # the template instance that is used to iterate templates
-    cdef readonly Template template
-    # optional source iterator
-    cdef TemplateIterator source
-    # the quality offset of the input
-    cdef readonly object quality
-    # the source file name
-    cdef readonly object filename
 
-    def __iter__(self):
-        """Returns self"""
-        return self
+    cpdef bool filter(self, Template template):
+        """Default implementation always returns true,
+        but you can modify this to exclude tempaltes completely.
 
-    def __next__(self):
-        """Fill the template instance and return it"""
-        if self._next() == GT_STATUS_OK:
-            return self.template
-        else:
-            raise StopIteration()
-
-    cdef _init(self, TemplateIterator source):
-        """Initialize from another template iterator"""
-        self.input_file = source.input_file
-        self.buffered_input = source.buffered_input
-        self.parser_attr = source.parser_attr
-        self.template = source.template
-        self.source = source
-        self.quality = source.quality
-        self.filename = source.filename
-
-    cpdef gt_status _next(self):
-        """Implement this to read the next template from a
-        stream
+        Implementations are also allowed to modify the template
         """
-        pass
-
-    cpdef write_stream(self, output_file, write_map=False, clean_id=False, append_extra=True, threads=1):
-        """Write the content of the this template iterator to the output file.
-
-        output_file   -- the target output file
-        write_map     -- if true, write map, otherwise write fasta/q sequence
-        clean_id      -- clean id's and ensure /1 /2 endings for paired reads
-        append_extra  -- append any additional information to the read id
-        threads       -- number of threads to use (if supported by the iterator)
-        """
-
-    cpdef write(self, output, bool clean_id=False, bool append_extra=True, bool write_map=False, uint64_t threads=1):
-        """Override this if there is a faster implementation"""
-        cdef OutputFile of = OutputFile(output)
-
-        if write_map:
-            of.write_map(self, clean_id=clean_id, append_extra=append_extra)
-        else:
-            of.write_fastq(self, clean_id=clean_id, append_extra=append_extra)
-        if isinstance(output, basestring):
-            of.close()
-
-    def close(self):
-        """Close the template iterator. If a source is
-        set, this closes the source iterator.
-        """
-        if self.source is not None:
-            self.source.close()
+        return True
 
 
-cdef class SimpleTemplateIterator(TemplateIterator):
-    """Simple iterator that iterates a list of templates"""
-    cdef object templates
-    cdef int64_t index
-    cdef int64_t length
-
-    def __init__(self, templates):
-        self.templates = templates
-        self.index = 0
-        self.length = len(templates)
-
-    cpdef gt_status _next(self):
-        if self.index < self.length:
-            self.index += 1
-            self.template = self.templates[self.index]
-            return GT_STATUS_OK
-        return GT_STATUS_FAIL
-
-
-cdef class interleave(TemplateIterator):
-    """Pairwise interleave of two streams of equal size"""
-    cdef object iterators
-    cdef uint64_t current
-    cdef uint64_t length
-
-    def __init__(self, iterators):
-        self.iterators = [i.__iter__() for i in iterators]
-        self.length = len(iterators)
-        self.current = 0
-        cdef TemplateIterator main = <TemplateIterator> self.iterators[0]
-        self._init(main)
-
-    cpdef gt_status _next(self):
-        cdef TemplateIterator ci = <TemplateIterator> self.iterators[self.current]
-        self.template = ci.template
-        cdef gt_status s = ci._next()
-        self.current += 1
-        if self.current >= self.length:
-            self.current = 0
-        return s
-
-    cpdef write_fastq(self, output, bool clean_id, bool append_extra, uint64_t threads):
-        cdef OutputFile of
-        if isinstance(output, basestring):
-            of = OutputFile(file_name=output)
-        else:
-            of = OutputFile(stream=output)
-
-        cdef gt_output_file* output_file = of.output_file
-        cdef uint64_t num_inputs = len(self.iterators)
-        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        for i in range(num_inputs):
-            inputs[i] = (<TemplateIterator> self.iterators[i]).input_file
-        with nogil:
-            gt_write_sequence_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads)
-        #if isinstance(output, basestring):
-        of.close()
-
-
-cdef class cat(TemplateIterator):
-    """Cat iterators"""
-    cdef object iterators
-    cdef uint64_t current
-    cdef uint64_t length
-    cdef TemplateIterator current_itereator
-
-    def __init__(self, iterators):
-        self.iterators = [i.__iter__() for i in iterators]
-        self.length = len(iterators)
-        self.current = 0
-        self.current_itereator = <TemplateIterator> self.iterators[0]
-        self._init(self.current_itereator)
-        self.template = self.current_itereator.template
-
-    cpdef gt_status _next(self):
-        cdef gt_status s = self.current_itereator._next()
-        if s != GT_STATUS_OK:
-            if self.current < self.length - 1:
-                self.current += 1
-                self.current_itereator = <TemplateIterator> self.iterators[self.current]
-                self.template = self.current_itereator.template
-                return self._next()
-            else:
-                return GT_STATUS_FAIL
-        return s
-
-
-cdef class unmapped(TemplateIterator):
+cdef class filter_unmapped(TemplateFilter):
     """Filter for unmapped reads or reads with mismatches >= max_mismatches"""
-    cdef TemplateIterator iterator
+    # number of mismatches allowed to be not marked as unmapped
     cdef int64_t max_mismatches
 
+    def __init__(self, int64_t max_mismatches=GT_ALL):
+        """Initialize a new unmapped filter. If max_mismatches is
+        set, this defines the maximum number of mismatches a template
+        can have to be still treated as mapped.
 
-    def __init__(self, iterator, int64_t max_mismatches=GT_ALL):
-        self.iterator = iterator.__iter__()
+        max_mismatches -- number of allowed max mismatches for a template
+        """
         self.max_mismatches = max_mismatches
-        self._init(iterator)
-        if max_mismatches < 0:
-            max_mismatches = GT_ALL
 
-    cpdef gt_status _next(self):
-        cdef gt_status s = self.iterator._next()
-        while( s == GT_STATUS_OK ):
-            if self.template.is_unmapped(self.max_mismatches):
-                return s
-            s = self.iterator._next()
-        return GT_STATUS_FAIL
+    cpdef bool filter(self, Template template):
+        return template.is_unmapped(self.max_mismatches)
 
-cdef class unique(TemplateIterator):
-    """Yield unique reads"""
-    cdef TemplateIterator iterator
+cdef class filter_unique(TemplateFilter):
+    """Filter for unique mappings up to given uniqueness level
+    """
+    # the max level
     cdef uint64_t level
 
-
-    def __init__(self, iterator, uint64_t level=0):
-        self.iterator = iterator.__iter__()
+    def __init__(self, uint64_t level=0):
         self.level = level
-        self._init(iterator)
 
-    cpdef gt_status _next(self):
-        cdef gt_status s = self.iterator._next()
-        cdef int64_t template_level = 0
-        while( s == GT_STATUS_OK ):
-            template_level = self.template.level(self.level)
-            if template_level > 0 and template_level >= self.level:
-                return s
-            s = self.iterator._next()
-        return GT_STATUS_FAIL
+    cpdef bool filter(self, Template template):
+        template_level = template.level(self.level)
+        return template_level > 0 and template_level >= self.level
 
 
-cdef class trim(TemplateIterator):
-    """Trim reads"""
-    cdef TemplateIterator iterator
+cdef class filter_trim(TemplateFilter):
+    """Trimming filter that always returns true, but trims the
+    template
+    """
     cdef uint64_t left
     cdef uint64_t right
     cdef uint64_t min_length
     cdef bool set_extra
 
-    def __init__(self, iterator, uint64_t left=0, uint64_t right=0, uint64_t min_length=10, bool set_extra=True):
-        self.iterator = iterator.__iter__()
+    def __init__(self, uint64_t left=0, uint64_t right=0, uint64_t min_length=10, bool set_extra=True):
         self.left = left
         self.right = right
         self.min_length = min_length
         self.set_extra = set_extra
-        self._init(iterator)
 
-    cpdef gt_status _next(self):
-        if self.iterator._next() == GT_STATUS_OK:
-            if self.left > 0 or self.right > 0:
-                # trim the read
-                gt_template_trim(self.template.template, self.left, self.right, self.min_length, self.set_extra)
-            return GT_STATUS_OK
-        return GT_STATUS_FAIL
+    cpdef bool filter(self, Template template):
+        gt_template_trim(template.template, self.left, self.right, self.min_length, self.set_extra)
+        return True
+
+cpdef unmapped(source, int64_t max_mismatches=GT_ALL):
+    """Wrapper function that creates a filtered iterator"""
+    return filter(source, filter_unmapped(max_mismatches))
+
+cpdef unique(source, uint64_t level=0):
+    """Wrapper function that creates a filtered iterator"""
+    return filter(source, filter_unique(level))
+
+cpdef trim(source, uint64_t left=0, uint64_t right=0, uint64_t min_length=10, bool set_extra=True):
+    """Wrapper function that creates a filtered iterator"""
+    return filter(source, filter_trim(left=left, right=right, min_length=min_length, set_extra=set_extra))
+
+cdef class filter(object):
+    """Filtering iterator that takes a source
+    and can apply a filter
+    """
+    cdef object source
+    cdef object template_filter
+
+    def __cinit__(self, source, template_filter):
+        self.source = source
+        if isinstance(template_filter, (list, tuple)):
+            self.template_filter = template_filter
+        else:
+            self.template_filter = [template_filter]
+
+    def __iter__(self):
+        self.source = self.source.__iter__()
+        return self
+
+    def __next__(self):
+        cdef bool filtered = False
+        while True:
+            filtered = False
+            n = self.source.__next__()
+            for f in self.template_filter:
+                if not f.filter(n):
+                    filtered = True
+                    break
+            if not filtered:
+                return n
 
 
-cdef class merge(TemplateIterator):
+    cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1):
+        """Write the content of this filter to the output file.
+
+        output   -- the output file
+        write_map     -- if true, write map, otherwise write fasta/q sequence
+        threads       -- number of threads to use (if supported by the iterator)
+        """
+        for t in self:
+            output.write(t, write_map=write_map)
+
+
+
+cdef class interleave(object):
+    """Interleaving iterator over templates from a list of input files
+    """
+    # the input files
+    cdef object files
+    # counter
+    cdef int64_t i
+    # number of iterators
+    cdef int64_t length
+    # number of threads
+    cdef int64_t threads
+    # interleave
+    cdef bool interleave
+
+    def __init__(self, files, interleave=True, uint64_t threads=1):
+        self.files = files
+        self.i = 0
+        self.length = len(files)
+        self.interleave = interleave
+        self.threads = threads
+
+    def __iter__(self):
+        # initialize iterators
+        self.files = [f.__iter__() for f in self.files]
+        return self
+
+    def __next__(self):
+        cdef int64_t mises = 0
+        if self.interleave:
+            while True:
+                try:
+                    return self.files[self.i].__next__()
+                except StopIteration:
+                    mises += 1
+                    if mises >= self.length:
+                        raise StopIteration()
+                finally:
+                    self.i += 1
+                    if self.i >= self.length:
+                        self.i = 0
+        else:
+            while True:
+                try:
+                    return self.files[self.i].__next__()
+                except StopIteration:
+                    self.i += 1
+                    mises += 1
+                    if mises >= self.length or self.i >= self.length:
+                        raise StopIteration()
+
+    cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1):
+        """Write the content interleaved to the output file
+
+        output_file   -- the output file
+        write_map     -- if true, write map, otherwise write fasta/q sequence
+        threads       -- number of threads to use (if supported by the iterator)
+        """
+
+        # cdef gt_output_file* output_file = output.output_file
+        # cdef uint64_t num_inputs = len(self.files)
+        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        # cdef bool clean_id = output.clean_id
+        # cdef bool append_extra = output.append_extra
+        # cdef bool interleave = self.interleave
+        # cdef uint64_t use_threads = max(threads, self.threads)
+
+        # for i in range(num_inputs):
+        #     inputs[i] = (<InputFile> self.files[i])._open()
+        # with nogil:
+        #     gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
+        # output.close()
+        # for i in range(num_inputs):
+        #     gt_input_file_close(inputs[i])
+        # free(inputs)
+        __run_write_stream(self.files, output, write_map, max(threads, self.threads), self.interleave, None)
+
+    cpdef close(self):
+        try:
+            for f in self.files:
+                f.close()
+        except Exception:
+            pass
+
+
+
+cdef class cat(interleave):
+
+    def __init__(self, files, uint64_t threads=1):
+        interleave.__init__(self, files, interleave=False, threads=threads)
+
+
+cdef class merge(object):
     """Merge a master stream with a list of child streams"""
-    cdef object children
-    cdef object states
-    cdef object merge_master
-    cdef object merge_children
+    cdef object inputs
+    cdef object buffers
 
-    def __init__(self, master, children, bool init=True):
-        if init:
-            self._init(master.__iter__())
-            self.children = [c.__iter__() for c in children]
-            self.states = []
-            for c in self.children:
-                s = c._next()
-                self.states.append(s)
-        else:
-            self.merge_master = master
-            self.merge_children = children
+    def __init__(self, inputs):
+        self.inputs = inputs
+        self.buffers = []
+
+    def __iter__(self):
+        self.inputs = [s.__iter__() for s in self.inputs]
+        for i, t in enumerate(self.inputs[1:]):
+            self.buffers.append(t.__next__())
+        return self
+
+    def __next__(self):
+        cdef Template m = self.inputs[0].__next__()
+        cdef Template o
+        cdef buffers = self.buffers
+        for i, t in enumerate(self.inputs[1:]):
+            o = buffers[i]
+            if o is None:
+                try:
+                    buffers[i] = t.__next__()
+                except:
+                    pass
+            if o is not None and o.same(m):
+                m.merge(o)
+                try:
+                    buffers[i] = t.__next__()
+                except:
+                    pass
+        return m
+
+    cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1, bool async=False):
+        """Write the content of this input stream to the output file
+        file.
+
+        output   -- the output file
+        write_map     -- if true, write map, otherwise write fasta/q sequence
+        interleave    -- interleave muliple inputs
+        threads       -- number of threads to use (if supported by the iterator)
+        """
+        # cdef gt_output_file* output_file = output.output_file
+        # cdef uint64_t num_inputs = len(self.inputs)
+        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        # cdef bool clean_id = output.clean_id
+        # cdef bool append_extra = output.append_extra
+        # for i in range(num_inputs):
+        #     inputs[i] = (<InputFile> self.inputs[i])._open()
+
+        # with nogil:
+        #     gt_merge_files_synch(output_file, threads, num_inputs, inputs);
+
+        # output.close()
+        # for i in range(num_inputs):
+        #     gt_input_file_close(inputs[i])
+        # free(inputs)
+        __run_write_stream(self.inputs, output, write_map, threads, False, None, __write_merge_stream, async)
 
 
-    cpdef merge_synch(self, output, uint64_t threads):
-        cdef gt_output_file* output_file
-
-        if isinstance(output, basestring):
-            output_file = gt_output_file_new(<char*>output, SORTED_FILE)
-        else:
-            output_file = gt_output_stream_new(PyFile_AsFile(output), SORTED_FILE)
-
-        cdef gt_input_file* master = gt_input_file_open(self.merge_master.file_name, False)
-        cdef uint64_t num_slaves = len(self.merge_children) + 1
-        cdef gt_input_file** slaves = <gt_input_file**>malloc( num_slaves *sizeof(gt_input_file*))
-        slaves[0] = master
-        for i in range(len(self.merge_children)):
-            slaves[i+1] = gt_input_file_open(self.merge_children[i].file_name, False)
-
-        with nogil:
-            gt_merge_files_synch(output_file, threads, num_slaves, slaves)
-
-        for i in range(num_slaves):
-            gt_input_file_close(slaves[i])
-        free(slaves)
-        gt_output_file_close(output_file)
-
-
-
-    cpdef gt_status _next(self):
-        if self.source._next() == GT_STATUS_OK:
-            for i, s in enumerate(self.states):
-                other = self.children[i]
-                if s == GT_STATUS_OK and self.template.same(other.template):
-                    self.template.merge(other.template)
-                    self.states[i] = other._next()
-            return GT_STATUS_OK
-        return GT_STATUS_FAIL
 
 
 cdef class OutputFile:
@@ -299,37 +282,65 @@ cdef class OutputFile:
     """
     # the target output file
     cdef gt_output_file* output_file
-    # buffered output
-    cdef gt_buffered_output_file* buffered_output
     # the target
     cdef readonly object target
+    # the map attributes
+    cdef gt_output_map_attributes* map_attributes
+    # the fasta attributes
+    cdef gt_output_fasta_attributes* fasta_attributes
+    # clean read ids
+    cdef bool clean_id
+    # append extra information
+    cdef bool append_extra
+    # list of filters
+    cdef object filters
 
-    def __init__(self, target):
+    def __init__(self, target, bool clean_id=False, bool append_extra=True):
         """Initialize the output file from the given target. The
         target can be either a string a stream. If init_buffer is
-        true, the output buffer is initialized
+        true, the output buffer is initialized. The output can be configured
+        to clean the ids and append extra information. Clean ids encode the
+        pair information as /1 and /2. Extra information is everything after
+        the first space in the id or the everything after the casava id in case
+        of tempalte tags encoded as casava >= 1.8+.
 
-        target      -- the target file or stream
-        init_buffer -- if true, the buffered output will be initialized, default True
+        target       -- the target file or stream
+        clean_id     -- ensure /1 /2 read pair encoding
+        append_extra -- append additional infomration to the id
+        init_buffer  -- if true, the buffered output will be initialized, default True
         """
         self.target = target
+        self.map_attributes = gt_output_map_attributes_new()
+        self.fasta_attributes = gt_output_fasta_attributes_new()
+        self.clean_id = clean_id
+        self.append_extra = append_extra
+        self.filters = None
+        # init attributes
+        gt_output_map_attributes_set_print_extra(self.map_attributes, append_extra)
+        gt_output_map_attributes_set_print_casava(self.map_attributes, not clean_id)
+        gt_output_fasta_attributes_set_print_extra(self.fasta_attributes, append_extra)
+        gt_output_fasta_attributes_set_print_casava(self.fasta_attributes, not clean_id)
+
+        # open the outout file or stream
         if isinstance(target, basestring):
             self._open_file(<char*> target)
         else:
-            self._open_stream(stream)
+            self._open_stream(<file> target)
 
-        if init_buffer:
-            self.buffered_output = gt_buffered_output_file_new(self.output_file)
+    cpdef bool is_stream(self):
+        return isinstance(self.target, basestring)
+
+    def add_filter(self, filter):
+        if self.filters is None:
+            self.filters = []
+        self.filters.append(filter)
 
     def __dealloc__(self):
         self.close()
+        gt_output_map_attributes_delete(self.map_attributes)
+        gt_output_fasta_attributes_delete(self.fasta_attributes)
 
-    cpdef init_buffer(self):
-        """Ensure that the output buffer is initialized"""
-        if self.buffered_output is NULL:
-            self.buffered_output = gt_buffered_output_file_new(self.output_file)
-
-    cpdef _open_stream(self, file stream, init_buffer=True):
+    cpdef _open_stream(self, file stream):
         """Initialize this instance from a stream
 
         stream      -- the output stream
@@ -337,7 +348,7 @@ cdef class OutputFile:
         """
         self.output_file = gt_output_stream_new(PyFile_AsFile(stream), SORTED_FILE)
 
-    cpdef def _open_file(self, char* file_name, init_buffer=True):
+    cpdef _open_file(self, char* file_name):
         """Initialize this instance from a file
 
         file_name   -- the output file name
@@ -347,27 +358,27 @@ cdef class OutputFile:
 
     cpdef close(self):
         """Close the output file"""
-        if self.buffered_output is not NULL:
-            gt_buffered_output_file_close(self.buffered_output)
-            gt_buffered_output_file_delete(self.buffered_output)
-            self.buffered_output = NULL
         if self.output_file is not NULL:
             gt_output_file_close(self.output_file)
-            gt_output_file_delete(self.output_file)
             self.output_file = NULL
+        if not isinstance(self.target, basestring):
+            self.target.close()
 
-    cpdef write_stream(self, iterator, write_map=False, clean_id=False, append_extra=True, threads=1):
-        """Write the content of the given template iterator to this output
-        file.
+    cpdef write(self, Template template, write_map=True):
+        """Write a single template to this otuout file.
 
-        iterator      -- the template iterator providing the source templates
-        write_map     -- if true, write map, otherwise write fasta/q sequence
-        clean_id      -- clean id's and ensure /1 /2 endings for paired reads
-        append_extra  -- append any additional information to the read id
-        threads       -- number of threads to use (if supported by the iterator)
+        template  -- the source tempalte
+        write_map -- writes map or fastq/a format
         """
-        with nogil:
-            iterator.write(self, clean_id=clean_id, append_extra=append_extra, write_map=write_map, threads=threads)
+        if self.filters is not None:
+            for f in self.filters:
+                if not f.filter(template):
+                    return
+        # write a single template
+        if write_map:
+            gt_output_map_ofprint_template(self.output_file, template.template, self.map_attributes)
+        else:
+            gt_output_fasta_ofprint_template(self.output_file, template.template, self.fasta_attributes)
 
 
 
@@ -378,19 +389,29 @@ cdef class InputFile(object):
     """
     cdef readonly object source
     # the source file name if specified
-    cdef readonly char* filename
+    cdef readonly object filename
     # force reading paired reads
     cdef readonly bool force_paired_reads
     # memory map the file
     cdef readonly bool mmap_file
-    # delete the file after iteraation
-    cdef readonly bool delete_after_iterate
     # the process that creates the content of the file or stream
     cdef readonly object process
     # the quality offset
     cdef readonly object quality
 
-    def __init__(self, source, bool mmap_file=False, bool force_paired_reads=False, object quality=None, object process=None, bool delete_after_iterate=False):
+    # parsing attributes
+    # the buffered input file
+    # the source input file
+    cdef gt_input_file* input_file
+    #
+    cdef gt_buffered_input_file* buffered_input
+    # parser attributes
+    cdef gt_generic_parser_attr* parser_attr
+    # the template instance that is used to iterate templates
+    cdef readonly Template template
+
+
+    def __init__(self, source, bool mmap_file=False, bool force_paired_reads=False, object quality=None, object process=None):
         """Initialize a new input file on the source. The source can be either a file name
         or a stream.
 
@@ -400,20 +421,29 @@ cdef class InputFile(object):
         self.mmap_file = mmap_file
         self.process = process
         self.quality = quality
-        self.delete_after_iterate = delete_after_iterate
-
+        self.template = Template()
         if isinstance(source, basestring):
-            self.filename = <char*> source
-
+            self.filename = source
         # make sure memory mapping is disabled for compressed files and
         # # streams
         if self.filename is None or self.filename.endswith(".gz") or self.filename.endswith(".bz2"):
                 self.mmap_file = False
 
-    cdef gt_input_file* open(self):
+    def __dealloc__(self):
+        if self.buffered_input is not NULL:
+            gt_buffered_input_file_close(self.buffered_input)
+            self.buffered_input = NULL
+        if self.parser_attr is not NULL:
+            free(self.parser_attr)
+            self.parser_attr = NULL
+        if self.input_file is not NULL:
+            gt_input_file_close(self.input_file)
+            self.input_file = NULL
+
+    cdef gt_input_file* _open(self):
         """Open a new gt_input_file"""
         if self.filename is not None:
-            return gt_input_file_open(self.filename, self.mmap_file)
+            return gt_input_file_open(<char*>self.filename, self.mmap_file)
         else:
             return gt_input_stream_open(PyFile_AsFile(self.source))
 
@@ -423,7 +453,7 @@ cdef class InputFile(object):
         """
         if self.filename is None:
             return False
-        cdef gt_input_file* infile = self.open()
+        cdef gt_input_file* infile = self._open()
         valid = False
         if infile.file_type == REGULAR_FILE and infile.file_format == FASTA:
             valid = True
@@ -439,7 +469,7 @@ cdef class InputFile(object):
         if self.filename is None:
             raise ValueError("Can not clone a stream based input file")
         else:
-            return InputFile(self.source, mmap_file=self.mmap_file, force_paired_reads=self.force_paired_reads, quality=self.quality, process=self.process, delete_after_iterate=self.delete_after_iterate)
+            return InputFile(self.source, mmap_file=self.mmap_file, force_paired_reads=self.force_paired_reads, quality=self.quality, process=self.process)
 
     def raw_stream(self):
         """Return the raw stream on this input file.
@@ -448,43 +478,59 @@ cdef class InputFile(object):
         the input file.
         """
         if self.filename is None:
-            return PyFile_AsFile(self.source)
+            return self.source
         else:
-            return open(self.file_name, "rb")
+            return open(self.filename, "rb")
 
     def __iter__(self):
-        """Returns a new template iterator in the input"""
-        return self._templates()
-
-    cpdef InputFileTemplateIterator templates(self):
-        """Returns a new template iterator in the input"""
-        return InputFileTemplateIterator(self)
-
-
-cdef class InputFileTemplateIterator(TemplateIterator):
-    # delete the source file after iteration
-    cdef bool delete_after_iterate
-    # underlying process
-    cdef object process
-
-    def __cinit__(self, InputFile input_file):
-        self.input_file = input_file._input_file()
-        if input_file.file_name is not None:
-            self.file_name = input_file.file_name
-
-        cdef gt_generic_parser_attr* gp = gt_input_generic_parser_attributes_new(input_file.force_paired_reads)
-        self.parser_attr = gp
-        self.template = Template()
-        self.quality = input_file.quality
-        self.delete_after_iterate = input_file.delete_after_iterate
-        self.process = input_file.process
-        #
-        #initialize the buffer
-        #
+        """Initialize buffers and prepare for iterating"""
+        ##
+        self.input_file = self._open()
         self.buffered_input = gt_buffered_input_file_new(self.input_file)
+        self.parser_attr = gt_input_generic_parser_attributes_new(self.force_paired_reads)
+        return self
 
+    def __next__(self):
+        if self._next() == GT_STATUS_OK:
+            return self.template
+        else:
+            raise StopIteration()
 
-    def __dealloc__(self):
+    cpdef gt_status _next(self):
+        """Internal iterator method"""
+        cdef gt_status s = gt_input_generic_parser_get_template(self.buffered_input, self.template.template, self.parser_attr)
+        if s != GT_STATUS_OK:
+            if self.process is not None:
+                # if this is a stream based process, make sure we clean up
+                self.process.wait()
+        return s
+
+    cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1):
+        """Write the content of this input stream to the output file
+        file.
+
+        output   -- the output file
+        write_map     -- if true, write map, otherwise write fasta/q sequence
+        interleave    -- interleave muliple inputs
+        threads       -- number of threads to use (if supported by the iterator)
+        """
+        # cdef gt_output_file* output_file = output.output_file
+        # cdef uint64_t num_inputs = 1
+        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        # cdef bool clean_id = output.clean_id
+        # cdef bool append_extra = output.append_extra
+        # inputs[0] = self._open()
+
+        # with nogil:
+        #     gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
+        # output.close()
+        # gt_input_file_close(inputs[0])
+        # free(inputs)
+        # if self.process is not None:
+        #     self.process.wait()
+        __run_write_stream([self], output, write_map, threads, True, self.process)
+
+    cpdef close(self):
         if self.buffered_input is not NULL:
             gt_buffered_input_file_close(self.buffered_input)
             self.buffered_input = NULL
@@ -495,32 +541,51 @@ cdef class InputFileTemplateIterator(TemplateIterator):
             gt_input_file_close(self.input_file)
             self.input_file = NULL
 
-    cpdef gt_status _next(self):
-        """Internal iterator method"""
-        cdef gt_status s = gt_input_generic_parser_get_template(self.buffered_input, self.template.template, self.parser_attr)
 
-        if s != GT_STATUS_OK :
-            if self.delete_after_iterate:
-                os.remove(self.file_name)
-            if self.process is not None:
-                self.process.wait()
-        return s
+cpdef __run_write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True, parent=None, function=__write_stream, bool async=False):
+    process = multiprocessing.Process(target=function, args=(source, output, write_map, threads, interleave,))
+    process.start()
+    if not async:
+        process.join()
+        if parent is not None:
+            parent.wait()
+    return process
 
-    cpdef write_fastq(self, output, bool clean_id, bool append_extra, uint64_t threads):
-        cdef OutputFile of
-        if isinstance(output, basestring):
-            of = OutputFile(file_name=output)
-        else:
-            of = OutputFile(stream=output)
+cpdef __write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True):
+    cdef gt_output_file* output_file = output.output_file
+    cdef uint64_t num_inputs = len(source)
+    cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+    cdef bool clean_id = output.clean_id
+    cdef bool append_extra = output.append_extra
+    cdef uint64_t use_threads = threads
 
-        cdef gt_output_file* output_file = of.output_file
-        cdef uint64_t num_inputs = 1
-        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        inputs[0] = self.input_file
-        with nogil:
-            gt_write_sequence_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads)
-        #if isinstance(output, basestring):
-        of.close()
+    for i in range(num_inputs):
+        inputs[i] = (<InputFile> source[i])._open()
+
+    with nogil:
+        gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
+    output.close()
+    for i in range(num_inputs):
+        gt_input_file_close(inputs[i])
+    free(inputs)
+
+cpdef __write_merge_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True):
+    cdef gt_output_file* output_file = output.output_file
+    cdef uint64_t num_inputs = len(source)
+    cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+    cdef uint64_t use_threads = threads
+
+    for i in range(num_inputs):
+        inputs[i] = (<InputFile> source[i])._open()
+
+    with nogil:
+        gt_merge_files_synch(output_file, threads, num_inputs, inputs);
+    output.close()
+    for i in range(num_inputs):
+        gt_input_file_close(inputs[i])
+    free(inputs)
+
+
 
 
 cdef class Template:

@@ -52,7 +52,7 @@ def test_pipeing_simple_process_with_file_output_file():
 
 def test_pipeline_fastaq_input():
     ff = gt.InputFile(test_mapping)
-    p = gu.run_tools([["cat", "-"]], input=ff.templates(), force_debug=True)
+    p = gu.run_tools([["cat", "-"]], input=ff, force_debug=True)
     lines = 0
     while(True):
         s = p.stdout.readline()
@@ -65,7 +65,7 @@ def test_pipeline_fastaq_input():
 
 def test_pipeline_map_input():
     ff = gt.InputFile(test_mapping)
-    p = gu.run_tools([["cat", "-"]], input=ff.templates(), force_debug=True, write_map=True, clean_id=True)
+    p = gu.run_tools([["cat", "-"]], input=ff, force_debug=True, write_map=True, clean_id=True)
     lines = 0
     while(True):
         s = p.stdout.readline()

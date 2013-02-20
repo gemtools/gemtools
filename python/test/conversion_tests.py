@@ -43,7 +43,7 @@ def test_gem2sam_execution():
 
     assert sam is not None
     assert sam.process is not None
-    assert sam.file_name is None
+    assert sam.filename is None
     count = 0
     for read in sam:
         #print read.line.strip()
@@ -59,7 +59,7 @@ def test_gem2sam_execution_to_file():
     sam = gem.gem2sam(mappings, index, output=result, compact=True)
     assert sam is not None
     assert sam.process is not None
-    assert sam.file_name == result
+    assert sam.filename == result
     assert os.path.exists(result)
     # count = 0
     # for read in sam:

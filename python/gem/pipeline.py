@@ -5,6 +5,7 @@ import logging
 import gem
 import traceback
 import json
+import multiprocessing as mp
 
 from gem.utils import Timer
 import gem.gemtools as gt
@@ -65,13 +66,10 @@ class PipelineStep(object):
         return self._files
 
     def _compress(self):
-        """Returns true if this is the final step and
-        compression is turned on
+        """Returns true if this step needs compression for
+        all output
         """
-        if not self.final:
-            return False
-        else:
-            return False
+        return self.pipeline.compress_all
 
     def _output(self):
         """Return the output file if its not final
@@ -132,10 +130,22 @@ class PrepareInputStep(PipelineStep):
             self._files.append(self.pipeline.create_file_name(self.name, file_suffix="gt.fastq", final=self.final))
         return self._files
 
+    def __write(self):
+        outfile = gt.OutputFile(self._final_output(), clean_id=True, append_extra=False)
+        infile = self._input()
+        infile.write_stream(outfile, write_map=False)
+        infile.close()
+        outfile.close()
+
     def run(self):
         """Merge current set of mappings and delete last ones"""
-        outfile = gt.OutputFile(file_name=self._final_output())
-        outfile.write_fastq(self._input(), clean_id=True, append_extra=False)
+        # p = mp.Process(target=PrepareInputStep.__write, args=(self,))
+        # p.start()
+        # p.join()
+        outfile = gt.OutputFile(self._final_output(), clean_id=True, append_extra=False)
+        infile = self._input()
+        infile.write_stream(outfile, write_map=False)
+        infile.close()
         outfile.close()
 
 
@@ -175,7 +185,7 @@ class MergeAndPairStep(PipelineStep):
         master = inputs[0]
         slaves = inputs[1:]
 
-        mapping = gem.merger(master, slaves).merge(None, self.pipeline.threads, same_content=same_content, compress=False)
+        mapping = gem.merger(master, slaves).merge(None, threads=self.pipeline.threads, same_content=same_content, compress=False)
 
         pair_mapping = gem.pairalign(
             mapping,
@@ -199,7 +209,8 @@ class MergeAndPairStep(PipelineStep):
                 filter=self.pipeline.filter,
                 threads=self.pipeline.threads,  # max(2, self.pipeline.threads / 2),
                 quality=self.pipeline.quality,
-                compress=self.pipeline.compress)
+                compress=self.pipeline.compress,
+                raw=True)
 
     def _input(self):
         """Return the output of all
@@ -324,9 +335,8 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
         """Create the denovo transcriptome"""
         cfg = self.configuration
         (gtf_junctions, junctions_gtf_out) = self.pipeline.gtf_junctions()
-
         denovo_junctions = gem.extract_junctions(
-            self.pipeline.open_input(),
+            self._input(),
             cfg["index"],
             mismatches=cfg["mismatches"],
             threads=self.pipeline.threads,
@@ -372,7 +382,7 @@ class TranscriptMapStep(PipelineStep):
             # denovo transcript mapping
             if config["index"] is None or not os.path.exists(config["index"]):
                 # add denovo transript step
-                create_step_id = pipeline.create_transcriptome("denovo-index")
+                create_step_id = pipeline.create_transcriptome("denovo-index", dependencies=self.dependencies)
                 self.dependencies.append(create_step_id)
                 self.configuration["create_index"] = create_step_id
                 if config["index"] is None:
@@ -390,7 +400,7 @@ class TranscriptMapStep(PipelineStep):
             cfg["keys"] = step.denovo_keys
 
         gem.mapper(
-            self.pipeline.open_input(),
+            self._input(),
             cfg["index"],
             self.files()[0],
             mismatches=cfg["mismatches"],
@@ -407,6 +417,18 @@ class TranscriptMapStep(PipelineStep):
             quality=self.pipeline.quality,
             threads=self.pipeline.threads
         )
+
+    def _input(self, raw=False):
+        """Return pipeline input if this step
+        has no dependencies or the
+        output of the last dependency
+        """
+        if self.configuration["denovo"]:
+            if self.dependencies is None or len(self.dependencies) == 1:
+                return self.pipeline.open_input()
+            return self.pipeline.open_step(self.dependencies[0], raw=raw)
+        else:
+            return PipelineStep._input(self, raw=raw)
 
 
 class MappingPipeline(object):
@@ -434,6 +456,7 @@ class MappingPipeline(object):
         self.scoring_scheme = "+U,+u,-s,-t,+1,-i,-a"  # scoring scheme
         self.filter = (1, 2, 25)  # result filter
         self.compress = True  # compress final output
+        self.compress_all = False  # also compress intermediate output
         self.remove_temp = True  # remove temporary
         self.bam_mapq = 0  # filter bam content mapq
         self.bam_create = True  # create bam
@@ -587,6 +610,7 @@ class MappingPipeline(object):
     def transcripts_denovo(self, name=None, configuration=None, dependencies=None, final=False, description=""):
         """Create annotation based transcriptom and map"""
         step = TranscriptMapStep(name, dependencies=dependencies, final=final, description=description)
+
         config = dotdict()
         config.denovo = True
         config.index = self.denovo_index
@@ -710,7 +734,8 @@ class MappingPipeline(object):
         if len(self.input) == 1:
             return gem.files.open(self.input[0])
         else:
-            return gem.filter.interleave([gem.files.open(f) for f in self.input])
+            return gem.filter.interleave([gem.files.open(f) for f in self.input], threads=max(1, self.threads / 2))
+
 
     def open_step(self, id, raw=False):
         """Open the original input files"""
@@ -783,6 +808,10 @@ class MappingPipeline(object):
             self.transcript_index = self.annotation + ".gem"
             if not os.path.exists(self.transcript_index):
                 errors.append("Deduced transcript index not found: %s" % (self.transcript_index))
+                errors.append("""We look for the transcriptome index just next to your annotation, but
+could not find it there. Try to specify a path to the transcriptome index using
+[-r|--transcript-index] <index>, where index is the path to the transcriptome
+index generated from your annotation.""")
             else:
                 self.transcript_index = os.path.abspath(self.transcript_index)
         elif self.annotation is not None and not os.path.exists(self.transcript_index):
@@ -803,6 +832,11 @@ class MappingPipeline(object):
 
         if self.quality is None or str(self.quality) not in ["33", "64", "ignore", "offset-33", "offset-64"]:
             errors.append("Unknown quality offset: %s, please use 33, 64 or ignore" % (str(self.quality)))
+
+        # check inpuf compression
+        if self.compress_all and not self.direct_input:
+            logging.gemtools.warning("Enabeling direct input for compressed temporay files")
+            self.direct_input = True
 
         # annotaiton junctons should be generated if not found
         #self.junctions_annotation = None  # file with the annotation junctions
@@ -848,7 +882,7 @@ class MappingPipeline(object):
             p2 = None
             c = 0
             inp = self.open_input()
-            for template in self.open_input():
+            for template in inp:
                 if c == 0:
                     p1 = template.get_pair()
                 elif c == 1:
@@ -878,6 +912,7 @@ class MappingPipeline(object):
         printer("Max read length  : %s", self.max_read_length)
         printer("")
         printer("Compress output  : %s", self.compress)
+        printer("Compress all     : %s", self.compress_all)
         printer("Create BAM       : %s", self.bam_create)
         printer("Sort BAM         : %s", self.bam_sort)
         printer("Index BAM        : %s", self.bam_index)
@@ -1064,7 +1099,7 @@ class MappingPipeline(object):
             file = "%s/%s_%s.%s" % (self.output_dir, self.name, suffix, file_suffix)
         else:
             file = "%s/%s.%s" % (self.output_dir, self.name, file_suffix)
-        if final and self.compress and file_suffix in ["map"]:
+        if (self.compress_all or final and self.compress) and file_suffix in ["map", "fastq"]:
             file += ".gz"
         return file
 
@@ -1097,4 +1132,158 @@ class MappingPipeline(object):
         timer.stop("GTF-Junctions prepared in %s")
         return (junctions, out)
 
+    def register_parameter(self, parser):
+        """Register all parameters with the given
+        arparse parser"""
+        self.register_general(parser)
+        self.register_mapping(parser)
+        self.register_transcript_mapping(parser)
+        self.register_junctions(parser)
+        self.register_pairing(parser)
+
+
+    def register_general(self, parser):
+        """Register all general parameters with the given
+        argparse parser
+
+        parser -- the argparse parser
+        """
+        general_group = parser.add_argument_group('General')
+        ## general pipeline paramters
+        general_group.add_argument('-f', '--files', dest="input", nargs="+", metavar="input",
+            help='''Single fastq input file or both files for a paired-end run separated by space.
+            Note that if you specify only one file, we will look for the pair counter-part
+            automatically and start a paired-end run. Add the --single-end parameter to disable
+            pairing and file search. The file search for the second pair detects pairs
+            ending in [_|.][1|2].[fastq|txt][.gz].''')
+        general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
+            default=33, help='Quality offset. 33, 64 or "ignore" to disable qualities. Default 33')
+        general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
+        general_group.add_argument('-a', '--annotation', dest="annotation", metavar="gtf", help='''Path to the GTF annotation. If specified the transcriptome generated from teh annotation is
+            used in addition to denovo junctions.''')
+        general_group.add_argument('-r', '--transcript-index', dest="transcript_index", help='''GTF Transcriptome index. If not specified and an annotation is given,
+            it is assumed to be <gtf>.gem. ''')
+        general_group.add_argument('-k', '--transcript-keys', dest="transcript_keys", help='''Transcriptome .keys file. If not specified and an annotation is given,
+            it is assumed to be <gtf>.junctions.keys''')
+
+        general_group.add_argument('-n', '--name', dest="name", metavar="name", help="""Name used for the results. If not specified, the name is inferred from
+            the input files""")
+        general_group.add_argument('-o', '--output-dir', dest="output_dir", metavar="dir", help='Optional output folder. If not specified the current working directory is used.')
+        general_group.add_argument('-t', '--threads', dest="threads", default=2, metavar="threads", type=int, help="Number of threads to use")
+        general_group.add_argument('--max-read-length', dest="max_read_length", default=150, help='''The maximum read length. This is used to create the denovo
+            transcriptom and acts as an upper bound. The default is 150.''')
+        general_group.add_argument('-s', '--scoring', dest="scoring_scheme", metavar="scheme", help='''The default scoring scheme to use''')
+        general_group.add_argument('--filter', dest="filter", metavar="filter", help='''The final result filter, defaults to 1,2,25''')
+        general_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=True, help="Do not create bam file")
+        general_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=True, help="Do not sort bam file")
+        general_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=True, help="Do not index the bam file")
+        general_group.add_argument('--map-quality', dest="bam_mapq", default=0, help="Filter resulting bam for minimum map quality, Default 0 (no filtering)")
+        general_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=True, help="Do not compress result mapping")
+        general_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=False, help="Compress also intermediate output")
+        general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=True, help="Keep temporary files")
+        general_group.add_argument('--single-end', dest="single_end", action="store_true", default=False, help="Single end reads")
+        general_group.add_argument('--no-config', dest="write_config", action="store_false", default=True, help="Do not write the configuration file")
+        general_group.add_argument('--dry', dest="dry", action="store_true", default=False, help="Print and write configuration but do not start the pipeline")
+        general_group.add_argument('--load', dest="load_configuration", default=None, metavar="cfg", help="Load pipeline configuration from file")
+        general_group.add_argument('--run', dest="run_steps", type=int, default=None, nargs="+", metavar="cfg", help="Run given pipeline steps idenfified by the step id")
+        general_group.add_argument('--sort-memory', dest="sort_memory", default="768M", metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default 768M")
+        general_group.add_argument('--direct-input', dest="direct_input", default=False, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
+        general_group.add_argument('--force', dest="force", default=False, action="store_true", help="Force running all steps and skip checking for completed steps")
+
+    def register_mapping(self, parser):
+        """Register the genome mapping parameters with the
+        given arparse parser
+
+        parser -- the argparse parser
+        """
+        # genome mapping parameter
+        mapping_group = parser.add_argument_group('General Mapping Parameter')
+        mapping_group.add_argument('-m', '--mismatches', dest="genome_mismatches", metavar="mm",
+            default=None, help='Set the allowed mismatch rate as 0 < mm < 1')
+        mapping_group.add_argument('--quality-threshold', dest="genome_quality_threshold", metavar="qth",
+            default=None, help='The quality threshold, Default 26')
+        mapping_group.add_argument('--max-decoded-matches', dest="genome_max_decoded_matches", metavar="mdm",
+            default=None, help='Maximum decoded matches. Default 20')
+        mapping_group.add_argument('--min-decoded-strata', dest="genome_min_decoded_strata", metavar="mds",
+            default=None, help='Minimum decoded strata. Default to 2')
+        mapping_group.add_argument('--min-matched-bases', dest="genome_min_matched_bases", metavar="mmb",
+            default=None, help='Minimum ratio of bases that must be matched. Default 0.8')
+        mapping_group.add_argument('--max-big-indel-length', dest="genome_max_big_indel_length", metavar="mbi",
+            default=None, help='Maximum length of a single indel. Default 15')
+        mapping_group.add_argument('--max-edit-distance', dest="genome_max_edit_distance", metavar="med",
+            default=None, help='Maximum edit distance (ratio) allowed for an alignment. Default 0.2')
+        mapping_group.add_argument('--mismatch-alphabet', dest="genome_mismatch_alphabet", metavar="alphabet",
+            default=None, help='The mismatch alphabet. Default ACGT')
+        mapping_group.add_argument('--strata-after-best', dest="genome_strata_after_best", metavar="strata",
+            default=None, help='The number of strata examined after the best one. Default 1')
+
+    def register_transcript_mapping(self, parser):
+        """Register the transcript mapping parameters with the
+        given arparse parser
+
+        parser -- the argparse parser
+        """
+        # transcript mapping parameter
+        transcript_mapping_group = parser.add_argument_group('Transcript Mapping Parameter')
+        transcript_mapping_group.add_argument('-tm', '--transcript-mismatches', dest="transcript_mismatches", metavar="mm",
+            default=None, help='Set the allowed mismatch rate as 0 < mm < 1')
+        transcript_mapping_group.add_argument('--transcript-quality-threshold', dest="transcript_quality_threshold", metavar="qth",
+            default=None, help='The quality threshold, Default 26')
+        transcript_mapping_group.add_argument('--transcript-max-decoded-matches', dest="transcript_max_decoded_matches", metavar="mdm",
+            default=None, help='Maximum decoded matches. Default 20')
+        transcript_mapping_group.add_argument('--transcript-min-decoded-strata', dest="transcript_min_decoded_strata", metavar="mds",
+            default=None, help='Minimum decoded strata. Default to 2')
+        transcript_mapping_group.add_argument('--transcript-min-matched-bases', dest="transcript_min_matched_bases", metavar="mmb",
+            default=None, help='Minimum ratio of bases that must be matched. Default 0.8')
+        transcript_mapping_group.add_argument('--transcript-max-big-indel-length', dest="transcript_max_big_indel_length", metavar="mbi",
+            default=None, help='Maximum length of a single indel. Default 15')
+        transcript_mapping_group.add_argument('--transcript-max-edit-distance', dest="transcript_max_edit_distance", metavar="med",
+            default=None, help='Maximum edit distance (ratio) allowed for an alignment. Default 0.2')
+        transcript_mapping_group.add_argument('--transcript-mismatch-alphabet', dest="transcript_mismatch_alphabet", metavar="alphabet",
+            default=None, help='The mismatch alphabet. Default ACGT')
+        transcript_mapping_group.add_argument('--transcript-strata-after-best', dest="transcript_strata_after_best", metavar="strata",
+            default=None, help='The number of strata examined after the best one. Default 1')
+
+    def register_junctions(self, parser):
+        """Register the junction detection parameter with the
+        given arparse parser
+
+        parser -- the argparse parser
+        """
+        # junction detection parameter
+        junctions_group = parser.add_argument_group('Junction detection Parameter')
+        junctions_group.add_argument('-jm', '--junction-mismatches', dest="junction_mismatches", metavar="jmm",
+            default=None, help='Set the allowed mismatch rate for junction detection as 0 < mm < 1')
+        junctions_group.add_argument('--junction-max-matches', dest="junctions_max_junction_matches", metavar="mm",
+            default=None, help='Number of matches allowed for a junction. Default 5')  # todo : fix description
+        junctions_group.add_argument('--min-split-length', dest="junctions_min_split_length", metavar="msl",
+            default=None, help='Minimum length of a split. Default 4')
+        junctions_group.add_argument('--max-split-length', dest="junctions_max_split_length", metavar="msl",
+            default=None, help='Maximum length of a split. Default 500000')
+        junctions_group.add_argument('--refinement-step', dest="junctions_refinement_step_size", metavar="r",
+            default=None, help='Refinement step. Default 2')  # todo: fix description
+        junctions_group.add_argument('--min-split-size', dest="junctions_min_split_size", metavar="mss",
+            default=None, help='Minimum split size. Default 15')  # todo: fix description and check with min-split-length
+        junctions_group.add_argument('--matched-threshold', dest="junctions_matches_threshold", metavar="mt",
+            default=None, help='Matches threshold. Default 75')  # todo: fix description
+        junctions_group.add_argument('--junction-coverage', dest="junctions_coverage", metavar="jc",
+            default=None, help='Maximum allowed junction converage. Defautl 2')  # todo: fix description
+
+    def register_pairing(self, parser):
+        """Register the pairing parameter with the
+        given arparse parser
+
+        parser -- the argparse parser
+        """
+        pairing_group = parser.add_argument_group('Pairing Parameter')
+        pairing_group.add_argument('--pairing-quality-threshold', dest="pairing_quality_threshold", metavar="pq",
+            default=None, help='Quality threshold for pairing. Defaults to general quality threshold')
+        pairing_group.add_argument('--pairing-max-decoded-matches', dest="pairing_max_decoded_matches", metavar="pdm",
+            default=None, help='Maximum decoded matches. Default 20')
+        pairing_group.add_argument('--pairing-min-decoded-strata', dest="pairing_min_decoded_strata", metavar="pds",
+            default=None, help='Minimum decoded strata. Default to 2')
+        pairing_group.add_argument('--pairing-min-insert-size', dest="pairing_min_insert_size", metavar="is",
+            default=None, help='Minimum insert size allowed for pairing. Default 0')
+        pairing_group.add_argument('--pairing-max-insert-size', dest="pairing_max_insert_size", metavar="is",
+            default=None, help='Maximum insert size allowed for pairing. Default to maximum split length in junctions settings')
 

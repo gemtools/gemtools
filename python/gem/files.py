@@ -43,10 +43,10 @@ def open(input, quality=None):
 
     it = None
     if stream is not None:
-        it = gt.InputFile(stream=stream, quality=quality)
+        it = gt.InputFile(stream, quality=quality)
         __open_iterators.append(it)
     else:
-        it = gt.InputFile(file_name=input, quality=quality)
+        it = gt.InputFile(input, quality=quality)
     return it
 
 

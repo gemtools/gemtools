@@ -18,6 +18,7 @@ import __builtin__
 
 import multiprocessing as mp
 
+
 LOG_NOTHING = 1
 LOG_STDERR = 2
 LOG_FORMAT = '%(asctime)-15s %(levelname)s: %(message)s'
@@ -211,7 +212,7 @@ def _prepare_quality_parameter(quality, input=None):
                currently works only for gemtools.TemplateIterator or gemtools.InputFile
                instances
     """
-    if quality is None and isinstance(input, (gt.TemplateIterator, gt.InputFile)):
+    if quality is None and isinstance(input, (gt.InputFile)):
         quality = input.quality
 
     ## check quality
@@ -228,7 +229,7 @@ def _prepare_quality_parameter(quality, input=None):
     return quality
 
 
-def _prepare_output(process, output=None, quality=None, delete_after_iterate=False, bam=False):
+def _prepare_output(process, output=None, quality=None, bam=False):
     """Creates a new gem.gemtools.Inputfile from the given process.
     If output is specivied, the function blocks and waits for the process to finish
     successfully before the InputFile is created on the specified output.
@@ -249,15 +250,15 @@ def _prepare_output(process, output=None, quality=None, delete_after_iterate=Fal
             raise ValueError("Execution failed!")
         logging.debug("Opening output file %s" % (output))
         if output.endswith(".bam") or bam:
-            return gt.InputFile(stream=gem.files.open_bam(output), file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
-        return gt.InputFile(file_name=output, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
+            return gt.InputFile(gem.files.open_bam(output), quality=quality, process=process)
+        return gt.InputFile(output, quality=quality, process=process)
     else:
         logging.debug("Opening output stream")
         if bam:
-            return gt.InputFile(stream=gem.files.open_bam(process.stdout), quality=quality, process=process, delete_after_iterate=delete_after_iterate)
+            return gt.InputFile(gem.files.open_bam(process.stdout), quality=quality, process=process)
         ## running in async mode, return iterator on
         ## the output stream
-        return gt.InputFile(stream=process.stdout, quality=quality, process=process, delete_after_iterate=delete_after_iterate)
+        return gt.InputFile(process.stdout, quality=quality, process=process)
 
 
 def validate_executables():
@@ -328,7 +329,9 @@ def mapper(input, index, output=None,
             str(min_decoded_strata), str(delta + 1), str(delta)))
         min_decoded_strata = delta + 1
     if compress and output is None:
-        raise ValueError("Compression is not supported for streams!")
+        logging.warning("Disabeling stream compression")
+        compress = False
+
     if compress and not output.endswith(".gz"):
         output += ".gz"
 
@@ -646,7 +649,9 @@ def pairalign(input, index, output=None,
     index = _prepare_index_parameter(index)
     quality = _prepare_quality_parameter(quality, input)
     if compress and output is None:
-        raise ValueError("Compression is not supported for streams!")
+        logging.warning("Disabeling stream compression")
+        compress = False
+
     if compress and not output.endswith(".gz"):
         output += ".gz"
 
@@ -719,7 +724,7 @@ def validate(input,
     if validate_filter is not None:
         validate_p.extend(['-f', validate_filter])
 
-    process = utils.run_tool(validate_p, input=input, output=output, name="GEM-Validate", write_map=True)
+    process = utils.run_tool(validate_p, input=input, output=output, name="GEM-Validate", write_map=True, raw=True)
     return _prepare_output(process, output=output)
 
 
@@ -730,12 +735,15 @@ def score(input,
           filter=None,  # "1,2,25"
           quality=None,
           compress=False,
-          threads=1):
+          threads=1,
+          raw=False):
     """Score the input. In addition, you can specify a tuple with (<score_strata_to_keep>,<max_strata_distance>,<max_alignments>) to
     filter the result further.
     """
     if compress and output is None:
-        raise ValueError("Compression is not supported for streams!")
+        logging.warning("Disabeling stream compression")
+        compress = False
+
     if compress and not output.endswith(".gz"):
         output += ".gz"
 
@@ -755,9 +763,9 @@ def score(input,
             ff = ",".join([str(f) for f in filter])
         score_p.append(ff)
 
-    raw = False
-    if isinstance(input, gt.InputFile):
+    if raw or isinstance(input, gt.InputFile):
         raw = True
+        #input = input.raw_stream()
 
     tools = [score_p]
 
@@ -795,9 +803,6 @@ def gem2sam(input, index=None, output=None,
 
     # GT-25 transform id's
     process = utils.run_tool(gem_2_sam_p, input=input, output=output, name="GEM-2-sam", write_map=True, clean_id=True, append_extra=False)
-    # if process.wait() != 0:
-    #     raise ValueError("GEM-2-SAM execution failed!")
-    # return output
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -983,29 +988,49 @@ class merger(object):
         self.target = target
         self.source = source
         self.paired = paired
+        self._output = None
+        self._input = None
 
     def __iter__(self):
-        return gt.merge(self.target, self.source)
+        files = [self.target]
+        files.extend(self.source)
+        m = gt.merge(files)
+        return m.__iter__()
 
-    @staticmethod
-    def __async_merge(target, source, out, threads):
-        merger = gt.merge(target, source, init=False)
-        merger.merge_synch(out, threads)
-        os.remove(out)
+    def __async_merge(self, threads):
+        of = gt.OutputFile(self._output, clean_id=False, append_extra=True)
+        files = [self.target]
+        files.extend(self.source)
+        gt.merge(files).write_stream(of, write_map=True, threads=threads)
+        of.close()
+        self._output.close()
 
     def merge_async(self, threads=1, paired=False, same_content=False):
-        handle, filename = tempfile.mkstemp()
-        os.close(handle)
-        os.remove(filename)
-        os.mkfifo(filename)
-        process = mp.Process(target=merger.__async_merge, args=(self.target, self.source, filename, threads))
+        (r, w) = os.pipe()
+        self._input = os.fdopen(r, 'r')
+        self._output = os.fdopen(w, 'w')
+        process = mp.Process(target=merger.__async_merge, args=(self, threads))
+
+        def ww():
+            process.join()
+        process.wait = ww
         process.start()
-        return gt.InputFile(file_name=filename)
+        self._output.close()
+        return gt.InputFile(self._input, process=process)
 
     def merge(self, output, threads=1, paired=False, same_content=False, compress=False):
         if same_content:
             if output is None:
-                return self.merge_async(threads=threads, paired=paired, same_content=same_content)
+                (r, w) = os.pipe()
+                self._input = os.fdopen(r, 'r')
+                self._output = os.fdopen(w, 'w')
+                of = gt.OutputFile(self._output, clean_id=False, append_extra=True)
+                files = [self.target]
+                files.extend(self.source)
+                process = gt.merge(files).write_stream(of, write_map=True, threads=threads, async=True)
+                self._output.close()
+                return gt.InputFile(self._input, process=process)
+                #return self.merge_async(threads=threads, paired=paired, same_content=same_content)
 
             p = None
             out = output
@@ -1016,23 +1041,23 @@ class merger(object):
                 out = p.stdin
 
             logging.debug("Using merger with %d threads and same content" % (threads))
-            merger = gt.merge(self.target, self.source, init=False)
-            merger.merge_synch(out, threads)
-            return gt.InputFile(file_name=output)
+            files = [self.target]
+            files.extend(self.source)
+            merger = gt.merge(files)
+            out = gt.OutputFile(output)
 
-        if len(self.source) == 1:
-            logging.debug("Using paired merger with %d threads and same content %s" % (threads, str(same_content)))
-            logging.debug("Files to merge: %s and %s" % (self.target.file_name, self.source[0].file_name))
-
-            merger = gt.merge(self.target, self.source, init=False)
-            merger.merge_pairs(self.target.file_name, self.source[0].file_name, output, same_content, threads)
+            merger.write_stream(out, write_map=True, threads=threads)
+            return gt.InputFile(output)
         else:
             logging.debug("Using unpaired merger")
-            merger = gt.merge(self.target, self.source, init=True)
-            of = gt.OutputFile(file_name=output)
-            of.write_map(merger, clean_id=False, append_extra=True)
+            files = [self.target]
+            files.extend(self.source)
+            merger = gt.merge(files)
+            of = gt.OutputFile(output, clean_id=False, append_extra=True)
+            for m in merger:
+                of.write(m, write_map=True)
             of.close()
-        return gt.InputFile(file_name=output)
+        return gt.InputFile(output)
 
 
 def _is_i3_compliant(stream):
