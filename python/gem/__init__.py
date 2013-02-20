@@ -329,7 +329,9 @@ def mapper(input, index, output=None,
             str(min_decoded_strata), str(delta + 1), str(delta)))
         min_decoded_strata = delta + 1
     if compress and output is None:
-        raise ValueError("Compression is not supported for streams!")
+        logging.warning("Disabeling stream compression")
+        compress = False
+
     if compress and not output.endswith(".gz"):
         output += ".gz"
 
@@ -647,7 +649,9 @@ def pairalign(input, index, output=None,
     index = _prepare_index_parameter(index)
     quality = _prepare_quality_parameter(quality, input)
     if compress and output is None:
-        raise ValueError("Compression is not supported for streams!")
+        logging.warning("Disabeling stream compression")
+        compress = False
+
     if compress and not output.endswith(".gz"):
         output += ".gz"
 
@@ -737,7 +741,9 @@ def score(input,
     filter the result further.
     """
     if compress and output is None:
-        raise ValueError("Compression is not supported for streams!")
+        logging.warning("Disabeling stream compression")
+        compress = False
+
     if compress and not output.endswith(".gz"):
         output += ".gz"
 

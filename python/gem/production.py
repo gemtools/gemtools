@@ -176,6 +176,7 @@ class RnaPipeline(Command):
         general_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=True, help="Do not index the bam file")
         general_group.add_argument('--map-quality', dest="bam_mapq", default=0, help="Filter resulting bam for minimum map quality, Default 0 (no filtering)")
         general_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=True, help="Do not compress result mapping")
+        general_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=False, help="Compress also intermediate output")
         general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=True, help="Keep temporary files")
         general_group.add_argument('--single-end', dest="single_end", action="store_true", default=False, help="Single end reads")
         general_group.add_argument('--no-config', dest="write_config", action="store_false", default=True, help="Do not write the configuration file")

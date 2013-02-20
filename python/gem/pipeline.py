@@ -66,13 +66,10 @@ class PipelineStep(object):
         return self._files
 
     def _compress(self):
-        """Returns true if this is the final step and
-        compression is turned on
+        """Returns true if this step needs compression for
+        all output
         """
-        if not self.final:
-            return False
-        else:
-            return False
+        return self.pipeline.compress_all
 
     def _output(self):
         """Return the output file if its not final
@@ -430,10 +427,6 @@ class TranscriptMapStep(PipelineStep):
             return PipelineStep._input(self, raw=raw)
 
 
-
-
-
-
 class MappingPipeline(object):
     """General mapping pipeline class."""
 
@@ -459,6 +452,7 @@ class MappingPipeline(object):
         self.scoring_scheme = "+U,+u,-s,-t,+1,-i,-a"  # scoring scheme
         self.filter = (1, 2, 25)  # result filter
         self.compress = True  # compress final output
+        self.compress_all = False  # also compress intermediate output
         self.remove_temp = True  # remove temporary
         self.bam_mapq = 0  # filter bam content mapq
         self.bam_create = True  # create bam
@@ -835,6 +829,11 @@ index generated from your annotation.""")
         if self.quality is None or str(self.quality) not in ["33", "64", "ignore", "offset-33", "offset-64"]:
             errors.append("Unknown quality offset: %s, please use 33, 64 or ignore" % (str(self.quality)))
 
+        # check inpuf compression
+        if self.compress_all and not self.direct_input:
+            logging.gemtools.warning("Enabeling direct input for compressed temporay files")
+            self.direct_input = True
+
         # annotaiton junctons should be generated if not found
         #self.junctions_annotation = None  # file with the annotation junctions
 
@@ -909,6 +908,7 @@ index generated from your annotation.""")
         printer("Max read length  : %s", self.max_read_length)
         printer("")
         printer("Compress output  : %s", self.compress)
+        printer("Compress all     : %s", self.compress_all)
         printer("Create BAM       : %s", self.bam_create)
         printer("Sort BAM         : %s", self.bam_sort)
         printer("Index BAM        : %s", self.bam_index)
@@ -1095,7 +1095,7 @@ index generated from your annotation.""")
             file = "%s/%s_%s.%s" % (self.output_dir, self.name, suffix, file_suffix)
         else:
             file = "%s/%s.%s" % (self.output_dir, self.name, file_suffix)
-        if final and self.compress and file_suffix in ["map"]:
+        if (self.compress_all or final and self.compress) and file_suffix in ["map", "fastq"]:
             file += ".gz"
         return file
 
