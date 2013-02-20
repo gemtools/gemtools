@@ -195,7 +195,7 @@ class build_ext(_build_ext):
     def run(self):
         process = subprocess.Popen(['make'], shell=True, cwd='GEMTools')
         if process.wait() != 0:
-            print >> sys.strerr, """
+            print >> sys.stderr, """
 
 Error while compiling GEMTools. That is very unfortunate.
 
