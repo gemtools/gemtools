@@ -342,7 +342,7 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             splice_consensus=cfg["junctions_consensus"],
             mismatches=cfg["mismatches"],
             threads=self.pipeline.threads,
-            strata_after_first=0,
+            strata_after_first=cfg["strata_after_best"],
             coverage=cfg["coverage"],
             min_split=cfg["min_split_length"],
             max_split=cfg["max_split_length"],
