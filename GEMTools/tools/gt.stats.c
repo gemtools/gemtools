@@ -14,17 +14,18 @@
 typedef struct {
   /* [Input] */
   char *name_input_file;
+  char *name_reference_file;
   bool mmap_input;
   bool paired_end;
   uint64_t num_reads;
-  bool best_map;
   /* [Tests] */
+  bool best_map;
   bool error_profile;
   bool mismatch_transitions;
   bool mismatch_quality;
   bool splitmaps_profile;
+  bool indel_profile;
   /* [Output] */
-  bool output_attributes;
   bool verbose;
   bool compact;
   bool quiet;
@@ -33,18 +34,24 @@ typedef struct {
 } gt_stats_args;
 
 gt_stats_args parameters = {
+    /* [Input] */
     .name_input_file=NULL,
+    .name_reference_file=NULL,
     .mmap_input=false,
     .paired_end=false,
     .num_reads=0,
+    /* [Tests] */
     .best_map=false,
     .error_profile = false,
     .mismatch_transitions = false,
     .mismatch_quality = false,
     .splitmaps_profile = false,
-    .compact = false,
+    .indel_profile = false,
+    /* [Output] */
     .verbose=false,
+    .compact = false,
     .quiet=false,
+    /* [Misc] */
     .num_threads=1,
 };
 
@@ -411,6 +418,7 @@ void usage() {
   fprintf(stderr, "USE: ./gt.stats [ARGS]...\n"
                   "       [Input]\n"
                   "        --input|-i [FILE]\n"
+                  "        --reference|-r [FILE]\n"
                   "        --mmap-input\n"
                   "        --paired-end|p\n"
                   "        --num-reads|n\n"
@@ -420,6 +428,7 @@ void usage() {
                   "        --mismatch-transitions|T\n"
                   "        --mismatch-quality|Q\n"
                   "        --splitmaps-profile|S\n"
+                  "        --indel-profile|I\n"
                   "       [Output]\n"
                   "        --compact|c\n"
                   "        --verbose|v\n"
@@ -433,6 +442,7 @@ void parse_arguments(int argc,char** argv) {
   struct option long_options[] = {
     /* [Input] */
     { "input", required_argument, 0, 'i' },
+    { "reference", required_argument, 0, 'r' },
     { "mmap-input", no_argument, 0, 1 },
     { "paired-end", no_argument, 0, 'p' },
     { "num-reads", no_argument, 0, 'n' },

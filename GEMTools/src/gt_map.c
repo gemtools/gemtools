@@ -220,6 +220,65 @@ GT_INLINE void gt_map_set_misms_string(gt_map* const map,char* misms_string,cons
   map->misms_txt_format = format;
 }
 
+// Counting
+GT_INLINE uint64_t gt_map_get_num_mismatch_bases(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  register uint64_t count = 0;
+  GT_MAP_MISMS_ITERATOR(map,misms_it,misms_pos) {
+    switch (misms_it->misms_type) {
+      case MISMS:
+        ++count;
+        break;
+      case INS:
+      case DEL:
+        break;
+    }
+  }
+  return count;
+}
+GT_INLINE uint64_t gt_map_get_num_indels(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  register uint64_t count = 0;
+  GT_MAP_MISMS_ITERATOR(map,misms_it,misms_pos) {
+    switch (misms_it->misms_type) {
+      case MISMS: break;
+      case INS:
+      case DEL:
+        ++count;
+        break;
+    }
+  }
+  return count;
+}
+GT_INLINE uint64_t gt_map_get_num_insertions(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  register uint64_t count = 0;
+  GT_MAP_MISMS_ITERATOR(map,misms_it,misms_pos) {
+    switch (misms_it->misms_type) {
+      case MISMS: break;
+      case INS:
+        ++count;
+        break;
+      case DEL:   break;
+    }
+  }
+  return count;
+}
+GT_INLINE uint64_t gt_map_get_num_deletions(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  register uint64_t count = 0;
+  GT_MAP_MISMS_ITERATOR(map,misms_it,misms_pos) {
+    switch (misms_it->misms_type) {
+      case MISMS: break;
+      case INS:   break;
+      case DEL:
+        ++count;
+        break;
+    }
+  }
+  return count;
+}
+
 /*
  *
  * High-level Procedures
@@ -370,54 +429,28 @@ GT_INLINE uint64_t gt_map_vector_get_score(gt_vector* const maps) {
 GT_INLINE int64_t gt_map_sm_cmp(gt_map* const map_1,gt_map* const map_2) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
+  if (begin_distance != 0) return 1;
   register const int64_t end_distance = ((int64_t)gt_map_get_end_position(map_1)) - (int64_t)(gt_map_get_end_position(map_2));
-  if (begin_distance==0 && end_distance==0) {
-    if (map_1->next_block==NULL && map_2->next_block==NULL) return 0;
-    if (map_1->next_block!=NULL && map_2->next_block!=NULL) return gt_map_sm_cmp(map_1->next_block->map,map_2->next_block->map);
-    return 1;
-  } else {
-    return 1;
+  if (end_distance != 0) return 1;
+  if (map_1->next_block==NULL && map_2->next_block==NULL) return 0;
+  if (map_1->next_block!=NULL && map_2->next_block!=NULL) {
+    return gt_map_sm_cmp(map_1->next_block->map,map_2->next_block->map);
   }
+  return 1;
 }
 GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
-  register int64_t cmp_tags = gt_string_cmp(map_1->seq_name,map_2->seq_name);
-  if (cmp_tags!=0) {
-    return cmp_tags;
+  if (gt_string_cmp(map_1->seq_name,map_2->seq_name)!=0) {
+    return 1;
   } else {
     if (map_1->strand==map_2->strand) {
-      if (map_1->next_block==NULL && map_2->next_block==NULL) {
-        register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
-        register const int64_t end_distance = ((int64_t)gt_map_get_end_position(map_1)) - (int64_t)(gt_map_get_end_position(map_2));
-        if (begin_distance==0 && end_distance==0) return 0;
-        return 1;
-      } else if (map_1->next_block!=NULL && map_2->next_block!=NULL) {
-        return gt_map_sm_cmp(map_1,map_2);
-      } else {
-        return 1;
-      }
+      return gt_map_sm_cmp(map_1,map_2);
     } else {
       return 1;
     }
   }
 }
-GT_INLINE int64_t gt_map_cmp_strict(gt_map* const map_1,gt_map* const map_2) {
-  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
-  if (!(map_1->position==map_2->position && gt_map_get_distance(map_1)==gt_map_get_distance(map_2))) {
-    return 1;
-  } else {
-    if (map_1->next_block==NULL || map_2->next_block==NULL) return 1;
-    return gt_map_cmp_strict(map_1->next_block->map,map_2->next_block->map);
-  }
-}
-GT_INLINE int64_t gt_map_cmp_false(gt_map* const map_1,gt_map* const map_2) {
-  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
-  return 1;
-}
-GT_INLINE int64_t gt_map_cmp_true(gt_map* const map_1,gt_map* const map_2) {
-  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
-  return 0;
-}
+// General compare function differs somehow from the standard one at @gt_map_cmp
 GT_INLINE int64_t gt_map_range_sm_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated,const uint64_t num_maps_left) {
   GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
   register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
@@ -441,13 +474,12 @@ GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const
         if (num_blocks_map_1==1) { // Standard Mapping
           register const int64_t begin_distance = ((int64_t)gt_map_get_begin_position(map_1)) - ((int64_t)gt_map_get_begin_position(map_2));
           register const int64_t end_distance = ((int64_t)gt_map_get_end_position(map_1)) - (int64_t)(gt_map_get_end_position(map_2));
-          if (GT_ABS(begin_distance)<=range_tolerated && GT_ABS(end_distance)<=range_tolerated) return 0;
+          if (GT_ABS(begin_distance)<=range_tolerated || GT_ABS(end_distance)<=range_tolerated) return 0;
           return GT_ABS(begin_distance)+GT_ABS(end_distance);
         } else { // Split Maps Involved
           return gt_map_range_sm_cmp(map_1,map_2,range_tolerated,num_blocks_map_1);
         }
-      } else {
-        // Different splits
+      } else { // Different splits
         return (num_blocks_map_1-num_blocks_map_2);
       }
     } else {
@@ -473,6 +505,13 @@ GT_INLINE int64_t gt_mmap_range_cmp(
     if (map_cmp!=0) return map_cmp;
   }
   return 0;
+}
+GT_INLINE bool gt_map_less_than(gt_map* const map_1,gt_map* const map_2) {
+  GT_MAP_CHECK(map_1); GT_MAP_CHECK(map_2);
+  if (gt_map_get_global_bases_aligned(map_1) < gt_map_get_global_bases_aligned(map_2)) return true;
+  if (gt_map_get_num_indels(map_1) < gt_map_get_num_indels(map_2)) return true;
+  if (gt_map_get_global_levenshtein_distance(map_1) < gt_map_get_global_levenshtein_distance(map_2)) return true;
+  return false;
 }
 
 /*

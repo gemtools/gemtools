@@ -137,6 +137,12 @@ GT_INLINE char* gt_map_get_misms_string(gt_map* const map);
 GT_INLINE gt_misms_string_t gt_map_get_misms_string_format(gt_map* const map);
 GT_INLINE void gt_map_set_misms_string(gt_map* const map,char* misms_string,const gt_misms_string_t format);
 
+// Counting
+GT_INLINE uint64_t gt_map_get_num_mismatch_bases(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_num_indels(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_num_insertions(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_num_deletions(gt_map* const map);
+
 /*
  * High-level Procedures
  */
@@ -163,12 +169,10 @@ GT_INLINE uint64_t gt_map_vector_get_distance(gt_vector* const maps);
 GT_INLINE uint64_t gt_map_vector_get_score(gt_vector* const maps);
 // Map compare functions
 GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2);
-GT_INLINE int64_t gt_map_cmp_strict(gt_map* const map_1,gt_map* const map_2);
-GT_INLINE int64_t gt_map_cmp_false(gt_map* const map_1,gt_map* const map_2);
-GT_INLINE int64_t gt_map_cmp_true(gt_map* const map_1,gt_map* const map_2);
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated);
 GT_INLINE int64_t gt_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps);
 GT_INLINE int64_t gt_mmap_range_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps,const uint64_t range_tolerated);
+GT_INLINE bool gt_map_less_than(gt_map* const map_1,gt_map* const map_2); // As to resolve ties
 
 /*
  * Miscellaneous

@@ -108,7 +108,7 @@ GT_INLINE gt_status gt_output_map_gprint_counters(
     gt_gprintf(gprinter,"0");
     return 0;
   }
-  for (i=0;i<num_counters;) {
+  for (i=0;i<num_counters;) { // TODO: consider MCS output all zeros ......
     if (i>0) gt_gprintf(gprinter,"%c",gt_expect_false(i==max_complete_strata)?GT_MAP_MCS:GT_MAP_COUNTS_SEP);
     register const uint64_t counter = *gt_vector_get_elm(counters,i,uint64_t);
     if (gt_expect_false(compact && counter==0)) {

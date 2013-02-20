@@ -181,7 +181,6 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
     register const uint64_t vector_position = gt_vector_get_used(alignment_dst->maps);
     register const uint64_t begin_position = gt_map_get_position(map_src)-gt_map_get_left_trim_length(map_src);
     register const uint64_t end_position = gt_map_get_position(map_src)+gt_map_get_length(map_src);
-    // DEBUG fprintf(stderr,"==>> [%lu,%lu] ",begin_position,end_position); gt_output_map_fprint_map(stderr,map_src,false); fprintf(stderr,"\n");
     // Try add
     if (gt_alignment_dictionary_try_add(alignment_dst->alg_dictionary,map_src,
           begin_position,end_position,&alg_dicc_elem,&ihash_element_b,&ihash_element_e,vector_position)) {
@@ -197,14 +196,14 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
       if (ihash_element_b!=NULL) { // Check begin IDX ihash
         found_vector_position = *((uint64_t*)ihash_element_b->element);
         map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
-        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src)<gt_map_get_global_distance(map_found)) {
+        if (gt_map_cmp(map_src,map_found)==0 && gt_map_less_than(map_src,map_found)) {
           found_candidate = true;
         }
       }
       if (!found_candidate && ihash_element_e!=NULL) { // Check end IDX ihash
         found_vector_position = *((uint64_t*)ihash_element_e->element);
         map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
-        if (gt_map_cmp(map_src,map_found)==0 && gt_map_get_global_distance(map_src)<gt_map_get_global_distance(map_found)) {
+        if (gt_map_cmp(map_src,map_found)==0 && gt_map_less_than(map_src,map_found)) {
           found_candidate = true;
         }
       }
@@ -222,9 +221,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
       } else {
         // (3) iHash won't solve the conflict. Resort to standard search
         if (gt_expect_false(gt_alignment_find_map_fx(gt_map_cmp,alignment_dst,map_src,&found_vector_position,&map_found))) {
-          // DEBUG gt_output_map_fprint_map(stderr,map_found,false); fprintf(stderr,"\n");
-          // DEBUG gt_output_map_fprint_map(stderr,map_src,false); fprintf(stderr,"\n\n");
-          if (gt_expect_true(gt_map_get_global_distance(map_src) < gt_map_get_global_distance(map_found))) {
+          if (gt_expect_true(gt_map_less_than(map_src,map_found))) {
             register gt_map* const map_src_cp = gt_map_copy(map_src);
             // Remove old map
             gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
