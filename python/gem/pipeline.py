@@ -790,6 +790,9 @@ class MappingPipeline(object):
             else:
                 self.index = os.path.abspath(self.index)
 
+        if self.quality is None:
+            errors.append("You have to specify a quality offset (33, 64, or 'ignore' to disable)")
+
         if self.output_dir is None:
             self.output_dir = os.getcwd()
         self.output_dir = os.path.abspath(self.output_dir)
@@ -806,7 +809,11 @@ class MappingPipeline(object):
         if self.transcript_index is None and self.annotation is not None:
             # guess the transcript index
             self.transcript_index = self.annotation + ".gem"
-            if not os.path.exists(self.transcript_index):
+            transcript_index_found = os.path.exists(self.transcript_index)
+            if not transcript_index_found:
+                self.transcript_index = self.annotation + ".junctions.gem"
+                transcript_index_found = os.path.exists(self.transcript_index)
+            if not transcript_index_found:
                 errors.append("Deduced transcript index not found: %s" % (self.transcript_index))
                 errors.append("""We look for the transcriptome index just next to your annotation, but
 could not find it there. Try to specify a path to the transcriptome index using
@@ -821,7 +828,11 @@ index generated from your annotation.""")
 
         if self.transcript_keys is None and self.transcript_index is not None:
             self.transcript_keys = self.transcript_index[:-4] + ".junctions.keys"
-            if not os.path.exists(self.transcript_keys):
+            transcript_keys_found = os.path.exists(self.transcript_keys)
+            if not transcript_keys_found:
+                self.transcript_keys = self.transcript_index[:-14] + ".keys"
+                transcript_keys_found = os.path.exists(self.transcript_keys)
+            if not transcript_keys_found:
                 errors.append("Deduced transcript keys not found: %s" % (self.transcript_keys))
             else:
                 self.transcript_keys = os.path.abspath(self.transcript_keys)
@@ -1141,7 +1152,6 @@ index generated from your annotation.""")
         self.register_junctions(parser)
         self.register_pairing(parser)
 
-
     def register_general(self, parser):
         """Register all general parameters with the given
         argparse parser
@@ -1152,17 +1162,17 @@ index generated from your annotation.""")
         ## general pipeline paramters
         general_group.add_argument('-f', '--files', dest="input", nargs="+", metavar="input",
             help='''Single fastq input file or both files for a paired-end run separated by space.
-            Note that if you specify only one file, we will look for the pair counter-part
+            Note that if you specify only one file, we will look for the file containing the other pairs
             automatically and start a paired-end run. Add the --single-end parameter to disable
             pairing and file search. The file search for the second pair detects pairs
-            ending in [_|.][1|2].[fastq|txt][.gz].''')
+            ending in [_|.|-][0|1|2].[fq|fastq|txt][.gz].''')
         general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
-            default=33, help='Quality offset. 33, 64 or "ignore" to disable qualities. Default 33')
+            default=None, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
         general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
-        general_group.add_argument('-a', '--annotation', dest="annotation", metavar="gtf", help='''Path to the GTF annotation. If specified the transcriptome generated from teh annotation is
-            used in addition to denovo junctions.''')
+        general_group.add_argument('-a', '--annotation', dest="annotation", metavar="gtf", help='''Path to the GTF annotation. If specified the transcriptome generated from the annotation is
+            used in addition to de-novo junctions.''')
         general_group.add_argument('-r', '--transcript-index', dest="transcript_index", help='''GTF Transcriptome index. If not specified and an annotation is given,
-            it is assumed to be <gtf>.gem. ''')
+            it is assumed to be <gtf>.junctions.gem. ''')
         general_group.add_argument('-k', '--transcript-keys', dest="transcript_keys", help='''Transcriptome .keys file. If not specified and an annotation is given,
             it is assumed to be <gtf>.junctions.keys''')
 
@@ -1267,7 +1277,7 @@ index generated from your annotation.""")
         junctions_group.add_argument('--matched-threshold', dest="junctions_matches_threshold", metavar="mt",
             default=None, help='Matches threshold. Default 75')  # todo: fix description
         junctions_group.add_argument('--junction-coverage', dest="junctions_coverage", metavar="jc",
-            default=None, help='Maximum allowed junction converage. Defautl 2')  # todo: fix description
+            default=None, help='Maximum allowed junction converage. Default 2')  # todo: fix description
 
     def register_pairing(self, parser):
         """Register the pairing parameter with the
