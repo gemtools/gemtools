@@ -9,7 +9,7 @@ import gem
 import gem.commands
 
 from gem.pipeline import MappingPipeline, PipelineError
-from gem.utils import Command, CommandException, Timer
+from gem.utils import Command, CommandException
 
 
 class Merge(Command):

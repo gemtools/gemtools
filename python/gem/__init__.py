@@ -1021,7 +1021,16 @@ class merger(object):
     def merge(self, output, threads=1, paired=False, same_content=False, compress=False):
         if same_content:
             if output is None:
-                return self.merge_async(threads=threads, paired=paired, same_content=same_content)
+                (r, w) = os.pipe()
+                self._input = os.fdopen(r, 'r')
+                self._output = os.fdopen(w, 'w')
+                of = gt.OutputFile(self._output, clean_id=False, append_extra=True)
+                files = [self.target]
+                files.extend(self.source)
+                process = gt.merge(files).write_stream(of, write_map=True, threads=threads, async=True)
+                self._output.close()
+                return gt.InputFile(self._input, process=process)
+                #return self.merge_async(threads=threads, paired=paired, same_content=same_content)
 
             p = None
             out = output

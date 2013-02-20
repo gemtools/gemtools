@@ -1,7 +1,7 @@
 from gemapi cimport *
 import os
 import sys
-
+import multiprocessing
 
 cdef class TemplateFilter(object):
     """Filter templates. Override the filter
@@ -180,22 +180,23 @@ cdef class interleave(object):
         threads       -- number of threads to use (if supported by the iterator)
         """
 
-        cdef gt_output_file* output_file = output.output_file
-        cdef uint64_t num_inputs = len(self.files)
-        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        cdef bool clean_id = output.clean_id
-        cdef bool append_extra = output.append_extra
-        cdef bool interleave = self.interleave
-        cdef uint64_t use_threads = max(threads, self.threads)
+        # cdef gt_output_file* output_file = output.output_file
+        # cdef uint64_t num_inputs = len(self.files)
+        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        # cdef bool clean_id = output.clean_id
+        # cdef bool append_extra = output.append_extra
+        # cdef bool interleave = self.interleave
+        # cdef uint64_t use_threads = max(threads, self.threads)
 
-        for i in range(num_inputs):
-            inputs[i] = (<InputFile> self.files[i])._open()
-        with nogil:
-            gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
-        output.close()
-        for i in range(num_inputs):
-            gt_input_file_close(inputs[i])
-        free(inputs)
+        # for i in range(num_inputs):
+        #     inputs[i] = (<InputFile> self.files[i])._open()
+        # with nogil:
+        #     gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
+        # output.close()
+        # for i in range(num_inputs):
+        #     gt_input_file_close(inputs[i])
+        # free(inputs)
+        __run_write_stream(self.files, output, write_map, max(threads, self.threads), self.interleave, None)
 
     cpdef close(self):
         try:
@@ -246,7 +247,7 @@ cdef class merge(object):
                     pass
         return m
 
-    cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1):
+    cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1, bool async=False):
         """Write the content of this input stream to the output file
         file.
 
@@ -255,21 +256,22 @@ cdef class merge(object):
         interleave    -- interleave muliple inputs
         threads       -- number of threads to use (if supported by the iterator)
         """
-        cdef gt_output_file* output_file = output.output_file
-        cdef uint64_t num_inputs = len(self.inputs)
-        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        cdef bool clean_id = output.clean_id
-        cdef bool append_extra = output.append_extra
-        for i in range(num_inputs):
-            inputs[i] = (<InputFile> self.inputs[i])._open()
+        # cdef gt_output_file* output_file = output.output_file
+        # cdef uint64_t num_inputs = len(self.inputs)
+        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        # cdef bool clean_id = output.clean_id
+        # cdef bool append_extra = output.append_extra
+        # for i in range(num_inputs):
+        #     inputs[i] = (<InputFile> self.inputs[i])._open()
 
-        with nogil:
-            gt_merge_files_synch(output_file, threads, num_inputs, inputs);
+        # with nogil:
+        #     gt_merge_files_synch(output_file, threads, num_inputs, inputs);
 
-        output.close()
-        for i in range(num_inputs):
-            gt_input_file_close(inputs[i])
-        free(inputs)
+        # output.close()
+        # for i in range(num_inputs):
+        #     gt_input_file_close(inputs[i])
+        # free(inputs)
+        __run_write_stream(self.inputs, output, write_map, threads, False, None, __write_merge_stream, async)
 
 
 
@@ -324,6 +326,9 @@ cdef class OutputFile:
             self._open_file(<char*> target)
         else:
             self._open_stream(<file> target)
+
+    cpdef bool is_stream(self):
+        return isinstance(self.target, basestring)
 
     def add_filter(self, filter):
         if self.filters is None:
@@ -509,20 +514,21 @@ cdef class InputFile(object):
         interleave    -- interleave muliple inputs
         threads       -- number of threads to use (if supported by the iterator)
         """
-        cdef gt_output_file* output_file = output.output_file
-        cdef uint64_t num_inputs = 1
-        cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        cdef bool clean_id = output.clean_id
-        cdef bool append_extra = output.append_extra
-        inputs[0] = self._open()
+        # cdef gt_output_file* output_file = output.output_file
+        # cdef uint64_t num_inputs = 1
+        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+        # cdef bool clean_id = output.clean_id
+        # cdef bool append_extra = output.append_extra
+        # inputs[0] = self._open()
 
-        with nogil:
-            gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
-        output.close()
-        gt_input_file_close(inputs[0])
-        free(inputs)
-        if self.process is not None:
-            self.process.wait()
+        # with nogil:
+        #     gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
+        # output.close()
+        # gt_input_file_close(inputs[0])
+        # free(inputs)
+        # if self.process is not None:
+        #     self.process.wait()
+        __run_write_stream([self], output, write_map, threads, True, self.process)
 
     cpdef close(self):
         if self.buffered_input is not NULL:
@@ -535,6 +541,49 @@ cdef class InputFile(object):
             gt_input_file_close(self.input_file)
             self.input_file = NULL
 
+
+cpdef __run_write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True, parent=None, function=__write_stream, bool async=False):
+    process = multiprocessing.Process(target=function, args=(source, output, write_map, threads, interleave,))
+    process.start()
+    if not async:
+        process.join()
+        if parent is not None:
+            parent.wait()
+    return process
+
+cpdef __write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True):
+    cdef gt_output_file* output_file = output.output_file
+    cdef uint64_t num_inputs = len(source)
+    cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+    cdef bool clean_id = output.clean_id
+    cdef bool append_extra = output.append_extra
+    cdef uint64_t use_threads = threads
+
+    for i in range(num_inputs):
+        inputs[i] = (<InputFile> source[i])._open()
+
+    with nogil:
+        gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
+    output.close()
+    for i in range(num_inputs):
+        gt_input_file_close(inputs[i])
+    free(inputs)
+
+cpdef __write_merge_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True):
+    cdef gt_output_file* output_file = output.output_file
+    cdef uint64_t num_inputs = len(source)
+    cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
+    cdef uint64_t use_threads = threads
+
+    for i in range(num_inputs):
+        inputs[i] = (<InputFile> source[i])._open()
+
+    with nogil:
+        gt_merge_files_synch(output_file, threads, num_inputs, inputs);
+    output.close()
+    for i in range(num_inputs):
+        gt_input_file_close(inputs[i])
+    free(inputs)
 
 
 

@@ -139,10 +139,14 @@ class PrepareInputStep(PipelineStep):
 
     def run(self):
         """Merge current set of mappings and delete last ones"""
-        p = mp.Process(target=PrepareInputStep.__write, args=(self,))
-        p.start()
-        p.join()
-
+        # p = mp.Process(target=PrepareInputStep.__write, args=(self,))
+        # p.start()
+        # p.join()
+        outfile = gt.OutputFile(self._final_output(), clean_id=True, append_extra=False)
+        infile = self._input()
+        infile.write_stream(outfile, write_map=False)
+        infile.close()
+        outfile.close()
 
 
 class MergeStep(PipelineStep):
