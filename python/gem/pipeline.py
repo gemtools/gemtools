@@ -342,7 +342,7 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             splice_consensus=cfg["junctions_consensus"],
             mismatches=cfg["mismatches"],
             threads=self.pipeline.threads,
-            strata_after_first=0,
+            strata_after_first=cfg["strata_after_best"],
             coverage=cfg["coverage"],
             min_split=cfg["min_split_length"],
             max_split=cfg["max_split_length"],
@@ -653,6 +653,7 @@ class MappingPipeline(object):
         config.max_junction_matches = self.junctions_max_junction_matches
         config.min_split_length = self.junctions_min_intron_size
         config.max_split_length = self.junctions_max_intron_size
+        config.strata_after_best = self.junctions_strata_after_best
         config.refinement_step_size = self.junctions_refinement_step_size
         config.min_split_size = self.junctions_min_split_size
         config.matches_threshold = self.junctions_matches_threshold
@@ -1288,6 +1289,7 @@ index generated from your annotation.""")
         junctions_group.add_argument('--matches-threshold', dest="junctions_matches_threshold", metavar="mt", help='Maximum number canidates considered when splitting the read. Default 75')
         junctions_group.add_argument('--junction-coverage', dest="junctions_coverage", metavar="jc", help='Minimum allowed junction converage. Default %d' % self.junctions_coverage)
         junctions_group.add_argument('--junction-consensus', dest="junctions_consensus", metavar="jc", help='Consensus used to detect junction sites. Default \'%s\'' % (",".join(["(%s,%s)" % (c[0], c[1]) for c in self.junctions_consensus])))
+        junctions_group.add_argument('--junction-strata-after-best', dest="junctions_strata_after_best", metavar="s", help='Maximum number of strata to examin after best. Default %d' % (self.junctions_strata_after_best))
 
     def register_pairing(self, parser):
         """Register the pairing parameter with the
