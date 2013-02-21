@@ -324,10 +324,10 @@ def mapper(input, index, output=None,
     index = _prepare_index_parameter(index)
     quality = _prepare_quality_parameter(quality, input)
 
-    if delta >= min_decoded_strata and not force_min_decoded_strata:
-        logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
-            str(min_decoded_strata), str(delta + 1), str(delta)))
-        min_decoded_strata = delta + 1
+    # if delta >= min_decoded_strata and not force_min_decoded_strata:
+    #     logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
+    #         str(min_decoded_strata), str(delta + 1), str(delta)))
+    #     min_decoded_strata = delta + 1
     if compress and output is None:
         logging.warning("Disabeling stream compression")
         compress = False

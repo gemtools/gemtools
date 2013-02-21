@@ -168,7 +168,7 @@ class Process(object):
                 process_input = stdin
                 stdin = subprocess.PIPE
 
-        logging.debug("Starging subprocess")
+        logging.debug("Starting subprocess")
         self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=False)
 
         if process_input is not None:
@@ -503,6 +503,10 @@ def find_pair(file):
         "1.txt.gz": "2.txt.gz",
         "1.txt": "2.txt",
         "0.txt": "1.txt",
+        "0.fq": "1.fq",
+        "1.fq": "2.fq",
+        "0.fq.gz": "1.fq.gz",
+        "1.fq.gz": "2.fq.gz",
     }
     for k, v in pairs.items():
         if file.endswith(k):
