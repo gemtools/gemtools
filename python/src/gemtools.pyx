@@ -1,4 +1,5 @@
 from gemapi cimport *
+
 import os
 import sys
 import multiprocessing
@@ -789,3 +790,40 @@ cdef class Template:
     cpdef parse(self, char* string):
         gt_input_map_parse_template(string, self.template)
         return self
+
+cdef class Stats(object):
+    cdef gt_stats* stats
+    cdef bool best_map
+    cdef bool paired
+
+    def __init__(self, bool best_map, bool paired):
+        self.best_map =best_map
+        self.paired = paired
+        self.stats = gt_stats_new()
+
+    def __dealloc__(self):
+        gt_stats_delete(self.stats)
+
+    cpdef read(self, input, uint64_t threads=1):
+        __calculate_stats(self, input, threads)
+
+cpdef __run_stats(stats, source, uint64_t threads=1):
+    process = multiprocessing.Process(target=__calculate_stats, args=(stats, source,))
+    process.start()
+    process.join()
+    return process
+
+cpdef __calculate_stats(Stats stats, source, uint64_t threads=1):
+    cdef gt_input_file* input = <gt_input_file*> (<InputFile>source)._open()
+    cdef uint64_t use_threads = threads
+    cdef gt_stats* target = stats.stats
+    cdef bool best_map = stats.best_map
+    cdef bool paired = stats.paired
+
+    with nogil:
+        gt_stats_fill(input, target, threads, paired, best_map)
+
+    #gt_input_file_close(input)
+
+
+

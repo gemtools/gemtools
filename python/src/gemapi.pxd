@@ -3,7 +3,6 @@
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
-
 cdef extern from "stdlib.h":
     int strcmp(char *a, char *b)
 
@@ -273,6 +272,67 @@ cdef extern from "gem_tools.h" nogil:
     gt_status gt_output_map_sprint_template(gt_string* string,gt_template* template,gt_output_map_attributes* attributes)
     gt_status gt_output_map_ofprint_template(gt_output_file* output_file,gt_template* template, gt_output_map_attributes* attributes)
 
+cdef extern from "gt_stats.h":
+    ctypedef struct gt_maps_error_profile:
+        # Mismatch/Indel Distribution
+        uint64_t *mismatches  # MISMS_RANGE */
+        uint64_t *indel_length  # MISMS_RANGE */
+        uint64_t *errors_events # MISMS_RANGE */
+        uint64_t total_mismatches
+        uint64_t total_indel_length
+        uint64_t total_errors_events
+        uint64_t *error_position # READ_POS_RANGE */
+        # Trim stats
+        uint64_t total_bases_aligned
+        uint64_t total_bases_trimmed
+        # Insert Size Distribution
+        uint64_t *inss # INSS_RANGE */
+        # Mismatch/Errors bases
+        uint64_t *misms_transition  # MISMS_BASE_RANGE*MISMS_BASE_RANGE */
+        uint64_t *qual_score_misms  # QUAL_SCORE_RANGE */
+        uint64_t *qual_score_errors # QUAL_SCORE_RANGE */
+
+
+    ctypedef struct gt_splitmaps_profile:
+        uint64_t num_mapped_with_splitmaps
+        uint64_t num_mapped_only_splitmaps
+        uint64_t total_splitmaps
+        uint64_t total_junctions
+        uint64_t *num_junctions # NUM_JUNCTION_RANGE */
+        uint64_t *length_junctions # LEN_JUNCTION_RANGE */
+        uint64_t *junction_position # READ_POS_RANGE */
+        # Paired SM combinations */
+        uint64_t pe_sm_sm
+        uint64_t pe_sm_rm
+        uint64_t pe_rm_rm
+
+    ctypedef struct gt_stats:
+        # Length stats
+        uint64_t min_length
+        uint64_t max_length
+        uint64_t total_bases
+        uint64_t total_bases_unaligned
+        # Mapped/Maps
+        uint64_t num_blocks
+        uint64_t num_alignments
+        uint64_t num_maps
+        uint64_t num_mapped
+        # MMap Distribution
+        uint64_t *mmap # MMAP_RANGE */
+        # Uniq Distribution
+        uint64_t *uniq # UNIQ_RANGE */
+        # Error Profile
+        gt_maps_error_profile *maps_error_profile # All maps
+        # Split maps info
+        gt_splitmaps_profile* splitmaps_profile
+
+    cdef gt_stats* gt_stats_new()
+    cdef void gt_stats_clear(gt_stats *stats)
+    cdef void gt_stats_delete(gt_stats *stats)
+
+    void gt_stats_merge(gt_stats** stats, uint64_t stats_array_size)
+    void gt_stats_calculate_template_stats(gt_stats*  stats, gt_template* template, bool best_map)
 cdef extern from "gemtools_binding.h" nogil:
     void gt_merge_files_synch(gt_output_file* output_file, uint64_t threads, uint64_t num_files, gt_input_file** files)
     void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map)
+    void gt_stats_fill(gt_input_file* input_file, gt_stats* target_stats, uint64_t num_threads, bool paired_end, bool best_map)

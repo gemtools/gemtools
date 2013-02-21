@@ -7,6 +7,7 @@ import sys
 
 import gem
 import gem.commands
+import gem.gemtools as gt
 
 from gem.pipeline import MappingPipeline, PipelineError
 from gem.utils import Command, CommandException
@@ -35,6 +36,25 @@ class Merge(Command):
             files.append(gem.files.open(f))
 
         gem.merger(files[0], files[1:]).merge(args.output, threads=int(args.threads), same_content=args.same)
+
+
+class Stats(Command):
+    title = "Create .map stats"
+    description = """Calculate stats on a map file"""
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-i', '--input', dest="input", help='Input map file', required=True)
+        parser.add_argument('-t', '--threads', dest="threads", type=int, default=1, help='Number of threads')
+        parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+        parser.add_argument('-p', '--paired', dest="paired", action="store_true", default=False, help="Paired end reads")
+        parser.add_argument('-b', '--best', dest="best", action="store_true", default=False, help="Calculates stats only for the best maps")
+
+    def run(self, args):
+        infile = gem.files.open(args.input)
+        stats = gt.Stats(args.best, args.paired)
+        stats.read(infile, args.threads)
+        print stats
 
 
 class Junctions(Command):
@@ -102,6 +122,7 @@ class TranscriptIndex(Command):
         parser.add_argument('-a', '--annotation', dest="annotation", help='Path to the GTF annotation', required=True)
         parser.add_argument('-m', '--max-length', dest="maxlength", help='Maximum read length, defaults to 150', default=150)
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads', default=2)
+        parser.add_argument('-o', '--output', dest="name", help='Optional output prefix. If this is not set, the annotation name will be used', default=None)
 
     def run(self, args):
         if not args.index.endswith(".gem"):
@@ -111,8 +132,12 @@ class TranscriptIndex(Command):
         if not os.path.exists(args.annotation):
             raise CommandException("Annotation not found")
 
-        junctions_out = os.path.basename(args.annotation) + ".junctions"
-        index_out = os.path.basename(args.annotation) + ".gem"
+        name = args.name
+        if name is None:
+            name = os.path.basename(args.annotation)
+
+        junctions_out = name + ".junctions"
+        index_out = name + ".junctions.gem"
 
         print "Loading Junctions"
         junctions = set(gem.junctions.from_gtf(args.annotation))

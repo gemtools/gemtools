@@ -852,7 +852,7 @@ index generated from your annotation.""")
         elif self.transcript_keys is not None and not os.path.exists(self.transcript_keys):
             errors.append("Transcript keys not found : %s")
         elif self.transcript_keys is not None and os.path.exists(self.transcript_keys):
-            self.transcript_keys = os.path.abspath(self.transcript_keys) 
+            self.transcript_keys = os.path.abspath(self.transcript_keys)
 
         # check inpuf compression
         if self.compress_all and not self.direct_input:
@@ -1190,6 +1190,7 @@ index generated from your annotation.""")
         bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=self.bam_create, help="Do not create bam file")
         bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=self.bam_sort, help="Do not sort bam file")
         bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=self.bam_index, help="Do not index the bam file")
+        bam_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
 
     def register_general(self, parser):
         """Register all general parameters with the given
@@ -1231,7 +1232,6 @@ index generated from your annotation.""")
         general_group.add_argument('--dry', dest="dry", action="store_true", default=False, help="Print and write configuration but do not start the pipeline")
         general_group.add_argument('--load', dest="load_configuration", default=None, metavar="cfg", help="Load pipeline configuration from file")
         general_group.add_argument('--run', dest="run_steps", type=int, default=None, nargs="+", metavar="cfg", help="Run given pipeline steps idenfified by the step id")
-        general_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
         general_group.add_argument('--direct-input', dest="direct_input", default=False, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
         general_group.add_argument('--force', dest="force", default=False, action="store_true", help="Force running all steps and skip checking for completed steps")
 

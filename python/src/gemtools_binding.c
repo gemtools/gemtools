@@ -4,6 +4,51 @@ GEMTools python binding utilities
 #include "gemtools_binding.h"
 #include <omp.h>
 
+
+void gt_stats_fill(gt_input_file* input_file, gt_stats* target_stats, uint64_t num_threads, bool paired_end, bool best_map){
+// Stats info
+  gt_stats** stats = malloc(num_threads*sizeof(gt_stats*));
+  stats[0] = target_stats;
+  gt_stats_analysis params = GT_STATS_ANALYSIS_DEFAULT();
+  params.best_map = best_map;
+  //params.indel_profile = true
+  // Parallel reading+process
+  printf("START CALCULATING>>>>>>>>>>\n");
+  #pragma omp parallel num_threads(num_threads)
+  {
+    uint64_t tid = omp_get_thread_num();
+    gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
+
+    gt_status error_code;
+    gt_template *template = gt_template_new();
+    //if(tid > 0){
+        stats[tid] = gt_stats_new();
+    //}
+    gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(paired_end);
+    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
+      if (error_code!=GT_IMP_OK) {
+        gt_error_msg("Fatal error parsing file\n");
+      }
+      // Extract stats
+      //gt_stats_calculate_template_stats(stats[tid],template,&params);
+    }
+    // Clean
+    gt_template_delete(template);
+    gt_buffered_input_file_close(buffered_input);
+  }
+  printf("START MERGING>>>>>>>>>>\n");
+
+  // Merge stats
+  gt_stats_merge(stats, num_threads);
+
+  // Clean
+  free(stats);
+  printf("START CLOSE>>>>>>>>>>\n");
+  gt_input_file_close(input_file);
+  printf("DONE>>>>>>>>>>\n");
+}
+
+
 bool gt_input_file_has_qualities(gt_input_file* file){
     return (file->file_format == FASTA && file->fasta_type.fasta_format == F_FASTQ) || (file->file_format == MAP && file->map_type.contains_qualities);
 }
