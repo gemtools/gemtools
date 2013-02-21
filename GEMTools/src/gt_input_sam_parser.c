@@ -781,6 +781,8 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   error_code = gt_isp_solve_remaining_maps(pending_v,template);
   gt_vector_delete(pending_v);
   if (error_code) gt_isp_skip_remaining_records(buffered_sam_input,template->tag);
+  // Deduce alignment's tag info
+  gt_template_dup_tags_to_alignments(template);
   return error_code;
 }
 /* SOAP2-SAM */
@@ -817,6 +819,8 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
     gt_template_add_mmap_va(template,&attr,map_end1,map_end2);
     ++pos_end_it;
   }
+  // Deduce alignment's tag info
+  gt_template_dup_tags_to_alignments(template);
   return 0;
 }
 /* SE-SAM */
