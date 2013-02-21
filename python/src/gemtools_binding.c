@@ -9,8 +9,16 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_stats, uint64_t n
 // Stats info
   gt_stats** stats = malloc(num_threads*sizeof(gt_stats*));
   stats[0] = target_stats;
-  gt_stats_analysis params = GT_STATS_ANALYSIS_DEFAULT();
-  params.best_map = best_map;
+
+  gt_stats_analysis* params = malloc(sizeof(gt_stats_analysis));
+  params->best_map = true;
+  params->nucleotide_stats=true;
+  params->error_profile=true;
+  params->indel_profile=false;
+  params->indel_profile_reference=NULL;
+
+
+
   //params.indel_profile = true
   // Parallel reading+process
   printf("START CALCULATING>>>>>>>>>>\n");
@@ -24,13 +32,16 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_stats, uint64_t n
     //if(tid > 0){
         stats[tid] = gt_stats_new();
     //}
-    gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(paired_end);
-    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
+    printf("GET READS\n");
+    gt_generic_parser_attr* generic_parser_attr =  gt_input_generic_parser_attributes_new(paired_end);
+    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file\n");
       }
       // Extract stats
-      //gt_stats_calculate_template_stats(stats[tid],template,&params);
+      printf("PASS ON READ\n");
+      printf("TAG %s\n", gt_string_get_string(gt_template_get_tag(template)));
+      gt_stats_calculate_template_stats(stats[tid],template,params);
     }
     // Clean
     gt_template_delete(template);
@@ -43,6 +54,7 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_stats, uint64_t n
 
   // Clean
   free(stats);
+  free(params);
   printf("START CLOSE>>>>>>>>>>\n");
   gt_input_file_close(input_file);
   printf("DONE>>>>>>>>>>\n");
