@@ -42,6 +42,14 @@ GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_al
     gt_string_set_nstring(template->tag,gt_string_get_string(tag),tag_length);
   }
 }
+GT_INLINE void gt_template_dup_tags_to_alignments(gt_template* const template) {
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  register uint64_t i;
+  for (i=0;i<num_blocks;++i) {
+    register gt_alignment* const alignment = gt_template_get_block(template,i);
+    gt_string_set_nstring(alignment->tag,gt_string_get_string(template->tag),gt_string_get_length(template->tag));
+  }
+}
 
 /*
  * Template's MMaps operators (Update global state: counters, ...)

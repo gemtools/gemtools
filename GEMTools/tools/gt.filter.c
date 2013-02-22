@@ -125,6 +125,15 @@ void gt_filter_read__write() {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       }
 
+      // MMAP
+      GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+        GT_ALIGNMENT_ITERATE(alignment,map) {
+          GT_MAP_ITERATE(map,map_block) {
+            printf("%lu\n",gt_map_get_length(map_block));
+          }
+        }
+      }
+
       // Hidden options (aborts the rest)
       if (parameters.error_plot || parameters.insert_size_plot) {
         if (parameters.error_plot) {

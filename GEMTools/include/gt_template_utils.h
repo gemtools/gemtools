@@ -19,6 +19,7 @@
  */
 GT_INLINE void gt_template_deduce_alignments_tags(gt_template* const template);
 GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_alignment* const alignment);
+GT_INLINE void gt_template_dup_tags_to_alignments(gt_template* const template);
 
 /*
  * Template's MMaps high-level insertion (basic building block)

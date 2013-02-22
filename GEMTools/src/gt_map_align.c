@@ -8,8 +8,6 @@
 
 #include "gt_map_align.h"
 
-#define GT_MAP_REALIGN_EXPANSION_FACTOR (0.20)
-
 GT_INLINE gt_status gt_map_check_alignment(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length) {
@@ -109,7 +107,7 @@ GT_INLINE void gt_map_realign_dp_matrix_print(
   }
   fprintf(stderr,"\n");
 }
-
+#include "gt_output_map.h"
 GT_INLINE gt_status gt_map_realign_levenshtein(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length) {
@@ -175,10 +173,26 @@ GT_INLINE gt_status gt_map_realign_levenshtein(
   }
   // Free
   free(dp_array);
+
+  fprintf(stderr,"R:: (%lu,%lu) \t",gt_map_get_distance(map),min_val);
+  GT_MISMS_ITERATE(map,miss) {
+    fprintf(stderr,"  P %lu",miss->position);
+    switch (miss->misms_type) {
+      case MISMS: fprintf(stderr,"\tM\n"); break;
+      case INS: fprintf(stderr,"\tI %lu\n",miss->size); break;
+      case DEL: fprintf(stderr,"\tD %lu\n",miss->size); break;
+      default:
+        break;
+    }
+    gt_output_map_fprint_map(stderr,map,false); fprintf(stderr,"\n");
+  }
+
+
   return 0;
 }
 GT_INLINE gt_status gt_map_realign_levenshtein_sa(
-    gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive) {
+    gt_map* const map,gt_string* const pattern,
+    gt_sequence_archive* const sequence_archive,const uint64_t extra_length) {
   GT_MAP_CHECK(map);
   GT_STRING_CHECK(pattern);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
@@ -186,7 +200,6 @@ GT_INLINE gt_status gt_map_realign_levenshtein_sa(
   // Retrieve the sequence
   register const uint64_t pattern_length = gt_string_get_length(pattern);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
-  register const uint64_t extra_length = GT_MAP_REALIGN_EXPANSION_FACTOR*pattern_length;
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
       gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
       pattern_length,extra_length,sequence))) {
@@ -207,7 +220,9 @@ GT_INLINE gt_status gt_map_realign_weighted(
   return 0;
 }
 GT_INLINE gt_status gt_map_realign_weighted_sa(
-    gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive,int32_t (*gt_weigh_fx)(char*,char*)) {
+    gt_map* const map,gt_string* const pattern,
+    gt_sequence_archive* const sequence_archive,const uint64_t extra_length,
+    int32_t (*gt_weigh_fx)(char*,char*)) {
   GT_MAP_CHECK(map);
   GT_STRING_CHECK(pattern);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
@@ -215,7 +230,6 @@ GT_INLINE gt_status gt_map_realign_weighted_sa(
   // Retrieve the sequence
   register const uint64_t pattern_length = gt_string_get_length(pattern);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
-  register const uint64_t extra_length = GT_MAP_REALIGN_EXPANSION_FACTOR*pattern_length;
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
       gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
       pattern_length,extra_length,sequence))) return error_code;
