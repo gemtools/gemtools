@@ -210,7 +210,7 @@ typedef struct {
     .nucleotide_stats=true, \
     .error_profile=true, \
     .indel_profile=false, \
-    .indel_profile_reference=NULL \
+    .split_map_stats=true \
   }
 
 /*

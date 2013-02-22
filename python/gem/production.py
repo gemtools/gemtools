@@ -175,25 +175,16 @@ class RnaPipeline(Command):
 
     def run(self, args):
         ## parsing command line arguments
-        pipeline = MappingPipeline()
-
-        # load configuration
-        if args.load_configuration is not None:
-            pipeline.load(args.load_configuration)
-
-        ## update parameter
-        pipeline.update(vars(args))
-
-        ## initialize pipeline and check values
         try:
-            pipeline.initialize()
+            ## initialize pipeline and check values
+            pipeline = MappingPipeline(args=args)
         except PipelineError, e:
             sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
 
         # check if we want to do a preparation step
         input_dep = []
-        if not pipeline.direct_input and (len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz"), pipeline.input)) > 0):
+        if not pipeline.direct_input and pipeline.input is None or ((len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz"), pipeline.input)) > 0)):
             input_dep.append(pipeline.prepare_input(name="prepare"))
 
         # basic pipeline steps

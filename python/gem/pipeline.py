@@ -436,7 +436,7 @@ class TranscriptMapStep(PipelineStep):
 class MappingPipeline(object):
     """General mapping pipeline class."""
 
-    def __init__(self):
+    def __init__(self, args=None):
         self.steps = []  # pipeline steps
         self.run_steps = []  # steps to run
 
@@ -464,7 +464,7 @@ class MappingPipeline(object):
         self.bam_sort = True  # sort bam
         self.bam_index = True  # index bam
         self.single_end = False  # single end alignments
-        self.write_config = True  # write configuration
+        self.write_config = None  # write configuration
         self.dry = False  # only dry run
         self.sort_memory = "768M"  # samtools sort memory
         self.direct_input = False  # if true, skip the preparation step
@@ -520,6 +520,16 @@ class MappingPipeline(object):
         self.pairing_min_matched_bases = 0.80
         self.pairing_max_extendable_matches = 0
         self.pairing_max_matches_per_extension = 0
+
+        if args is not None:
+            # initialize from arguments
+            # load configuration
+            if args.load_configuration is not None:
+                self.load(args.load_configuration)
+            ## update parameter
+            self.update(vars(args))
+            ## initialize pipeline and check values
+            self.initialize()
 
     def update(self, configuration):
         """Update configuration from given map
@@ -846,6 +856,10 @@ index generated from your annotation.""")
             if not transcript_keys_found:
                 self.transcript_keys = self.transcript_index[:-14] + ".keys"
                 transcript_keys_found = os.path.exists(self.transcript_keys)
+                if not transcript_keys_found:
+                    self.transcript_keys = self.transcript_index[:-4] + ".keys"
+                    transcript_keys_found = os.path.exists(self.transcript_keys)
+
             if not transcript_keys_found:
                 errors.append("Deduced transcript keys not found: %s" % (self.transcript_keys))
             else:
@@ -921,8 +935,18 @@ index generated from your annotation.""")
                     Please check your read id's and make sure its either in casava >= 1.8 format or the
                     ids end with /1 and /2""")
 
-        if not silent and len(errors) > 0:
+        if not silent and len(errors) > 0 and self.write_config is None:
             raise PipelineError("Failed to initialize neccessary parameters:\n\n%s" % ("\n".join(errors)))
+        if self.write_config is not None:
+            # log configuration errors
+            logging.gemtools.warning("---------------------------------------------")
+            logging.gemtools.warning("Writing configuration")
+            logging.gemtools.warning("")
+            logging.gemtools.warning("Note that some of the parameters are missing:\n")
+            for e in errors:
+                logging.gemtools.warning("\t" + str(e))
+            logging.gemtools.warning("---------------------------------------------")
+
 
     def log_parameter(self):
         """Print selected parameters"""
@@ -984,7 +1008,7 @@ index generated from your annotation.""")
                 setattr(self, k, v)
         fd.close()
 
-    def write_pipeline(self):
+    def write_pipeline(self, file_name):
         """Write the pipeline and its configuration to a file
         based on the name
         """
@@ -993,6 +1017,7 @@ index generated from your annotation.""")
         # skip the steps here, we convert them manually
         del json_container["steps"]
         del json_container["run_steps"]
+        del json_container["write_config"]
         # remove non default values
         default_pipeline = MappingPipeline()
         default_pipeline.initialize(silent=True)
@@ -1000,30 +1025,19 @@ index generated from your annotation.""")
             if hasattr(default_pipeline, k) and getattr(default_pipeline, k) == v:
                 del json_container[k]
 
-        # json_steps = []
-        # for step in self.steps:
-        #     s = {
-        #         "id": step.id,
-        #         "name": step.name,
-        #         "description": step.description,
-        #         "dependencies": step.dependencies,
-        #         "configuration": step.configuration,
-        #         "files": step._files
-        #     }
-        #     json_steps.append(s)
-
         # json_container['piepline_steps'] = json_steps
-        file_name = "%s.gemtools" % (self.name)
-        logging.gemtools.info("Writing Pipeline to %s", file_name)
+
         fd = open(file_name, "w")
         json.dump(json_container, fd, indent=2, sort_keys=True)
         fd.close()
+        logging.gemtools.gt("Configuration saved to %s\n", file_name)
 
     def run(self):
         run_step = len(self.run_steps) > 0
 
-        if self.write_config and not run_step:
-            self.write_pipeline()
+        if self.write_config is not None:
+            self.write_pipeline(self.write_config)
+            return
         if self.dry:
             return
 
@@ -1229,7 +1243,7 @@ index generated from your annotation.""")
         general_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=self.compress_all, help="Compress also intermediate output")
         general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=self.remove_temp, help="Keep temporary files")
 
-        general_group.add_argument('--no-config', dest="write_config", action="store_false", default=True, help="Do not write a configuration file")
+        general_group.add_argument('--save', dest="write_config", nargs="?", const=None, help="Write the given configuration to disk")
         general_group.add_argument('--dry', dest="dry", action="store_true", default=False, help="Print and write configuration but do not start the pipeline")
         general_group.add_argument('--load', dest="load_configuration", default=None, metavar="cfg", help="Load pipeline configuration from file")
         general_group.add_argument('--run', dest="run_steps", type=int, default=None, nargs="+", metavar="cfg", help="Run given pipeline steps idenfified by the step id")
