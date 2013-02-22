@@ -182,21 +182,21 @@ GT_INLINE void gt_input_map_parser_next_record(gt_buffered_input_file* const buf
 }
 /* Read last record's tag (for block synchronization purposes ) */
 GT_INLINE gt_status gt_input_map_parser_get_tag_last_read(gt_buffered_input_file* const buffered_map_input,gt_string* const last_tag) {
-  register int64_t position = gt_vector_get_used(buffered_map_input->block_buffer);
+  register int64_t position = gt_vector_get_used(buffered_map_input->block_buffer)-1;
   register char* text_line = gt_vector_get_last_elm(buffered_map_input->block_buffer,char);
   if (*text_line!=EOL) return GT_IMP_FAIL;
   // Skip EOL
-  while (position>=0 && *text_line==EOL) {--text_line; --position;}
+  while (*text_line==EOL) {--text_line; --position;}
   // Skip Text and get previos EOL and TABS
   register uint64_t last_tab = 0;
-  while (position>=0 && *text_line!=EOL) {
+  while (position>0 && *text_line!=EOL) {
     if (*text_line==TAB) last_tab = position;
     --text_line; --position;
   }
   // Check end cases
   if (last_tab==0 || last_tab<=position) return GT_IMP_FAIL; // Sth is wrong
   // Set last record's tag
-  if (position>=0) ++text_line;
+  if (*text_line==EOL) { ++text_line; ++position; }
   gt_string_set_nstring(last_tag,text_line,last_tab-position);
   return GT_IMP_OK;
 }
