@@ -325,6 +325,8 @@ GT_INLINE void gt_stats_get_inss_distribution(uint64_t* const inss,const int64_t
     ++inss[GT_STATS_INSS_RANGE_2000];
   } else if (insert_size<=5000) {
     ++inss[GT_STATS_INSS_RANGE_5000];
+  } else if (insert_size<=10000) {
+    ++inss[GT_STATS_INSS_RANGE_10000];
   } else {
     ++inss[GT_STATS_INSS_RANGE_BEHOND];
   }
@@ -517,20 +519,21 @@ GT_INLINE void gt_stats_make_maps_error_profile(
               idx *= GT_STATS_MISMS_BASE_RANGE;
               idx += gt_cdna_encode[(uint8_t)misms->base];
               maps_error_profile->misms_1context[idx]++;
-              if (misms->position>1 && misms->position<map->base_length-2) { // 2-context
-                idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-2]];
-                idx *= GT_STATS_MISMS_BASE_RANGE;
-                idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-1]];
-                idx *= GT_STATS_MISMS_BASE_RANGE;
-                idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
-                idx *= GT_STATS_MISMS_BASE_RANGE;
-                idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+1]];
-                idx *= GT_STATS_MISMS_BASE_RANGE;
-                idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+2]];
-                idx *= GT_STATS_MISMS_BASE_RANGE;
-                idx += gt_cdna_encode[(uint8_t)misms->base];
-                maps_error_profile->misms_2context[idx]++;
-              }
+//              // TODO: Think about it... overkilling
+//              if (misms->position>1 && misms->position<map->base_length-2) { // 2-context
+//                idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-2]];
+//                idx *= GT_STATS_MISMS_BASE_RANGE;
+//                idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-1]];
+//                idx *= GT_STATS_MISMS_BASE_RANGE;
+//                idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
+//                idx *= GT_STATS_MISMS_BASE_RANGE;
+//                idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+1]];
+//                idx *= GT_STATS_MISMS_BASE_RANGE;
+//                idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+2]];
+//                idx *= GT_STATS_MISMS_BASE_RANGE;
+//                idx += gt_cdna_encode[(uint8_t)misms->base];
+//                maps_error_profile->misms_2context[idx]++;
+//              }
             }
             // Record quality of misms
             if (has_qualities) {

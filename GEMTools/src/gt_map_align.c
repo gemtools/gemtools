@@ -184,8 +184,8 @@ GT_INLINE gt_status gt_map_realign_levenshtein(
       default:
         break;
     }
-    gt_output_map_fprint_map(stderr,map,false); fprintf(stderr,"\n");
   }
+  gt_output_map_fprint_map(stderr,map,false); fprintf(stderr,"\n");
 
 
   return 0;
