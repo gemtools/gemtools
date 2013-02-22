@@ -115,17 +115,27 @@
 #define GT_STATS_INDEL_1_CONTEXT (2*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_RANGE)
 #define GT_STATS_INDEL_2_CONTEXT (2*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_RANGE)
 
+/*
+ * Handy Functions
+ */
+#define GT_STATS_GET_PERCENTAGE(AMOUNT,TOTAL) ((TOTAL)?100.0*(float)(AMOUNT)/(float)(TOTAL):0.0)
+#define GT_STATS_DIV(NUMERATOR,DENOMINATOR) ((DENOMINATOR)?(NUMERATOR)/(DENOMINATOR):(0))
+
+/*
+ * Stats Data Structures
+ */
 typedef struct {
   // Mismatch/Indel Profile
-  uint64_t *mismatches;     /* GT_STATS_MISMS_RANGE */
-  uint64_t *levenshtein;    /* GT_STATS_MISMS_RANGE */
-  uint64_t *indel_length;   /* {INS,DEL}*GT_STATS_MISMS_RANGE */
-  uint64_t *errors_events;  /* GT_STATS_MISMS_RANGE */
+  uint64_t *mismatches;        /* GT_STATS_MISMS_RANGE */
+  uint64_t *levenshtein;       /* GT_STATS_MISMS_RANGE */
+  uint64_t *insertion_length;  /* GT_STATS_MISMS_RANGE */
+  uint64_t *deletion_length;   /* GT_STATS_MISMS_RANGE */
+  uint64_t *errors_events;     /* GT_STATS_MISMS_RANGE */
   uint64_t total_mismatches;
   uint64_t total_levenshtein;
   uint64_t total_indel_length;
   uint64_t total_errors_events;
-  uint64_t *error_position; /* GT_STATS_LARGE_READ_POS_RANGE */
+  uint64_t *error_position;    /* GT_STATS_LARGE_READ_POS_RANGE */
   // Trim/Mapping stats
   uint64_t total_bases;
   uint64_t total_bases_matching;
@@ -144,7 +154,7 @@ typedef struct {
   uint64_t *indel_1context;     /* GT_STATS_INDEL_1_CONTEXT */
   uint64_t *indel_2context;     /* GT_STATS_INDEL_2_CONTEXT */
   uint64_t *qual_score_errors;  /* GT_STATS_QUAL_SCORE_RANGE */
-} gt_maps_error_profile;
+} gt_maps_profile; // TODO Called map profile
 
 typedef struct {
   // General SM
@@ -191,7 +201,7 @@ typedef struct {
   // Uniq Distribution
   uint64_t *uniq; /* GT_STATS_UNIQ_RANGE */
   // Error Profile
-  gt_maps_error_profile *maps_error_profile;
+  gt_maps_profile *maps_profile;
   // Split maps info
   gt_splitmaps_profile* splitmaps_profile;
 } gt_stats;
@@ -199,7 +209,7 @@ typedef struct {
 typedef struct {
   bool best_map;
   bool nucleotide_stats;
-  bool error_profile;
+  bool maps_profile;
   bool indel_profile; // TODO
   bool split_map_stats;
 } gt_stats_analysis;
@@ -208,9 +218,9 @@ typedef struct {
   { \
     .best_map=false, \
     .nucleotide_stats=true, \
-    .error_profile=true, \
+    .maps_profile=true, \
     .indel_profile=false, \
-    .indel_profile_reference=NULL \
+    .split_map_stats=true \
   }
 
 /*

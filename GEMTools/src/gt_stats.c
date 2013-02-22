@@ -20,135 +20,138 @@
 /*
  * MAPS Error Profile
  */
-GT_INLINE gt_maps_error_profile* gt_maps_error_profile_new() {
+GT_INLINE gt_maps_profile* gt_maps_profile_new() {
   // Allocate handler
-  gt_maps_error_profile* maps_ep = malloc(sizeof(gt_maps_error_profile));
-  gt_cond_fatal_error(!maps_ep,MEM_HANDLER);
+  gt_maps_profile* maps_profile = malloc(sizeof(gt_maps_profile));
+  gt_cond_fatal_error(!maps_profile,MEM_HANDLER);
   /*
    * Init
    */
   // Mismatch/Indel Profile
-  maps_ep->mismatches = calloc(GT_STATS_MISMS_RANGE,sizeof(uint64_t));
-  maps_ep->levenshtein = calloc(GT_STATS_MISMS_RANGE,sizeof(uint64_t));
-  maps_ep->indel_length = calloc(2*GT_STATS_MISMS_RANGE,sizeof(uint64_t));
-  maps_ep->errors_events = calloc(GT_STATS_MISMS_RANGE,sizeof(uint64_t));
+  maps_profile->mismatches = calloc(GT_STATS_MISMS_RANGE,sizeof(uint64_t));
+  maps_profile->levenshtein = calloc(GT_STATS_MISMS_RANGE,sizeof(uint64_t));
+  maps_profile->insertion_length = calloc(GT_STATS_MISMS_RANGE,sizeof(uint64_t));
+  maps_profile->deletion_length = calloc(GT_STATS_MISMS_RANGE,sizeof(uint64_t));
+  maps_profile->errors_events = calloc(GT_STATS_MISMS_RANGE,sizeof(uint64_t));
   // Mismatch/Indel Distribution
-  maps_ep->total_mismatches=0;
-  maps_ep->total_levenshtein=0;
-  maps_ep->total_indel_length=0;
-  maps_ep->total_errors_events=0;
-  maps_ep->error_position = calloc(GT_STATS_LARGE_READ_POS_RANGE,sizeof(uint64_t));
+  maps_profile->total_mismatches=0;
+  maps_profile->total_levenshtein=0;
+  maps_profile->total_indel_length=0;
+  maps_profile->total_errors_events=0;
+  maps_profile->error_position = calloc(GT_STATS_LARGE_READ_POS_RANGE,sizeof(uint64_t));
   // Trim/Mapping stats
-  maps_ep->total_bases=0;
-  maps_ep->total_bases_matching=0;
-  maps_ep->total_bases_trimmed=0;
+  maps_profile->total_bases=0;
+  maps_profile->total_bases_matching=0;
+  maps_profile->total_bases_trimmed=0;
   // Insert Size Distribution
-  maps_ep->inss = calloc(GT_STATS_INSS_RANGE,sizeof(uint64_t));
+  maps_profile->inss = calloc(GT_STATS_INSS_RANGE,sizeof(uint64_t));
   // Mismatch/Errors bases
-  maps_ep->misms_transition = calloc(GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE,sizeof(uint64_t));
-  maps_ep->qual_score_misms = calloc(GT_STATS_QUAL_SCORE_RANGE,sizeof(uint64_t));
-  maps_ep->misms_1context = calloc(GT_STATS_MISMS_1_CONTEXT_RANGE,sizeof(uint64_t));
-  maps_ep->misms_2context = calloc(GT_STATS_MISMS_2_CONTEXT_RANGE,sizeof(uint64_t));
-  maps_ep->indel_transition_1 = calloc(GT_STATS_INDEL_TRANSITION_1_RANGE,sizeof(uint64_t));
-  maps_ep->indel_transition_2 = calloc(GT_STATS_INDEL_TRANSITION_2_RANGE,sizeof(uint64_t));
-  maps_ep->indel_transition_3 = calloc(GT_STATS_INDEL_TRANSITION_3_RANGE,sizeof(uint64_t));
-  maps_ep->indel_transition_4 = calloc(GT_STATS_INDEL_TRANSITION_4_RANGE,sizeof(uint64_t));
-  maps_ep->indel_1context = calloc(GT_STATS_INDEL_1_CONTEXT,sizeof(uint64_t));
-  maps_ep->indel_2context = calloc(GT_STATS_INDEL_2_CONTEXT,sizeof(uint64_t));
-  maps_ep->qual_score_errors = calloc(GT_STATS_QUAL_SCORE_RANGE,sizeof(uint64_t));
-  return maps_ep;
+  maps_profile->misms_transition = calloc(GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE,sizeof(uint64_t));
+  maps_profile->qual_score_misms = calloc(GT_STATS_QUAL_SCORE_RANGE,sizeof(uint64_t));
+  maps_profile->misms_1context = calloc(GT_STATS_MISMS_1_CONTEXT_RANGE,sizeof(uint64_t));
+  maps_profile->misms_2context = calloc(GT_STATS_MISMS_2_CONTEXT_RANGE,sizeof(uint64_t));
+  maps_profile->indel_transition_1 = calloc(GT_STATS_INDEL_TRANSITION_1_RANGE,sizeof(uint64_t));
+  maps_profile->indel_transition_2 = calloc(GT_STATS_INDEL_TRANSITION_2_RANGE,sizeof(uint64_t));
+  maps_profile->indel_transition_3 = calloc(GT_STATS_INDEL_TRANSITION_3_RANGE,sizeof(uint64_t));
+  maps_profile->indel_transition_4 = calloc(GT_STATS_INDEL_TRANSITION_4_RANGE,sizeof(uint64_t));
+  maps_profile->indel_1context = calloc(GT_STATS_INDEL_1_CONTEXT,sizeof(uint64_t));
+  maps_profile->indel_2context = calloc(GT_STATS_INDEL_2_CONTEXT,sizeof(uint64_t));
+  maps_profile->qual_score_errors = calloc(GT_STATS_QUAL_SCORE_RANGE,sizeof(uint64_t));
+  return maps_profile;
 }
-GT_INLINE void gt_maps_error_profile_clear(gt_maps_error_profile* const maps_ep) {
+GT_INLINE void gt_maps_profile_clear(gt_maps_profile* const maps_profile) {
   /*
    * Init
    */
   // Mismatch/Indel Profile
-  memset(maps_ep->mismatches,0,GT_STATS_MISMS_RANGE*sizeof(uint64_t));
-  memset(maps_ep->levenshtein,0,GT_STATS_MISMS_RANGE*sizeof(uint64_t));
-  memset(maps_ep->indel_length,0,2*GT_STATS_MISMS_RANGE*sizeof(uint64_t));
-  memset(maps_ep->errors_events,0,GT_STATS_MISMS_RANGE*sizeof(uint64_t));
+  memset(maps_profile->mismatches,0,GT_STATS_MISMS_RANGE*sizeof(uint64_t));
+  memset(maps_profile->levenshtein,0,GT_STATS_MISMS_RANGE*sizeof(uint64_t));
+  memset(maps_profile->insertion_length,0,GT_STATS_MISMS_RANGE*sizeof(uint64_t));
+  memset(maps_profile->deletion_length,0,GT_STATS_MISMS_RANGE*sizeof(uint64_t));
+  memset(maps_profile->errors_events,0,GT_STATS_MISMS_RANGE*sizeof(uint64_t));
   // Mismatch/Indel Distribution
-  maps_ep->total_mismatches=0;
-  maps_ep->total_levenshtein=0;
-  maps_ep->total_indel_length=0;
-  maps_ep->total_errors_events=0;
-  memset(maps_ep->error_position,0,GT_STATS_LARGE_READ_POS_RANGE*sizeof(uint64_t));
+  maps_profile->total_mismatches=0;
+  maps_profile->total_levenshtein=0;
+  maps_profile->total_indel_length=0;
+  maps_profile->total_errors_events=0;
+  memset(maps_profile->error_position,0,GT_STATS_LARGE_READ_POS_RANGE*sizeof(uint64_t));
   // Trim/Mapping stats
-  maps_ep->total_bases=0;
-  maps_ep->total_bases_matching=0;
-  maps_ep->total_bases_trimmed=0;
+  maps_profile->total_bases=0;
+  maps_profile->total_bases_matching=0;
+  maps_profile->total_bases_trimmed=0;
   // Insert Size Distribution
-  memset(maps_ep->inss,0,GT_STATS_INSS_RANGE*sizeof(uint64_t));
+  memset(maps_profile->inss,0,GT_STATS_INSS_RANGE*sizeof(uint64_t));
   // Mismatch/Errors bases
-  memset(maps_ep->misms_transition,0,GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*sizeof(uint64_t));
-  memset(maps_ep->qual_score_misms,0,GT_STATS_QUAL_SCORE_RANGE*sizeof(uint64_t));
-  memset(maps_ep->misms_1context,0,GT_STATS_MISMS_1_CONTEXT_RANGE*sizeof(uint64_t));
-  memset(maps_ep->misms_2context,0,GT_STATS_MISMS_2_CONTEXT_RANGE*sizeof(uint64_t));
-  memset(maps_ep->indel_transition_1,0,GT_STATS_INDEL_TRANSITION_1_RANGE*sizeof(uint64_t));
-  memset(maps_ep->indel_transition_2,0,GT_STATS_INDEL_TRANSITION_2_RANGE*sizeof(uint64_t));
-  memset(maps_ep->indel_transition_3,0,GT_STATS_INDEL_TRANSITION_3_RANGE*sizeof(uint64_t));
-  memset(maps_ep->indel_transition_4,0,GT_STATS_INDEL_TRANSITION_4_RANGE*sizeof(uint64_t));
-  memset(maps_ep->indel_1context,0,GT_STATS_INDEL_1_CONTEXT*sizeof(uint64_t));
-  memset(maps_ep->indel_2context,0,GT_STATS_INDEL_2_CONTEXT*sizeof(uint64_t));
-  memset(maps_ep->qual_score_errors,0,GT_STATS_QUAL_SCORE_RANGE*sizeof(uint64_t));
+  memset(maps_profile->misms_transition,0,GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*sizeof(uint64_t));
+  memset(maps_profile->qual_score_misms,0,GT_STATS_QUAL_SCORE_RANGE*sizeof(uint64_t));
+  memset(maps_profile->misms_1context,0,GT_STATS_MISMS_1_CONTEXT_RANGE*sizeof(uint64_t));
+  memset(maps_profile->misms_2context,0,GT_STATS_MISMS_2_CONTEXT_RANGE*sizeof(uint64_t));
+  memset(maps_profile->indel_transition_1,0,GT_STATS_INDEL_TRANSITION_1_RANGE*sizeof(uint64_t));
+  memset(maps_profile->indel_transition_2,0,GT_STATS_INDEL_TRANSITION_2_RANGE*sizeof(uint64_t));
+  memset(maps_profile->indel_transition_3,0,GT_STATS_INDEL_TRANSITION_3_RANGE*sizeof(uint64_t));
+  memset(maps_profile->indel_transition_4,0,GT_STATS_INDEL_TRANSITION_4_RANGE*sizeof(uint64_t));
+  memset(maps_profile->indel_1context,0,GT_STATS_INDEL_1_CONTEXT*sizeof(uint64_t));
+  memset(maps_profile->indel_2context,0,GT_STATS_INDEL_2_CONTEXT*sizeof(uint64_t));
+  memset(maps_profile->qual_score_errors,0,GT_STATS_QUAL_SCORE_RANGE*sizeof(uint64_t));
 
 }
-GT_INLINE void gt_maps_error_profile_delete(gt_maps_error_profile* const maps_ep) {
+GT_INLINE void gt_maps_profile_delete(gt_maps_profile* const maps_profile) {
   // Mismatch/Indel Profile
-  free(maps_ep->mismatches);
-  free(maps_ep->levenshtein);
-  free(maps_ep->indel_length);
-  free(maps_ep->errors_events);
+  free(maps_profile->mismatches);
+  free(maps_profile->levenshtein);
+  free(maps_profile->insertion_length);
+  free(maps_profile->deletion_length);
+  free(maps_profile->errors_events);
   // Mismatch/Indel Distribution
-  free(maps_ep->error_position);
+  free(maps_profile->error_position);
   // Insert Size Distribution
-  free(maps_ep->inss);
+  free(maps_profile->inss);
   // Mismatch/Errors bases
-  free(maps_ep->misms_transition);
-  free(maps_ep->qual_score_misms);
-  free(maps_ep->misms_1context);
-  free(maps_ep->misms_2context);
-  free(maps_ep->indel_transition_1);
-  free(maps_ep->indel_transition_2);
-  free(maps_ep->indel_transition_3);
-  free(maps_ep->indel_transition_4);
-  free(maps_ep->indel_1context);
-  free(maps_ep->indel_2context);
-  free(maps_ep->qual_score_errors);
-  free(maps_ep);
+  free(maps_profile->misms_transition);
+  free(maps_profile->qual_score_misms);
+  free(maps_profile->misms_1context);
+  free(maps_profile->misms_2context);
+  free(maps_profile->indel_transition_1);
+  free(maps_profile->indel_transition_2);
+  free(maps_profile->indel_transition_3);
+  free(maps_profile->indel_transition_4);
+  free(maps_profile->indel_1context);
+  free(maps_profile->indel_2context);
+  free(maps_profile->qual_score_errors);
+  free(maps_profile);
 }
-GT_INLINE void gt_maps_error_profile_merge(
-    gt_maps_error_profile* const maps_ep_dst,gt_maps_error_profile* const maps_ep_src) {
-  // GT_STATS_VECTOR_ADD(maps_ep_dst->,maps_ep_src->,);
+GT_INLINE void gt_maps_profile_merge(
+    gt_maps_profile* const maps_profile_dst,gt_maps_profile* const maps_profile_src) {
   // Mismatch/Indel Profile
-  GT_STATS_VECTOR_ADD(maps_ep_dst->mismatches,maps_ep_src->mismatches,GT_STATS_MISMS_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->levenshtein,maps_ep_src->levenshtein,GT_STATS_MISMS_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->indel_length,maps_ep_src->indel_length,2*GT_STATS_MISMS_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->errors_events,maps_ep_src->errors_events,GT_STATS_MISMS_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->mismatches,maps_profile_src->mismatches,GT_STATS_MISMS_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->levenshtein,maps_profile_src->levenshtein,GT_STATS_MISMS_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->insertion_length,maps_profile_src->insertion_length,GT_STATS_MISMS_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->deletion_length,maps_profile_src->deletion_length,GT_STATS_MISMS_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->errors_events,maps_profile_src->errors_events,GT_STATS_MISMS_RANGE);
   // Mismatch/Indel Distribution
-  maps_ep_dst->total_mismatches+=maps_ep_src->total_mismatches;
-  maps_ep_dst->total_levenshtein+=maps_ep_src->total_levenshtein;
-  maps_ep_dst->total_indel_length+=maps_ep_src->total_indel_length;
-  maps_ep_dst->total_errors_events+=maps_ep_src->total_errors_events;
-  GT_STATS_VECTOR_ADD(maps_ep_dst->error_position,maps_ep_src->error_position,GT_STATS_LARGE_READ_POS_RANGE);
+  maps_profile_dst->total_mismatches+=maps_profile_src->total_mismatches;
+  maps_profile_dst->total_levenshtein+=maps_profile_src->total_levenshtein;
+  maps_profile_dst->total_indel_length+=maps_profile_src->total_indel_length;
+  maps_profile_dst->total_errors_events+=maps_profile_src->total_errors_events;
+  GT_STATS_VECTOR_ADD(maps_profile_dst->error_position,maps_profile_src->error_position,GT_STATS_LARGE_READ_POS_RANGE);
   // Trim/Mapping stats
-  maps_ep_dst->total_bases+=maps_ep_src->total_bases;
-  maps_ep_dst->total_bases_matching+=maps_ep_src->total_bases_matching;
-  maps_ep_dst->total_bases_trimmed+=maps_ep_src->total_bases_trimmed;
+  maps_profile_dst->total_bases+=maps_profile_src->total_bases;
+  maps_profile_dst->total_bases_matching+=maps_profile_src->total_bases_matching;
+  maps_profile_dst->total_bases_trimmed+=maps_profile_src->total_bases_trimmed;
   // Insert Size Distribution
-  GT_STATS_VECTOR_ADD(maps_ep_dst->inss,maps_ep_src->inss,GT_STATS_INSS_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->inss,maps_profile_src->inss,GT_STATS_INSS_RANGE);
   // Mismatch/Errors bases
-  GT_STATS_VECTOR_ADD(maps_ep_dst->misms_transition,maps_ep_src->misms_transition,GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->qual_score_misms,maps_ep_src->qual_score_misms,GT_STATS_QUAL_SCORE_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->misms_1context,maps_ep_src->misms_1context,GT_STATS_MISMS_1_CONTEXT_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->misms_2context,maps_ep_src->misms_2context,GT_STATS_MISMS_2_CONTEXT_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->indel_transition_1,maps_ep_src->indel_transition_1,GT_STATS_INDEL_TRANSITION_1_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->indel_transition_2,maps_ep_src->indel_transition_2,GT_STATS_INDEL_TRANSITION_2_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->indel_transition_3,maps_ep_src->indel_transition_3,GT_STATS_INDEL_TRANSITION_3_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->indel_transition_4,maps_ep_src->indel_transition_4,GT_STATS_INDEL_TRANSITION_4_RANGE);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->indel_1context,maps_ep_src->indel_1context,GT_STATS_INDEL_1_CONTEXT);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->indel_2context,maps_ep_src->indel_2context,GT_STATS_INDEL_2_CONTEXT);
-  GT_STATS_VECTOR_ADD(maps_ep_dst->qual_score_errors,maps_ep_src->qual_score_errors,GT_STATS_QUAL_SCORE_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->misms_transition,maps_profile_src->misms_transition,GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->qual_score_misms,maps_profile_src->qual_score_misms,GT_STATS_QUAL_SCORE_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->misms_1context,maps_profile_src->misms_1context,GT_STATS_MISMS_1_CONTEXT_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->misms_2context,maps_profile_src->misms_2context,GT_STATS_MISMS_2_CONTEXT_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->indel_transition_1,maps_profile_src->indel_transition_1,GT_STATS_INDEL_TRANSITION_1_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->indel_transition_2,maps_profile_src->indel_transition_2,GT_STATS_INDEL_TRANSITION_2_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->indel_transition_3,maps_profile_src->indel_transition_3,GT_STATS_INDEL_TRANSITION_3_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->indel_transition_4,maps_profile_src->indel_transition_4,GT_STATS_INDEL_TRANSITION_4_RANGE);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->indel_1context,maps_profile_src->indel_1context,GT_STATS_INDEL_1_CONTEXT);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->indel_2context,maps_profile_src->indel_2context,GT_STATS_INDEL_2_CONTEXT);
+  GT_STATS_VECTOR_ADD(maps_profile_dst->qual_score_errors,maps_profile_src->qual_score_errors,GT_STATS_QUAL_SCORE_RANGE);
 }
 
 /*
@@ -387,7 +390,7 @@ GT_INLINE gt_stats* gt_stats_new() {
   stats->mmap = calloc(GT_STATS_MMAP_RANGE,sizeof(uint64_t)); // MMaps
   stats->uniq = calloc(GT_STATS_UNIQ_RANGE,sizeof(uint64_t)); // Uniq
   // Maps Error Profile
-  stats->maps_error_profile = gt_maps_error_profile_new();
+  stats->maps_profile = gt_maps_profile_new();
   // Split maps Profile
   stats->splitmaps_profile = gt_splitmaps_profile_new();
   return stats;
@@ -412,14 +415,14 @@ GT_INLINE void gt_stats_clear(gt_stats* const stats) {
   // Uniq Distribution
   memset(stats->uniq,0,GT_STATS_UNIQ_RANGE*sizeof(uint64_t)); // Uniq
   // Maps Error Profile
-  gt_maps_error_profile_clear(stats->maps_error_profile);
+  gt_maps_profile_clear(stats->maps_profile);
   // Split maps Profile
   gt_splitmaps_profile_clear(stats->splitmaps_profile);
 }
 GT_INLINE void gt_stats_delete(gt_stats* const stats) {
   free(stats->mmap);
   free(stats->uniq);
-  gt_maps_error_profile_delete(stats->maps_error_profile);
+  gt_maps_profile_delete(stats->maps_profile);
   gt_splitmaps_profile_delete(stats->splitmaps_profile);
   free(stats);
 }
@@ -449,7 +452,7 @@ GT_INLINE void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_
     // Uniq Distribution
     GT_STATS_VECTOR_ADD(stats[0]->uniq,stats[i]->uniq,GT_STATS_UNIQ_RANGE);
     // Merge Maps Error Profile
-    gt_maps_error_profile_merge(stats[0]->maps_error_profile,stats[i]->maps_error_profile);
+    gt_maps_profile_merge(stats[0]->maps_profile,stats[i]->maps_profile);
     // Merge SplitMaps Profile
     gt_splitmaps_profile_merge(stats[0]->splitmaps_profile,stats[i]->splitmaps_profile);
     // Free Handlers
@@ -461,12 +464,12 @@ GT_INLINE void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_
  * Calculate stats
  */
 GT_INLINE void gt_stats_make_indel_profile(
-    gt_maps_error_profile *maps_error_profile,
+    gt_maps_profile *maps_error_profile,
     gt_template* const template,const uint64_t alignment_total_length) {
 
 }
 GT_INLINE void gt_stats_make_maps_error_profile(
-    gt_maps_error_profile *maps_error_profile,gt_template* const template,
+    gt_maps_profile *maps_error_profile,gt_template* const template,
     const uint64_t alignment_total_length,gt_map** const mmap) {
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   uint64_t total_mismatches=0;
@@ -502,29 +505,29 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             // Record transition
             register uint64_t idx = 0;
             idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
-            idx *= GT_STATS_MISMS_RANGE;
+            idx *= GT_STATS_MISMS_BASE_RANGE;
             idx += gt_cdna_encode[(uint8_t)misms->base];
             maps_error_profile->misms_transition[idx]++;
             if (misms->position>0 && misms->position<map->base_length-1) { // 1-context
               idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-1]];
-              idx *= GT_STATS_MISMS_RANGE;
+              idx *= GT_STATS_MISMS_BASE_RANGE;
               idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
-              idx *= GT_STATS_MISMS_RANGE;
+              idx *= GT_STATS_MISMS_BASE_RANGE;
               idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+1]];
-              idx *= GT_STATS_MISMS_RANGE;
+              idx *= GT_STATS_MISMS_BASE_RANGE;
               idx += gt_cdna_encode[(uint8_t)misms->base];
               maps_error_profile->misms_1context[idx]++;
               if (misms->position>1 && misms->position<map->base_length-2) { // 2-context
                 idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-2]];
-                idx *= GT_STATS_MISMS_RANGE;
+                idx *= GT_STATS_MISMS_BASE_RANGE;
                 idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-1]];
-                idx *= GT_STATS_MISMS_RANGE;
+                idx *= GT_STATS_MISMS_BASE_RANGE;
                 idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
-                idx *= GT_STATS_MISMS_RANGE;
+                idx *= GT_STATS_MISMS_BASE_RANGE;
                 idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+1]];
-                idx *= GT_STATS_MISMS_RANGE;
+                idx *= GT_STATS_MISMS_BASE_RANGE;
                 idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+2]];
-                idx *= GT_STATS_MISMS_RANGE;
+                idx *= GT_STATS_MISMS_BASE_RANGE;
                 idx += gt_cdna_encode[(uint8_t)misms->base];
                 maps_error_profile->misms_2context[idx]++;
               }
@@ -562,8 +565,8 @@ GT_INLINE void gt_stats_make_maps_error_profile(
   // Record the distribution of the error stats
   gt_stats_get_misms(maps_error_profile->mismatches,total_mismatches,alignment_total_length);
   gt_stats_get_misms(maps_error_profile->levenshtein,total_levenshtein,alignment_total_length);
-  gt_stats_get_misms(maps_error_profile->indel_length,total_ins_length,alignment_total_length);
-  gt_stats_get_misms(maps_error_profile->indel_length+GT_STATS_MISMS_RANGE,total_del_length,alignment_total_length);
+  gt_stats_get_misms(maps_error_profile->insertion_length,total_ins_length,alignment_total_length);
+  gt_stats_get_misms(maps_error_profile->deletion_length,total_del_length,alignment_total_length);
   gt_stats_get_misms(maps_error_profile->errors_events,total_errors_events,alignment_total_length);
 }
 
@@ -575,7 +578,7 @@ GT_INLINE void gt_stats_make_mmaps_profile(
   register const uint64_t num_blocks_template = gt_template_get_num_blocks(template);
   register const uint64_t paired_map = (num_blocks_template==2);
   // Iterate over all/best maps
-  register gt_maps_error_profile* const maps_error_profile = stats->maps_error_profile;
+  register gt_maps_profile* const maps_error_profile = stats->maps_profile;
   register gt_splitmaps_profile* const splitmaps_profile = stats->splitmaps_profile;
   register bool has_splitsmaps = false;
   register bool only_splitsmaps = true;
@@ -591,7 +594,7 @@ GT_INLINE void gt_stats_make_mmaps_profile(
     /*
      * Error Profile
      */
-    if (stats_analysis->error_profile) {
+    if (stats_analysis->maps_profile) {
       gt_stats_make_maps_error_profile(maps_error_profile,template,alignment_total_length,mmap);
     }
     /*
@@ -698,7 +701,7 @@ GT_INLINE void gt_stats_calculate_template_stats(
   if (num_maps > 0) {
     gt_stats_make_mmaps_profile(stats,template,alignment_total_length,stats_analysis);
     if (stats_analysis->indel_profile) {
-      gt_stats_make_indel_profile(stats->maps_error_profile,template,alignment_total_length);
+      gt_stats_make_indel_profile(stats->maps_profile,template,alignment_total_length);
     }
   }
 }
