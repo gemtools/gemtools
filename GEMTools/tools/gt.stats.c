@@ -107,7 +107,8 @@ void gt_stats_print_inss_distribution(uint64_t* const inss,const uint64_t num_ma
   fprintf(stderr,"  -->    (900,1000] \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(GT_STATS_INSS_RANGE_1000));
   fprintf(stderr,"  -->   (1000,2000] \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(GT_STATS_INSS_RANGE_2000));
   fprintf(stderr,"  -->   (2000,5000] \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(GT_STATS_INSS_RANGE_5000));
-  fprintf(stderr,"  -->    (5000,inf) \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(GT_STATS_INSS_RANGE_BEHOND));
+  fprintf(stderr,"  -->  (5000,10000] \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(GT_STATS_INSS_RANGE_10000));
+  fprintf(stderr,"  -->   (10000,inf) \t=> "GT_STATS_PRINT_INSS_FORMAT,GT_STATS_PRINT_INSS(GT_STATS_INSS_RANGE_BEHOND));
 }
 void gt_stats_print_misms_distribution(uint64_t* const misms,const uint64_t num_maps,const char* const header) {
 #define GT_STATS_PRINT_MISMS_FORMAT "%8" PRIu64 " \t %1.3f%%\n"
@@ -234,6 +235,28 @@ void gt_stats_print_misms_transition_table(uint64_t* const misms_trans,uint64_t 
   }
   fprintf(stderr,"\n");
 }
+#define GT_STATS_GET_IXD_TRANSITION_1_CONTEXT(a,b,c,i) ((((a*GT_STATS_MISMS_BASE_RANGE+b)*GT_STATS_MISMS_BASE_RANGE)+c)*GT_STATS_MISMS_BASE_RANGE+i)
+void gt_stats_print_misms_transition_table_1context(uint64_t* const misms_trans,uint64_t const total_misms,const char* const header) {
+  if(!total_misms) return;
+  // Print Header
+  fprintf(stderr,"%s\n",header);
+  // Print Label
+  fprintf(stderr,"      [  A  ][  C  ][  G  ][  T  ][  N  ]\n");
+  char bases[] = {'A','C','G','T','N'};
+  register uint64_t a,b,c;
+  for (b=0;b<4;++b) {
+    for (a=0;a<4;++a) {
+      for (c=0;c<4;++c) {
+        fprintf(stderr,"[%c%c%c] ",bases[a],bases[b],bases[c]);
+        register uint64_t i;
+        for (i=0;i<GT_STATS_MISMS_BASE_RANGE;++i) {
+          fprintf(stderr,"[%5.2f]",100.0*(double)misms_trans[GT_STATS_GET_IXD_TRANSITION_1_CONTEXT(a,b,c,i)]/(double)total_misms);
+        }
+        fprintf(stderr,"\n");
+      }
+    }
+  }
+}
 void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
   fprintf(stderr,"[GENERAL.STATS]\n");
   /*
@@ -250,7 +273,7 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
   fprintf(stderr,"  --> Reads.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
       num_templates?100.0*(float)stats->num_mapped/(float)num_templates:0.0);
   fprintf(stderr,"    --> Reads.Mapped.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
-      stats->mapped_min_length,GT_STATS_DIV(stats->total_bases_aligned,stats->num_blocks),stats->mapped_max_length);
+      stats->mapped_min_length,GT_STATS_DIV(stats->total_bases_aligned,(paired_end)?stats->num_mapped*2:stats->num_mapped),stats->mapped_max_length);
   fprintf(stderr,"  --> Num.Bases %" PRIu64 "\n",stats->total_bases);
   fprintf(stderr,"    --> Bases.Prop [A]=%2.3f%% [C]=%2.3f%% [G]=%2.3f%% [T]=%2.3f%% [N]=%2.3f%%\n",
       100.0*(float)stats->nt_counting[0]/(float)stats->total_bases,100.0*(float)stats->nt_counting[1]/(float)stats->total_bases,
@@ -266,26 +289,26 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
     fprintf(stderr,"[MAPS.PROFILE]\n");
   }
   fprintf(stderr,"  --> Num.alignments %" PRIu64 "\n",stats->num_alignments);
-  fprintf(stderr,"  --> Num.maps %" PRIu64 " (%2.3f map/alg)\n",stats->num_maps,GT_STATS_GET_PERCENTAGE(stats->num_maps,stats->num_mapped));
+  fprintf(stderr,"  --> Num.maps %" PRIu64 " (%2.3f map/alg)\n",stats->num_maps,GT_STATS_DIV_F(stats->num_maps,stats->num_mapped));
   if (parameters.maps_profile) {
     // Total bases (aligned/trimmed/unaligned)
     fprintf(stderr,"  --> Total.Bases %" PRIu64 " (%2.3f per map) \n",
-        maps_profile->total_bases,GT_STATS_GET_PERCENTAGE(maps_profile->total_bases,stats->num_maps));
-    fprintf(stderr,"    --> Bases.Matching %" PRIu64 " (%2.3f per map) \n",
+        maps_profile->total_bases,GT_STATS_DIV_F(maps_profile->total_bases,stats->num_maps));
+    fprintf(stderr,"    --> Bases.Matching %" PRIu64 " (%2.3f) \n",
         maps_profile->total_bases_matching,GT_STATS_GET_PERCENTAGE(maps_profile->total_bases_matching,maps_profile->total_bases));
-    fprintf(stderr,"    --> Bases.Trimmed %" PRIu64 " (%2.3f per map) \n",
+    fprintf(stderr,"    --> Bases.Trimmed %" PRIu64 " (%2.3f) \n",
         maps_profile->total_bases_trimmed,GT_STATS_GET_PERCENTAGE(maps_profile->total_bases_trimmed,maps_profile->total_bases));
     gt_stats_print_mmap_distribution(stats->mmap,num_templates,stats->num_mapped);
     gt_stats_print_uniq_distribution(stats->uniq,num_templates);
     fprintf(stderr,"[ERROR.PROFILE]\n");
-    fprintf(stderr,"  --> Total.Mismatches %" PRIu64 " (%" PRIu64 " per map) \n",
-        maps_profile->total_mismatches,GT_STATS_DIV(maps_profile->total_mismatches,stats->num_maps));
-    fprintf(stderr,"  --> Total.Errors %" PRIu64 " (%" PRIu64 " per map) \n",
-        maps_profile->total_errors_events,GT_STATS_DIV(maps_profile->total_errors_events,stats->num_maps));
-    fprintf(stderr,"  --> Total.Indels.Length %" PRIu64 " (%" PRIu64 " per map) \n",
-        maps_profile->total_indel_length,GT_STATS_DIV(maps_profile->total_indel_length,stats->num_maps));
-    fprintf(stderr,"  --> Total.Levenshtein %" PRIu64 " (%" PRIu64 " per map) \n",
-        maps_profile->total_levenshtein,GT_STATS_DIV(maps_profile->total_levenshtein,stats->num_maps));
+    fprintf(stderr,"  --> Total.Mismatches %" PRIu64 " (%2.3f per map) \n",
+        maps_profile->total_mismatches,GT_STATS_DIV_F(maps_profile->total_mismatches,stats->num_maps));
+    fprintf(stderr,"  --> Total.Errors %" PRIu64 " (%2.3f per map) \n",
+        maps_profile->total_errors_events,GT_STATS_DIV_F(maps_profile->total_errors_events,stats->num_maps));
+    fprintf(stderr,"  --> Total.Indels.Length %" PRIu64 " (%2.3f per map) \n",
+        maps_profile->total_indel_length,GT_STATS_DIV_F(maps_profile->total_indel_length,stats->num_maps));
+    fprintf(stderr,"  --> Total.Levenshtein %" PRIu64 " (%2.3f per map) \n",
+        maps_profile->total_levenshtein,GT_STATS_DIV_F(maps_profile->total_levenshtein,stats->num_maps));
     gt_stats_print_misms_distribution(stats->maps_profile->mismatches,stats->num_maps,"Mismatches");
     gt_stats_print_misms_distribution(stats->maps_profile->insertion_length,stats->num_maps,"Insertions.length");
     gt_stats_print_misms_distribution(stats->maps_profile->deletion_length,stats->num_maps,"Deletions.length");
@@ -313,7 +336,8 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
     fprintf(stderr,"[MISMATCH.TRANSITIONS]\n");
     gt_stats_print_misms_transition_table(
         maps_profile->misms_transition,maps_profile->total_mismatches,"MismsTransitions");
-    // TODO Context transitions
+    gt_stats_print_misms_transition_table_1context(
+        maps_profile->misms_1context,maps_profile->total_mismatches,"MismsTransitions.1-Nucleotide.Context");
   }
   /*
    * Print Splitmaps profile
@@ -328,10 +352,10 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
           GT_STATS_GET_PERCENTAGE(splitmap_stats->num_mapped_with_splitmaps,stats->num_mapped));
       fprintf(stderr,"SM.Num.mapped.onlyBySM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_only_splitmaps,
           GT_STATS_GET_PERCENTAGE(splitmap_stats->num_mapped_only_splitmaps,stats->num_mapped));
-      fprintf(stderr,"SM.Num.Splitted.Segments \t %" PRIu64 " (%2.3f%% SplitMaps/Maps)\n",splitmap_stats->total_splitmaps,
+      fprintf(stderr,"SM.Num.Splitted.Segments \t %" PRIu64 " (%2.3f SplitMaps/Maps)\n",splitmap_stats->total_splitmaps,
           GT_STATS_GET_PERCENTAGE(splitmap_stats->total_splitmaps,stats->num_blocks));
-      fprintf(stderr,"SM.Num.Junctions \t %" PRIu64 " (%" PRIu64 " Juntions/SplitMaps)\n",splitmap_stats->total_junctions,
-          GT_STATS_DIV(splitmap_stats->total_junctions,splitmap_stats->total_splitmaps));
+      fprintf(stderr,"SM.Num.Junctions \t %" PRIu64 " (%2.3f Juntions/SplitMaps)\n",splitmap_stats->total_junctions,
+          GT_STATS_DIV_F(splitmap_stats->total_junctions,splitmap_stats->total_splitmaps));
       gt_stats_print_num_junctions_distribution(splitmap_stats->num_junctions,splitmap_stats->total_splitmaps);
       gt_stats_print_length_junctions_distribution(splitmap_stats->length_junctions,splitmap_stats->total_junctions);
       gt_stats_print_junction_position_distribution(splitmap_stats->junction_position,splitmap_stats->total_junctions,stats->max_length);
