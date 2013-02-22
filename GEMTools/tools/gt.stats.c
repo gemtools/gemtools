@@ -14,18 +14,17 @@
 typedef struct {
   /* [Input] */
   char *name_input_file;
-  char *name_reference_file;
   bool mmap_input;
   bool paired_end;
   uint64_t num_reads;
-  /* [Tests] */
   bool best_map;
+  /* [Tests] */
   bool error_profile;
   bool mismatch_transitions;
   bool mismatch_quality;
   bool splitmaps_profile;
-  bool indel_profile;
   /* [Output] */
+  bool output_attributes;
   bool verbose;
   bool compact;
   bool quiet;
@@ -34,24 +33,18 @@ typedef struct {
 } gt_stats_args;
 
 gt_stats_args parameters = {
-    /* [Input] */
     .name_input_file=NULL,
-    .name_reference_file=NULL,
     .mmap_input=false,
     .paired_end=false,
     .num_reads=0,
-    /* [Tests] */
     .best_map=false,
     .error_profile = false,
     .mismatch_transitions = false,
     .mismatch_quality = false,
     .splitmaps_profile = false,
-    .indel_profile = false,
-    /* [Output] */
-    .verbose=false,
     .compact = false,
+    .verbose=false,
     .quiet=false,
-    /* [Misc] */
     .num_threads=1,
 };
 
@@ -365,31 +358,11 @@ void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const
  */
 void gt_stats_parallel_generate_stats() {
   // Stats info
-  gt_stats_analysis stats_analysis = GT_STATS_ANALYSIS_DEFAULT();
   gt_stats** stats = malloc(parameters.num_threads*sizeof(gt_stats*));
-
-  // Select analysis
-  stats_analysis.best_map = parameters.best_map;
-  stats_analysis.error_profile = parameters.error_profile;
-  stats_analysis.nucleotide_stats = true;
-  stats_analysis.split_map_stats = parameters.splitmaps_profile;
-  stats_analysis.indel_profile = parameters.indel_profile;
 
   // Open file
   gt_input_file* input_file = (parameters.name_input_file==NULL) ?
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,parameters.mmap_input);
-
-  if (stats_analysis.indel_profile) {
-    sequence_archive = gt_sequence_archive_new();
-    register gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
-    fprintf(stderr,"Loading reference file ...");
-    if (gt_input_multifasta_parser_get_archive(reference_file,sequence_archive)!=GT_IFP_OK) {
-      fprintf(stderr,"\n");
-      gt_fatal_error_msg("Error parsing reference file '%s'\n",parameters.name_reference_file);
-    }
-    gt_input_file_close(reference_file);
-    fprintf(stderr," done! \n");
-  }
 
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
@@ -438,17 +411,15 @@ void usage() {
   fprintf(stderr, "USE: ./gt.stats [ARGS]...\n"
                   "       [Input]\n"
                   "        --input|-i [FILE]\n"
-                  "        --reference|-r [FILE]\n"
                   "        --mmap-input\n"
                   "        --paired-end|p\n"
                   "        --num-reads|n\n"
-                  "       [Tests]\n"
                   "        --best-map\n"
+                  "       [Tests]\n"
                   "        --error-profile|E\n"
                   "        --mismatch-transitions|T\n"
                   "        --mismatch-quality|Q\n"
                   "        --splitmaps-profile|S\n"
-                  "        --indel-profile|I\n"
                   "       [Output]\n"
                   "        --compact|c\n"
                   "        --verbose|v\n"
@@ -462,17 +433,15 @@ void parse_arguments(int argc,char** argv) {
   struct option long_options[] = {
     /* [Input] */
     { "input", required_argument, 0, 'i' },
-    { "reference", required_argument, 0, 'r' },
     { "mmap-input", no_argument, 0, 1 },
     { "paired-end", no_argument, 0, 'p' },
     { "num-reads", no_argument, 0, 'n' },
-    /* [Tests] */
     { "best-map", no_argument, 0, 2 },
+    /* [Tests] */
     { "error-profile", no_argument, 0, 'E' },
     { "mismatch-transitions", no_argument, 0, 'T' },
     { "mismatch-quality", no_argument, 0, 'Q' },
     { "splitmaps-profile", no_argument, 0, 'S' },
-    { "indel-profile", no_argument, 0, 'I' },
     /* [Output] */
     { "compact", no_argument, 0, 'c' },
     { "verbose", no_argument, 0, 'v' },
@@ -483,15 +452,12 @@ void parse_arguments(int argc,char** argv) {
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:r:pn:ETQSIcvqt:h",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:pn:ETQScvqt:h",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     /* [Input] */
     case 'i':
       parameters.name_input_file = optarg;
-      break;
-    case 'r':
-      parameters.name_reference_file = optarg;
       break;
     case 1:
       parameters.mmap_input = true;
@@ -518,9 +484,6 @@ void parse_arguments(int argc,char** argv) {
     case 'S': // --splitmaps-profile
       parameters.splitmaps_profile = true;
       break;
-    case 'I': // --indel-profile
-      parameters.indel_profile = true;
-      break;
     /* [Output] */
     case 'c':
       parameters.compact = true;
@@ -542,12 +505,6 @@ void parse_arguments(int argc,char** argv) {
     default:
       gt_fatal_error_msg("Option not recognized");
     }
-  }
-  /*
-   * Checks
-   */
-  if (parameters.indel_profile && parameters.name_reference_file==NULL) {
-    gt_error_msg("To generate the indel-profile, a reference file (.fa/.fasta) is required");
   }
 }
 
