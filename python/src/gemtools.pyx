@@ -807,6 +807,183 @@ cdef class Stats(object):
     cpdef read(self, input, uint64_t threads=1):
         __calculate_stats(self, input, threads)
 
+    property min_length:
+        def __get__(self):
+            return self.stats.min_length
+    property max_length:
+        def __get__(self):
+            return self.stats.max_length
+    property total_bases:
+        def __get__(self):
+            return self.stats.total_bases
+    property total_bases_aligned:
+        def __get__(self):
+            return self.stats.total_bases_aligned
+    property mapped_min_length:
+        def __get__(self):
+            return self.stats.mapped_min_length
+    property mapped_max_length:
+        def __get__(self):
+            return self.stats.mapped_max_length
+    property num_blocks:
+        def __get__(self):
+            return self.stats.num_blocks
+    property num_alignments:
+        def __get__(self):
+            return self.stats.num_alignments
+    property num_maps:
+        def __get__(self):
+            return self.stats.num_maps
+    property num_mapped:
+        def __get__(self):
+            return self.stats.num_mapped
+    property nt_counting:
+        def __get__(self):
+            cdef uint64_t * c = self.stats.nt_counting
+            return {"A": c[0], "C":c[1], "G":c[2], "T":c[3], "N":c[4]}
+    property mmap:
+        def __get__(self):
+            cdef uint64_t * c = self.stats.mmap
+            return [c[i] for i in range(8)]
+    property mmap_description:
+        def __get__(self):
+            return ["0", "5", "10", "50", "100", "500", "1000", "more"]
+    property uniq:
+        def __get__(self):
+            cdef uint64_t * c = self.stats.uniq
+            return [c[i] for i in range(10)]
+    property uniq_description:
+        def __get__(self):
+            return ["0", "1", "2", "3", "10", "50", "100", "500", "more", "rest"]
+    property maps_profile:
+        def __get__(self):
+            return StatsMapProfile(self)
+
+  # // Error Profile
+  # gt_maps_profile *maps_profile;
+  # // Split maps info
+  # gt_splitmaps_profile* splitmaps_profile;
+
+cdef class StatsSplitsProfile(object):
+    cdef gt_splitmaps_profile* profile
+
+    def __init__(self, Stats stats):
+        self.profile = stats.stats.splitmaps_profile
+
+    property num_mapped_with_splitmaps:
+        def __get__(self):
+            return self.profile.num_mapped_with_splitmaps
+    property num_mapped_only_splitmaps:
+        def __get__(self):
+            return self.profile.num_mapped_only_splitmaps
+    property total_splitmaps:
+        def __get__(self):
+            return self.profile.total_splitmaps
+    property total_junctions:
+        def __get__(self):
+            return self.profile.total_junctions
+    property num_junctions:
+        def __get__(self):
+            return [self.profile.num_junctions[i] for i in range(4)]
+    property num_junctions_description:
+        def __get__(self):
+            return ["1", "2", "3", "more"]
+    property length_junctions:
+        def __get__(self):
+            return [self.profile.length_junctions[i] for i in range(6)]
+    property length_junctions_description:
+        def __get__(self):
+            return ["100", "1000", "5000", "10000", "50000", "more"]
+    property junction_position:
+        def __get__(self):
+            return [self.profile.junction_position[i] for i in range(100)]
+    property pe_sm_sm:
+        def __get__(self):
+            return self.profile.pe_sm_sm
+    property pe_sm_rm:
+        def __get__(self):
+            return self.profile.pe_sm_rm
+    property pe_rm_rm:
+        def __get__(self):
+            return self.profile.pe_rm_rm
+
+
+cdef class StatsMapProfile(object):
+    cdef gt_maps_profile* profile
+
+    def __init__(self, Stats stats):
+        self.profile = stats.stats.maps_profile
+
+    property mismatches_description:
+        def __get__(self):
+            return ["1", "2","3", "4", "5", "6", "7", "8", "9", "10", "20", "50", "more"]
+    property mismatches:
+        def __get__(self):
+            return [self.profile.mismatches[i] for i in range(14)]
+    property levenshtein:
+        def __get__(self):
+            return [self.profile.levenshtein[i] for i in range(14)]
+    property insertion_length:
+        def __get__(self):
+            return [self.profile.insertion_length[i] for i in range(14)]
+    property deletion_length:
+        def __get__(self):
+            return [self.profile.deletion_length[i] for i in range(14)]
+    property errors_events:
+        def __get__(self):
+            return [self.profile.errors_events[i] for i in range(14)]
+    property total_mismatches:
+        def __get__(self):
+            return self.profile.total_mismatches
+    property total_levenshtein:
+        def __get__(self):
+            return self.profile.total_levenshtein
+    property total_indel_length:
+        def __get__(self):
+            return self.profile.total_indel_length
+    property total_errors_events:
+        def __get__(self):
+            return self.profile.total_errors_events
+    property error_position:
+        def __get__(self):
+            return [self.profile.error_position[i] for i in range(1000)]
+    property total_bases:
+        def __get__(self):
+            return self.profile.total_bases
+    property total_bases_matching:
+        def __get__(self):
+            return self.profile.total_bases_matching
+    property total_bases_trimmed:
+        def __get__(self):
+            return self.profile.total_bases_trimmed
+    property inss:
+        def __get__(self):
+            return [self.profile.inss[i] for i in range(16)]
+    property inss_description:
+        def __get__(self):
+            return ["(-inf, 0)", "(-100, 0)", "(0, 100]", "(100, 200]", "(200, 300]", "(300, 400]", "(400, 500]", "(500, 600]", "(600, 700]", "(700, 800]", "(800, 900]", "(900, 1000]", "(1000, 2000]", "(2000, 5000]", "(5000, 10000]", "(1000, inf]"]
+    property misms_transition:
+        def __get__(self):
+            return [self.profile.misms_transition[i] for i in range(5*14)] # GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_RANGE */
+    property qual_score_misms:
+        def __get__(self):
+            return [self.profile.qual_score_misms[i] for i in range(256)]
+    property qual_score_errors:
+        def __get__(self):
+            return [self.profile.qual_score_errors[i] for i in range(256)]
+
+  # // Mismatch/Errors bases
+  # uint64_t *misms_1context;     /* GT_STATS_MISMS_1_CONTEXT_RANGE */
+  # uint64_t *misms_2context;     /* GT_STATS_MISMS_2_CONTEXT_RANGE */
+  # uint64_t *indel_transition_1; /* GT_STATS_INDEL_TRANSITION_1_RANGE */
+  # uint64_t *indel_transition_2; /* GT_STATS_INDEL_TRANSITION_2_RANGE */
+  # uint64_t *indel_transition_3; /* GT_STATS_INDEL_TRANSITION_3_RANGE */
+  # uint64_t *indel_transition_4; /* GT_STATS_INDEL_TRANSITION_4_RANGE */
+  # uint64_t *indel_1context;     /* GT_STATS_INDEL_1_CONTEXT */
+  # uint64_t *indel_2context;     /* GT_STATS_INDEL_2_CONTEXT */
+
+
+
 cpdef __run_stats(stats, source, uint64_t threads=1):
     process = multiprocessing.Process(target=__calculate_stats, args=(stats, source,))
     process.start()

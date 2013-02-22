@@ -54,7 +54,6 @@ class Stats(Command):
         infile = gem.files.open(args.input)
         stats = gt.Stats(args.best, args.paired)
         stats.read(infile, args.threads)
-        print stats
 
 
 class Junctions(Command):
@@ -184,7 +183,7 @@ class RnaPipeline(Command):
 
         # check if we want to do a preparation step
         input_dep = []
-        if not pipeline.direct_input and pipeline.input is None or ((len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz"), pipeline.input)) > 0)):
+        if not pipeline.direct_input and (pipeline.input is not None and ((len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz"), pipeline.input)) > 0))):
             input_dep.append(pipeline.prepare_input(name="prepare"))
 
         # basic pipeline steps

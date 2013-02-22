@@ -22,9 +22,9 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_stats, uint64_t n
 
     gt_status error_code;
     gt_template *template = gt_template_new();
-    //if(tid > 0){
+    if(tid > 0){
         stats[tid] = gt_stats_new();
-    //}
+    }
     gt_generic_parser_attr* generic_parser_attr =  gt_input_generic_parser_attributes_new(paired_end);
     while ((error_code=gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {

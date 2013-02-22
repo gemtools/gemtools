@@ -1202,9 +1202,9 @@ index generated from your annotation.""")
         """
         bam_group = parser.add_argument_group('BAM conversion')
         bam_group.add_argument('--map-quality', dest="bam_mapq", default=self.bam_mapq, help="Filter resulting bam for minimum map quality, Default %d" % self.bam_mapq)
-        bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=self.bam_create, help="Do not create bam file")
-        bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=self.bam_sort, help="Do not sort bam file")
-        bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=self.bam_index, help="Do not index the bam file")
+        bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=None, help="Do not create bam file")
+        bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=None, help="Do not sort bam file")
+        bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=None, help="Do not index the bam file")
         bam_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
 
     def register_general(self, parser):
@@ -1221,7 +1221,7 @@ index generated from your annotation.""")
             automatically and start a paired-end run. Add the --single-end parameter to disable
             pairing and file search. The file search for the second pair detects pairs
             ending in [_|.|-][0|1|2].[fq|fastq|txt][.gz].''')
-        general_group.add_argument('--single-end', dest="single_end", action="store_true", default=self.single_end, help="Single end reads")
+        general_group.add_argument('--single-end', dest="single_end", action="store_true", default=None, help="Single end reads")
         general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
             default=self.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
         general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
@@ -1239,16 +1239,16 @@ index generated from your annotation.""")
         general_group.add_argument('--max-read-length', dest="max_read_length", type=int, help='''The maximum read length. This is used to create the de-novo
             transcriptome and acts as an upper bound. Default %d''' % (self.max_read_length))
 
-        general_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=self.compress, help="Do not compress final mapping file")
-        general_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=self.compress_all, help="Compress also intermediate output")
-        general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=self.remove_temp, help="Keep temporary files")
+        general_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=None, help="Do not compress final mapping file")
+        general_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=None, help="Compress also intermediate output")
+        general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=None, help="Keep temporary files")
 
         general_group.add_argument('--save', dest="write_config", nargs="?", const=None, help="Write the given configuration to disk")
-        general_group.add_argument('--dry', dest="dry", action="store_true", default=False, help="Print and write configuration but do not start the pipeline")
+        general_group.add_argument('--dry', dest="dry", action="store_true", default=None, help="Print and write configuration but do not start the pipeline")
         general_group.add_argument('--load', dest="load_configuration", default=None, metavar="cfg", help="Load pipeline configuration from file")
         general_group.add_argument('--run', dest="run_steps", type=int, default=None, nargs="+", metavar="cfg", help="Run given pipeline steps idenfified by the step id")
-        general_group.add_argument('--direct-input', dest="direct_input", default=False, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
-        general_group.add_argument('--force', dest="force", default=False, action="store_true", help="Force running all steps and skip checking for completed steps")
+        general_group.add_argument('--direct-input', dest="direct_input", default=None, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
+        general_group.add_argument('--force', dest="force", default=None, action="store_true", help="Force running all steps and skip checking for completed steps")
 
     def register_mapping(self, parser):
         """Register the genome mapping parameters with the

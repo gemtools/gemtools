@@ -273,24 +273,35 @@ cdef extern from "gem_tools.h" nogil:
     gt_status gt_output_map_ofprint_template(gt_output_file* output_file,gt_template* template, gt_output_map_attributes* attributes)
 
 cdef extern from "gt_stats.h":
-    ctypedef struct gt_maps_error_profile:
-        # Mismatch/Indel Distribution
-        uint64_t *mismatches  # MISMS_RANGE */
-        uint64_t *indel_length  # MISMS_RANGE */
-        uint64_t *errors_events # MISMS_RANGE */
+    ctypedef struct gt_maps_profile:
+        uint64_t *mismatches
+        uint64_t *levenshtein
+        uint64_t *insertion_length
+        uint64_t *deletion_length
+        uint64_t *errors_events
         uint64_t total_mismatches
+        uint64_t total_levenshtein
         uint64_t total_indel_length
         uint64_t total_errors_events
-        uint64_t *error_position # READ_POS_RANGE */
-        # Trim stats
-        uint64_t total_bases_aligned
+        uint64_t *error_position
+
+        uint64_t total_bases
+        uint64_t total_bases_matching
         uint64_t total_bases_trimmed
-        # Insert Size Distribution
-        uint64_t *inss # INSS_RANGE */
-        # Mismatch/Errors bases
-        uint64_t *misms_transition  # MISMS_BASE_RANGE*MISMS_BASE_RANGE */
-        uint64_t *qual_score_misms  # QUAL_SCORE_RANGE */
-        uint64_t *qual_score_errors # QUAL_SCORE_RANGE */
+
+        uint64_t *inss
+
+        uint64_t *misms_transition
+        uint64_t *qual_score_misms
+        uint64_t *misms_1context
+        uint64_t *misms_2context
+        uint64_t *indel_transition_1
+        uint64_t *indel_transition_2
+        uint64_t *indel_transition_3
+        uint64_t *indel_transition_4
+        uint64_t *indel_1context
+        uint64_t *indel_2context
+        uint64_t *qual_score_errors
 
 
     ctypedef struct gt_splitmaps_profile:
@@ -307,23 +318,20 @@ cdef extern from "gt_stats.h":
         uint64_t pe_rm_rm
 
     ctypedef struct gt_stats:
-        # Length stats
         uint64_t min_length
         uint64_t max_length
         uint64_t total_bases
-        uint64_t total_bases_unaligned
-        # Mapped/Maps
+        uint64_t total_bases_aligned
+        uint64_t mapped_min_length
+        uint64_t mapped_max_length
+        uint64_t *nt_counting
         uint64_t num_blocks
         uint64_t num_alignments
         uint64_t num_maps
         uint64_t num_mapped
-        # MMap Distribution
-        uint64_t *mmap # MMAP_RANGE */
-        # Uniq Distribution
-        uint64_t *uniq # UNIQ_RANGE */
-        # Error Profile
-        gt_maps_error_profile *maps_error_profile # All maps
-        # Split maps info
+        uint64_t *mmap
+        uint64_t *uniq
+        gt_maps_profile *maps_profile
         gt_splitmaps_profile* splitmaps_profile
 
     cdef gt_stats* gt_stats_new()
