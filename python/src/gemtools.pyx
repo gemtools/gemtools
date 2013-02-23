@@ -3,6 +3,7 @@ from gemapi cimport *
 import os
 import sys
 import multiprocessing
+import string
 
 cdef class TemplateFilter(object):
     """Filter templates. Override the filter
@@ -828,6 +829,12 @@ cdef class Stats(object):
     property num_blocks:
         def __get__(self):
             return self.stats.num_blocks
+    property num_reads:
+        def __get__(self):
+            if self.paired:
+                return 2*self.num_blocks
+            else:
+                return self.num_blocks
     property num_alignments:
         def __get__(self):
             return self.stats.num_alignments
@@ -837,6 +844,12 @@ cdef class Stats(object):
     property num_mapped:
         def __get__(self):
             return self.stats.num_mapped
+    property num_mapped_total:
+        def __get__(self):
+            if self.paired:
+                return self.num_mapped * 2
+            else:
+                return self.num_mapped
     property nt_counting:
         def __get__(self):
             cdef uint64_t * c = self.stats.nt_counting
@@ -858,11 +871,33 @@ cdef class Stats(object):
     property maps_profile:
         def __get__(self):
             return StatsMapProfile(self)
+    property splits_profile:
+        def __get__(self):
+            return StatsSplitsProfile(self)
 
-  # // Error Profile
-  # gt_maps_profile *maps_profile;
-  # // Split maps info
-  # gt_splitmaps_profile* splitmaps_profile;
+    property __dict__:
+        def __get__(self):
+            return {
+                "min_length": self.min_length,
+                "max_length": self.max_length,
+                "total_bases": self.total_bases,
+                "total_bases_aligned": self.total_bases_aligned,
+                "mapped_min_length": self.mapped_min_length,
+                "mapped_max_length": self.mapped_max_length,
+                "num_blocks": self.num_blocks,
+                "num_reads": self.num_reads,
+                "num_alignments": self.num_alignments,
+                "num_maps": self.num_maps,
+                "num_mapped": self.num_mapped,
+                "nt_counting": self.nt_counting,
+                "mmap": self.mmap,
+                "mmap_description": self.mmap_description,
+                "uniq": self.uniq,
+                "uniq_description": self.uniq_description,
+                "maps_profile": self.maps_profile.__dict__,
+                "splits_profile": self.splits_profile.__dict__,
+            }
+
 
 cdef class StatsSplitsProfile(object):
     cdef gt_splitmaps_profile* profile
@@ -906,6 +941,23 @@ cdef class StatsSplitsProfile(object):
     property pe_rm_rm:
         def __get__(self):
             return self.profile.pe_rm_rm
+    property __dict__:
+        def __get__(self):
+            return {
+                "num_mapped_with_splitmaps": self.num_mapped_with_splitmaps,
+                "num_mapped_only_splitmaps": self.num_mapped_only_splitmaps,
+                "total_splitmaps": self.total_splitmaps,
+                "total_junctions": self.total_junctions,
+                "num_junctions": self.num_junctions,
+                "num_junctions_description": self.num_junctions_description,
+                "length_junctions": self.length_junctions,
+                "length_junctions_description": self.length_junctions_description,
+                "junction_position": self.junction_position,
+                "pe_sm_sm": self.pe_sm_sm,
+                "pe_sm_rm": self.pe_sm_rm,
+                "pe_rm_rm": self.pe_rm_rm,
+            }
+
 
 
 cdef class StatsMapProfile(object):
@@ -971,17 +1023,61 @@ cdef class StatsMapProfile(object):
     property qual_score_errors:
         def __get__(self):
             return [self.profile.qual_score_errors[i] for i in range(256)]
-
-  # // Mismatch/Errors bases
-  # uint64_t *misms_1context;     /* GT_STATS_MISMS_1_CONTEXT_RANGE */
-  # uint64_t *misms_2context;     /* GT_STATS_MISMS_2_CONTEXT_RANGE */
-  # uint64_t *indel_transition_1; /* GT_STATS_INDEL_TRANSITION_1_RANGE */
-  # uint64_t *indel_transition_2; /* GT_STATS_INDEL_TRANSITION_2_RANGE */
-  # uint64_t *indel_transition_3; /* GT_STATS_INDEL_TRANSITION_3_RANGE */
-  # uint64_t *indel_transition_4; /* GT_STATS_INDEL_TRANSITION_4_RANGE */
-  # uint64_t *indel_1context;     /* GT_STATS_INDEL_1_CONTEXT */
-  # uint64_t *indel_2context;     /* GT_STATS_INDEL_2_CONTEXT */
-
+    property misms_1context:
+        def __get__(self):
+            return [self.profile.misms_1context[i] for i in range(GT_STATS_MISMS_1_CONTEXT_RANGE)]
+    property misms_2context:
+        def __get__(self):
+            return [self.profile.misms_2context[i] for i in range(GT_STATS_MISMS_2_CONTEXT_RANGE)]
+    property indel_transition_1:
+        def __get__(self):
+            return [self.profile.indel_transition_1[i] for i in range(GT_STATS_INDEL_TRANSITION_1_RANGE)]
+    property indel_transition_2:
+        def __get__(self):
+            return [self.profile.indel_transition_2[i] for i in range(GT_STATS_INDEL_TRANSITION_2_RANGE)]
+    property indel_transition_3:
+        def __get__(self):
+            return [self.profile.indel_transition_3[i] for i in range(GT_STATS_INDEL_TRANSITION_3_RANGE)]
+    property indel_transition_4:
+        def __get__(self):
+            return [self.profile.indel_transition_4[i] for i in range(GT_STATS_INDEL_TRANSITION_4_RANGE)]
+    property indel_1context:
+        def __get__(self):
+            return [self.profile.indel_1context[i] for i in range(GT_STATS_INDEL_1_CONTEXT)]
+    property indel_2context:
+        def __get__(self):
+            return [self.profile.indel_2context[i] for i in range(GT_STATS_INDEL_2_CONTEXT)]
+    property __dict__:
+        def __get__(self):
+            return {
+                "mismatches_description": self.mismatches_description,
+                "mismatches": self.mismatches,
+                "levenshtein": self.levenshtein,
+                "insertion_length": self.insertion_length,
+                "deletion_length": self.deletion_length,
+                "errors_events": self.errors_events,
+                "total_mismatches": self.total_mismatches,
+                "total_levenshtein": self.total_levenshtein,
+                "total_indel_length": self.total_indel_length,
+                "total_errors_events": self.total_errors_events,
+                "error_position": self.error_position,
+                "total_bases": self.total_bases,
+                "total_bases_matching": self.total_bases_matching,
+                "total_bases_trimmed": self.total_bases_trimmed,
+                "inss": self.inss,
+                "inss_description": self.inss_description,
+                "misms_transition": self.misms_transition,
+                "qual_score_misms": self.qual_score_misms,
+                "qual_score_errors": self.qual_score_errors,
+                "misms_1context": self.misms_1context,
+                "misms_2context": self.misms_2context,
+                "indel_transition_1": self.indel_transition_1,
+                "indel_transition_2": self.indel_transition_2,
+                "indel_transition_3": self.indel_transition_3,
+                "indel_transition_4": self.indel_transition_4,
+                "indel_1context": self.indel_1context,
+                "indel_2context": self.indel_2context,
+            }
 
 
 cpdef __run_stats(stats, source, uint64_t threads=1):

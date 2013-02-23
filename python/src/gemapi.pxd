@@ -340,6 +340,28 @@ cdef extern from "gt_stats.h":
 
     void gt_stats_merge(gt_stats** stats, uint64_t stats_array_size)
     void gt_stats_calculate_template_stats(gt_stats*  stats, gt_template* template, bool best_map)
+    # stats ranges
+    cdef int GT_STATS_MMAP_RANGE
+    cdef int GT_STATS_INSS_RANGE
+    cdef int GT_STATS_MISMS_RANGE
+    cdef int GT_STATS_UNIQ_RANGE
+    cdef int GT_STATS_LARGE_READ_POS_RANGE
+    cdef int GT_STATS_SHORT_READ_POS_RANGE
+    cdef int GT_STATS_MISMS_BASE_RANGE
+    cdef int GT_STATS_NT_BASE_RANGE
+    cdef int GT_STATS_QUAL_SCORE_RANGE
+    cdef int GT_STATS_NUM_JUNCTION_RANGE
+    cdef int GT_STATS_LEN_JUNCTION_RANGE
+    cdef int GT_STATS_MISMS_1_CONTEXT_RANGE
+    cdef int GT_STATS_MISMS_2_CONTEXT_RANGE
+    cdef int GT_STATS_INDEL_TRANSITION_1_RANGE
+    cdef int GT_STATS_INDEL_TRANSITION_2_RANGE
+    cdef int GT_STATS_INDEL_TRANSITION_3_RANGE
+    cdef int GT_STATS_INDEL_TRANSITION_4_RANGE
+    cdef int GT_STATS_INDEL_1_CONTEXT
+    cdef int GT_STATS_INDEL_2_CONTEXT
+
+
 cdef extern from "gemtools_binding.h" nogil:
     void gt_merge_files_synch(gt_output_file* output_file, uint64_t threads, uint64_t num_files, gt_input_file** files)
     void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map)
