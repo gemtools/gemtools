@@ -394,7 +394,7 @@ class ExtractJunctionsStep(PipelineStep):
     def files(self):
         if self._files is None:
             self._files = []
-            junctions_out = self.pipeline.create_file_name(self.name, file_suffix="junctions")
+            junctions_out = self.pipeline.create_file_name(self.name, file_suffix="junctions", final=self.final)
             self._files.append(junctions_out)
             self.junctions_out = junctions_out
         return self._files
