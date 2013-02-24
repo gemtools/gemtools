@@ -234,6 +234,7 @@ class JunctionExtraction(Command):
         general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
             default=pipeline.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
         general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
+        general_group.add_argument('--dry', dest="dry", action="store_true", default=None, help="Print and write configuration but do not start the pipeline")
 
         pipeline.register_junctions(parser)
 
