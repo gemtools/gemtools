@@ -327,6 +327,7 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             self._files.append(junctions_out)
             self._files.append(junctions_out + ".fa")
             self._files.append(denovo_keys)
+            self._files.append(denovo_out)
             self._files.append(index_denovo_out[:-4] + ".log")
             self.index_denovo_out = index_denovo_out
             self.junctions_out = junctions_out
