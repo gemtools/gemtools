@@ -578,8 +578,11 @@ class MappingPipeline(object):
         if args is not None:
             # initialize from arguments
             # load configuration
-            if args.load_configuration is not None:
-                self.load(args.load_configuration)
+            try:
+                if args.load_configuration is not None:
+                    self.load(args.load_configuration)
+            except AttributeError:
+                pass
             ## update parameter
             self.update(vars(args))
             ## initialize pipeline and check values
