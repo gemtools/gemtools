@@ -213,3 +213,47 @@ class RnaPipeline(Command):
         except PipelineError, e:
             sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
+
+
+class JunctionExtraction(Command):
+    description = """Run the split mapper to extract junctions"""
+    title = "Junction Extraction"
+
+    def register(self, parser):
+        pipeline = MappingPipeline()
+
+        general_group = parser.add_argument_group('General')
+        ## general pipeline paramters
+        general_group.add_argument('-f', '--files', dest="input", nargs="+", metavar="input",
+            help='''Single fastq input file or both files for a paired-end run separated by space.
+            Note that if you specify only one file, we will look for the file containing the other pairs
+            automatically and start a paired-end run. Add the --single-end parameter to disable
+            pairing and file search. The file search for the second pair detects pairs
+            ending in [_|.|-][0|1|2].[fq|fastq|txt][.gz].''')
+        general_group.add_argument('--single-end', dest="single_end", action="store_true", default=None, help="Single end reads")
+        general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
+            default=self.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
+        general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
+
+        pipeline.register_junctions(parser)
+
+    def run(self, args):
+        ## parsing command line arguments
+        try:
+            ## initialize pipeline and check values
+            pipeline = MappingPipeline(args=args)
+        except PipelineError, e:
+            sys.stderr.write("\nERROR: " + e.message + "\n")
+            exit(1)
+
+        pipeline.extract_junctions("extract", description="Extract Junctions", final=True)
+
+        # show parameter and step configuration
+        pipeline.log_parameter()
+
+        # run the pipeline
+        try:
+            pipeline.run()
+        except PipelineError, e:
+            sys.stderr.write("\nERROR: " + e.message + "\n")
+            exit(1)

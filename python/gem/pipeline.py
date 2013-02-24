@@ -5,10 +5,11 @@ import logging
 import gem
 import traceback
 import json
-import multiprocessing as mp
+
 
 from gem.utils import Timer
 import gem.gemtools as gt
+
 
 class dotdict(dict):
     def __getattr__(self, attr):
@@ -320,6 +321,7 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             self._files = []
             index_denovo_out = self.pipeline.create_file_name(self.name, file_suffix="gem")
             junctions_out = self.pipeline.create_file_name(self.name, file_suffix="junctions")
+            denovo_out = self.pipeline.create_file_name("", file_suffix="junctions")
             denovo_keys = junctions_out + ".keys"
             self._files.append(index_denovo_out)
             self._files.append(junctions_out)
@@ -329,6 +331,7 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             self.index_denovo_out = index_denovo_out
             self.junctions_out = junctions_out
             self.denovo_keys = denovo_keys
+            self.denovo_out = denovo_out
         return self._files
 
     def run(self):
@@ -358,13 +361,15 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
         logging.gemtools.gt("Denovo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
             len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
 
+        gem.junctions.write_junctions(filtered_denovo_junctions, self.denovo_out, cfg["index"])
+
         if gtf_junctions is not None:
             logging.gemtools.gt("Joining with Annotation - denovo: %d annotation: %d" % (len(filtered_denovo_junctions), len(gtf_junctions)))
             junctions = gtf_junctions.union(filtered_denovo_junctions)
             logging.gemtools.gt("Joined Junctions %d" % (len(junctions)))
             gem.junctions.write_junctions(junctions, self.junctions_out, cfg["index"])
         else:
-            logging.gemtools.gt("Skipped mergin with annotation, denovo junctions: %d" % (len(filtered_denovo_junctions)))
+            logging.gemtools.gt("Skipped merging with annotation, denovo junctions: %d" % (len(filtered_denovo_junctions)))
             gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
 
         logging.gemtools.gt("Computing denovo transcriptome")
@@ -373,6 +378,54 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
         logging.gemtools.gt("Indexing denovo transcriptome")
         gem.index(denovo_transcriptome, self.index_denovo_out, threads=self.pipeline.threads)
         return (self.index_denovo_out, self.denovo_keys)
+
+    def cleanup(self, force=False):
+        if force or (not self.final and self.pipeline.remove_temp):
+            for f in self.files():
+                if os.path.exists(f) and f != self.denovo_out:
+                    logging.gemtools.debug("Remove temporary file %s" % f)
+                    os.remove(f)
+
+
+class ExtractJunctionsStep(PipelineStep):
+    """Extract denovo junctions"""
+
+    def files(self):
+        if self._files is None:
+            self._files = []
+            junctions_out = self.pipeline.create_file_name(self.name, file_suffix="junctions")
+            self._files.append(junctions_out)
+            self.junctions_out = junctions_out
+        return self._files
+
+    def run(self):
+        """Extract denovo junctions"""
+        cfg = self.configuration
+        denovo_junctions = gem.extract_junctions(
+            self._input(),
+            cfg["index"],
+            filter=cfg["filter"],
+            splice_consensus=cfg["junctions_consensus"],
+            mismatches=cfg["mismatches"],
+            threads=self.pipeline.threads,
+            strata_after_first=cfg["strata_after_best"],
+            coverage=cfg["coverage"],
+            min_split=cfg["min_split_length"],
+            max_split=cfg["max_split_length"],
+            refinement_step_size=cfg["refinement_step_size"],
+            min_split_size=cfg["min_split_size"],
+            matches_threshold=cfg["matches_threshold"],
+            max_junction_matches=cfg["max_junction_matches"]
+        )
+
+        logging.gemtools.gt("Found de-novo Junctions %d with coverage >= %d" % (len(denovo_junctions), cfg["coverage"]))
+        filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, cfg["min_split_length"], cfg["max_split_length"]))
+
+        logging.gemtools.gt("de-novo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
+            len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
+
+        gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
+        return self.junctions_out
 
 
 class TranscriptMapStep(PipelineStep):
@@ -676,6 +729,30 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
+    def extract_junctions(self, name, configuration=None, dependencies=None, final=False, description="Extract de-novo junctions"):
+        step = ExtractJunctionsStep(name, dependencies=dependencies, final=final, description=description)
+        config = dotdict()
+
+        config.index = self.index
+        config.filter = self.junctions_filtering
+        config.junctions_consensus = self.junctions_consensus
+        config.mismatches = self.junction_mismatches
+        config.max_junction_matches = self.junctions_max_junction_matches
+        config.min_split_length = self.junctions_min_intron_size
+        config.max_split_length = self.junctions_max_intron_size
+        config.strata_after_best = self.junctions_strata_after_best
+        config.refinement_step_size = self.junctions_refinement_step_size
+        config.min_split_size = self.junctions_min_split_size
+        config.matches_threshold = self.junctions_matches_threshold
+        config.coverage = self.junctions_coverage
+
+        if configuration is not None:
+            self.__update_dict(config, configuration)
+
+        step.prepare(len(self.steps), self, config)
+        self.steps.append(step)
+        return step.id
+
     def bam(self, name, configuration=None, dependencies=None, final=False, description="Create BAM file"):
         step = CreateBamStep(name, dependencies=dependencies, final=final, description=description)
         config = dotdict()
@@ -743,7 +820,6 @@ class MappingPipeline(object):
         config.max_extendable_matches = self.pairing_max_extendable_matches
         config.max_matches_per_extension = self.pairing_max_matches_per_extension
 
-
         if configuration is not None:
             self.__update_dict(config, configuration)
 
@@ -757,7 +833,6 @@ class MappingPipeline(object):
             return gem.files.open(self.input[0])
         else:
             return gem.filter.interleave([gem.files.open(f) for f in self.input], threads=max(1, self.threads / 2))
-
 
     def open_step(self, id, raw=False):
         """Open the original input files"""
@@ -946,7 +1021,6 @@ index generated from your annotation.""")
             for e in errors:
                 logging.gemtools.warning("\t" + str(e))
             logging.gemtools.warning("---------------------------------------------")
-
 
     def log_parameter(self):
         """Print selected parameters"""
