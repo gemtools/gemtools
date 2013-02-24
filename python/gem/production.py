@@ -232,7 +232,7 @@ class JunctionExtraction(Command):
             ending in [_|.|-][0|1|2].[fq|fastq|txt][.gz].''')
         general_group.add_argument('--single-end', dest="single_end", action="store_true", default=None, help="Single end reads")
         general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
-            default=self.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
+            default=pipeline.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
         general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
 
         pipeline.register_junctions(parser)
