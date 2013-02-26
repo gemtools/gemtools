@@ -82,6 +82,7 @@ class Index(Command):
         ## required parameters
         parser.add_argument('-i', '--input', dest="input", help='Path to a single uncompressed fasta file with the genome', required=True)
         parser.add_argument('-o', '--output', dest="output", help='Output file name (has to end in .gem), defaults to input file name + .gem extension')
+        parser.add_argument('--no-hash', dest="create_hash", default=True, action="store_false", help='Don not create the .hash file')
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads', default=2)
 
     def run(self, args):
@@ -98,7 +99,43 @@ class Index(Command):
         if input.endswith(".gz"):
             raise CommandException("Compressed input is currently not supported!")
 
+        logging.gemtools.gt("Creating index")
         gem.index(input, output, threads=args.threads)
+
+        if args.create_hash:
+            logging.gemtools.gt("Creating hash")
+            hash_name = output[:-4] + ".hash"
+            gem.hash(input, hash_name)
+
+
+class Hash(Command):
+    title = "Hash genomes"
+    description = """Create a .hash file out of a fasta genome
+    """
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-i', '--input', dest="input", help='Path to a single uncompressed fasta file with the genome', required=True)
+        parser.add_argument('-o', '--output', dest="output", help='Output file name (has to end in .hash), defaults to input file name + .hash extension')
+
+    def run(self, args):
+        input = args.input
+        output = os.path.basename(input)
+        if args.output is not None:
+            output = args.output
+        else:
+            output = output[:output.rfind(".")] + ".hash"
+
+        if not output.endswith(".hash"):
+            raise CommandException("Output file name has to end in .hash")
+
+        if not os.path.exists(input):
+            raise CommandException("Input file not found : %s" % input)
+
+        if input.endswith(".gz"):
+            raise CommandException("Compressed input is currently not supported!")
+
+        gem.hash(input, output)
 
 
 class TranscriptIndex(Command):
