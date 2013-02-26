@@ -5,6 +5,8 @@ import sys
 import multiprocessing
 import string
 
+from cython.parallel import parallel, prange
+
 cdef class TemplateFilter(object):
     """Filter templates. Override the filter
     method to modify the filter.
@@ -1097,6 +1099,33 @@ cpdef __calculate_stats(Stats stats, source, uint64_t threads=1):
         gt_stats_fill(input, target, threads, paired, best_map)
 
     #gt_input_file_close(input)
+
+
+# cdef class TestFilter(object):
+#     cdef InputFile input_file
+
+#     def __init__(self, InputFile input_file):
+#         self.input_file = input_file
+
+#     cpdef go(self):
+#         cdef gt_input_file* inf = self.input_file._open()
+#         cdef Py_ssize_t idx, i, n = 100
+#         #with nogil, parallel(num_threads=4):
+#         for i in prange(4, nogil=True):
+#             do_stuff(inf, i)
+
+
+# cdef void do_stuff(gt_input_file* inf, Py_ssize_t i) nogil:
+#     cdef gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(inf)
+#     cdef gt_template* template = gt_template_new()
+#     cdef gt_generic_parser_attr* generic_parser_attr =  gt_input_generic_parser_attributes_new(False)
+#     cdef gt_status status = gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr)
+#     while status == GT_STATUS_OK:
+#         with gil:
+#             print gt_template_get_tag(template), i
+#         status = gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr)
+#     gt_template_delete(template)
+#     gt_buffered_input_file_close(buffered_input)
 
 
 

@@ -3,6 +3,9 @@
 from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 
+cdef extern from "stdio.h":
+  printf(char* string)
+
 cdef extern from "stdlib.h":
     int strcmp(char *a, char *b)
 
