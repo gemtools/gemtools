@@ -331,6 +331,7 @@ class ProcessWrapper(object):
                 name = command[0].split()[0]
             else:
                 name = str(command.split()[0])
+            name = name.split("/")[-1]
         return "%s.%d" % (name, len(self.processes))
 
     def start(self):

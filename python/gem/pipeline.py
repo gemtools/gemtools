@@ -881,7 +881,7 @@ class MappingPipeline(object):
             name = os.path.basename(self.input[0])
             if name.endswith(".gz"):
                 name = name[-3:]
-            name = name[:name.rfind(".")]
+            self.name = name[:name.rfind(".")]
 
         if self.index is None:
             errors.append("No index specified")
