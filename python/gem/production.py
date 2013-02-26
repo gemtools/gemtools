@@ -7,6 +7,7 @@ import sys
 
 import gem
 import gem.commands
+import gem.gemtools as gt
 
 from gem.pipeline import MappingPipeline, PipelineError
 from gem.utils import Command, CommandException
@@ -35,6 +36,24 @@ class Merge(Command):
             files.append(gem.files.open(f))
 
         gem.merger(files[0], files[1:]).merge(args.output, threads=int(args.threads), same_content=args.same)
+
+
+class Stats(Command):
+    title = "Create .map stats"
+    description = """Calculate stats on a map file"""
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-i', '--input', dest="input", help='Input map file', required=True)
+        parser.add_argument('-t', '--threads', dest="threads", type=int, default=1, help='Number of threads')
+        parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+        parser.add_argument('-p', '--paired', dest="paired", action="store_true", default=False, help="Paired end reads")
+        parser.add_argument('-b', '--best', dest="best", action="store_true", default=False, help="Calculates stats only for the best maps")
+
+    def run(self, args):
+        infile = gem.files.open(args.input)
+        stats = gt.Stats(args.best, args.paired)
+        stats.read(infile, args.threads)
 
 
 class Junctions(Command):
@@ -102,6 +121,7 @@ class TranscriptIndex(Command):
         parser.add_argument('-a', '--annotation', dest="annotation", help='Path to the GTF annotation', required=True)
         parser.add_argument('-m', '--max-length', dest="maxlength", help='Maximum read length, defaults to 150', default=150)
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads', default=2)
+        parser.add_argument('-o', '--output', dest="name", help='Optional output prefix. If this is not set, the annotation name will be used', default=None)
 
     def run(self, args):
         if not args.index.endswith(".gem"):
@@ -111,8 +131,12 @@ class TranscriptIndex(Command):
         if not os.path.exists(args.annotation):
             raise CommandException("Annotation not found")
 
-        junctions_out = os.path.basename(args.annotation) + ".junctions"
-        index_out = os.path.basename(args.annotation) + ".gem"
+        name = args.name
+        if name is None:
+            name = os.path.basename(args.annotation)
+
+        junctions_out = name + ".junctions"
+        index_out = name + ".junctions.gem"
 
         print "Loading Junctions"
         junctions = set(gem.junctions.from_gtf(args.annotation))
@@ -150,25 +174,16 @@ class RnaPipeline(Command):
 
     def run(self, args):
         ## parsing command line arguments
-        pipeline = MappingPipeline()
-
-        # load configuration
-        if args.load_configuration is not None:
-            pipeline.load(args.load_configuration)
-
-        ## update parameter
-        pipeline.update(vars(args))
-
-        ## initialize pipeline and check values
         try:
-            pipeline.initialize()
+            ## initialize pipeline and check values
+            pipeline = MappingPipeline(args=args)
         except PipelineError, e:
             sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
 
         # check if we want to do a preparation step
         input_dep = []
-        if not pipeline.direct_input and (len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz"), pipeline.input)) > 0):
+        if not pipeline.direct_input and (pipeline.input is not None and ((len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz"), pipeline.input)) > 0))):
             input_dep.append(pipeline.prepare_input(name="prepare"))
 
         # basic pipeline steps
@@ -188,6 +203,52 @@ class RnaPipeline(Command):
             bam = pipeline.bam(name="bam", dependencies=[merged], final=True)
             if pipeline.bam_index:
                 pipeline.index_bam(name="index-bam", dependencies=[bam], final=True)
+
+        # show parameter and step configuration
+        pipeline.log_parameter()
+
+        # run the pipeline
+        try:
+            pipeline.run()
+        except PipelineError, e:
+            sys.stderr.write("\nERROR: " + e.message + "\n")
+            exit(1)
+
+
+class JunctionExtraction(Command):
+    description = """Run the split mapper to extract junctions"""
+    title = "Junction Extraction"
+
+    def register(self, parser):
+        pipeline = MappingPipeline()
+
+        general_group = parser.add_argument_group('General')
+        ## general pipeline paramters
+        general_group.add_argument('-f', '--files', dest="input", nargs="+", metavar="input",
+            help='''Single fastq input file or both files for a paired-end run separated by space.
+            Note that if you specify only one file, we will look for the file containing the other pairs
+            automatically and start a paired-end run. Add the --single-end parameter to disable
+            pairing and file search. The file search for the second pair detects pairs
+            ending in [_|.|-][0|1|2].[fq|fastq|txt][.gz].''')
+        general_group.add_argument('--single-end', dest="single_end", action="store_true", default=None, help="Single end reads")
+        general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
+            default=pipeline.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
+        general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
+        general_group.add_argument('--dry', dest="dry", action="store_true", default=None, help="Print and write configuration but do not start the pipeline")
+        general_group.add_argument('-t', '--threads', dest="threads", metavar="threads", type=int, help="Number of threads to use. Default %d" % pipeline.threads)
+
+        pipeline.register_junctions(parser)
+
+    def run(self, args):
+        ## parsing command line arguments
+        try:
+            ## initialize pipeline and check values
+            pipeline = MappingPipeline(args=args)
+        except PipelineError, e:
+            sys.stderr.write("\nERROR: " + e.message + "\n")
+            exit(1)
+
+        pipeline.extract_junctions("extract", description="Extract Junctions", final=True)
 
         # show parameter and step configuration
         pipeline.log_parameter()

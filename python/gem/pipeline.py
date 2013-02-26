@@ -5,10 +5,11 @@ import logging
 import gem
 import traceback
 import json
-import multiprocessing as mp
+
 
 from gem.utils import Timer
 import gem.gemtools as gt
+
 
 class dotdict(dict):
     def __getattr__(self, attr):
@@ -320,15 +321,18 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             self._files = []
             index_denovo_out = self.pipeline.create_file_name(self.name, file_suffix="gem")
             junctions_out = self.pipeline.create_file_name(self.name, file_suffix="junctions")
+            denovo_out = self.pipeline.create_file_name("", file_suffix="junctions")
             denovo_keys = junctions_out + ".keys"
             self._files.append(index_denovo_out)
             self._files.append(junctions_out)
             self._files.append(junctions_out + ".fa")
             self._files.append(denovo_keys)
+            self._files.append(denovo_out)
             self._files.append(index_denovo_out[:-4] + ".log")
             self.index_denovo_out = index_denovo_out
             self.junctions_out = junctions_out
             self.denovo_keys = denovo_keys
+            self.denovo_out = denovo_out
         return self._files
 
     def run(self):
@@ -358,13 +362,15 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
         logging.gemtools.gt("Denovo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
             len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
 
+        gem.junctions.write_junctions(filtered_denovo_junctions, self.denovo_out, cfg["index"])
+
         if gtf_junctions is not None:
             logging.gemtools.gt("Joining with Annotation - denovo: %d annotation: %d" % (len(filtered_denovo_junctions), len(gtf_junctions)))
             junctions = gtf_junctions.union(filtered_denovo_junctions)
             logging.gemtools.gt("Joined Junctions %d" % (len(junctions)))
             gem.junctions.write_junctions(junctions, self.junctions_out, cfg["index"])
         else:
-            logging.gemtools.gt("Skipped mergin with annotation, denovo junctions: %d" % (len(filtered_denovo_junctions)))
+            logging.gemtools.gt("Skipped merging with annotation, denovo junctions: %d" % (len(filtered_denovo_junctions)))
             gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
 
         logging.gemtools.gt("Computing denovo transcriptome")
@@ -373,6 +379,54 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
         logging.gemtools.gt("Indexing denovo transcriptome")
         gem.index(denovo_transcriptome, self.index_denovo_out, threads=self.pipeline.threads)
         return (self.index_denovo_out, self.denovo_keys)
+
+    def cleanup(self, force=False):
+        if force or (not self.final and self.pipeline.remove_temp):
+            for f in self.files():
+                if os.path.exists(f) and f != self.denovo_out:
+                    logging.gemtools.debug("Remove temporary file %s" % f)
+                    os.remove(f)
+
+
+class ExtractJunctionsStep(PipelineStep):
+    """Extract denovo junctions"""
+
+    def files(self):
+        if self._files is None:
+            self._files = []
+            junctions_out = self.pipeline.create_file_name(self.name, file_suffix="junctions", final=self.final)
+            self._files.append(junctions_out)
+            self.junctions_out = junctions_out
+        return self._files
+
+    def run(self):
+        """Extract denovo junctions"""
+        cfg = self.configuration
+        denovo_junctions = gem.extract_junctions(
+            self._input(),
+            cfg["index"],
+            filter=cfg["filter"],
+            splice_consensus=cfg["junctions_consensus"],
+            mismatches=cfg["mismatches"],
+            threads=self.pipeline.threads,
+            strata_after_first=cfg["strata_after_best"],
+            coverage=cfg["coverage"],
+            min_split=cfg["min_split_length"],
+            max_split=cfg["max_split_length"],
+            refinement_step_size=cfg["refinement_step_size"],
+            min_split_size=cfg["min_split_size"],
+            matches_threshold=cfg["matches_threshold"],
+            max_junction_matches=cfg["max_junction_matches"]
+        )
+
+        logging.gemtools.gt("Found de-novo Junctions %d with coverage >= %d" % (len(denovo_junctions), cfg["coverage"]))
+        filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, cfg["min_split_length"], cfg["max_split_length"]))
+
+        logging.gemtools.gt("de-novo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
+            len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
+
+        gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
+        return self.junctions_out
 
 
 class TranscriptMapStep(PipelineStep):
@@ -436,7 +490,7 @@ class TranscriptMapStep(PipelineStep):
 class MappingPipeline(object):
     """General mapping pipeline class."""
 
-    def __init__(self):
+    def __init__(self, args=None):
         self.steps = []  # pipeline steps
         self.run_steps = []  # steps to run
 
@@ -464,7 +518,7 @@ class MappingPipeline(object):
         self.bam_sort = True  # sort bam
         self.bam_index = True  # index bam
         self.single_end = False  # single end alignments
-        self.write_config = True  # write configuration
+        self.write_config = None  # write configuration
         self.dry = False  # only dry run
         self.sort_memory = "768M"  # samtools sort memory
         self.direct_input = False  # if true, skip the preparation step
@@ -520,6 +574,19 @@ class MappingPipeline(object):
         self.pairing_min_matched_bases = 0.80
         self.pairing_max_extendable_matches = 0
         self.pairing_max_matches_per_extension = 0
+
+        if args is not None:
+            # initialize from arguments
+            # load configuration
+            try:
+                if args.load_configuration is not None:
+                    self.load(args.load_configuration)
+            except AttributeError:
+                pass
+            ## update parameter
+            self.update(vars(args))
+            ## initialize pipeline and check values
+            self.initialize()
 
     def update(self, configuration):
         """Update configuration from given map
@@ -666,6 +733,30 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
+    def extract_junctions(self, name, configuration=None, dependencies=None, final=False, description="Extract de-novo junctions"):
+        step = ExtractJunctionsStep(name, dependencies=dependencies, final=final, description=description)
+        config = dotdict()
+
+        config.index = self.index
+        config.filter = self.junctions_filtering
+        config.junctions_consensus = self.junctions_consensus
+        config.mismatches = self.junction_mismatches
+        config.max_junction_matches = self.junctions_max_junction_matches
+        config.min_split_length = self.junctions_min_intron_size
+        config.max_split_length = self.junctions_max_intron_size
+        config.strata_after_best = self.junctions_strata_after_best
+        config.refinement_step_size = self.junctions_refinement_step_size
+        config.min_split_size = self.junctions_min_split_size
+        config.matches_threshold = self.junctions_matches_threshold
+        config.coverage = self.junctions_coverage
+
+        if configuration is not None:
+            self.__update_dict(config, configuration)
+
+        step.prepare(len(self.steps), self, config)
+        self.steps.append(step)
+        return step.id
+
     def bam(self, name, configuration=None, dependencies=None, final=False, description="Create BAM file"):
         step = CreateBamStep(name, dependencies=dependencies, final=final, description=description)
         config = dotdict()
@@ -733,7 +824,6 @@ class MappingPipeline(object):
         config.max_extendable_matches = self.pairing_max_extendable_matches
         config.max_matches_per_extension = self.pairing_max_matches_per_extension
 
-
         if configuration is not None:
             self.__update_dict(config, configuration)
 
@@ -747,7 +837,6 @@ class MappingPipeline(object):
             return gem.files.open(self.input[0])
         else:
             return gem.filter.interleave([gem.files.open(f) for f in self.input], threads=max(1, self.threads / 2))
-
 
     def open_step(self, id, raw=False):
         """Open the original input files"""
@@ -846,6 +935,10 @@ index generated from your annotation.""")
             if not transcript_keys_found:
                 self.transcript_keys = self.transcript_index[:-14] + ".keys"
                 transcript_keys_found = os.path.exists(self.transcript_keys)
+                if not transcript_keys_found:
+                    self.transcript_keys = self.transcript_index[:-4] + ".keys"
+                    transcript_keys_found = os.path.exists(self.transcript_keys)
+
             if not transcript_keys_found:
                 errors.append("Deduced transcript keys not found: %s" % (self.transcript_keys))
             else:
@@ -921,8 +1014,17 @@ index generated from your annotation.""")
                     Please check your read id's and make sure its either in casava >= 1.8 format or the
                     ids end with /1 and /2""")
 
-        if not silent and len(errors) > 0:
+        if not silent and len(errors) > 0 and self.write_config is None:
             raise PipelineError("Failed to initialize neccessary parameters:\n\n%s" % ("\n".join(errors)))
+        if self.write_config is not None:
+            # log configuration errors
+            logging.gemtools.warning("---------------------------------------------")
+            logging.gemtools.warning("Writing configuration")
+            logging.gemtools.warning("")
+            logging.gemtools.warning("Note that some of the parameters are missing:\n")
+            for e in errors:
+                logging.gemtools.warning("\t" + str(e))
+            logging.gemtools.warning("---------------------------------------------")
 
     def log_parameter(self):
         """Print selected parameters"""
@@ -984,7 +1086,7 @@ index generated from your annotation.""")
                 setattr(self, k, v)
         fd.close()
 
-    def write_pipeline(self):
+    def write_pipeline(self, file_name):
         """Write the pipeline and its configuration to a file
         based on the name
         """
@@ -993,6 +1095,7 @@ index generated from your annotation.""")
         # skip the steps here, we convert them manually
         del json_container["steps"]
         del json_container["run_steps"]
+        del json_container["write_config"]
         # remove non default values
         default_pipeline = MappingPipeline()
         default_pipeline.initialize(silent=True)
@@ -1000,30 +1103,19 @@ index generated from your annotation.""")
             if hasattr(default_pipeline, k) and getattr(default_pipeline, k) == v:
                 del json_container[k]
 
-        # json_steps = []
-        # for step in self.steps:
-        #     s = {
-        #         "id": step.id,
-        #         "name": step.name,
-        #         "description": step.description,
-        #         "dependencies": step.dependencies,
-        #         "configuration": step.configuration,
-        #         "files": step._files
-        #     }
-        #     json_steps.append(s)
-
         # json_container['piepline_steps'] = json_steps
-        file_name = "%s.gemtools" % (self.name)
-        logging.gemtools.info("Writing Pipeline to %s", file_name)
+
         fd = open(file_name, "w")
         json.dump(json_container, fd, indent=2, sort_keys=True)
         fd.close()
+        logging.gemtools.gt("Configuration saved to %s\n", file_name)
 
     def run(self):
         run_step = len(self.run_steps) > 0
 
-        if self.write_config and not run_step:
-            self.write_pipeline()
+        if self.write_config is not None:
+            self.write_pipeline(self.write_config)
+            return
         if self.dry:
             return
 
@@ -1188,9 +1280,10 @@ index generated from your annotation.""")
         """
         bam_group = parser.add_argument_group('BAM conversion')
         bam_group.add_argument('--map-quality', dest="bam_mapq", default=self.bam_mapq, help="Filter resulting bam for minimum map quality, Default %d" % self.bam_mapq)
-        bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=self.bam_create, help="Do not create bam file")
-        bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=self.bam_sort, help="Do not sort bam file")
-        bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=self.bam_index, help="Do not index the bam file")
+        bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=None, help="Do not create bam file")
+        bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=None, help="Do not sort bam file")
+        bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=None, help="Do not index the bam file")
+        bam_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
 
     def register_general(self, parser):
         """Register all general parameters with the given
@@ -1206,7 +1299,7 @@ index generated from your annotation.""")
             automatically and start a paired-end run. Add the --single-end parameter to disable
             pairing and file search. The file search for the second pair detects pairs
             ending in [_|.|-][0|1|2].[fq|fastq|txt][.gz].''')
-        general_group.add_argument('--single-end', dest="single_end", action="store_true", default=self.single_end, help="Single end reads")
+        general_group.add_argument('--single-end', dest="single_end", action="store_true", default=None, help="Single end reads")
         general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
             default=self.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
         general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
@@ -1224,17 +1317,16 @@ index generated from your annotation.""")
         general_group.add_argument('--max-read-length', dest="max_read_length", type=int, help='''The maximum read length. This is used to create the de-novo
             transcriptome and acts as an upper bound. Default %d''' % (self.max_read_length))
 
-        general_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=self.compress, help="Do not compress final mapping file")
-        general_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=self.compress_all, help="Compress also intermediate output")
-        general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=self.remove_temp, help="Keep temporary files")
+        general_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=None, help="Do not compress final mapping file")
+        general_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=None, help="Compress also intermediate output")
+        general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=None, help="Keep temporary files")
 
-        general_group.add_argument('--no-config', dest="write_config", action="store_false", default=True, help="Do not write a configuration file")
-        general_group.add_argument('--dry', dest="dry", action="store_true", default=False, help="Print and write configuration but do not start the pipeline")
+        general_group.add_argument('--save', dest="write_config", nargs="?", const=None, help="Write the given configuration to disk")
+        general_group.add_argument('--dry', dest="dry", action="store_true", default=None, help="Print and write configuration but do not start the pipeline")
         general_group.add_argument('--load', dest="load_configuration", default=None, metavar="cfg", help="Load pipeline configuration from file")
         general_group.add_argument('--run', dest="run_steps", type=int, default=None, nargs="+", metavar="cfg", help="Run given pipeline steps idenfified by the step id")
-        general_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
-        general_group.add_argument('--direct-input', dest="direct_input", default=False, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
-        general_group.add_argument('--force', dest="force", default=False, action="store_true", help="Force running all steps and skip checking for completed steps")
+        general_group.add_argument('--direct-input', dest="direct_input", default=None, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
+        general_group.add_argument('--force', dest="force", default=None, action="store_true", help="Force running all steps and skip checking for completed steps")
 
     def register_mapping(self, parser):
         """Register the genome mapping parameters with the
