@@ -125,15 +125,6 @@ void gt_filter_read__write() {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       }
 
-      // MMAP
-      GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
-        GT_ALIGNMENT_ITERATE(alignment,map) {
-          GT_MAP_ITERATE(map,map_block) {
-            printf("%lu\n",gt_map_get_length(map_block));
-          }
-        }
-      }
-
       // Hidden options (aborts the rest)
       if (parameters.error_plot || parameters.insert_size_plot) {
         if (parameters.error_plot) {
@@ -302,7 +293,7 @@ void parse_arguments(int argc,char** argv) {
    * Parameters check
    */
   if (parameters.realign_hamming || parameters.realign_levenshtein) {
-    if (parameters.name_reference_file==NULL) gt_error_msg("Reference file required to realign");
+    if (parameters.name_reference_file==NULL) gt_fatal_error_msg("Reference file required to realign");
   }
 }
 
@@ -312,6 +303,79 @@ int main(int argc,char** argv) {
 
   // Filter !
   gt_filter_read__write();
+
+//    gt_map* map = gt_map_new();
+//
+//  map->base_length = 25;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "AAAAAAAAAAAAAAAAAAAAAAAAA",map->base_length,
+//      "AAAA",4,false);
+//
+//  map->base_length = 25;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "AAAAAAAAAAAAGAAAAAAAAAAAA",map->base_length,
+//      "AAAATAAAAAAAAAAAAAAAACAAA",25,false);
+//
+//  map->base_length = 4;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "AAAA",map->base_length,
+//      "AAAAAAAAAAAAAAAAAAAAAAAAA",25,false);
+//
+//  map->base_length = 4;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "CCCC",map->base_length,
+//      "AAAAAAAAAACCCCAAAAAAAAAAA",25,false);
+//
+//  map->base_length = 19;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "AAAAAAAAAAAAAAAAAAA",map->base_length,
+//      "AAAAACCAAAACCCAAAAAAACAAA",25,false);
+//
+//  map->base_length = 25;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "AAAAAAAAAAAAAAAAAAAAAAAAA",map->base_length,
+//      "AAAATAAAAAAAAAAAAAAAAAAAAC",26,false);
+//
+//  map->base_length = 4;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "CCCC",map->base_length,
+//      "AAAAAAAAAACCCCAAAAAAAAAAA",25,true);
+
+//  map->base_length = 363;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "TAATTGCTATATCCCTCAAACATCCTTTACCCTGAAATCCCTTCTAATCCATCCTCTGCCACTGCTTCCAGATTATTCTCTCTGAAATCAAGTCTAATCATGTCACT"
+//      "TTTTAGCTTAAAATACTTCAATGGCACTCCATAGTTAACCAGACAGGAAGAAAGTAAAGCATACGGTCAAGAGTCCTGGCTCTAGAGTGAGACTGCCTGGGTTCAAA"
+//      "ATCCTAGTATGACAGTTAATAAATCTTAATACCTGTGTGAACTTGGGAGGATGACTTCACTTCTCCTTTGCCTTCAGTTGCTTATCTAAATGAGTTAATGTAATGTA"
+//      "AAGCACATGCCACACTGAAGTACTTTAATCAATATTAGCTGTTATTGTAAGTTCAAGTTTTGTAGTTAAATT",map->base_length,
+//      "TAATTGCTATATCCCTCAAACATCCTTTACCCTGAATCCCTTCTAATCCATCCTCTGCACTGCTTCCAGATTATTCTC"
+//      "TCTGAAAATCAAGTCTAATCATGTCACTTTTTAGCTTAAAATACTTCAATGGCACTCCATAGTTAACCAGACAGGAAG"
+//      "AAAGTAAAGCATACGGTCAAGAGTCCTGGCTCTAGAGTGAGACTGCCTGGGTTCAAATCCTAGTATGACAGTTAATAA"
+//      "ATCTTAATACCTGTGTGAACTTGGGAGGATGACTTCACTTCTCCTTTGCCTCAGTTGCTTTATCTAAATGAGTTAATG"
+//      "TATGTAAAGCACATGCCACACTGAAGTACTTTAATCAATATTAGCTGTTATTGTAAGTTCAAGTTTTGTAGTTTAAAT"
+//      "TCCTTAAGAAAACTCCCAAAAAACAGACGTCATATCATGATCTTGCCCCTTTCTACTACTTATGAACCTCCCCAAAGCTAT",471,true);
+
+//  map->base_length = 363;
+//  gt_map_realign_levenshtein(
+//      map,
+//      "TTAGATTGGGTTGGCTGGTATGCATGAAAATGACAGACCACTATAATTTTCCTTACAAAGAAAAATCTATGCAGTTGGA"
+//      "TGGTTTCTTTTAAAAATGAACTAATTTTGATTATTTGCTAACTTTCCCAGCTTTATTGTCCAGAAACAATAGTCCTTGG"
+//      "AATAAAGAAAATGTCAAAGAGTAAAACAAGCCAGCGCATTTAAATTGTAAGAATTATTTTTAAAAAATAAGATTGGACT"
+//      "GGACTGCAATTTTATAACTGAACCACATTTAATTCTATCTTGCATGGGGTCACTGCACAACATGATTTGAGTTCTCCTT"
+//      "AGAGCTTTCCCATCTCTTCCTAGGAGGCTGAAGAATTTATGGAGACA",map->base_length,
+//      "CCACTTTGATTGGGTTGGCTGGTAATGCATTGAAATGACAGACACTATAATTTTCCTTACAAAGAAAAATCTATGCAGTTG"
+//      "GATGGTTTCTTTAAAAATGAACTAATTTTGATTATTTGCTAACTTTCCCAGTTCTTATGTCAGAAACAATAGTCCTTGAAT"
+//      "AAAGAAAATGTCAAAGAGTAAAAACAAGCCAGCGCATTTAAATTGTAGAATTATTTTTAAAAAATAAGATTGGACTGGACT"
+//      "GCAATTTTATAACTGAACACATTTTAATTCTATCTTGCATGGGGTCACTGCACACATGATTTGAGTTCTCCTTAGAGCTTT"
+//      "CCCATCTCTTCCTAGGAGGCTGAAGAATTTATGGAGACAAAATAGGCAAGGACATTTCTTAGAGAATATGCAATGCAGTTC"
+//      "ATCCAGAATGACATCTTAGAGGTTATTTTG",435,true);
 
   return 0;
 }

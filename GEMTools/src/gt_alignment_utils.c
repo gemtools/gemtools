@@ -407,13 +407,17 @@ GT_INLINE void gt_alignment_realign_levenshtein(gt_alignment* const alignment,gt
   GT_ALIGNMENT_ITERATE(alignment,map) {
     if (gt_map_get_num_blocks(map)==1) {
       gt_map_realign_levenshtein_sa(map,alignment->read,sequence_archive,
-          GT_MAP_REALIGN_EXPANSION_FACTOR*gt_string_get_length(alignment->read));
-    } else {
+          GT_MAP_REALIGN_EXPANSION_FACTOR*gt_string_get_length(alignment->read),true);
+    } else { // Realigning SM (let's try not to spoil the splice-site consensus)
+      register uint64_t offset_read = 0;
+      register gt_string* read_chunks = gt_string_new(0);
       GT_MAP_ITERATE(map,map_block) {
-        gt_map_realign_levenshtein_sa(map_block,alignment->read,sequence_archive,0);
+        gt_string_set_nstring(read_chunks,gt_alignment_get_read(alignment)+offset_read,map_block->base_length);
+        gt_map_realign_levenshtein_sa(map_block,read_chunks,sequence_archive,0,false);
+        offset_read+=map_block->base_length;
       }
+      gt_string_delete(read_chunks);
     }
-
   }
   gt_alignment_recalculate_counters(alignment);
 }
@@ -426,7 +430,7 @@ GT_INLINE void gt_alignment_realign_weighted(
     if (gt_map_get_num_blocks(map)==1) {
       gt_map_realign_weighted_sa(map,alignment->read,sequence_archive,0,gt_weigh_fx);
     } else {
-      GT_MAP_ITERATE(map,map_block) {
+      GT_MAP_ITERATE(map,map_block) { // FIXME
         gt_map_realign_weighted_sa(map_block,alignment->read,sequence_archive,
             GT_MAP_REALIGN_EXPANSION_FACTOR*gt_string_get_length(alignment->read),gt_weigh_fx);
       }

@@ -238,9 +238,28 @@ void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_size);
 
 /*
  * Calculate stats
- *   BOTE: @seq_archive==NULL if no indel_profile is requested (default)
+ *   NOTE: @seq_archive==NULL if no indel_profile is requested (default)
  */
 GT_INLINE void gt_stats_calculate_template_stats(
     gt_stats* const stats,gt_template* const template,gt_sequence_archive* seq_archive,gt_stats_analysis* const stats_analysis);
+
+/*
+ * STATS Report Output Printers
+ */
+GT_INLINE void gt_stats_print_mmap_distribution(FILE* stream,uint64_t* const mmap,const uint64_t num_alignments,const uint64_t num_mapped);
+GT_INLINE void gt_stats_print_uniq_distribution(FILE* stream,uint64_t* const uniq,const uint64_t num_alignments);
+GT_INLINE void gt_stats_print_inss_distribution(FILE* stream,uint64_t* const inss,const uint64_t num_maps);
+GT_INLINE void gt_stats_print_error_event_distribution(FILE* stream,uint64_t* const error,const uint64_t num_maps);
+GT_INLINE void gt_stats_print_read_event_positions(FILE* stream,uint64_t* const pos_error,uint64_t const num_errors,uint64_t const max_length);
+GT_INLINE void gt_stats_print_num_junctions_distribution(FILE* stream,uint64_t* const num_junctions,uint64_t const total);
+GT_INLINE void gt_stats_print_length_junctions_distribution(FILE* stream,uint64_t* const length_junctions,uint64_t const total_junctions);
+GT_INLINE void gt_stats_print_junction_position_distribution(FILE* stream,uint64_t* const junction_position,uint64_t const total_junctions,uint64_t const max_length);
+GT_INLINE void gt_stats_print_qualities_error_distribution(FILE* stream,uint64_t* const qualities_error,uint64_t const total_error);
+GT_INLINE void gt_stats_print_misms_transition_table(FILE* stream,uint64_t* const misms_trans,uint64_t const total_misms);
+GT_INLINE void gt_stats_print_misms_transition_table_1context(FILE* stream,uint64_t* const misms_trans,uint64_t const total_misms);
+
+GT_INLINE void gt_stats_print_split_maps_stats(FILE* stream,gt_stats* const stats,const bool paired_end);
+GT_INLINE void gt_stats_print_maps_stats(gt_stats* const stats,const uint64_t num_reads,const bool paired_end);
+GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,const uint64_t num_reads,const bool paired_end);
 
 #endif /* GT_STATS_H_ */

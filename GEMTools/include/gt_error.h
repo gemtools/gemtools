@@ -267,6 +267,11 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_BUFFER_SAFETY_DUMP "Output buffer. Could not perform safety dump"
 
 /*
+ * Map Alignment
+ */
+#define GT_ERROR_MAP_ALG_WRONG_ALG "(Re)Aligning Map. Wrong alignment"
+
+/*
  * General purpose checkers
  */
 #define GT_NULL_CHECK(object) gt_fatal_check(object==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
