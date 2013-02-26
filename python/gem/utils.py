@@ -306,7 +306,7 @@ class ProcessWrapper(object):
             parent = self.processes[-1]
         if logging.getLogger().level is not logging.DEBUG and not self.force_debug:
             # create a temporary log file
-            tmpfile = tempfile.NamedTemporaryFile(suffix='.log', prefix=self.__command_name(command) + ".", dir=".", delete=(not self.keep_logfiles))
+            tmpfile = tempfile.NamedTemporaryFile(suffix='.log', prefix=self.__command_name(command) + ".", delete=(not self.keep_logfiles))
             logfile = tmpfile.name
             tmpfile.close()
 
