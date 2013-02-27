@@ -810,6 +810,9 @@ cdef class Stats(object):
     cpdef read(self, input, uint64_t threads=1):
         __calculate_stats(self, input, threads)
 
+    cpdef write(self, output):
+        gt_stats_print_stats(PyFile_AsFile(output), self.stats, self.paired)
+
     property min_length:
         def __get__(self):
             return self.stats.min_length

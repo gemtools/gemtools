@@ -179,3 +179,65 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
     // }
     // gt_output_file_close(output);
 }
+
+void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired_end) {
+  register uint64_t num_reads = stats->num_blocks;
+  /*
+   * General.Stats (Reads,Alignments,...)
+   */
+  fprintf(output,"[GENERAL.STATS]\n");
+  gt_stats_print_general_stats(output,stats,num_reads,paired_end);
+  /*
+   * Maps
+   */
+  // if (parameters.maps_profile) {
+    fprintf(output,"[MAPS.PROFILE]\n");
+    gt_stats_print_maps_stats(stats,num_reads,paired_end);
+  // }
+  if (paired_end) {
+    gt_stats_print_inss_distribution(output,stats->maps_profile->inss,stats->num_maps);
+  }
+  /*
+   * Print Quality Scores vs Errors/Misms
+   */
+  // if (parameters.mismatch_quality) {
+  {
+    register const gt_maps_profile* const maps_profile = stats->maps_profile;
+    if (maps_profile->total_mismatches > 0) {
+      fprintf(output,"[MISMATCH.QUALITY]\n");
+      gt_stats_print_qualities_error_distribution(
+          output,maps_profile->qual_score_misms,maps_profile->total_mismatches);
+    }
+    if (maps_profile->total_errors_events > 0) {
+      fprintf(output,"[ERRORS.QUALITY]\n");
+      gt_stats_print_qualities_error_distribution(
+          output,maps_profile->qual_score_errors,maps_profile->total_errors_events);
+    }
+  }
+  // }
+  /*
+   * Print Mismatch transition table
+   */
+  // if (parameters.mismatch_transitions) {
+  {
+    register const gt_maps_profile* const maps_profile = stats->maps_profile;
+    if (maps_profile->total_mismatches > 0) {
+      fprintf(output,"[MISMATCH.TRANSITIONS]\n");
+      fprintf(output,"MismsTransitions\n");
+      gt_stats_print_misms_transition_table(
+          output,maps_profile->misms_transition,maps_profile->total_mismatches);
+      fprintf(output,"MismsTransitions.1-Nucleotide.Context");
+      gt_stats_print_misms_transition_table_1context(
+          output,maps_profile->misms_1context,maps_profile->total_mismatches);
+    }
+  }
+  // }
+  /*
+   * Print Splitmaps profile
+   */
+  // if (parameters.splitmaps_profile) {
+    fprintf(output,"[SPLITMAPS.PROFILE]\n");
+    gt_stats_print_split_maps_stats(output,stats, paired_end);
+  // }
+}
+
