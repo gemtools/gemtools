@@ -485,7 +485,7 @@ void gt_constructor_template_merge_hung() {
   gt_template_merge_template_mmaps(source,target);
   gt_string* string = gt_string_new(1024);
   gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
-  gt_output_map_fprint_counters(stderr,gt_template_get_block(source,0)->counters,UINT64_MAX,false);
+  gt_output_map_fprint_counters(stderr,gt_template_get_block(source,0)->counters);
   gt_output_map_sprint_template(string, source, output_attributes);
   // convert to string
   char * line = gt_string_get_string(string);

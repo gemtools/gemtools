@@ -85,6 +85,7 @@
 #define GT_MAP_SCORE_SEP '/'
 
 #define GT_MAP_SEP_S ":"
+#define GT_MAP_NONE_S "-"
 #define GT_MAP_NEXT_S ","
 #define GT_MAP_MCS_S "+"
 #define GT_MAP_COUNTS_TIMES_S "x"
