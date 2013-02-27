@@ -1,3 +1,4 @@
+VERSION			   = "1.6"
 VIRTUALENV         = dist-utils/virtualenv.py
 VIRTUALENV_NAME    = environment
 
@@ -27,11 +28,29 @@ test-python: all
 package:
 	python setup.py package
 
+# pyinstaller distribution
+prep-dist: all
+	python setup.py build_ext -i
+
+fetch-pyinstaller:
+	test -s dist-utils/pyinstaller-2.0.tar.bz2 || curl -silent -L http://sourceforge.net/projects/pyinstaller/files/2.0/pyinstaller-2.0.tar.bz2/download > dist-utils/pyinstaller-2.0.tar.bz2
+
+install-pyinstaller: fetch-pyinstaller
+	test -s dist-utils/pyinstaller-2.0 || tar -C dist-utils xjvf pyinstaller-2.0.tar.bz2
+
+dist: prep-dist install-pyinstaller
+	@mkdir -p dist
+	./dist-utils/pyinstaller-2.0/pyinstaller.py -F -p python/ --hidden-import=gem --hidden-import=gem.gemtools -o dist/ -y python/gem/commands.py -n gemtools
+	python setup.py package_static
+
 clean:
 	$(MAKE) -C GEMTools clean
 	@rm -Rf build dist
 	@rm -Rf python/Gem.egg-info
 	@rm -Rf python/Gemtools.egg-info
+	@rm -Rf python/gem/*.so
+	@rm -Rf python/src/gemtools.c
+
 
 devel: venv
 venv: $(VIRTUALENV_NAME)/bin/activate

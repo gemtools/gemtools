@@ -109,6 +109,17 @@ class execs_dict(dict):
             f = pkg_resources.resource_filename("gem", "gembinaries/%s" % item)
             logging.debug("Using bundled binary : %s" % f)
             return f
+        # try to find from static distribution
+        if use_bundled_executables and len(sys.argv) > 0:
+            try:
+                base = os.path.split(os.path.abspath(sys.argv[0]))[0]
+                binary = base + "/" + item
+                if os.path.exists(binary):
+                    logging.debug("Using bundled binary : %s" % binary)
+                    return binary
+            except Exception:
+                pass
+
         logging.debug("Using binary from PATH: %s" % item)
         return dict.__getitem__(self, item)
 
