@@ -1309,6 +1309,7 @@ index generated from your annotation.""")
         """Register all parameters with the given
         arparse parser"""
         self.register_general(parser)
+        self.register_output(parser)
         self.register_filtering(parser)
         self.register_mapping(parser)
         self.register_transcript_mapping(parser)
@@ -1316,6 +1317,8 @@ index generated from your annotation.""")
         self.register_pairing(parser)
         self.register_bam(parser)
         self.register_stats(parser)
+        self.register_execution(parser)
+
 
     def register_filtering(self, parser):
         """Register all filtering parameters with given
@@ -1348,42 +1351,47 @@ index generated from your annotation.""")
 
         parser -- the argparse parser
         """
-        general_group = parser.add_argument_group('General')
+        input_group = parser.add_argument_group('Input')
         ## general pipeline paramters
-        general_group.add_argument('-f', '--files', dest="input", nargs="+", metavar="input",
+        input_group.add_argument('-f', '--files', dest="input", nargs="+", metavar="input",
             help='''Single fastq input file or both files for a paired-end run separated by space.
             Note that if you specify only one file, we will look for the file containing the other pairs
             automatically and start a paired-end run. Add the --single-end parameter to disable
             pairing and file search. The file search for the second pair detects pairs
             ending in [_|.|-][0|1|2].[fq|fastq|txt][.gz].''')
-        general_group.add_argument('--single-end', dest="single_end", action="store_true", default=None, help="Single end reads")
-        general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
+        input_group.add_argument('--single-end', dest="single_end", action="store_true", default=None, help="Single end reads")
+        input_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
             default=self.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
-        general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
-        general_group.add_argument('-a', '--annotation', dest="annotation", metavar="gtf", help='''Path to the GTF annotation. If specified the transcriptome generated from the annotation is
-            used in addition to de-novo junctions.''')
-        general_group.add_argument('-r', '--transcript-index', dest="transcript_index", help='''GTF Transcriptome index. If not specified and an annotation is given,
-            it is assumed to be <gtf>.junctions.gem''')
-        general_group.add_argument('-k', '--transcript-keys', dest="transcript_keys", help='''Transcriptome .keys file. If not specified and an annotation is given,
-            it is assumed to be <gtf>.junctions.keys''')
+        input_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
+        input_group.add_argument('--direct-input', dest="direct_input", default=None, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
 
-        general_group.add_argument('-n', '--name', dest="name", metavar="name", help="""Name used for the results. If not specified, the name is inferred from
+    def register_output(self, parser):
+        """Register all output parameters with the given
+        argparse parser
+
+        parser -- the argparse parser
+        """
+        output_group = parser.add_argument_group('Output')
+        output_group.add_argument('-n', '--name', dest="name", metavar="name", help="""Name used for the results. If not specified, the name is inferred from
             the input files""")
-        general_group.add_argument('-o', '--output-dir', dest="output_dir", metavar="dir", help='Optional output folder. If not specified the current working directory is used.')
-        general_group.add_argument('-t', '--threads', dest="threads", metavar="threads", type=int, help="Number of threads to use. Default %d" % self.threads)
-        general_group.add_argument('--max-read-length', dest="max_read_length", type=int, help='''The maximum read length. This is used to create the de-novo
-            transcriptome and acts as an upper bound. Default %d''' % (self.max_read_length))
+        output_group.add_argument('-o', '--output-dir', dest="output_dir", metavar="dir", help='Optional output folder. If not specified the current working directory is used.')
+        output_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=None, help="Do not compress final mapping file")
+        output_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=None, help="Compress all intermediate output")
+        output_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=None, help="Keep temporary files")
 
-        general_group.add_argument('-g', '--no-gzip', dest="compress", action="store_false", default=None, help="Do not compress final mapping file")
-        general_group.add_argument('--compress-all', dest="compress_all", action="store_true", default=None, help="Compress also intermediate output")
-        general_group.add_argument('--keep-temp', dest="remove_temp", action="store_false", default=None, help="Keep temporary files")
+    def register_execution(self, parser):
+        """Register the execution mapping parameters with the
+        given arparse parser
 
-        general_group.add_argument('--save', dest="write_config", nargs="?", const=None, help="Write the given configuration to disk")
-        general_group.add_argument('--dry', dest="dry", action="store_true", default=None, help="Print and write configuration but do not start the pipeline")
-        general_group.add_argument('--load', dest="load_configuration", default=None, metavar="cfg", help="Load pipeline configuration from file")
-        general_group.add_argument('--run', dest="run_steps", type=int, default=None, nargs="+", metavar="cfg", help="Run given pipeline steps idenfified by the step id")
-        general_group.add_argument('--direct-input', dest="direct_input", default=None, action="store_true", help="Skip preparation step and pipe the input directly into the first mapping step")
-        general_group.add_argument('--force', dest="force", default=None, action="store_true", help="Force running all steps and skip checking for completed steps")
+        parser -- the argparse parser
+        """
+        execution_group = parser.add_argument_group('Execution')
+        execution_group.add_argument('--save', dest="write_config", nargs="?", const=None, help="Write the given configuration to disk")
+        execution_group.add_argument('--dry', dest="dry", action="store_true", default=None, help="Print and write configuration but do not start the pipeline")
+        execution_group.add_argument('--load', dest="load_configuration", default=None, metavar="cfg", help="Load pipeline configuration from file")
+        execution_group.add_argument('--run', dest="run_steps", type=int, default=None, nargs="+", metavar="cfg", help="Run given pipeline steps idenfified by the step id")
+        execution_group.add_argument('--force', dest="force", default=None, action="store_true", help="Force running all steps and skip checking for completed steps")
+        execution_group.add_argument('-t', '--threads', dest="threads", metavar="threads", type=int, help="Number of threads to use. Default %d" % self.threads)
 
     def register_mapping(self, parser):
         """Register the genome mapping parameters with the
@@ -1410,6 +1418,13 @@ index generated from your annotation.""")
         """
         # transcript mapping parameter
         transcript_mapping_group = parser.add_argument_group('Transcript mapping parameters')
+        transcript_mapping_group.add_argument('-a', '--annotation', dest="annotation", metavar="gtf", help='''Path to the GTF annotation. If specified the transcriptome generated from the annotation is
+            used in addition to de-novo junctions.''')
+        transcript_mapping_group.add_argument('-r', '--transcript-index', dest="transcript_index", help='''GTF Transcriptome index. If not specified and an annotation is given,
+            it is assumed to be <gtf>.junctions.gem''')
+        transcript_mapping_group.add_argument('-k', '--transcript-keys', dest="transcript_keys", help='''Transcriptome .keys file. If not specified and an annotation is given,
+            it is assumed to be <gtf>.junctions.keys''')
+
         transcript_mapping_group.add_argument('-tm', '--transcript-mismatches', dest="transcript_mismatches", metavar="mm", help='Set the allowed mismatch ratio as 0 < mm < 1. Default to genome setting.')
         transcript_mapping_group.add_argument('--transcript-quality-threshold', dest="transcript_quality_threshold", metavar="qth", help='Good quality threshold. Bases with a quality score >= threshold are considered good. Default to genome setting.')
         transcript_mapping_group.add_argument('--transcript-max-decoded-matches', dest="transcript_max_decoded_matches", metavar="mdm", help='Maximum decoded matches. Default %d' % (self.transcript_max_decoded_matches))
@@ -1418,6 +1433,8 @@ index generated from your annotation.""")
         transcript_mapping_group.add_argument('--transcript-max-edit-distance', dest="transcript_max_edit_distance", metavar="med", help='Maximum edit distance (ratio) allowed for an alignment. Default to genome setting.')
         transcript_mapping_group.add_argument('--transcript-mismatch-alphabet', dest="transcript_mismatch_alphabet", metavar="alphabet", help='The mismatch alphabet. Default to genome setting.')
         transcript_mapping_group.add_argument('--transcript-strata-after-best', dest="transcript_strata_after_best", metavar="strata", help='The number of strata examined after the best one. Default to genome setting.')
+        transcript_mapping_group.add_argument('--max-read-length', dest="max_read_length", type=int, help='''The maximum read length. This is used to create the de-novo
+            transcriptome and acts as an upper bound. Default %d''' % (self.max_read_length))
 
     def register_junctions(self, parser):
         """Register the junction detection parameter with the
