@@ -221,6 +221,42 @@ class MergeAndPairStep(PipelineStep):
         return [self.pipeline.open_step(i) for i in self.dependencies if i >= 0]
 
 
+class CreateStatsStep(PipelineStep):
+    """Create stats file"""
+
+    def files(self):
+        if self._files is None:
+            self._files = []
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix=".stats.all", file_suffix="txt", final=self.final))
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix=".stats.all", file_suffix="json", final=self.final))
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix=".stats.best", file_suffix="txt", final=self.final))
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix=".stats.best", file_suffix="json", final=self.final))
+        return self._files
+
+    def run(self):
+        cfg = self.configuration
+
+        infile = self._input()
+        best_stats = gt.Stats(True, cfg["stats_paired"])
+        all_stats = gt.Stats(False, cfg["stats_paired"])
+
+        gt.read_stats(infile, all_stats, best_stats, threads=self.pipeline.threads)
+
+        out = self.files()
+
+        if cfg['stats_json'] is not None:
+            with open(out[1], 'w') as f:
+                json.dump(all_stats.__dict__, f)
+            with open(out[3], 'w') as f:
+                json.dump(best_stats.__dict__, f)
+
+        with open(out[0], 'w') as f:
+            all_stats.write(f)
+
+        with open(out[2], 'w') as f:
+            best_stats.write(f)
+
+
 class CreateBamStep(PipelineStep):
     """Create BAM file"""
 
@@ -575,6 +611,10 @@ class MappingPipeline(object):
         self.pairing_max_extendable_matches = 0
         self.pairing_max_matches_per_extension = 0
 
+        # stats parameter
+        self.stats_create = True
+        self.stats_json = False
+
         if args is not None:
             # initialize from arguments
             # load configuration
@@ -749,6 +789,20 @@ class MappingPipeline(object):
         config.min_split_size = self.junctions_min_split_size
         config.matches_threshold = self.junctions_matches_threshold
         config.coverage = self.junctions_coverage
+
+        if configuration is not None:
+            self.__update_dict(config, configuration)
+
+        step.prepare(len(self.steps), self, config)
+        self.steps.append(step)
+        return step.id
+
+    def create_stats(self, name, configuration=None, dependencies=None, final=False, description="Create stats"):
+        step = CreateStatsStep(name, dependencies=dependencies, final=final, description=description)
+        config = dotdict()
+
+        config.stats_json = self.stats_json
+        config.stats_paired = not self.single_end
 
         if configuration is not None:
             self.__update_dict(config, configuration)
@@ -1206,16 +1260,18 @@ index generated from your annotation.""")
         """
         pass
 
-    def create_file_name(self, suffix, file_suffix="map", final=False):
+    def create_file_name(self, suffix, name_suffix=None, file_suffix="map", final=False):
         """Create a result file name"""
         file = ""
         if final:
             suffix = None
+        if name_suffix is None:
+            name_suffix = ""
 
         if suffix is not None and len(suffix) > 0:
-            file = "%s/%s_%s.%s" % (self.output_dir, self.name, suffix, file_suffix)
+            file = "%s/%s%s_%s.%s" % (self.output_dir, self.name, name_suffix, suffix, file_suffix)
         else:
-            file = "%s/%s.%s" % (self.output_dir, self.name, file_suffix)
+            file = "%s/%s%s.%s" % (self.output_dir, self.name, name_suffix, file_suffix)
         if (self.compress_all or final and self.compress) and file_suffix in ["map", "fastq"]:
             file += ".gz"
         return file
@@ -1259,6 +1315,7 @@ index generated from your annotation.""")
         self.register_junctions(parser)
         self.register_pairing(parser)
         self.register_bam(parser)
+        self.register_stats(parser)
 
     def register_filtering(self, parser):
         """Register all filtering parameters with given
@@ -1395,4 +1452,15 @@ index generated from your annotation.""")
         pairing_group.add_argument('--pairing-min-decoded-strata', dest="pairing_min_decoded_strata", metavar="pds", help='Minimum decoded strata. Default to %d' % self.pairing_min_decoded_strata)
         pairing_group.add_argument('--pairing-min-insert-size', dest="pairing_min_insert_size", metavar="is", help='Minimum insert size allowed for pairing. Default %d' % self.pairing_min_insert_size)
         pairing_group.add_argument('--pairing-max-insert-size', dest="pairing_max_insert_size", metavar="is", help='Maximum insert size allowed for pairing. Default to max intron size')
+
+    def register_stats(self, parser):
+        """Register stats parameter with the
+        given arparse parser
+
+        parser -- the argparse parser
+        """
+        stats_group = parser.add_argument_group('Stats')
+
+        stats_group.add_argument('--no-stats', dest="stats_create", default=None, action="store_false", help='Skip creating stats')
+        stats_group.add_argument('--stats-json', dest="stats_json", default=None, action="store_true", help='Write a json file with the statistics in addition to the normal stats output.')
 

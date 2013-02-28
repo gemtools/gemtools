@@ -249,6 +249,10 @@ class RnaPipeline(Command):
         else:
             merged = pipeline.merge(name="merge", dependencies=[map_initial, map_gtf, map_denovo], final=True)
 
+        # add stats
+        if pipeline.stats_create:
+            pipeline.create_stats(name="stats", dependencies=[merged], final=True)
+
         # add the bam step
         if pipeline.bam_create:
             bam = pipeline.bam(name="bam", dependencies=[merged], final=True)

@@ -33,10 +33,10 @@ prep-dist: all
 	python setup.py build_ext -i
 
 fetch-pyinstaller:
-	test -s dist-utils/pyinstaller-2.0.tar.bz2 || curl -silent -L http://sourceforge.net/projects/pyinstaller/files/2.0/pyinstaller-2.0.tar.bz2/download > dist-utils/pyinstaller-2.0.tar.bz2
+	test -s dist-utils/pyinstaller-2.0.tar.bz2 || wget -O dist-utils/pyinstaller-2.0.tar.bz2  http://sourceforge.net/projects/pyinstaller/files/2.0/pyinstaller-2.0.tar.bz2/download
 
 install-pyinstaller: fetch-pyinstaller
-	test -s dist-utils/pyinstaller-2.0 || tar -C dist-utils xjvf pyinstaller-2.0.tar.bz2
+	test -s dist-utils/pyinstaller-2.0 || tar -C dist-utils xjvf dist-utils/pyinstaller-2.0.tar.bz2
 
 dist: prep-dist install-pyinstaller
 	@mkdir -p dist

@@ -808,7 +808,10 @@ cdef class Stats(object):
         gt_stats_delete(self.stats)
 
     cpdef read(self, input, uint64_t threads=1):
-        __calculate_stats(self, input, threads)
+        if self.best_map:
+            __calculate_stats(None, self, input, threads)
+        else:
+            __calculate_stats(self, None, input, threads)
 
     cpdef write(self, output):
         gt_stats_print_stats(PyFile_AsFile(output), self.stats, self.paired)
@@ -1085,21 +1088,35 @@ cdef class StatsMapProfile(object):
             }
 
 
-cpdef __run_stats(stats, source, uint64_t threads=1):
-    process = multiprocessing.Process(target=__calculate_stats, args=(stats, source,))
-    process.start()
-    process.join()
-    return process
+cpdef read_stats(source, Stats all=None, Stats best=None, uint64_t threads=1):
+    """Calculate stats from input and do this optionally for two stats
+    at once, one for all mappings, and one for only the best mappings.
+    """
+    #__run_stats(all, best, source, threads)
+    __calculate_stats(all, best, source, threads)
 
-cpdef __calculate_stats(Stats stats, source, uint64_t threads=1):
+# cpdef __run_stats(all_stats, best_stats, source, uint64_t threads=1):
+#     process = multiprocessing.Process(target=__calculate_stats, args=(all_stats, best_stats, source, threads))
+#     process.start()
+#     process.join()
+
+#     return process
+
+cpdef __calculate_stats(Stats all_stats, Stats best_stats, source, uint64_t threads=1):
     cdef gt_input_file* input = <gt_input_file*> (<InputFile>source)._open()
     cdef uint64_t use_threads = threads
-    cdef gt_stats* target = stats.stats
-    cdef bool best_map = stats.best_map
-    cdef bool paired = stats.paired
+    cdef gt_stats* target_all = NULL
+    cdef gt_stats* target_best = NULL
+    cdef bool paired = True
+    if all_stats is not None:
+        target_all = all_stats.stats
+        paired = all_stats.paired
+    if best_stats is not None:
+        target_best = best_stats.stats
+        paired = best_stats.paired
 
     with nogil:
-        gt_stats_fill(input, target, threads, paired, best_map)
+        gt_stats_fill(input, target_all, target_best, threads, paired)
 
     #gt_input_file_close(input)
 

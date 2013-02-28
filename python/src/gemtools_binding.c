@@ -5,15 +5,19 @@ GEMTools python binding utilities
 #include <omp.h>
 
 
-void gt_stats_fill(gt_input_file* input_file, gt_stats* target_stats, uint64_t num_threads, bool paired_end, bool best_map){
+void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_stats* target_best_stats, uint64_t num_threads, bool paired_end){
 // Stats info
-  gt_stats** stats = malloc(num_threads*sizeof(gt_stats*));
-  stats[0] = target_stats;
+  gt_stats** all_stats = malloc(num_threads*sizeof(gt_stats*));
+  all_stats[0] = target_all_stats;
+  gt_stats** best_stats = malloc(num_threads*sizeof(gt_stats*));
+  best_stats[0] = target_best_stats;
 
-  gt_stats_analysis params = GT_STATS_ANALYSIS_DEFAULT();
-  params.best_map = true;
+  gt_stats_analysis params_all = GT_STATS_ANALYSIS_DEFAULT();
+  params_all.best_map = false;
+  gt_stats_analysis params_best = GT_STATS_ANALYSIS_DEFAULT();
+  params_best.best_map = true;
 
-  //params.indel_profile = true
+  //params_all.indel_profile = true
   // Parallel reading+process
   #pragma omp parallel num_threads(num_threads)
   {
@@ -23,27 +27,39 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_stats, uint64_t n
     gt_status error_code;
     gt_template *template = gt_template_new();
     if(tid > 0){
-        stats[tid] = gt_stats_new();
+        all_stats[tid] = gt_stats_new();
+        best_stats[tid] = gt_stats_new();
     }
     gt_generic_parser_attr* generic_parser_attr =  gt_input_generic_parser_attributes_new(paired_end);
     while ((error_code=gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file\n");
       }
-      // Extract stats
-      gt_stats_calculate_template_stats(stats[tid],template,NULL, &params);
-
+      // Extract all_stats
+      if(target_all_stats != NULL){
+        gt_stats_calculate_template_stats(all_stats[tid],template,NULL, &params_all);
+      }
+      if(target_best_stats != NULL){
+        gt_stats_calculate_template_stats(best_stats[tid],template,NULL, &params_best);
+      }
     }
     // Clean
     gt_template_delete(template);
+    // gt_template_delete(template_copy);
     gt_buffered_input_file_close(buffered_input);
   }
 
-  // Merge stats
-  gt_stats_merge(stats, num_threads);
+  // Merge all_stats
+  if(target_all_stats != NULL){
+    gt_stats_merge(all_stats, num_threads);
+  }
+  if(target_best_stats != NULL){
+    gt_stats_merge(best_stats, num_threads);
+  }
 
   // Clean
-  free(stats);
+  free(all_stats);
+  free(best_stats);
   gt_input_file_close(input_file);
 }
 
@@ -192,7 +208,7 @@ void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired
    */
   // if (parameters.maps_profile) {
     fprintf(output,"[MAPS.PROFILE]\n");
-    gt_stats_print_maps_stats(stats,num_reads,paired_end);
+    gt_stats_print_maps_stats(output, stats,num_reads,paired_end);
   // }
   if (paired_end) {
     gt_stats_print_inss_distribution(output,stats->maps_profile->inss,stats->num_maps);
@@ -240,4 +256,6 @@ void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired
     gt_stats_print_split_maps_stats(output,stats, paired_end);
   // }
 }
+
+
 
