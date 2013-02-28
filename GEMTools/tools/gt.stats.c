@@ -69,7 +69,7 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
    */
   if (parameters.maps_profile) {
     fprintf(stderr,"[MAPS.PROFILE]\n");
-    gt_stats_print_maps_stats(stats,num_reads,paired_end);
+    gt_stats_print_maps_stats(stderr,stats,num_reads,paired_end);
   }
   if (paired_end) {
     gt_stats_print_inss_distribution(stderr,stats->maps_profile->inss,stats->num_maps);
