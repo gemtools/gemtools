@@ -4,6 +4,7 @@ import argparse
 import gem
 import gem.production
 import sys
+from sys import exit
 
 __VERSION__ = "1.6"
 

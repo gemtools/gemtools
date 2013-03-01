@@ -464,6 +464,31 @@ class ExtractJunctionsStep(PipelineStep):
         gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
         return self.junctions_out
 
+class SplitMapStep(PipelineStep):
+    """Call the split mapper"""
+
+    def run(self):
+        """Extract denovo junctions"""
+        cfg = self.configuration
+        splitmap = gem.splitmapper(self._input(),
+                cfg["index"],
+                output=self._final_output(),
+                mismatches=cfg["mismatches"],
+                splice_consensus=cfg["junctions_consensus"],
+                filter=cfg["filter"],
+                refinement_step_size=cfg["refinement_step_size"],
+                min_split_size=cfg["min_split_size"],
+                matches_threshold=cfg["matches_threshold"],
+                strata_after_first=cfg["strata_after_best"],
+                mismatch_alphabet=cfg["mismatch_alphabet"],
+                quality=self.pipeline.quality,
+                trim=cfg["trim"],
+                filter_splitmaps=True,
+                post_validate=True,
+                threads=self.pipeline.threads,
+                extra=None)
+        return splitmap
+
 
 class TranscriptMapStep(PipelineStep):
     """Transcript Mapping step"""
@@ -644,8 +669,8 @@ class MappingPipeline(object):
         if source is None:
             return
         for k, v in source.items():
-            if v is not None:
-                target[k] = v
+            #if v is not None:
+            target[k] = v
 
     def map(self, name, configuration=None, dependencies=None, final=False, description=""):
         """Add mapping step"""
@@ -670,6 +695,34 @@ class MappingPipeline(object):
         step.prepare(len(self.steps), self, config)
         self.steps.append(step)
         return step.id
+
+
+    def splitmap(self, name, configuration=None, dependencies=None, final=False, description=""):
+        """Add split-mapping step"""
+        step = SplitMapStep(name, final=final, dependencies=dependencies, description=description)
+        config = dotdict()
+
+        config.index = self.index
+        config.mismatches = self.junction_mismatches
+        config.junctions_consensus = self.junctions_consensus
+        config.filter = self.junctions_filtering
+        config.refinement_step_size = self.junctions_refinement_step_size
+        config.min_split_size = self.junctions_min_split_size
+        config.matches_threshold = self.junctions_matches_threshold
+        config.strata_after_best = self.junctions_strata_after_best
+        config.mismatch_alphabet = self.genome_mismatch_alphabet
+        config.max_edit_distance = self.genome_max_edit_distance
+        config.mismatch_alphabet = self.genome_mismatch_alphabet
+        config.strata_after_best = self.genome_strata_after_best
+        config.trim = None
+
+        if configuration is not None:
+            self.__update_dict(config, configuration)
+
+        step.prepare(len(self.steps), self, config)
+        self.steps.append(step)
+        return step.id
+
 
     def pair(self, name, configuration=None, dependencies=None, final=False, description=""):
         """Add mapping step"""

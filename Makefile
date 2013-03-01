@@ -49,6 +49,7 @@ clean:
 	@rm -Rf python/Gem.egg-info
 	@rm -Rf python/Gemtools.egg-info
 	@rm -Rf python/gem/*.so
+	@rm -Rf python/gem/*.pyc
 	@rm -Rf python/src/gemtools.c
 
 

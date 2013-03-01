@@ -5,7 +5,7 @@ import os
 import logging
 import json
 import sys
-
+from sys import exit
 
 import gem
 import gem.commands

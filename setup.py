@@ -199,7 +199,7 @@ class install(_install):
             # find target folder
             install_dir = None
             for file in self.get_outputs():
-                if file.endswith("python/gem/__init__.py"):
+                if file.endswith("/gem/__init__.py"):
                     install_dir = "%s/gembinaries" % os.path.split(file)[0]
                     break
 
