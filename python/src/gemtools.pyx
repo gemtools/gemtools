@@ -5,6 +5,8 @@ import sys
 import multiprocessing
 import string
 
+from cython.parallel import parallel, prange
+
 cdef class TemplateFilter(object):
     """Filter templates. Override the filter
     method to modify the filter.
@@ -806,7 +808,13 @@ cdef class Stats(object):
         gt_stats_delete(self.stats)
 
     cpdef read(self, input, uint64_t threads=1):
-        __calculate_stats(self, input, threads)
+        if self.best_map:
+            __calculate_stats(None, self, input, threads)
+        else:
+            __calculate_stats(self, None, input, threads)
+
+    cpdef write(self, output):
+        gt_stats_print_stats(PyFile_AsFile(output), self.stats, self.paired)
 
     property min_length:
         def __get__(self):
@@ -1080,23 +1088,64 @@ cdef class StatsMapProfile(object):
             }
 
 
-cpdef __run_stats(stats, source, uint64_t threads=1):
-    process = multiprocessing.Process(target=__calculate_stats, args=(stats, source,))
-    process.start()
-    process.join()
-    return process
+cpdef read_stats(source, Stats all=None, Stats best=None, uint64_t threads=1):
+    """Calculate stats from input and do this optionally for two stats
+    at once, one for all mappings, and one for only the best mappings.
+    """
+    #__run_stats(all, best, source, threads)
+    __calculate_stats(all, best, source, threads)
 
-cpdef __calculate_stats(Stats stats, source, uint64_t threads=1):
+# cpdef __run_stats(all_stats, best_stats, source, uint64_t threads=1):
+#     process = multiprocessing.Process(target=__calculate_stats, args=(all_stats, best_stats, source, threads))
+#     process.start()
+#     process.join()
+
+#     return process
+
+cpdef __calculate_stats(Stats all_stats, Stats best_stats, source, uint64_t threads=1):
     cdef gt_input_file* input = <gt_input_file*> (<InputFile>source)._open()
     cdef uint64_t use_threads = threads
-    cdef gt_stats* target = stats.stats
-    cdef bool best_map = stats.best_map
-    cdef bool paired = stats.paired
+    cdef gt_stats* target_all = NULL
+    cdef gt_stats* target_best = NULL
+    cdef bool paired = True
+    if all_stats is not None:
+        target_all = all_stats.stats
+        paired = all_stats.paired
+    if best_stats is not None:
+        target_best = best_stats.stats
+        paired = best_stats.paired
 
     with nogil:
-        gt_stats_fill(input, target, threads, paired, best_map)
+        gt_stats_fill(input, target_all, target_best, threads, paired)
 
     #gt_input_file_close(input)
+
+
+# cdef class TestFilter(object):
+#     cdef InputFile input_file
+
+#     def __init__(self, InputFile input_file):
+#         self.input_file = input_file
+
+#     cpdef go(self):
+#         cdef gt_input_file* inf = self.input_file._open()
+#         cdef Py_ssize_t idx, i, n = 100
+#         #with nogil, parallel(num_threads=4):
+#         for i in prange(4, nogil=True):
+#             do_stuff(inf, i)
+
+
+# cdef void do_stuff(gt_input_file* inf, Py_ssize_t i) nogil:
+#     cdef gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(inf)
+#     cdef gt_template* template = gt_template_new()
+#     cdef gt_generic_parser_attr* generic_parser_attr =  gt_input_generic_parser_attributes_new(False)
+#     cdef gt_status status = gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr)
+#     while status == GT_STATUS_OK:
+#         with gil:
+#             print gt_template_get_tag(template), i
+#         status = gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr)
+#     gt_template_delete(template)
+#     gt_buffered_input_file_close(buffered_input)
 
 
 

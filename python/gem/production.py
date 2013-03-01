@@ -3,7 +3,9 @@
 #!/usr/bin/env python
 import os
 import logging
+import json
 import sys
+
 
 import gem
 import gem.commands
@@ -49,11 +51,23 @@ class Stats(Command):
         parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
         parser.add_argument('-p', '--paired', dest="paired", action="store_true", default=False, help="Paired end reads")
         parser.add_argument('-b', '--best', dest="best", action="store_true", default=False, help="Calculates stats only for the best maps")
+        parser.add_argument('--json', dest="json", default=None, help='Output stats as json to specified file')
 
     def run(self, args):
         infile = gem.files.open(args.input)
         stats = gt.Stats(args.best, args.paired)
         stats.read(infile, args.threads)
+
+        if args.json is not None:
+            with open(args.json, 'w') as f:
+                json.dump(stats.__dict__, f)
+
+        of = sys.stdout
+        if args.output is not None:
+            of = open(args.output, 'w')
+        stats.write(of)
+        of.close()
+
 
 
 class Junctions(Command):
@@ -82,6 +96,7 @@ class Index(Command):
         ## required parameters
         parser.add_argument('-i', '--input', dest="input", help='Path to a single uncompressed fasta file with the genome', required=True)
         parser.add_argument('-o', '--output', dest="output", help='Output file name (has to end in .gem), defaults to input file name + .gem extension')
+        parser.add_argument('--no-hash', dest="create_hash", default=True, action="store_false", help='Don not create the .hash file')
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads', default=2)
 
     def run(self, args):
@@ -98,7 +113,43 @@ class Index(Command):
         if input.endswith(".gz"):
             raise CommandException("Compressed input is currently not supported!")
 
+        logging.gemtools.gt("Creating index")
         gem.index(input, output, threads=args.threads)
+
+        if args.create_hash:
+            logging.gemtools.gt("Creating hash")
+            hash_name = output[:-4] + ".hash"
+            gem.hash(input, hash_name)
+
+
+class Hash(Command):
+    title = "Hash genomes"
+    description = """Create a .hash file out of a fasta genome
+    """
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-i', '--input', dest="input", help='Path to a single uncompressed fasta file with the genome', required=True)
+        parser.add_argument('-o', '--output', dest="output", help='Output file name (has to end in .hash), defaults to input file name + .hash extension')
+
+    def run(self, args):
+        input = args.input
+        output = os.path.basename(input)
+        if args.output is not None:
+            output = args.output
+        else:
+            output = output[:output.rfind(".")] + ".hash"
+
+        if not output.endswith(".hash"):
+            raise CommandException("Output file name has to end in .hash")
+
+        if not os.path.exists(input):
+            raise CommandException("Input file not found : %s" % input)
+
+        if input.endswith(".gz"):
+            raise CommandException("Compressed input is currently not supported!")
+
+        gem.hash(input, output)
 
 
 class TranscriptIndex(Command):
@@ -197,6 +248,10 @@ class RnaPipeline(Command):
             merged = pipeline.merge_and_pair(name="merge_and_pair", dependencies=[map_initial, map_gtf, map_denovo], final=True)
         else:
             merged = pipeline.merge(name="merge", dependencies=[map_initial, map_gtf, map_denovo], final=True)
+
+        # add stats
+        if pipeline.stats_create:
+            pipeline.create_stats(name="stats", dependencies=[merged], final=True)
 
         # add the bam step
         if pipeline.bam_create:

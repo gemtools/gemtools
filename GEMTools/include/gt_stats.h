@@ -259,7 +259,7 @@ GT_INLINE void gt_stats_print_misms_transition_table(FILE* stream,uint64_t* cons
 GT_INLINE void gt_stats_print_misms_transition_table_1context(FILE* stream,uint64_t* const misms_trans,uint64_t const total_misms);
 
 GT_INLINE void gt_stats_print_split_maps_stats(FILE* stream,gt_stats* const stats,const bool paired_end);
-GT_INLINE void gt_stats_print_maps_stats(gt_stats* const stats,const uint64_t num_reads,const bool paired_end);
+GT_INLINE void gt_stats_print_maps_stats(FILE* stream, gt_stats* const stats,const uint64_t num_reads,const bool paired_end);
 GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,const uint64_t num_reads,const bool paired_end);
 
 #endif /* GT_STATS_H_ */

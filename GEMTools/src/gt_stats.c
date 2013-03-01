@@ -906,61 +906,55 @@ GT_INLINE void gt_stats_print_misms_transition_table_1context(FILE* stream,uint6
 GT_INLINE void gt_stats_print_split_maps_stats(FILE* stream,gt_stats* const stats,const bool paired_end) {
   register gt_splitmaps_profile* const splitmap_stats = stats->splitmaps_profile;
   if (splitmap_stats->total_splitmaps==0) {
-    fprintf(stderr,"SM.Total \t 0\n");
+    fprintf(stream,"SM.Total \t 0\n");
   } else {
-    fprintf(stderr,"SM.Num.mapped.withSM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_with_splitmaps,
+    fprintf(stream,"SM.Num.mapped.withSM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_with_splitmaps,
         GT_STATS_GET_PERCENTAGE(splitmap_stats->num_mapped_with_splitmaps,stats->num_mapped));
-    fprintf(stderr,"SM.Num.mapped.onlyBySM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_only_splitmaps,
+    fprintf(stream,"SM.Num.mapped.onlyBySM \t %" PRIu64 " (%2.3f%%)\n",splitmap_stats->num_mapped_only_splitmaps,
         GT_STATS_GET_PERCENTAGE(splitmap_stats->num_mapped_only_splitmaps,stats->num_mapped));
-    fprintf(stderr,"SM.Num.Splitted.Segments \t %" PRIu64 " (%2.3f SplitMaps/Maps)\n",splitmap_stats->total_splitmaps,
+    fprintf(stream,"SM.Num.Splitted.Segments \t %" PRIu64 " (%2.3f SplitMaps/Maps)\n",splitmap_stats->total_splitmaps,
         GT_STATS_GET_PERCENTAGE(splitmap_stats->total_splitmaps,stats->num_blocks));
-    fprintf(stderr,"SM.Num.Junctions \t %" PRIu64 " (%2.3f Junctions/SplitMaps)\n",splitmap_stats->total_junctions,
+    fprintf(stream,"SM.Num.Junctions \t %" PRIu64 " (%2.3f Juntions/SplitMaps)\n",splitmap_stats->total_junctions,
         GT_STATS_DIV_F(splitmap_stats->total_junctions,splitmap_stats->total_splitmaps));
     gt_stats_print_num_junctions_distribution(stream,splitmap_stats->num_junctions,splitmap_stats->total_splitmaps);
     gt_stats_print_length_junctions_distribution(stream,splitmap_stats->length_junctions,splitmap_stats->total_junctions);
     gt_stats_print_junction_position_distribution(stream,splitmap_stats->junction_position,splitmap_stats->total_junctions,stats->max_length);
     if (paired_end) {
-      fprintf(stderr,"SM.PE.Combinations\n");
-      fprintf(stderr,"  --> SM+SM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_sm_sm,100.0*(float)splitmap_stats->pe_sm_sm/(float)stats->num_maps);
-      fprintf(stderr,"  --> SM+RM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_sm_rm,100.0*(float)splitmap_stats->pe_sm_rm/(float)stats->num_maps);
-      fprintf(stderr,"  --> RM+RM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_rm_rm,100.0*(float)splitmap_stats->pe_rm_rm/(float)stats->num_maps);
+      fprintf(stream,"SM.PE.Combinations\n");
+      fprintf(stream,"  --> SM+SM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_sm_sm,100.0*(float)splitmap_stats->pe_sm_sm/(float)stats->num_maps);
+      fprintf(stream,"  --> SM+RM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_sm_rm,100.0*(float)splitmap_stats->pe_sm_rm/(float)stats->num_maps);
+      fprintf(stream,"  --> RM+RM %" PRIu64 " (%2.3f)\n",splitmap_stats->pe_rm_rm,100.0*(float)splitmap_stats->pe_rm_rm/(float)stats->num_maps);
     }
   }
 }
-GT_INLINE void gt_stats_print_maps_stats(gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
+GT_INLINE void gt_stats_print_maps_stats(FILE* stream, gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
   register const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
   // Total bases (aligned/trimmed/unaligned)
   register const gt_maps_profile* const maps_profile = stats->maps_profile;
-  fprintf(stderr,"  --> Total.Bases %" PRIu64 " (%2.3f per map) \n",
+  fprintf(stream,"  --> Total.Bases %" PRIu64 " (%2.3f per map) \n",
       maps_profile->total_bases,GT_STATS_DIV_F(maps_profile->total_bases,stats->num_maps));
-  fprintf(stderr,"    --> Bases.Matching %" PRIu64 " (%2.3f) \n",
+  fprintf(stream,"    --> Bases.Matching %" PRIu64 " (%2.3f) \n",
       maps_profile->total_bases_matching,GT_STATS_GET_PERCENTAGE(maps_profile->total_bases_matching,maps_profile->total_bases));
-  fprintf(stderr,"    --> Bases.Trimmed %" PRIu64 " (%2.3f) \n",
+  fprintf(stream,"    --> Bases.Trimmed %" PRIu64 " (%2.3f) \n",
       maps_profile->total_bases_trimmed,GT_STATS_GET_PERCENTAGE(maps_profile->total_bases_trimmed,maps_profile->total_bases));
-  gt_stats_print_mmap_distribution(stderr,stats->mmap,num_templates,stats->num_mapped);
-  gt_stats_print_uniq_distribution(stderr,stats->uniq,num_templates);
-  fprintf(stderr,"[ERROR.PROFILE]\n");
-  fprintf(stderr,"  --> Total.Mismatches %" PRIu64 " (%2.3f per map) \n",
+  gt_stats_print_mmap_distribution(stream,stats->mmap,num_templates,stats->num_mapped);
+  gt_stats_print_uniq_distribution(stream,stats->uniq,num_templates);
+  fprintf(stream,"[ERROR.PROFILE]\n");
+  fprintf(stream,"  --> Total.Mismatches %" PRIu64 " (%2.3f per map) \n",
       maps_profile->total_mismatches,GT_STATS_DIV_F(maps_profile->total_mismatches,stats->num_maps));
-  fprintf(stderr,"  --> Total.Errors %" PRIu64 " (%2.3f per map) \n",
+  fprintf(stream,"  --> Total.Errors %" PRIu64 " (%2.3f per map) \n",
       maps_profile->total_errors_events,GT_STATS_DIV_F(maps_profile->total_errors_events,stats->num_maps));
-  fprintf(stderr,"  --> Total.Indels.Length %" PRIu64 " (%2.3f per map) \n",
+  fprintf(stream,"  --> Total.Indels.Length %" PRIu64 " (%2.3f per map) \n",
       maps_profile->total_indel_length,GT_STATS_DIV_F(maps_profile->total_indel_length,stats->num_maps));
-  fprintf(stderr,"  --> Total.Levenshtein %" PRIu64 " (%2.3f per map) \n",
+  fprintf(stream,"  --> Total.Levenshtein %" PRIu64 " (%2.3f per map) \n",
       maps_profile->total_levenshtein,GT_STATS_DIV_F(maps_profile->total_levenshtein,stats->num_maps));
   if (stats->num_maps > 0) {
-    fprintf(stderr,"Mismatch.Distribution\n");
-    gt_stats_print_error_event_distribution(stderr,stats->maps_profile->mismatches,stats->num_maps);
-    fprintf(stderr,"Insertion.Length.Distribution\n");
-    gt_stats_print_error_event_distribution(stderr,stats->maps_profile->insertion_length,stats->num_maps);
-    fprintf(stderr,"Deletion.Length.Distribution\n");
-    gt_stats_print_error_event_distribution(stderr,stats->maps_profile->deletion_length,stats->num_maps);
-    fprintf(stderr,"Levenshtein.Distribution\n");
-    gt_stats_print_error_event_distribution(stderr,stats->maps_profile->levenshtein,stats->num_maps);
-    fprintf(stderr,"Error.Distribution\n");
-    gt_stats_print_error_event_distribution(stderr,stats->maps_profile->errors_events,stats->num_maps);
+    gt_stats_print_error_event_distribution(stream,stats->maps_profile->mismatches,stats->num_maps);
+    gt_stats_print_error_event_distribution(stream,stats->maps_profile->insertion_length,stats->num_maps);
+    gt_stats_print_error_event_distribution(stream,stats->maps_profile->deletion_length,stats->num_maps);
+    gt_stats_print_error_event_distribution(stream,stats->maps_profile->errors_events,stats->num_maps);
   }
-  gt_stats_print_read_event_positions(stderr,stats->maps_profile->error_position,stats->maps_profile->total_errors_events,stats->max_length);
+  gt_stats_print_read_event_positions(stream,stats->maps_profile->error_position,stats->maps_profile->total_errors_events,stats->max_length);
 }
 GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
   register const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
@@ -968,20 +962,20 @@ GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,c
   if(stats->min_length>stats->max_length) stats->min_length=0;
   if(stats->mapped_min_length>stats->mapped_max_length) stats->mapped_min_length=0;
   // Print
-  fprintf(stderr,"  --> Num.Reads %" PRIu64 "\n",num_reads);
-  fprintf(stderr,"    --> Reads.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
+  fprintf(stream,"  --> Num.Reads %" PRIu64 "\n",num_reads);
+  fprintf(stream,"    --> Reads.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
       stats->min_length,GT_STATS_DIV(stats->total_bases,stats->num_blocks),stats->max_length);
-  fprintf(stderr,"  --> Reads.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
+  fprintf(stream,"  --> Reads.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
       num_templates?100.0*(float)stats->num_mapped/(float)num_templates:0.0);
-  fprintf(stderr,"    --> Reads.Mapped.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
+  fprintf(stream,"    --> Reads.Mapped.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
       stats->mapped_min_length,GT_STATS_DIV(stats->total_bases_aligned,(paired_end)?stats->num_mapped*2:stats->num_mapped),stats->mapped_max_length);
-  fprintf(stderr,"  --> Num.Bases %" PRIu64 "\n",stats->total_bases);
-  fprintf(stderr,"    --> Bases.Prop [A]=%2.3f%% [C]=%2.3f%% [G]=%2.3f%% [T]=%2.3f%% [N]=%2.3f%%\n",
+  fprintf(stream,"  --> Num.Bases %" PRIu64 "\n",stats->total_bases);
+  fprintf(stream,"    --> Bases.Prop [A]=%2.3f%% [C]=%2.3f%% [G]=%2.3f%% [T]=%2.3f%% [N]=%2.3f%%\n",
       100.0*(float)stats->nt_counting[0]/(float)stats->total_bases,100.0*(float)stats->nt_counting[1]/(float)stats->total_bases,
       100.0*(float)stats->nt_counting[2]/(float)stats->total_bases,100.0*(float)stats->nt_counting[3]/(float)stats->total_bases,
       100.0*(float)stats->nt_counting[4]/(float)stats->total_bases);
-  fprintf(stderr,"    --> Bases.Aligned %" PRIu64 " (%2.3f%%)\n",stats->total_bases_aligned,
+  fprintf(stream,"    --> Bases.Aligned %" PRIu64 " (%2.3f%%)\n",stats->total_bases_aligned,
       GT_STATS_GET_PERCENTAGE(stats->total_bases_aligned,stats->total_bases));
-  fprintf(stderr,"  --> Num.alignments %" PRIu64 "\n",stats->num_alignments);
-  fprintf(stderr,"  --> Num.maps %" PRIu64 " (%2.3f map/alg)\n",stats->num_maps,GT_STATS_DIV_F(stats->num_maps,stats->num_mapped));
+  fprintf(stream,"  --> Num.alignments %" PRIu64 "\n",stats->num_alignments);
+  fprintf(stream,"  --> Num.maps %" PRIu64 " (%2.3f map/alg)\n",stats->num_maps,GT_STATS_DIV_F(stats->num_maps,stats->num_mapped));
 }

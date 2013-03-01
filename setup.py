@@ -103,6 +103,24 @@ class package(Command):
     def finalize_options(self):
         pass
 
+class package_static(Command):
+    """Package static distribution"""
+    description = "Package static distribution"
+    user_options = []
+
+    def run(self):
+        print "Fetching binaries"
+        download("i3")
+        download("core2")
+        subprocess.Popen(["dist-utils/create_static_distribution.sh", __VERSION__, "i3"]).wait()
+        subprocess.Popen(["dist-utils/create_static_distribution.sh", __VERSION__, "core2"]).wait()
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
 
 def _install_bundle(install_dir, base=None):
     """Download GEM bundle and move
@@ -255,7 +273,7 @@ class build_py(_build_py):
         _install_bundle(target_dir, base=parent_dir + "/downloads")
 
 
-_commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package': package, 'build_py': build_py}
+_commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package': package, 'package_static': package_static, 'build_py': build_py}
 
 # extend nosetests command to
 # ensure we have the bundle installed and
