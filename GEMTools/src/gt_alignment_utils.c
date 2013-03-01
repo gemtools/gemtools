@@ -414,11 +414,10 @@ GT_INLINE void gt_alignment_realign_levenshtein(gt_alignment* const alignment,gt
           GT_MAP_REALIGN_EXPANSION_FACTOR*gt_string_get_length(alignment->read),true);
     } else { // Realigning SM (let's try not to spoil the splice-site consensus)
       register gt_string* read_chunk = gt_string_new(0);
-      register uint64_t offset = 0, i=0;
+      register uint64_t offset = 0;
       GT_MAP_ITERATE(map,map_block) {
         gt_string_set_nstring(read_chunk,gt_alignment_get_read(alignment)+offset,gt_map_get_base_length(map_block));
-        fprintf(stderr,">> BLOCK #%lu  ",i++); gt_output_map_fprint_map_block(stderr,map_block); fprintf(stderr,"\n");
-        gt_map_realign_levenshtein_sa(map_block,read_chunk,sequence_archive,0,false); fprintf(stderr,"\n\n");
+        gt_map_realign_levenshtein_sa(map_block,read_chunk,sequence_archive,0,false);
         offset += gt_map_get_base_length(map_block);
       }
       gt_string_delete(read_chunk);

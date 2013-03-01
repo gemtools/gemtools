@@ -237,8 +237,8 @@ GT_INLINE gt_status gt_map_realign_levenshtein(
   // Safe check
   gt_cond_fatal_error(gt_map_check_alignment(map,pattern,pattern_length,
     sequence+((ends_free)?i:0),gt_map_get_length(map))!=0,MAP_ALG_WRONG_ALG);
-  gt_output_map_fprint_pretty_alignment(stderr,map,false,pattern,pattern_length,
-      sequence+((ends_free)?i:0),gt_map_get_length(map));
+  //  gt_output_map_fprint_pretty_alignment(stderr,map,false,pattern,pattern_length,
+  //      sequence+((ends_free)?i:0),gt_map_get_length(map));
   // Free
   free(dp_array);
   return 0;

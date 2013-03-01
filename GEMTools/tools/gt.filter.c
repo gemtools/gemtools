@@ -19,7 +19,10 @@ typedef struct {
   bool mmap_input;
   bool paired_end;
   /* Filter */
+  bool mapped;
+  bool unmapped;
   bool no_split_maps;
+  bool only_split_maps;
   bool best_map;
   uint64_t max_matches;
   bool make_counters;
@@ -44,7 +47,10 @@ gt_stats_args parameters = {
     .mmap_input=false,
     .paired_end=false,
     /* Filter */
+    .mapped=false,
+    .unmapped=false,
     .no_split_maps=false,
+    .only_split_maps=false,
     .best_map=false,
     .max_matches=GT_ALL,
     .make_counters=false,
@@ -65,23 +71,26 @@ void gt_template_filter(gt_template *template_dst,gt_template *template_src) {
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
-      if (!parameters.no_split_maps || gt_map_get_num_blocks(map)==1) {
-        gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
-        if (parameters.best_map) return;
-      }
+      register const uint64_t num_blocks = gt_map_get_num_blocks(map);
+      if (parameters.no_split_maps && num_blocks>1) continue;
+      if (parameters.only_split_maps && num_blocks==1) continue;
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      if (parameters.best_map) return;
     }
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
   GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
     // Check SM contained
-    if (parameters.no_split_maps) {
-      register bool has_sm = false;
+    register uint64_t has_sm = false;
+    if (parameters.no_split_maps || parameters.only_split_maps) {
       GT_MULTIMAP_ITERATE(mmap,map,end_p) {
-        has_sm = gt_map_get_num_blocks(map)>1;
-        if (has_sm) break;
+        if (gt_map_get_num_blocks(map)>1) {
+          has_sm = true; break;
+        }
       }
-      if (has_sm) continue;
     }
+    if (parameters.no_split_maps && has_sm) continue;
+    if (parameters.only_split_maps && !has_sm) continue;
     // Add the mmap
     register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
     gt_template_add_mmap(template_dst,mmap_copy,mmap_attr);
@@ -131,6 +140,11 @@ void gt_filter_read__write() {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       }
 
+      // Consider mapped/unmapped
+      register const bool is_mapped = gt_template_is_mapped(template);
+      if (parameters.mapped && !is_mapped) continue;
+      if (parameters.unmapped && is_mapped) continue;
+
       // Hidden options (aborts the rest)
       if (parameters.error_plot || parameters.insert_size_plot) {
         if (parameters.error_plot) {
@@ -162,7 +176,7 @@ void gt_filter_read__write() {
         }
 
         // Pick up best-map || erase splitmaps
-        if (parameters.best_map || parameters.no_split_maps) {
+        if (parameters.best_map || parameters.no_split_maps || parameters.only_split_maps) {
           gt_template *template_best = gt_template_copy(template,false,false);
           gt_template_filter(template_best,template);
         }
@@ -199,7 +213,7 @@ void usage() {
                   "           --paired-end|p\n"
                   "         [Filter]\n"
                   "           --unmapped|--mapped\n"
-                  "           --no-split-maps\n" // TODO --split-maps
+                  "           --no-split-maps|--only-split-maps\n"
                   "           --best-map\n"
                   "           --max-matches <number>\n"
                   "           --make-counters <number>\n"
@@ -223,7 +237,10 @@ void parse_arguments(int argc,char** argv) {
     { "mmap-input", no_argument, 0, 1 },
     { "paired-end", no_argument, 0, 'p' },
     /* Filter */
-    { "no-split-maps", no_argument, 0, 2 },
+    { "mapped", no_argument, 0, 10 },
+    { "unmapped", no_argument, 0, 11 },
+    { "no-split-maps", no_argument, 0, 12 },
+    { "only-split-maps", no_argument, 0, 13 },
     { "best-map", no_argument, 0, 3 },
     { "max-matches", required_argument, 0, 4 },
     { "make-counters", no_argument, 0, 5 },
@@ -259,8 +276,17 @@ void parse_arguments(int argc,char** argv) {
       parameters.paired_end = true;
       break;
     /* Filter */
-    case 2:
+    case 10: // mapped
+      parameters.mapped = true;
+      break;
+    case 11: // unmapped
+      parameters.unmapped = true;
+      break;
+    case 12: // no-split-maps
       parameters.no_split_maps = true;
+      break;
+    case 13: // only-split-maps
+      parameters.only_split_maps = true;
       break;
     case 3:
       parameters.best_map = true;

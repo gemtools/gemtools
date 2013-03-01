@@ -703,6 +703,9 @@ int main(int argc,char** argv) {
   // Load it!
   //
 
+  gt_vector* map_list = gt_vector_new(10,sizeof(gt_map*));
+  gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list);
+
   // Leo's
   //gt_remove_maps_with_n_or_more_mismatches();
 
@@ -718,7 +721,7 @@ int main(int argc,char** argv) {
   //gt_filter_fastq();
   //gt_load_reference__dump_it();
 
-  gt_example_map_parsing();
+  //gt_example_map_parsing();
 
   return 0;
 }

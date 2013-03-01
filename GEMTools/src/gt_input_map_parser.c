@@ -748,7 +748,8 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(char** text_line,gt_vector* const 
   if (gt_map_get_strand(donor_map)==FORWARD) {
     gt_map_set_next_block(donor_map,acceptor_map,SPLICE,gt_map_get_position_(acceptor_map)-gt_map_get_position_(donor_map)+gt_map_get_length(donor_map));
   } else {
-    gt_map_set_next_block(acceptor_map,donor_map,SPLICE,gt_map_get_position_(donor_map)-gt_map_get_position_(acceptor_map)+gt_map_get_length(acceptor_map));
+    register const uint64_t acceptor_map_length = (read_base_length!=UINT64_MAX) ? gt_map_get_length(acceptor_map) : 0;
+    gt_map_set_next_block(acceptor_map,donor_map,SPLICE,gt_map_get_position_(donor_map)-gt_map_get_position_(acceptor_map)+acceptor_map_length);
   }
   // Detect multiple donor position
   if (gt_expect_false((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0)) { // [30;34]=chr10:F74776624~chr10:F[74790025;74790029]

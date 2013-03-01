@@ -15,6 +15,7 @@ gt_output_map_attributes* output_attributes;
 
 void gt_input_map_parser_setup(void) {
   map = gt_map_new();
+  gt_map_set_base_length(map,300);
   map_list = gt_vector_new(10,sizeof(gt_map*));
   alignment = gt_alignment_new();
   template = gt_template_new();
@@ -55,7 +56,7 @@ START_TEST(gt_test_imp_string_map) // TODO
    * Parsing list of maps
    */
   // Parse multiple old split-map
-  fail_unless(gt_input_map_parse_map("[26]=chr7:R1203797~chr7:R1203108",map)!=0);
+  fail_unless(gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list)!=0);
   fail_unless(gt_input_map_parse_map_list("[31;35]=chr16:R[2503415;2503411]~chr16:R2503271",map_list)==0);
   fail_unless(gt_input_map_parse_map_list("[30;34]=chr10:F74776624~chr10:F[74790025;74790029]",map_list)==0);
   fail_unless(gt_input_map_parse_map_list("[23-50]=chr1:F[188862944-188868041]~chr19:F53208292",map_list)==0);
