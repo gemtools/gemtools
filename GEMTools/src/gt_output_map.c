@@ -148,11 +148,11 @@ GT_INLINE gt_status gt_output_map_gprint_map_block_(
    * FORMAT => chr11:-:51590050:(5)43T46A9>24*
    */
   // Print sequence name
-  gt_gprintf(gprinter,PRIgts,PRIgts_content(map->seq_name));
+  gt_gprintf(gprinter,PRIgts,PRIgts_content(gt_map_get_string_seq_name(map)));
   // Print strand
-  gt_gprintf(gprinter,GT_MAP_SEP_S"%c",gt_map_get_strand(map)==FORWARD?GT_MAP_STRAND_FORWARD_SYMBOL:GT_MAP_STRAND_REVERSE_SYMBOL);
+  gt_gprintf(gprinter,GT_MAP_SEP_S"%c",(gt_map_get_strand(map)==FORWARD)?GT_MAP_STRAND_FORWARD_SYMBOL:GT_MAP_STRAND_REVERSE_SYMBOL);
   // Print position
-  gt_gprintf(gprinter,GT_MAP_SEP_S"%"PRIu64 GT_MAP_SEP_S,gt_map_get_position(map));
+  gt_gprintf(gprinter,GT_MAP_SEP_S"%"PRIu64 GT_MAP_SEP_S,gt_map_get_global_position(map));
   // Print CIGAR
   gt_output_map_gprint_mismatch_string_(gprinter,map,output_map_attributes,begin_trim,end_trim);
   return 0;
@@ -167,11 +167,11 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
    * FORMAT => chr11:-:51590050:(5)43T46A9>24*
    */
   // Print sequence name
-  gt_gprintf(gprinter,PRIgts,PRIgts_content(map->seq_name));
+  gt_gprintf(gprinter,PRIgts,PRIgts_content(gt_map_get_string_seq_name(map)));
   // Print strand
-  gt_gprintf(gprinter,GT_MAP_SEP_S"%c",gt_map_get_strand(map)==FORWARD?GT_MAP_STRAND_FORWARD_SYMBOL:GT_MAP_STRAND_REVERSE_SYMBOL);
+  gt_gprintf(gprinter,GT_MAP_SEP_S"%c",(gt_map_get_strand(map)==FORWARD)?GT_MAP_STRAND_FORWARD_SYMBOL:GT_MAP_STRAND_REVERSE_SYMBOL);
   // Print position
-  gt_gprintf(gprinter,GT_MAP_SEP_S"%"PRIu64 GT_MAP_SEP_S,gt_map_get_position(map));
+  gt_gprintf(gprinter,GT_MAP_SEP_S"%"PRIu64 GT_MAP_SEP_S,gt_map_get_global_position(map));
   // Print mismatch string (compact it)
   register gt_map* map_it = map, *next_map=NULL;
   register bool cigar_pending = true;
@@ -180,16 +180,16 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
     gt_output_map_gprint_mismatch_string_(gprinter,map_it,output_map_attributes,next_map==NULL,!has_next_block);
     if (has_next_block) {
       next_map = gt_map_get_next_block(map_it);
-      if ((cigar_pending=(gt_string_equals(map_it->seq_name,next_map->seq_name)))) {
+      if ((cigar_pending=(gt_string_equals(gt_map_get_string_seq_name(map_it),gt_map_get_string_seq_name(next_map))))) {
         switch (gt_map_get_junction(map_it)) {
           case SPLICE:
-            gt_gprintf(gprinter,">""%"PRIu64"*",gt_map_get_junction_distance(map_it));
+            gt_gprintf(gprinter,">""%"PRIu64"*",gt_map_get_junction_size(map_it));
             break;
           case POSITIVE_SKIP:
-            gt_gprintf(gprinter,">""%"PRIu64"+",gt_map_get_junction_distance(map_it));
+            gt_gprintf(gprinter,">""%"PRIu64"+",gt_map_get_junction_size(map_it));
             break;
           case NEGATIVE_SKIP:
-            gt_gprintf(gprinter,">""%"PRIu64"-",gt_map_get_junction_distance(map_it));
+            gt_gprintf(gprinter,">""%"PRIu64"-",gt_map_get_junction_size(map_it));
             break;
           case INSERT:
             cigar_pending=false;
@@ -787,11 +787,11 @@ GT_INLINE gt_status gt_output_map_gprint_pretty_alignment_(
   return exception?1:0;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,pattern,pattern_length,sequence,sequence_length
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,print_all_blocks,pattern,pattern_length,sequence,sequence_length
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_pretty_alignment,
-    gt_map* const map,char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length);
+    gt_map* const map,const bool print_all_blocks,char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length);
 GT_INLINE gt_status gt_output_map_gprint_pretty_alignment(
-    gt_generic_printer* const gprinter,gt_map* const map,
+    gt_generic_printer* const gprinter,gt_map* const map,const bool print_all_blocks,
     char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_MAP_CHECK(map);
@@ -800,11 +800,15 @@ GT_INLINE gt_status gt_output_map_gprint_pretty_alignment(
   gt_gprintf(gprinter,"[");
   gt_output_map_gprint_map(gprinter,map);
   gt_gprintf(gprinter,"] TotalBlocks=%lu\n",gt_map_get_num_blocks(map));
-  // Print all the blocks (pretty)
-  register uint64_t block_pos = 0;
-  GT_MAP_ITERATE(map,map_block) {
+  if (print_all_blocks) { // Print all the blocks (pretty)
+    register uint64_t block_pos = 0;
+    GT_MAP_ITERATE(map,map_block) {
+      gt_output_map_gprint_pretty_alignment_(gprinter,map_block,
+          pattern,pattern_length,sequence,sequence_length,block_pos++);
+    }
+  } else {
     gt_output_map_gprint_pretty_alignment_(gprinter,map,
-        pattern,pattern_length,sequence,sequence_length,block_pos++);
+        pattern,pattern_length,sequence,sequence_length,0);
   }
   return 0;
 }

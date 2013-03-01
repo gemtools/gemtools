@@ -70,8 +70,8 @@ void gt_example_display_template(gt_template* template) {
       GT_MAP_ITERATE(map,map_block) {
         printf("\n\t\t%s\t",gt_map_get_seq_name(map_block));
         /// IMPORTANT NOTE: Positions are base-1 (Genomic coordinates)
-        printf("InitPos=%"PRIu64"\t",gt_map_get_position(map_block));
-        printf("EndPos=%"PRIu64"\t",gt_map_get_position(map_block)+gt_map_get_length(map_block));
+        printf("InitPos=%"PRIu64"\t",gt_map_get_position_(map_block));
+        printf("EndPos=%"PRIu64"\t",gt_map_get_position_(map_block)+gt_map_get_length(map_block));
         printf("Len=%"PRIu64"\t",gt_map_get_length(map_block));
         printf("Strand=%c\t",gt_map_get_strand(map_block)==FORWARD?'F':'R');
         printf("Dist=%"PRIu64"\t",gt_map_get_distance(map_block));
@@ -703,6 +703,9 @@ int main(int argc,char** argv) {
   // Load it!
   //
 
+  gt_vector* map_list = gt_vector_new(10,sizeof(gt_map*));
+  printf("%d\n",gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list));
+
   // Leo's
   //gt_remove_maps_with_n_or_more_mismatches();
 
@@ -718,7 +721,7 @@ int main(int argc,char** argv) {
   //gt_filter_fastq();
   //gt_load_reference__dump_it();
 
-  gt_example_map_parsing();
+  //gt_example_map_parsing();
 
   return 0;
 }

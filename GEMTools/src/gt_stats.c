@@ -487,7 +487,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
     register const bool has_qualities = gt_alignment_has_qualities(alignment);
     register char quality_misms = 0;
     GT_MAP_ITERATE(map,map_block) {
-      total_bases += map->base_length;
+      total_bases += gt_map_get_base_length(map);
       GT_MISMS_ITERATE(map_block,misms) {
         ++total_errors_events;
         // Records position of misms/indel
@@ -510,7 +510,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             idx *= GT_STATS_MISMS_BASE_RANGE;
             idx += gt_cdna_encode[(uint8_t)misms->base];
             maps_error_profile->misms_transition[idx]++;
-            if (misms->position>0 && misms->position<map->base_length-1) { // 1-context
+            if (misms->position>0 && misms->position<gt_map_get_base_length(map)-1) { // 1-context
               idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-1]];
               idx *= GT_STATS_MISMS_BASE_RANGE;
               idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
@@ -545,7 +545,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             total_del_length += misms->size;
             total_bases_not_matching += misms->size;
             // Record trim
-            if (misms->position==0 || misms->position+misms->size==map_block->base_length) {
+            if (misms->position==0 || misms->position+misms->size==gt_map_get_base_length(map_block)) {
               total_bases_trimmed += misms->size;
             }
             break;
@@ -620,7 +620,7 @@ GT_INLINE void gt_stats_make_mmaps_profile(
         GT_MAP_ITERATE(map,map_block) {
           if (gt_map_has_next_block(map_block)) {
             splitmaps_profile->total_junctions++;
-            gt_stats_get_juntions_length_distribution(splitmaps_profile->length_junctions,gt_map_get_junction_distance(map_block));
+            gt_stats_get_juntions_length_distribution(splitmaps_profile->length_junctions,gt_map_get_junction_size(map_block));
             register const uint64_t juntion_position = gt_map_get_base_length(map_block);
             if (juntion_position < GT_STATS_SHORT_READ_POS_RANGE) splitmaps_profile->junction_position[juntion_position]++;
           }

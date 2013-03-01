@@ -114,10 +114,6 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
   }
 }
 void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
-  /*
-   *  #mapped, %mapped, #unmapped, %unmapped, MMap(maps/alg), Bases.aligned(%), Bases.trimmed(%)
-   *  mapped(%), MMap(maps/alg), Bases.aligned(%), Bases.trimmed(%), #Uniq-0, %Uniq-0
-   */
   // #mapped, %mapped
   register const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
   fprintf(stderr,"%" PRIu64 ",",stats->num_mapped);
@@ -228,11 +224,11 @@ void usage() {
                   "       [Tests]\n"
                   "        --best-map|--all-maps (default, --all-maps)\n"
                   "        --all-tests|a\n"
-                  "          --maps-profile|M\n"
-                  "          --mismatch-transitions|T\n"
-                  "          --mismatch-quality|Q\n"
-                  "          --splitmaps-profile|S\n"
-                 // "          --indel-profile|I\n"
+                  "        --maps-profile|M\n"
+                  "        --mismatch-transitions|T\n"
+                  "        --mismatch-quality|Q\n"
+                  "        --splitmaps-profile|S\n"
+                 // "        --indel-profile|I\n"
                   "       [Output]\n"
                   "        --compact|c\n"
                   "        --verbose|v\n"

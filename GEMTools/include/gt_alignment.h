@@ -83,6 +83,7 @@ GT_INLINE void gt_alignment_delete(gt_alignment* const alignment);
  * Accessors
  */
 GT_INLINE char* gt_alignment_get_tag(gt_alignment* const alignment);
+GT_INLINE gt_string* gt_alignment_get_string_tag(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_tag(gt_alignment* const alignment,char* const tag,const uint64_t length);
 GT_INLINE uint64_t gt_alignment_get_tag_length(gt_alignment* const alignment);
 

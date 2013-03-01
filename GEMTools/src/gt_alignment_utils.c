@@ -181,8 +181,8 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
     gt_ihash_element* ihash_element_b = NULL;
     gt_ihash_element* ihash_element_e = NULL;
     register const uint64_t vector_position = gt_vector_get_used(alignment_dst->maps);
-    register const uint64_t begin_position = gt_map_get_position(map_src)-gt_map_get_left_trim_length(map_src);
-    register const uint64_t end_position = gt_map_get_position(map_src)+gt_map_get_length(map_src);
+    register const uint64_t begin_position = gt_map_get_position_(map_src)-gt_map_get_left_trim_length(map_src);
+    register const uint64_t end_position = gt_map_get_position_(map_src)+gt_map_get_length(map_src);
     // Try add
     if (gt_alignment_dictionary_try_add(alignment_dst->alg_dictionary,map_src,
           begin_position,end_position,&alg_dicc_elem,&ihash_element_b,&ihash_element_e,vector_position)) {
@@ -395,8 +395,12 @@ GT_INLINE void gt_alignment_realign_hamming(gt_alignment* const alignment,gt_seq
   GT_ALIGNMENT_CHECK(alignment);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
   GT_ALIGNMENT_ITERATE(alignment,map) {
-    GT_MAP_ITERATE(map,map_block) {
-      gt_map_realign_hamming_sa(map_block,alignment->read,sequence_archive);
+    if (gt_map_get_num_blocks(map)==1) {
+      GT_MAP_ITERATE(map,map_block) {
+        gt_map_realign_hamming_sa(map_block,alignment->read,sequence_archive);
+      }
+    } else {
+      // TODO
     }
   }
   gt_alignment_recalculate_counters(alignment);
@@ -409,14 +413,14 @@ GT_INLINE void gt_alignment_realign_levenshtein(gt_alignment* const alignment,gt
       gt_map_realign_levenshtein_sa(map,alignment->read,sequence_archive,
           GT_MAP_REALIGN_EXPANSION_FACTOR*gt_string_get_length(alignment->read),true);
     } else { // Realigning SM (let's try not to spoil the splice-site consensus)
-      register uint64_t offset_read = 0;
-      register gt_string* read_chunks = gt_string_new(0);
+      register gt_string* read_chunk = gt_string_new(0);
+      register uint64_t offset = 0;
       GT_MAP_ITERATE(map,map_block) {
-        gt_string_set_nstring(read_chunks,gt_alignment_get_read(alignment)+offset_read,map_block->base_length);
-        gt_map_realign_levenshtein_sa(map_block,read_chunks,sequence_archive,0,false);
-        offset_read+=map_block->base_length;
+        gt_string_set_nstring(read_chunk,gt_alignment_get_read(alignment)+offset,gt_map_get_base_length(map_block));
+        gt_map_realign_levenshtein_sa(map_block,read_chunk,sequence_archive,0,false);
+        offset += gt_map_get_base_length(map_block);
       }
-      gt_string_delete(read_chunks);
+      gt_string_delete(read_chunk);
     }
   }
   gt_alignment_recalculate_counters(alignment);
@@ -430,10 +434,10 @@ GT_INLINE void gt_alignment_realign_weighted(
     if (gt_map_get_num_blocks(map)==1) {
       gt_map_realign_weighted_sa(map,alignment->read,sequence_archive,0,gt_weigh_fx);
     } else {
-      GT_MAP_ITERATE(map,map_block) { // FIXME
-        gt_map_realign_weighted_sa(map_block,alignment->read,sequence_archive,
-            GT_MAP_REALIGN_EXPANSION_FACTOR*gt_string_get_length(alignment->read),gt_weigh_fx);
-      }
+//      GT_MAP_ITERATE(map,map_block) { // FIXME
+//        gt_map_realign_weighted_sa(map_block,alignment->read,sequence_archive,
+//            GT_MAP_REALIGN_EXPANSION_FACTOR*gt_string_get_length(alignment->read),gt_weigh_fx);
+//      }
     }
   }
   gt_alignment_recalculate_counters(alignment);

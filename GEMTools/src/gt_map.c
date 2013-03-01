@@ -59,12 +59,30 @@ GT_INLINE char* gt_map_get_seq_name(gt_map* const map) {
   GT_MAP_CHECK(map);
   return gt_string_get_string(map->seq_name);
 }
+GT_INLINE uint64_t gt_map_get_seq_name_length(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  return gt_string_get_length(map->seq_name);
+}
+GT_INLINE gt_string* gt_map_get_string_seq_name(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  return map->seq_name;
+}
 GT_INLINE void gt_map_set_seq_name(gt_map* const map,char* const seq_name,const uint64_t length) {
   GT_MAP_CHECK(map);
   GT_NULL_CHECK(seq_name);
   gt_string_set_nstring(map->seq_name,seq_name,length);
 }
-GT_INLINE uint64_t gt_map_get_position(gt_map* const map) {
+GT_INLINE void gt_map_set_string_seq_name(gt_map* const map,gt_string* const seq_name) {
+  GT_MAP_CHECK(map);
+  GT_STRING_CHECK(seq_name);
+  gt_string_set_nstring(map->seq_name,gt_string_get_string(seq_name),gt_string_get_length(seq_name));
+}
+
+GT_INLINE uint64_t gt_map_get_global_position(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  return (map->strand==FORWARD) ? gt_map_get_position_(map): gt_map_get_position_(gt_map_get_last_block(map));
+}
+GT_INLINE uint64_t gt_map_get_position_(gt_map* const map) {
   GT_MAP_CHECK(map);
   return map->position;
 }
@@ -143,16 +161,6 @@ GT_INLINE gt_map* gt_map_get_next_block(gt_map* const map) {
   GT_MAP_CHECK(map);
   return (gt_expect_false(map->next_block==NULL)) ? NULL : map->next_block->map;
 }
-GT_INLINE void gt_map_set_next_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction) {
-  GT_MAP_CHECK(map);
-  GT_MAP_CHECK(next_map);
-  register gt_map_junction *aux_next_block = map->next_block;
-  map->next_block = malloc(sizeof(gt_map_junction));
-  gt_cond_fatal_error(!map->next_block,MEM_HANDLER);
-  map->next_block->junction = junction;
-  map->next_block->map = next_map;
-  next_map->next_block = aux_next_block;
-}
 GT_INLINE gt_map* gt_map_get_last_block(gt_map* const map) {
   GT_MAP_CHECK(map);
   register gt_map* aux_map = map;
@@ -161,20 +169,100 @@ GT_INLINE gt_map* gt_map_get_last_block(gt_map* const map) {
   }
   return aux_map;
 }
-GT_INLINE void gt_map_append_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction) {
+GT_INLINE void gt_map_set_next_block(
+    gt_map* const map,gt_map* const next_map,const gt_junction_t junction,const int64_t junction_size) {
+  GT_MAP_CHECK(map);
+  if (gt_expect_true(next_map!=NULL)) {
+    GT_MAP_CHECK(next_map);
+    if (map->next_block==NULL) {
+      map->next_block = malloc(sizeof(gt_map_junction));
+      gt_cond_fatal_error(!map->next_block,MEM_HANDLER);
+    }
+    map->next_block->junction = junction;
+    map->next_block->junction_size = junction_size;
+    map->next_block->map = next_map;
+  } else {
+    if (map->next_block!=NULL) {
+      free(map->next_block);
+      map->next_block = NULL;
+    }
+  }
+}
+GT_INLINE void gt_map_insert_next_block(
+    gt_map* const map,gt_map* const next_map,const gt_junction_t junction,const int64_t junction_size) {
+  GT_MAP_CHECK(map);
+  GT_MAP_CHECK(next_map);
+  register gt_map_junction *aux_next_block = map->next_block;
+  if (map->next_block==NULL) {
+    map->next_block = malloc(sizeof(gt_map_junction));
+    gt_cond_fatal_error(!map->next_block,MEM_HANDLER);
+  }
+  map->next_block->junction = junction;
+  map->next_block->map = next_map;
+  next_map->next_block = aux_next_block;
+}
+GT_INLINE void gt_map_append_block(
+    gt_map* const map,gt_map* const next_map,const gt_junction_t junction,const int64_t junction_size) {
   GT_MAP_CHECK(map);
   GT_MAP_CHECK(next_map);
   register gt_map* aux_map = gt_map_get_last_block(map);
-  gt_map_set_next_block(aux_map,next_map,junction);
+  gt_map_set_next_block(aux_map,next_map,junction,junction_size);
 }
 GT_INLINE gt_junction_t gt_map_get_junction(gt_map* const map) {
   GT_MAP_CHECK(map);
   GT_MAP_NEXT_BLOCK_CHECK(map);
   return (map->next_block == NULL) ? NO_JUNCTION : map->next_block->junction;
 }
-GT_INLINE uint64_t gt_map_get_junction_distance(gt_map* const map) {
+GT_INLINE int64_t gt_map_get_junction_size(gt_map* const map) {
   GT_MAP_CHECK(map);
-  return (map->next_block == NULL) ? 0 : (map->next_block->map->position-(map->position+gt_map_get_length(map)));
+  return (map->next_block == NULL) ? 0 : (map->next_block->junction_size);
+}
+
+GT_INLINE uint64_t gt_map_reverse_blocks_positions_(gt_map* const map,const uint64_t start_position) {
+  GT_MAP_CHECK(map);
+  if (gt_map_has_next_block(map)) {
+    register const uint64_t position =
+        gt_map_reverse_blocks_positions_(gt_map_get_next_block(map),start_position) + gt_map_get_junction_size(map);
+    gt_map_set_position(map,position);
+    return position+gt_map_get_length(map);
+  } else {
+    gt_map_set_position(map,start_position);
+    return start_position+gt_map_get_length(map);
+  }
+}
+GT_INLINE void gt_map_reverse_blocks_positions(gt_map* const head_map,const uint64_t start_position) {
+  GT_MAP_CHECK(head_map);
+  gt_map_reverse_blocks_positions_(head_map,start_position);
+}
+#define GT_MAP_REVERSE_MISMS_ADJUST_POS(misms,base_length) \
+  misms->position = base_length - misms->position; \
+  switch (misms->misms_type) { \
+    case DEL: misms->position-=(misms->size-1); break; \
+    case INS: misms->position++; break; \
+    default: break; \
+  }
+GT_INLINE void gt_map_reverse_misms(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  // Flip all mismatches
+  register uint64_t z;
+  register const uint64_t base_length = gt_map_get_base_length(map);
+  register const uint64_t num_misms = gt_map_get_num_misms(map);
+  register const uint64_t mid_point = num_misms/2;
+  for (z=0;z<mid_point;++z) {
+    gt_misms* misms_a = gt_map_get_misms(map,z);
+    gt_misms* misms_b = gt_map_get_misms(map,num_misms-1-z);
+    // Correct position
+    GT_MAP_REVERSE_MISMS_ADJUST_POS(misms_a,base_length);
+    GT_MAP_REVERSE_MISMS_ADJUST_POS(misms_b,base_length);
+    // Flip mismatches
+    gt_misms misms = *misms_a;
+    gt_map_set_misms(map,misms_b,z);
+    gt_map_set_misms(map,&misms,num_misms-1-z);
+  }
+  if (num_misms%2) {
+    gt_misms* misms = gt_map_get_misms(map,mid_point);
+    GT_MAP_REVERSE_MISMS_ADJUST_POS(misms,base_length);
+  }
 }
 
 /*
@@ -291,7 +379,7 @@ GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map) {
   GT_MAP_CHECK(map);
   register uint64_t length = 0;
   GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
-    length += gt_map_get_length(map_it) + gt_map_get_junction_distance(map_it);
+    length += gt_map_get_length(map_it) + gt_map_get_junction_size(map_it);
   } GT_END_MAP_BLOCKS_ITERATOR;
   return length;
 }
@@ -533,6 +621,7 @@ GT_INLINE gt_map* gt_map_copy(gt_map* const map) {
   } else {
     map_cpy->next_block = malloc(sizeof(gt_map_junction));
     map_cpy->next_block->junction = map->next_block->junction;
+    map_cpy->next_block->junction_size = map->next_block->junction_size;
     map_cpy->next_block->map = gt_map_copy(map->next_block->map);
   }
   return map_cpy;

@@ -300,20 +300,23 @@ GT_INLINE uint64_t gt_isp_read_tag(char** const init_text_line,char** const end_
   return 0;
 }
 /*
- * 2M503N34M757N40M
+ * SAM CIGAR ::
+ *   2M503N34M757N40M || 5M1D95M3I40M || ...
  */
-GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
+GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map** _map,const bool reverse_strand) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK(*text_line);
-  GT_MAP_CHECK(map);
-  register uint64_t position = 0;
-  if (**text_line==STAR) {
+  GT_NULL_CHECK(_map); GT_MAP_CHECK(*_map);
+  register gt_map* map = *_map;
+  // Clear mismatches
+  gt_map_clear_misms(map);
+  if (**text_line==STAR) { // No CIGAR available
     GT_NEXT_CHAR(text_line);
     return 0;
   }
-  // 5M1D95M3I40M
+  // Aux variables as to track the position in the read and the genome span
+  register uint64_t length, position = 0, reference_span=0;
   while (**text_line!=TAB && **text_line!=EOL) {
     // Parse misms_op length
-    register uint64_t length, reference_span=0;
     if (!gt_is_number(**text_line)) return GT_ISP_PE_EXPECTED_NUMBER;
     GT_PARSE_NUMBER(text_line,length);
     // Parse misms_op
@@ -330,14 +333,14 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
         break;
       case 'P': // Padding. Nothing specific implemented
       case 'S': // Soft clipping. Nothing specific implemented
+      case 'H': // Hard clipping. Nothing specific implemented (we don't even store this)
+        // break; //FIXME
       case 'I': // Insertion to the reference
         misms.misms_type = DEL;
         misms.position = position;
         misms.size = length;
         position += length;
         gt_map_add_misms(map,&misms);
-        break;
-      case 'H': // Hard clipping. Nothing specific implemented (we don't even store this)
         break;
       case 'D': // Deletion from the reference
         misms.misms_type = INS;
@@ -349,13 +352,17 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
       case 'N': { // Split. Eg TOPHAT, GEM, ...
         // Create a new map block
         gt_map* next_map = gt_map_new();
-        gt_map_set_seq_name(next_map,gt_string_get_string(map->seq_name),gt_string_get_length(map->seq_name));
-        gt_map_set_position(next_map,gt_map_get_position(map)+reference_span+length);
+        gt_map_set_seq_name(next_map,gt_map_get_seq_name(map),gt_map_get_seq_name_length(map));
+        gt_map_set_position(next_map,gt_map_get_position_(map)+reference_span+length);
         gt_map_set_strand(next_map,gt_map_get_strand(map));
         gt_map_set_base_length(next_map,gt_map_get_base_length(map)-position);
         // Close current map block
         gt_map_set_base_length(map,position);
-        gt_map_set_next_block(map,next_map,SPLICE);
+        if (reverse_strand) {
+          gt_map_set_next_block(next_map,map,SPLICE,length);
+        } else {
+          gt_map_set_next_block(map,next_map,SPLICE,length);
+        }
         // Swap maps & Reset position,reference_span
         map = next_map;
         position=0; reference_span=0;
@@ -367,6 +374,13 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map* map) {
     }
   }
   gt_map_set_base_length(map,position);
+  // Consider map CIGAR in the reverse strand
+  if (reverse_strand) {
+    *_map = map;
+    GT_BEGIN_MAP_BLOCKS_ITERATOR(map,map_it) {
+      gt_map_reverse_misms(map_it);
+    } GT_END_MAP_BLOCKS_ITERATOR;
+  }
   return 0;
 }
 
@@ -462,7 +476,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     uint64_t* const alignment_flag,gt_sam_pending_end* const pending,const bool override_pairing) {
   register gt_status error_code;
   register bool is_mapped = true, is_single_segment;
-  register gt_map* map = gt_map_new();
+  gt_map* map = gt_map_new();
   /*
    * Parse FLAG
    */
@@ -473,10 +487,11 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   GT_PARSE_NUMBER(text_line,*alignment_flag);
   GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL__NEXT();
   // Process flags
+  register const bool reverse_strand = (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT);
   is_mapped = !(*alignment_flag&GT_SAM_FLAG_UNMAPPED);
   is_single_segment = override_pairing || !(*alignment_flag&GT_SAM_FLAG_MULTIPLE_SEGMENTS);
   pending->end_position = (is_single_segment) ? 0 : ((*alignment_flag&GT_SAM_FLAG_FIRST_SEGMENT)?0:1);
-  if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT)  {
+  if (reverse_strand)  {
     gt_map_set_strand(map,REVERSE);
   } else {
     gt_map_set_strand(map,FORWARD);
@@ -526,7 +541,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   /*
    * Parse CIGAR
    */
-  if ((error_code=gt_isp_parse_sam_cigar(text_line,map))) {
+  if ((error_code=gt_isp_parse_sam_cigar(text_line,&map,reverse_strand))) {
     gt_map_delete(map); return error_code;
   }
   GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL__NEXT();
@@ -562,7 +577,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     } else {
       gt_string_set_nstring(&pending->map_seq_name,seq_name,seq_length);
       pending->num_maps = 1;
-      pending->map_position = gt_map_get_position(map);
+      pending->map_position = gt_map_get_global_position(map);
     }
   }
   /*
@@ -585,7 +600,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     // Was disabled due to wrong SAM outputs produced some mappers when trimming
     if (gt_string_is_null(alignment->read)) {
       gt_dna_string_set_nstring(alignment->read,seq_read,read_length);
-      if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
+      if (reverse_strand) {
         gt_dna_string_reverse_complement(alignment->read);
       }
     }
@@ -603,7 +618,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     register const uint64_t read_length = *text_line-seq_qual;
     if (gt_string_is_null(alignment->qualities)) {
       gt_string_set_nstring(alignment->qualities,seq_qual,read_length);
-      if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
+      if (reverse_strand) {
         gt_string_reverse(alignment->qualities);
       }
     }
@@ -737,7 +752,7 @@ GT_INLINE gt_status gt_isp_solve_remaining_maps(gt_vector* pending_v,gt_template
       register bool found = false;
       GT_ALIGNMENT_ITERATE(gt_template_get_block_dyn(template,map_end),map) {
         if ((found=gt_isp_check_pending_record__add_mmap(
-            template,pending_elm,map_end,map->seq_name,map->position,pos,1))) break;
+            template,pending_elm,map_end,gt_map_get_string_seq_name(map),gt_map_get_global_position(map),pos,1))) break;
         ++pos;
       }
       // Check solved
@@ -842,6 +857,8 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
       return error_code;
     }
   } while (gt_isp_fetch_next_line(buffered_sam_input,alignment->tag,false));
+  // Chomp /1 /2 // TODO
+  gt_input_fasta_tag_chomp_end_info(alignment->tag);
   return 0;
 }
 

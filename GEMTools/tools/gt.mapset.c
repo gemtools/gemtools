@@ -21,6 +21,7 @@ typedef struct {
   bool mmap_input;
   bool paired_end;
   double eq_threshold;
+  bool strict;
   bool verbose;
 } gt_stats_args;
 
@@ -31,6 +32,7 @@ gt_stats_args parameters = {
     .mmap_input=false,
     .paired_end=false,
     .eq_threshold=0.5,
+    .strict=false,
     .verbose=false,
 };
 uint64_t current_read_length;
@@ -38,12 +40,12 @@ uint64_t current_read_length;
 int64_t gt_mapset_map_cmp(gt_map* const map_1,gt_map* const map_2) {
   register const uint64_t eq_threshold = (parameters.eq_threshold <= 1.0) ?
       parameters.eq_threshold*current_read_length: parameters.eq_threshold;
-  return gt_map_range_cmp(map_1,map_2,eq_threshold);
+  return parameters.strict ? gt_map_cmp(map_1,map_2) : gt_map_range_cmp(map_1,map_2,eq_threshold);
 }
 int64_t gt_mapset_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps) {
   register const uint64_t eq_threshold = (parameters.eq_threshold <= 1.0) ?
       parameters.eq_threshold*current_read_length: parameters.eq_threshold;
-  return gt_mmap_range_cmp(map_1,map_2,num_maps,eq_threshold);
+  return parameters.strict ? gt_mmap_cmp(map_1,map_2,num_maps) : gt_mmap_range_cmp(map_1,map_2,num_maps,eq_threshold);
 }
 
 GT_INLINE gt_status gt_mapset_read_template_sync(
@@ -79,7 +81,8 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
     return GT_IMP_EOF;
   }
   // Synch loop
-  while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
+  while (gt_string_cmp(gt_template_get_string_tag(template_master),
+      gt_template_get_string_tag(template_slave))) {
     // Print non correlative master's template
     if (operation==GT_MAP_SET_UNION || operation==GT_MAP_SET_DIFFERENCE) {
       gt_output_map_fprint_gem_template(stdout,template_master,output_attributes);
@@ -158,6 +161,10 @@ void usage() {
                   "         --mmap-input\n"
                   "         --output|-o [FILE]\n"
                   "         --paired-end|p\n"
+                  "       [CMP]\n"
+                  "         --eq-th <number>"
+                  "         --strict "
+                  "       [MISC]\n"
                   "         --verbose|v\n"
                   "         --help|h\n");
 }
@@ -193,7 +200,10 @@ void parse_arguments(int argc,char** argv) {
     { "mmap-input", no_argument, 0, 3 },
     { "output", required_argument, 0, 'o' },
     { "paired-end", no_argument, 0, 'p' },
+    /* CMP */
     { "eq-th", required_argument, 0, 4 },
+    { "strict", no_argument, 0, 5 },
+    /* MISC */
     { "verbose", no_argument, 0, 'v' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 } };
@@ -219,6 +229,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 4:
       parameters.eq_threshold = atof(optarg);
+      break;
+    case 5:
+      parameters.strict = true;
       break;
     case 'v':
       parameters.verbose = true;
