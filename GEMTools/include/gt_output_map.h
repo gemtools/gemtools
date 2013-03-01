@@ -122,7 +122,7 @@ GT_INLINE gt_status gt_output_map_bofprint_gem_template(gt_buffered_output_file*
  * Misc. Handy printers
  */
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_summary,gt_map* const map);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_pretty_alignment,gt_map* const map,
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_pretty_alignment,gt_map* const map,const bool print_all_blocks,
     char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length);
 
 #endif /* GT_OUTPUT_MAP_H_ */

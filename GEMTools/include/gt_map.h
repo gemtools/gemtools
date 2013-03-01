@@ -22,12 +22,14 @@ typedef enum { NO_JUNCTION, SPLICE, POSITIVE_SKIP, NEGATIVE_SKIP, INSERT, JUNCTI
 typedef enum { MISMATCH_STRING_GEMv0, MISMATCH_STRING_GEMv1 } gt_misms_string_t;
 
 typedef struct _gt_map gt_map; // Forward declaration of gt_map
+
 /*
  * Junction (gt_map_junction)
  */
 typedef struct {
   gt_map* map;
   gt_junction_t junction;
+  int64_t junction_size;
 } gt_map_junction;
 /*
  * Map (gt_map)
@@ -83,8 +85,13 @@ GT_INLINE void gt_map_delete(gt_map* const map);
  * Accessors
  */
 GT_INLINE char* gt_map_get_seq_name(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_seq_name_length(gt_map* const map);
+GT_INLINE gt_string* gt_map_get_string_seq_name(gt_map* const map);
 GT_INLINE void gt_map_set_seq_name(gt_map* const map,char* const seq_name,const uint64_t length);
-GT_INLINE uint64_t gt_map_get_position(gt_map* const map);
+GT_INLINE void gt_map_set_string_seq_name(gt_map* const map,gt_string* const seq_name);
+
+GT_INLINE uint64_t gt_map_get_global_position(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_position_(gt_map* const map);
 GT_INLINE void gt_map_set_position(gt_map* const map,const uint64_t position);
 GT_INLINE gt_strand gt_map_get_strand(gt_map* const map);
 GT_INLINE void gt_map_set_strand(gt_map* const map,const gt_strand strand);
@@ -103,12 +110,20 @@ GT_INLINE void gt_map_set_score(gt_map* const map,const int64_t score);
 GT_INLINE uint64_t gt_map_get_num_blocks(gt_map* const map);
 GT_INLINE bool gt_map_has_next_block(gt_map* const map);
 GT_INLINE gt_map* gt_map_get_next_block(gt_map* const map);
-GT_INLINE void gt_map_set_next_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction);
 GT_INLINE gt_map* gt_map_get_last_block(gt_map* const map);
-GT_INLINE void gt_map_append_block(gt_map* const map,gt_map* const next_map,gt_junction_t junction);
+GT_INLINE void gt_map_set_next_block(
+    gt_map* const map,gt_map* const next_map,const gt_junction_t junction,const int64_t junction_size);
+GT_INLINE void gt_map_insert_next_block(
+    gt_map* const map,gt_map* const next_map,const gt_junction_t junction,const int64_t junction_size);
+GT_INLINE void gt_map_append_block(
+    gt_map* const map,gt_map* const next_map,const gt_junction_t junction,const int64_t junction_size);
 
 GT_INLINE gt_junction_t gt_map_get_junction(gt_map* const map);
-GT_INLINE uint64_t gt_map_get_junction_distance(gt_map* const map);
+GT_INLINE int64_t gt_map_get_junction_size(gt_map* const map);
+
+GT_INLINE void gt_map_reverse_blocks_positions(gt_map* const head_map,const uint64_t start_position);
+GT_INLINE void gt_map_reverse_misms(gt_map* const map);
+
 /*
  * Map blocks iterator
  *  GT_BEGIN_MAP_BLOCKS_ITERATOR(initial_map,map_it) {

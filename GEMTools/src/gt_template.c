@@ -82,6 +82,13 @@ GT_INLINE char* gt_template_get_tag(gt_template* const template) {
   } GT_TEMPLATE_END_REDUCTION;
   return gt_string_get_string(template->tag);
 }
+GT_INLINE gt_string* gt_template_get_string_tag(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_string_tag(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  return template->tag;
+}
 GT_INLINE void gt_template_set_tag(gt_template* const template,char* const tag,const uint64_t length) {
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(tag);

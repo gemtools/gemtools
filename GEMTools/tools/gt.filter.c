@@ -23,6 +23,9 @@ typedef struct {
   bool best_map;
   uint64_t max_matches;
   bool make_counters;
+  bool only_unmapped;
+  bool only_mapped;
+  /* Filter-Realign */
   bool realign_hamming;
   bool realign_levenshtein;
   /* Hidden */
@@ -45,6 +48,9 @@ gt_stats_args parameters = {
     .best_map=false,
     .max_matches=GT_ALL,
     .make_counters=false,
+    .only_unmapped=false,
+    .only_mapped=false,
+    /* Filter-Realign */
     .realign_hamming=false,
     .realign_levenshtein=false,
     /* Hidden */
@@ -192,12 +198,16 @@ void usage() {
                   "           --mmap-input\n"
                   "           --paired-end|p\n"
                   "         [Filter]\n"
-                  "           --no-split-maps\n"
+                  "           --unmapped|--mapped\n"
+                  "           --no-split-maps\n" // TODO --split-maps
                   "           --best-map\n"
                   "           --max-matches <number>\n"
                   "           --make-counters <number>\n"
+                  "         [Filter-Realign]\n"
                   "           --hamming-realign\n"
                   "           --levenshtein-realign\n"
+                  "         [Output]\n"
+                  "           --display-pretty\n"
                   "         [Misc]\n"
                   "           --threads|t\n"
                   "           --verbose|v\n"

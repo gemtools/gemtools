@@ -70,8 +70,8 @@ void gt_example_display_template(gt_template* template) {
       GT_MAP_ITERATE(map,map_block) {
         printf("\n\t\t%s\t",gt_map_get_seq_name(map_block));
         /// IMPORTANT NOTE: Positions are base-1 (Genomic coordinates)
-        printf("InitPos=%"PRIu64"\t",gt_map_get_position(map_block));
-        printf("EndPos=%"PRIu64"\t",gt_map_get_position(map_block)+gt_map_get_length(map_block));
+        printf("InitPos=%"PRIu64"\t",gt_map_get_position_(map_block));
+        printf("EndPos=%"PRIu64"\t",gt_map_get_position_(map_block)+gt_map_get_length(map_block));
         printf("Len=%"PRIu64"\t",gt_map_get_length(map_block));
         printf("Strand=%c\t",gt_map_get_strand(map_block)==FORWARD?'F':'R');
         printf("Dist=%"PRIu64"\t",gt_map_get_distance(map_block));

@@ -84,6 +84,7 @@ GT_INLINE gt_map** gt_template_raw_put_mmap(
   free(uniq_mmaps); // Free auxiliary vector
   return template_mmap;
 }
+#include "gt_output_map.h"
 GT_INLINE gt_map** gt_template_put_mmap(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool replace_duplicated) {
@@ -110,6 +111,7 @@ GT_INLINE gt_map** gt_template_put_mmap(
     } else { // Replace mmap
       gt_template_dec_counter(template,found_mmap_attr.distance); // Remove old mmap
       gt_template_set_mmap(template,found_mmap_pos,uniq_mmaps,mmap_attr); // Replace old mmap
+      gt_template_inc_counter(template,mmap_attr->distance);
       template_mmap=gt_template_get_mmap(template,found_mmap_pos,NULL);
     }
     free(uniq_mmaps); // Free auxiliary vector

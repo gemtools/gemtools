@@ -74,7 +74,7 @@ GT_INLINE gt_status gt_map_check_alignment_sa(
   register gt_string* const sequence = gt_string_new(sequence_length+1);
   register gt_status error_code;
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
       sequence_length,0,sequence))) return error_code;
   // Check Alignment
   return gt_map_check_alignment(map,pattern,pattern_length,gt_string_get_string(sequence),sequence_length);
@@ -110,7 +110,7 @@ GT_INLINE gt_status gt_map_realign_hamming_sa(
   register const uint64_t pattern_length = gt_string_get_length(pattern);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
       pattern_length,0,sequence))) return error_code;
   // Realign Hamming
   return gt_map_realign_hamming(map,gt_string_get_string(pattern),gt_string_get_string(sequence),pattern_length);
@@ -237,6 +237,8 @@ GT_INLINE gt_status gt_map_realign_levenshtein(
   // Safe check
   gt_cond_fatal_error(gt_map_check_alignment(map,pattern,pattern_length,
     sequence+((ends_free)?i:0),gt_map_get_length(map))!=0,MAP_ALG_WRONG_ALG);
+  gt_output_map_fprint_pretty_alignment(stderr,map,false,pattern,pattern_length,
+      sequence+((ends_free)?i:0),gt_map_get_length(map));
   // Free
   free(dp_array);
   return 0;
@@ -253,7 +255,7 @@ GT_INLINE gt_status gt_map_realign_levenshtein_sa(
   register const uint64_t extra_decode_length = (ends_free) ? extra_length : 0;
   register gt_string* const sequence = gt_string_new(decode_length+extra_decode_length+1);
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
       decode_length,extra_decode_length,sequence))) {
     gt_string_delete(sequence); // Free
     return error_code;
@@ -283,7 +285,7 @@ GT_INLINE gt_status gt_map_realign_weighted_sa(
   register const uint64_t pattern_length = gt_string_get_length(pattern);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
       pattern_length,extra_length,sequence))) return error_code;
   // Realign Weighted
   return gt_map_realign_weighted(map,

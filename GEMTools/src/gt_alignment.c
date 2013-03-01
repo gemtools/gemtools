@@ -67,6 +67,10 @@ GT_INLINE char* gt_alignment_get_tag(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   return gt_string_get_string(alignment->tag);
 }
+GT_INLINE gt_string* gt_alignment_get_string_tag(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return alignment->tag;
+}
 GT_INLINE void gt_alignment_set_tag(gt_alignment* const alignment,char* const tag,const uint64_t length) {
   GT_ALIGNMENT_CHECK(alignment);
   GT_NULL_CHECK(tag);
