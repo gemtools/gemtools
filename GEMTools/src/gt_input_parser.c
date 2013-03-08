@@ -33,7 +33,7 @@ GT_INLINE gt_status gt_input_parse_tag(char** const text_line,gt_string* const t
     if (tag_end=='1') {
       gt_string_set_length(tag,tag_length-2);
       pair = GT_PAIR_PE_1;
-    } else if (tag_end=='2') {
+    } else if (tag_end=='2' || tag_end == '3') {
       gt_string_set_length(tag,tag_length-2);
       pair = GT_PAIR_PE_2;
     }
@@ -50,7 +50,7 @@ GT_INLINE gt_status gt_input_parse_tag(char** const text_line,gt_string* const t
     if (count_casava_fields(attr_begin,attr_length) == 4) {
       if (gt_expect_true(attr_begin[0]=='1')) {
         pair = GT_PAIR_PE_1;
-      } else if (gt_expect_true(attr_begin[0]=='2')) {
+      } else if (gt_expect_true(attr_begin[0]=='2' || attr_begin[0]=='3')) {
         pair = GT_PAIR_PE_2;
       }
       gt_string* casava_string = gt_string_new(attr_length);
