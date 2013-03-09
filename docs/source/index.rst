@@ -47,8 +47,8 @@ i3 bundle. Otherwise use core2.
 Downloads binary bundle
 ***********************
 
-* `GEMTools binary bundle 1.6 for i3 <http://bla>`_
-* `GEMTools binary bundle 1.6 for core2 <http://bla>`_
+* `GEMTools binary bundle 1.6 for i3 <http://barnaserver.com/gemtools/dist/gemtools-1.6-i3.tar.gz>`_
+* `GEMTools binary bundle 1.6 for core2 <http://barnaserver.com/gemtools/dist/gemtools-1.6-core2.tar.gz>`_
 
 Downloads library bundle
 ************************
