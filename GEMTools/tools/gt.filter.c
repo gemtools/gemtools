@@ -179,6 +179,8 @@ void gt_filter_read__write() {
         if (parameters.best_map || parameters.no_split_maps || parameters.only_split_maps) {
           gt_template *template_best = gt_template_copy(template,false,false);
           gt_template_filter(template_best,template);
+          gt_template_delete(template);
+          template = template_best;
         }
 
         // Make counters
@@ -237,15 +239,15 @@ void parse_arguments(int argc,char** argv) {
     { "mmap-input", no_argument, 0, 1 },
     { "paired-end", no_argument, 0, 'p' },
     /* Filter */
-    { "mapped", no_argument, 0, 10 },
-    { "unmapped", no_argument, 0, 11 },
-    { "no-split-maps", no_argument, 0, 12 },
-    { "only-split-maps", no_argument, 0, 13 },
-    { "best-map", no_argument, 0, 3 },
-    { "max-matches", required_argument, 0, 4 },
-    { "make-counters", no_argument, 0, 5 },
-    { "hamming-realign", no_argument, 0, 6 },
-    { "levenshtein-realign", no_argument, 0, 7 },
+    { "mapped", no_argument, 0, 2 },
+    { "unmapped", no_argument, 0, 3 },
+    { "no-split-maps", no_argument, 0, 4 },
+    { "only-split-maps", no_argument, 0, 5 },
+    { "best-map", no_argument, 0, 6 },
+    { "max-matches", required_argument, 0, 7 },
+    { "make-counters", no_argument, 0, 8 },
+    { "hamming-realign", no_argument, 0, 9 },
+    { "levenshtein-realign", no_argument, 0, 10 },
     /* Hidden */
     { "error-plot", no_argument, 0, 20 },
     { "insert-size-plot", no_argument, 0, 21 },
@@ -276,31 +278,31 @@ void parse_arguments(int argc,char** argv) {
       parameters.paired_end = true;
       break;
     /* Filter */
-    case 10: // mapped
+    case 2: // mapped
       parameters.mapped = true;
       break;
-    case 11: // unmapped
+    case 3: // unmapped
       parameters.unmapped = true;
       break;
-    case 12: // no-split-maps
+    case 4: // no-split-maps
       parameters.no_split_maps = true;
       break;
-    case 13: // only-split-maps
+    case 5: // only-split-maps
       parameters.only_split_maps = true;
       break;
-    case 3:
+    case 6:
       parameters.best_map = true;
       break;
-    case 4:
+    case 7:
       parameters.max_matches = atoll(optarg);
       break;
-    case 5:
+    case 8:
       parameters.make_counters = true;
       break;
-    case 6:
+    case 9:
       parameters.realign_hamming = true;
       break;
-    case 7:
+    case 10:
       parameters.realign_levenshtein = true;
       break;
     /* Hidden */

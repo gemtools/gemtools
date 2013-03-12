@@ -45,6 +45,12 @@
 #define GT_STATS_INSS_RANGE_BEHOND 15
 #define GT_STATS_INSS_RANGE 16
 
+#define GT_STATS_INSS_FG_MIN  (-1000)
+#define GT_STATS_INSS_FG_MAX   10000
+#define GT_STATS_INSS_FG_STEP  100
+#define GT_STATS_INSS_FG_RANGE ((GT_STATS_INSS_FG_MAX-GT_STATS_INSS_FG_MIN+(GT_STATS_INSS_FG_STEP-1))/GT_STATS_INSS_FG_STEP)
+#define GT_STATS_INSS_FG_GET_BUCKET(INSS) (((INSS)-GT_STATS_INSS_FG_MIN)/GT_STATS_INSS_FG_STEP)
+
 #define GT_STATS_MISMS_RANGE_0 0
 #define GT_STATS_MISMS_RANGE_1 1
 #define GT_STATS_MISMS_RANGE_2 2
@@ -141,8 +147,14 @@ typedef struct {
   uint64_t total_bases;
   uint64_t total_bases_matching;
   uint64_t total_bases_trimmed;
+  // Strandness combinations
+  uint64_t pair_strand_rf;
+  uint64_t pair_strand_fr;
+  uint64_t pair_strand_ff;
+  uint64_t pair_strand_rr;
   // Insert Size Distribution
   uint64_t *inss;               /* GT_STATS_INSS_RANGE */
+  uint64_t *inss_fine_grain;    /* GT_STATS_INSS_FG_RANGE */
   // Mismatch/Errors bases
   uint64_t *misms_transition;   /* GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_RANGE */
   uint64_t *qual_score_misms;   /* GT_STATS_QUAL_SCORE_RANGE */

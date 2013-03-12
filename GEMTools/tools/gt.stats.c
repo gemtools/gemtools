@@ -71,9 +71,6 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
     fprintf(stderr,"[MAPS.PROFILE]\n");
     gt_stats_print_maps_stats(stderr,stats,num_reads,paired_end);
   }
-  if (paired_end) {
-    gt_stats_print_inss_distribution(stderr,stats->maps_profile->inss,stats->num_maps);
-  }
   /*
    * Print Quality Scores vs Errors/Misms
    */
@@ -100,7 +97,7 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
       fprintf(stderr,"MismsTransitions\n");
       gt_stats_print_misms_transition_table(
           stderr,maps_profile->misms_transition,maps_profile->total_mismatches);
-      fprintf(stderr,"MismsTransitions.1-Nucleotide.Context");
+      fprintf(stderr,"MismsTransitions.1-Nucleotide.Context\n");
       gt_stats_print_misms_transition_table_1context(
           stderr,maps_profile->misms_1context,maps_profile->total_mismatches);
     }

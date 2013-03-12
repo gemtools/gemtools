@@ -703,9 +703,6 @@ int main(int argc,char** argv) {
   // Load it!
   //
 
-  gt_vector* map_list = gt_vector_new(10,sizeof(gt_map*));
-  printf("%d\n",gt_input_map_parse_map_list("[26]=chr7:R1203797~chr7:R1203108",map_list));
-
   // Leo's
   //gt_remove_maps_with_n_or_more_mismatches();
 
