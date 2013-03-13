@@ -62,10 +62,16 @@ def download(type):
     dirpath = "%s/%s" % (parent_dir, "downloads")
     if not os.path.exists(dirpath):
         os.makedirs(dirpath)
+    # support jenkins builds with latest artefacts
+    jenkins_src = "$s/jenkins-gem-binaries-%s.tgz" % (dirpath, type)
     target = "%s/%s" % (dirpath, file_name)
-    if not os.path.exists(target):
-        print "Downloading %s bundle from %s to %s" % (type, base_url, target)
-        urllib.urlretrieve(base_url, target)
+    if os.path.exists(jenkins_src):
+        print "copy jenkins build for", type
+        shutil.copyfile(jenkins_src, target)
+    else:
+        if not os.path.exists(target):
+            print "Downloading %s bundle from %s to %s" % (type, base_url, target)
+            urllib.urlretrieve(base_url, target)
 
 
 class fetch(Command):
