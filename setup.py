@@ -63,7 +63,7 @@ def download(type):
     if not os.path.exists(dirpath):
         os.makedirs(dirpath)
     # support jenkins builds with latest artefacts
-    jenkins_src = "$s/jenkins-gem-binaries-%s.tgz" % (dirpath, type)
+    jenkins_src = "%s/jenkins-gem-binaries-%s.tgz" % (dirpath, type)
     target = "%s/%s" % (dirpath, file_name)
     if os.path.exists(jenkins_src):
         print "copy jenkins build for", type
