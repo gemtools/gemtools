@@ -20,6 +20,8 @@
  * Error/state codes (Map Output Error)
  */
 #define GT_MOE_INCONSISTENT_COUNTERS 10
+#define GT_MOE_ERROR_PRINTING_MISM_STRING 20
+#define GT_MOE_ERROR_PRINTING_MAP_BLOCKS 30
 
 /*
  * Output attributes

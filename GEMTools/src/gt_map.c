@@ -237,7 +237,7 @@ GT_INLINE void gt_map_reverse_blocks_positions(gt_map* const head_map,const uint
 #define GT_MAP_REVERSE_MISMS_ADJUST_POS(misms,base_length) \
   misms->position = base_length - misms->position; \
   switch (misms->misms_type) { \
-    case DEL: misms->position-=(misms->size-1); break; \
+    case DEL: misms->position-=misms->size; break; \
     case INS: misms->position++; break; \
     default: break; \
   }
@@ -276,17 +276,21 @@ GT_INLINE void gt_map_clear_misms(gt_map* const map) {
   GT_MAP_CHECK(map);
   gt_vector_clear(map->mismatches);
 }
-GT_INLINE gt_misms* gt_map_get_misms(gt_map* const map,uint64_t offset) {
+GT_INLINE gt_misms* gt_map_get_misms(gt_map* const map,const uint64_t offset) {
   GT_MAP_CHECK(map);
   return gt_vector_get_elm(map->mismatches,offset,gt_misms);
 }
-GT_INLINE void gt_map_set_misms(gt_map* const map,gt_misms* misms,uint64_t offset) {
+GT_INLINE void gt_map_set_misms(gt_map* const map,gt_misms* misms,const uint64_t offset) {
   GT_MAP_CHECK(map);
   gt_vector_set_elm(map->mismatches,offset,gt_misms,*misms);
 }
 GT_INLINE uint64_t gt_map_get_num_misms(gt_map* const map) {
   GT_MAP_CHECK(map);
   return gt_vector_get_used(map->mismatches);
+}
+GT_INLINE void gt_map_set_num_misms(gt_map* const map,const uint64_t num_misms) {
+  GT_MAP_CHECK(map);
+  gt_vector_set_used(map->mismatches,num_misms);
 }
 
 GT_INLINE void gt_map_clear_misms_string(gt_map* const map) {

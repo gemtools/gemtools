@@ -11,7 +11,7 @@
 
 #include "gem_tools.h"
 
-typedef enum { GT_MAP_SET_INTERSECTION, GT_MAP_SET_UNION, GT_MAP_SET_DIFFERENCE } gt_operation;
+typedef enum { GT_MAP_SET_INTERSECTION, GT_MAP_SET_UNION, GT_MAP_SET_DIFFERENCE, GT_MAP_SET_PASTE, GT_MAP_SET_COMPARE } gt_operation;
 
 typedef struct {
   char* name_input_file_1;
@@ -50,7 +50,8 @@ int64_t gt_mapset_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint6
 
 GT_INLINE gt_status gt_mapset_read_template_sync(
     gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
-    gt_template* const template_master,gt_template* const template_slave,const gt_operation operation) {
+    gt_buffered_output_file* const buffered_output,gt_template* const template_master,gt_template* const template_slave,
+    const gt_operation operation) {
   // Read master
   register gt_status error_code_master, error_code_slave;
   gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
@@ -74,7 +75,7 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
     do {
       if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
       if (operation==GT_MAP_SET_UNION || operation==GT_MAP_SET_DIFFERENCE) {
-        gt_output_map_fprint_gem_template(stdout,template_master,output_attributes);
+        gt_output_map_bofprint_template(buffered_output,template_master,output_attributes);
       }
     } while ((error_code_master=gt_input_generic_parser_get_template(
                 buffered_input_master,template_master,&generic_parser_attr)));
@@ -85,7 +86,7 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
       gt_template_get_string_tag(template_slave))) {
     // Print non correlative master's template
     if (operation==GT_MAP_SET_UNION || operation==GT_MAP_SET_DIFFERENCE) {
-      gt_output_map_fprint_gem_template(stdout,template_master,output_attributes);
+      gt_output_map_bofprint_template(buffered_output,template_master,output_attributes);
     }
     // Fetch next master's template
     if ((error_code_master=gt_input_generic_parser_get_template(
@@ -96,8 +97,38 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
   return GT_IMP_OK;
 }
 
-void gt_mapset_read__write() {
-  // Open file IN/OUT
+GT_INLINE gt_status gt_mapset_read_template_get_commom_map(
+    gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
+    gt_template* const template_master,gt_template* const template_slave) {
+  register gt_status error_code_master, error_code_slave;
+  gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
+  // Read master
+  if ((error_code_master=gt_input_generic_parser_get_template(
+      buffered_input_master,template_master,&generic_parser_attr))==GT_IMP_FAIL) {
+    gt_fatal_error_msg("Fatal error parsing file <<Master>>");
+  }
+  if (error_code_master==GT_IMP_EOF) return GT_IMP_EOF;
+  // Read slave
+  if ((error_code_slave=gt_input_generic_parser_get_template(
+      buffered_input_slave,template_slave,&generic_parser_attr))==GT_IMP_FAIL) {
+    gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
+  }
+  if (error_code_slave==GT_IMP_EOF) { // Check EOF conditions
+    gt_fatal_error_msg("<<Slave>> is not contained in master <<Master>>");
+  }
+  // Synch loop
+  while (gt_string_cmp(gt_template_get_string_tag(template_master),gt_template_get_string_tag(template_slave))) {
+    // Fetch next slave's template
+    if ((error_code_master=gt_input_generic_parser_get_template(
+        buffered_input_slave,template_slave,&generic_parser_attr))!=GT_IMP_OK) {
+      gt_fatal_error_msg("<<Slave>> is not contained in master <<Master>>");
+    }
+  }
+  return GT_IMP_OK;
+}
+
+void gt_mapset_perform_set_operations() {
+  // File IN/OUT
   gt_input_file* input_file_1 = gt_input_file_open(parameters.name_input_file_1,parameters.mmap_input);
   gt_input_file* input_file_2 = (parameters.name_input_file_2==NULL) ?
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file_2,parameters.mmap_input);
@@ -105,15 +136,18 @@ void gt_mapset_read__write() {
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
-  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
-
-  // Parallel reading+process
+  // Buffered I/O
   gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
   gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
+  gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
+  gt_buffered_input_file_attach_buffered_output(buffered_input_1,buffered_output);
 
+  // Template I/O (synch)
   gt_template *template_1 = gt_template_new();
   gt_template *template_2 = gt_template_new();
-  while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,template_1,template_2,parameters.operation)) {
+  gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
+  while (gt_mapset_read_template_sync(buffered_input_1,buffered_input_2,
+      buffered_output,template_1,template_2,parameters.operation)) {
     // Record current read length
     current_read_length = gt_template_get_total_length(template_1);
     // Apply operation
@@ -133,7 +167,7 @@ void gt_mapset_read__write() {
         break;
     }
     // Print template
-    gt_output_map_fprint_gem_template(stdout,ptemplate,output_attributes);
+    gt_output_map_bofprint_template(buffered_output,ptemplate,output_attributes);
     // Delete template
     gt_template_delete(ptemplate);
   }
@@ -143,9 +177,95 @@ void gt_mapset_read__write() {
   gt_template_delete(template_2);
   gt_buffered_input_file_close(buffered_input_1);
   gt_buffered_input_file_close(buffered_input_2);
+  gt_buffered_output_file_close(buffered_output);
+  gt_input_file_close(input_file_1);
+  gt_input_file_close(input_file_2);
+  gt_output_file_close(output_file);
+}
+
+void gt_mapset_perform_cmp_operations() {
+  // File IN/OUT
+  gt_input_file* input_file_1 = gt_input_file_open(parameters.name_input_file_1,parameters.mmap_input);
+  gt_input_file* input_file_2 = (parameters.name_input_file_2==NULL) ?
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file_2,parameters.mmap_input);
+  if (parameters.name_input_file_2==NULL) GT_SWAP(input_file_1,input_file_2);
+  gt_output_file* output_file = (parameters.name_output_file==NULL) ?
+      gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
+
+  // Buffered I/O
+  gt_buffered_input_file* buffered_input_1 = gt_buffered_input_file_new(input_file_1);
+  gt_buffered_input_file* buffered_input_2 = gt_buffered_input_file_new(input_file_2);
+  gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
+  gt_buffered_input_file_attach_buffered_output(buffered_input_1,buffered_output);
+
+  // Template I/O (synch)
+  gt_template *template_1 = gt_template_new();
+  gt_template *template_2 = gt_template_new();
+  gt_output_map_attributes* output_map_attributes = gt_output_map_attributes_new();
+  while (gt_mapset_read_template_get_commom_map(buffered_input_1,buffered_input_2,template_1,template_2)) {
+    // Record current read length
+    current_read_length = gt_template_get_total_length(template_1);
+    // Apply operation
+    switch (parameters.operation) {
+      case GT_MAP_SET_PASTE:
+        // Print Master's TAG+Counters+Maps
+        gt_output_map_bofprint_tag(buffered_output,template_1->tag,template_1->attributes,output_map_attributes);
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_1));
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_1,output_map_attributes);
+        // Print Slave's Counters+Maps
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_2));
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_2,output_map_attributes);
+        gt_bofprintf(buffered_output,"\n");
+        break;
+      case GT_MAP_SET_COMPARE: {
+        // Perform simple cmp operations
+        register gt_template *template_master_minus_slave=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
+        register gt_template *template_slave_minus_master=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_2,template_1);
+        register gt_template *template_intersection=gt_template_intersect_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
+        /*
+         * Print results :: (TAG (Master-Slave){COUNTER MAPS} (Slave-Master){COUNTER MAPS} (Intersection){COUNTER MAPS})
+         */
+        gt_output_map_bofprint_tag(buffered_output,template_1->tag,template_1->attributes,output_map_attributes);
+        // (TAG (Master-Slave){COUNTER MAPS}
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_master_minus_slave));
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_master_minus_slave,output_map_attributes);
+        // (Slave-Master){COUNTER MAPS}
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_slave_minus_master));
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_slave_minus_master,output_map_attributes);
+        // (Intersection){COUNTER MAPS})
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_intersection));
+        gt_bofprintf(buffered_output,"\t");
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_intersection,output_map_attributes);
+        gt_bofprintf(buffered_output,"\n");
+        // Delete templates
+        gt_template_delete(template_master_minus_slave);
+        gt_template_delete(template_slave_minus_master);
+        gt_template_delete(template_intersection);
+        }
+        break;
+      default:
+        gt_fatal_error(SELECTION_NOT_VALID);
+        break;
+    }
+  }
 
   // Clean
+  gt_template_delete(template_1);
+  gt_template_delete(template_2);
+  gt_buffered_input_file_close(buffered_input_1);
+  gt_buffered_input_file_close(buffered_input_2);
+  gt_buffered_output_file_close(buffered_output);
   gt_input_file_close(input_file_1);
+  gt_input_file_close(input_file_2);
   gt_output_file_close(output_file);
 }
 
@@ -155,6 +275,8 @@ void usage() {
                   "         union\n"
                   "         intersection\n"
                   "         difference\n"
+                  "         compare\n"
+                  "         paste\n"
                   "       [ARGS]\n"
                   "         --i1 [FILE]\n"
                   "         --i2 [FILE]\n"
@@ -162,8 +284,8 @@ void usage() {
                   "         --output|-o [FILE]\n"
                   "         --paired-end|p\n"
                   "       [CMP]\n"
-                  "         --eq-th <number>"
-                  "         --strict "
+                  "         --eq-th <number>|<float>\n"
+                  "         --strict\n"
                   "       [MISC]\n"
                   "         --verbose|v\n"
                   "         --help|h\n");
@@ -171,13 +293,17 @@ void usage() {
 
 void parse_arguments(int argc,char** argv) {
   // Parse operation
-  if (argc<=1) gt_fatal_error_msg("Please specify operation {union,intersection,difference}");
+  if (argc<=1) gt_fatal_error_msg("Please specify operation {union,intersection,difference,compare}");
   if (gt_streq(argv[1],"INTERSECCTION") || gt_streq(argv[1],"Intersection") || gt_streq(argv[1],"intersection")) {
     parameters.operation = GT_MAP_SET_INTERSECTION;
   } else if (gt_streq(argv[1],"UNION") || gt_streq(argv[1],"Union") || gt_streq(argv[1],"union")) {
     parameters.operation = GT_MAP_SET_UNION;
   } else if (gt_streq(argv[1],"DIFFERENCE") || gt_streq(argv[1],"Difference") || gt_streq(argv[1],"difference")) {
     parameters.operation = GT_MAP_SET_DIFFERENCE;
+  } else if (gt_streq(argv[1],"COMPARE") || gt_streq(argv[1],"Compare") || gt_streq(argv[1],"compare")) {
+    parameters.operation = GT_MAP_SET_COMPARE;
+  } else if (gt_streq(argv[1],"PASTE") || gt_streq(argv[1],"Paste") || gt_streq(argv[1],"paste")) {
+    parameters.operation = GT_MAP_SET_PASTE;
   } else {
     if (argv[1][0]=='I' || argv[1][0]=='i') {
       fprintf(stderr,"\tAssuming 'Intersection' ...\n");
@@ -188,6 +314,12 @@ void parse_arguments(int argc,char** argv) {
     } else if (argv[1][0]=='D' || argv[1][0]=='d') {
       fprintf(stderr,"\tAssuming 'Difference' ...\n");
       parameters.operation = GT_MAP_SET_DIFFERENCE;
+    } else if (argv[1][0]=='C' || argv[1][0]=='c') {
+      fprintf(stderr,"\tAssuming 'Compare' ...\n");
+      parameters.operation = GT_MAP_SET_COMPARE;
+    } else if (argv[1][0]=='P' || argv[1][0]=='p') {
+      fprintf(stderr,"\tAssuming 'Paste' ...\n");
+      parameters.operation = GT_MAP_SET_PASTE;
     } else {
       gt_fatal_error_msg("Unknown operation '%s'\n",argv[1]);
     }
@@ -255,7 +387,13 @@ int main(int argc,char** argv) {
   parse_arguments(argc,argv);
 
   // Filter !
-  gt_mapset_read__write();
+  if (parameters.operation==GT_MAP_SET_INTERSECTION ||
+      parameters.operation==GT_MAP_SET_UNION ||
+      parameters.operation==GT_MAP_SET_DIFFERENCE) {
+    gt_mapset_perform_set_operations();
+  } else {
+    gt_mapset_perform_cmp_operations();
+  }
 
   return 0;
 }

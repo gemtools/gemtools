@@ -81,10 +81,8 @@ GT_INLINE gt_status gt_output_map_gprint_tag(
   } else {
     // Append /1 /2 if paired
     if (gt_shash_is_contained(attributes,GT_TAG_PAIR)) {
-        int64_t p = *gt_shash_get(attributes,GT_TAG_PAIR,int64_t);
-      if (p > 0) {
-        gt_gprintf(gprinter,"/%d",p);
-      }
+      int64_t p = *gt_shash_get(attributes,GT_TAG_PAIR,int64_t);
+      if (p > 0) gt_gprintf(gprinter,"/%d",p);
     }
   }
   if(gt_output_map_attributes_is_print_extra(output_map_attributes) && gt_shash_is_contained(attributes,GT_TAG_EXTRA)) {
@@ -103,6 +101,7 @@ GT_INLINE gt_status gt_output_map_gprint_mismatch_string_(
   GT_MAP_CHECK(map);
   GT_NULL_CHECK(output_map_attributes);
   register const uint64_t map_length = gt_map_get_base_length(map);
+  register gt_status error_code = 0;
   register uint64_t centinel = 0;
   GT_MISMS_ITERATE(map,misms) {
     register const uint64_t misms_pos = gt_misms_get_position(misms);
@@ -130,13 +129,14 @@ GT_INLINE gt_status gt_output_map_gprint_mismatch_string_(
       }
       default:
         gt_error(SELECTION_NOT_VALID);
+        error_code = GT_MOE_ERROR_PRINTING_MISM_STRING;
         break;
     }
   }
   if (centinel < map_length) {
     gt_gprintf(gprinter,"%"PRIu64,map_length-centinel);
   }
-  return 0;
+  return error_code;
 }
 GT_INLINE gt_status gt_output_map_gprint_map_block_(
     gt_generic_printer* const gprinter,gt_map* const map,gt_output_map_attributes* const output_map_attributes,
@@ -154,8 +154,7 @@ GT_INLINE gt_status gt_output_map_gprint_map_block_(
   // Print position
   gt_gprintf(gprinter,GT_MAP_SEP_S"%"PRIu64 GT_MAP_SEP_S,gt_map_get_global_position(map));
   // Print CIGAR
-  gt_output_map_gprint_mismatch_string_(gprinter,map,output_map_attributes,begin_trim,end_trim);
-  return 0;
+  return gt_output_map_gprint_mismatch_string_(gprinter,map,output_map_attributes,begin_trim,end_trim);
 }
 GT_INLINE gt_status gt_output_map_gprint_map_(
     gt_generic_printer* const gprinter,gt_map* const map,
@@ -166,6 +165,7 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
   /*
    * FORMAT => chr11:-:51590050:(5)43T46A9>24*
    */
+  register gt_status error_code = 0;
   // Print sequence name
   gt_gprintf(gprinter,PRIgts,PRIgts_content(gt_map_get_string_seq_name(map)));
   // Print strand
@@ -177,7 +177,7 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
   register bool cigar_pending = true;
   while (cigar_pending) {
     register const bool has_next_block = gt_map_has_next_block(map_it);
-    gt_output_map_gprint_mismatch_string_(gprinter,map_it,output_map_attributes,next_map==NULL,!has_next_block);
+    error_code|=gt_output_map_gprint_mismatch_string_(gprinter,map_it,output_map_attributes,next_map==NULL,!has_next_block);
     if (has_next_block) {
       next_map = gt_map_get_next_block(map_it);
       if ((cigar_pending=(gt_string_equals(gt_map_get_string_seq_name(map_it),gt_map_get_string_seq_name(next_map))))) {
@@ -197,6 +197,7 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
           case NO_JUNCTION:
             break;
           default:
+            error_code=GT_MOE_ERROR_PRINTING_MAP_BLOCKS;
             gt_error(SELECTION_NOT_VALID);
             break;
         }
@@ -211,11 +212,11 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
     gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_global_score(map));
   }
   // Print possible next blocks (out of the current sequence => split-maps across chromosomes)
-  if (gt_map_has_next_block(map_it)) { // FIXME: trimmings, do this really occurs?
+  if (gt_map_has_next_block(map_it)) {
     gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-    gt_output_map_gprint_map_(gprinter,next_map,output_map_attributes,print_scores,false);
+    error_code|=gt_output_map_gprint_map_(gprinter,next_map,output_map_attributes,print_scores,false);
   }
-  return 0;
+  return error_code;
 }
 GT_INLINE gt_status gt_output_map_gprint_counters_(
     gt_generic_printer* const gprinter,gt_vector* const counters,gt_output_map_attributes* const output_map_attributes,
@@ -410,12 +411,12 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_g(
         if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
         GT_MULTIMAP_ITERATE(map_array,map,end_position) {
           if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-          gt_output_map_gprint_map_(gprinter,map,output_map_attributes,false,true);
+          error_code|=gt_output_map_gprint_map_(gprinter,map,output_map_attributes,false,true);
         }
         if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
           gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
         }
-        if (total_maps_printed>=output_map_attributes->max_printable_maps || total_maps_printed>=num_maps) return 0;
+        if (total_maps_printed>=output_map_attributes->max_printable_maps || total_maps_printed>=num_maps) return error_code;
         if (pending_maps==0) break;
       }
       if (pending_maps>0) {
@@ -423,6 +424,10 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_g(
         gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
       }
       ++strata;
+    }
+    if (gt_expect_false(total_maps_printed!=num_maps)) {
+      error_code = GT_MOE_INCONSISTENT_COUNTERS;
+      gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
     }
   }
   return error_code;
@@ -447,7 +452,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps_g(
         // Print map
         --pending_maps;
         if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
-        gt_output_map_gprint_map_(gprinter,map,output_map_attributes,output_map_attributes->print_scores,true);
+        error_code|=gt_output_map_gprint_map_(gprinter,map,output_map_attributes,output_map_attributes->print_scores,true);
         if (total_maps_printed>=output_map_attributes->max_printable_maps || total_maps_printed>=num_maps) return 0;
         if (pending_maps==0) break;
       }
@@ -470,6 +475,7 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_unsorted(
   GT_NULL_CHECK(output_map_attributes);
   // NOTE: No sorting performed. Written as laid in the vector.
   //       Thus, if you want a particular sorting (by score, by distance, ...) sorting must be done beforehand
+  register gt_status error_code = 0;
   if (gt_expect_false(gt_template_get_num_mmaps(template)==0)) {
     gt_gprintf(gprinter,GT_MAP_NONE_S);
   } else {
@@ -479,14 +485,14 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_unsorted(
       if ((i++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
       GT_MULTIMAP_ITERATE(map_array,map,end_position) {
         if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-        gt_output_map_gprint_map_(gprinter,map,output_map_attributes,false,true);
+        error_code|=gt_output_map_gprint_map_(gprinter,map,output_map_attributes,false,true);
         if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
           gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
         }
       }
     }
   }
-  return 0;
+  return error_code;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,output_map_attributes
@@ -498,6 +504,7 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps_unsorted(
   GT_NULL_CHECK(output_map_attributes);
   // NOTE: No sorting performed. Written as laid in the vector.
   //       Thus, if you want a particular sorting (by score, by distance, ...) sort beforehand
+  register gt_status error_code = 0;
   if (gt_expect_false(gt_alignment_get_num_maps(alignment)==0)) {
     gt_gprintf(gprinter,GT_MAP_NONE_S);
   } else {
@@ -505,10 +512,10 @@ GT_INLINE gt_status gt_output_map_gprint_alignment_maps_unsorted(
     GT_ALIGNMENT_ITERATE(alignment,map) {
       if (i>=output_map_attributes->max_printable_maps) break;
       if ((i++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
-      gt_output_map_gprint_map_(gprinter,map,output_map_attributes,output_map_attributes->print_scores,true);
+      error_code|=gt_output_map_gprint_map_(gprinter,map,output_map_attributes,output_map_attributes->print_scores,true);
     }
   }
-  return 0;
+  return error_code;
 }
 /*
  * High-level MAP Printers {Alignment/Template}
@@ -524,9 +531,9 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     return gt_output_map_gprint_alignment(gprinter,alignment,output_map_attributes);
   } GT_TEMPLATE_END_REDUCTION;
-  register gt_status error_code;
+  register gt_status error_code = 0;
   // Print TAG
-  gt_output_map_gprint_tag(gprinter,template->tag,template->attributes,output_map_attributes);
+  error_code|=gt_output_map_gprint_tag(gprinter,template->tag,template->attributes,output_map_attributes);
   // Print READ(s)
   register const uint64_t num_blocks = gt_template_get_num_blocks(template);
   register uint64_t i = 0;
@@ -550,11 +557,11 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   }
   // Print COUNTERS
   gt_gprintf(gprinter,"\t");
-  gt_output_map_gprint_counters_(gprinter,gt_template_get_counters_vector(template),
+  error_code|=gt_output_map_gprint_counters_(gprinter,gt_template_get_counters_vector(template),
       output_map_attributes,gt_template_get_mcs(template),gt_template_get_not_unique_flag(template));
   // Print MAPS
   gt_gprintf(gprinter,"\t");
-  error_code = gt_output_map_gprint_template_maps_g(gprinter,template,output_map_attributes);
+  error_code|=gt_output_map_gprint_template_maps_g(gprinter,template,output_map_attributes);
   gt_gprintf(gprinter,"\n");
   return error_code;
 }
@@ -566,9 +573,9 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_ALIGNMENT_CHECK(alignment);
   GT_NULL_CHECK(output_map_attributes);
-  register gt_status error_code;
+  register gt_status error_code = 0;
   // Print TAG
-  gt_output_map_gprint_tag(gprinter,alignment->tag,alignment->attributes,output_map_attributes);
+  error_code|=gt_output_map_gprint_tag(gprinter,alignment->tag,alignment->attributes,output_map_attributes);
   // Print READ(s)
   gt_gprintf(gprinter,"\t%s",gt_alignment_get_read(alignment));
   // Print QUALITY
@@ -579,11 +586,11 @@ GT_INLINE gt_status gt_output_map_gprint_alignment(
   }
   // Print COUNTERS
   gt_gprintf(gprinter,"\t");
-  gt_output_map_gprint_counters_(gprinter,gt_alignment_get_counters_vector(alignment),
+  error_code|=gt_output_map_gprint_counters_(gprinter,gt_alignment_get_counters_vector(alignment),
         output_map_attributes,gt_alignment_get_mcs(alignment),gt_alignment_get_not_unique_flag(alignment));
   // Print MAPS
   gt_gprintf(gprinter,"\t");
-  error_code = gt_output_map_gprint_alignment_maps_g(gprinter,alignment,output_map_attributes);
+  error_code|=gt_output_map_gprint_alignment_maps_g(gprinter,alignment,output_map_attributes);
   gt_gprintf(gprinter,"\n");
   return error_code;
 }
@@ -602,7 +609,7 @@ GT_INLINE gt_status gt_output_map_gprint_gem_template(
   } else {
     register gt_status error_code = 0;
     GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
-      if ((error_code=gt_output_map_gprint_alignment(gprinter,alignment,output_map_attributes))) return error_code;
+      if ((error_code|=gt_output_map_gprint_alignment(gprinter,alignment,output_map_attributes))) return error_code;
     }
     return error_code;
   }

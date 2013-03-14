@@ -1155,30 +1155,8 @@ GT_INLINE gt_status gt_imp_parse_template(
     if (error_code!=GT_IMP_PE_PENDING_BLOCKS && error_code!=GT_IMP_PE_EOB) return error_code;
     ++num_blocks;
   }
-  // Pair information based on template pair and num_blocks
-  register int64_t i;
-  int64_t p;
-  for (i=0;i<num_blocks;i++) {
-    p = (num_blocks>1) ? i+1 : *gt_shash_get(template->attributes,GT_TAG_PAIR,int64_t);
-    gt_alignment* alignment = gt_template_get_block(template,i);
-    gt_attribute_set(alignment->attributes,GT_TAG_PAIR,&p,int64_t);
-    if (gt_shash_is_contained(template->attributes,GT_TAG_CASAVA)) {
-      gt_string* src = gt_shash_get(template->attributes,GT_TAG_CASAVA,gt_string);
-      gt_attribute_set_string(alignment->attributes,GT_TAG_CASAVA,gt_string_dup(src));
-    }
-    if (gt_shash_is_contained(template->attributes, GT_TAG_EXTRA)) {
-      gt_string* src = gt_shash_get(template->attributes,GT_TAG_EXTRA,gt_string);
-      gt_attribute_set_string(alignment->attributes,GT_TAG_EXTRA,gt_string_dup(src));
-    }
-  }
-  // TAG Setup {Tag Splitting/Swapping}
-  if (gt_expect_true(num_blocks>1)) {
-    gt_template_deduce_alignments_tags(template);
-  } else {
-    gt_alignment* const alignment = gt_template_get_block(template,0);
-    GT_SWAP(template->tag,alignment->tag);
-    gt_template_deduce_template_tag(template,alignment);
-  }
+  // TAG Setup (Pair information based on template pair and num_blocks)
+  gt_template_setup_pair_attributes_to_alignments(template,true);
   // QUALITIES
   if (has_map_quality) {
     register uint64_t i;
@@ -1563,8 +1541,13 @@ GT_INLINE gt_status gt_input_map_parser_get_template_g(
     if ((error_code=gt_imp_get_alignment(buffered_map_input,gt_template_get_block_dyn(template,1),map_parser_attr))!=GT_IMP_OK) {
       return GT_IMP_FAIL;
     }
+    // Check TAG consistency
+    register gt_alignment* const end1 = gt_template_get_block(template,0);
+    register gt_alignment* const end2 = gt_template_get_block(template,1);
+    if (!gt_string_equals(end1->tag,end2->tag)) return GT_IMP_FAIL;
+    // TAG Setup
+    gt_template_setup_pair_attributes_to_alignments(template,false);
   }
-  // TODO: Tag check consistency
   return error_code;
 }
 GT_INLINE gt_status gt_input_map_parser_get_alignment_g(

@@ -108,11 +108,11 @@ GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
   total_length = length+extra_length;
   if (total_length >= sequence_total_length) total_length = seg_seq->sequence_total_length-1;
   // Get the actual chunk
-//  register gt_status error_code;
-//  if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string))) {
-//    gt_error(SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE,init_position,init_position+total_length,seq_id);
-//    return GT_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE;
-//  }
+  //  register gt_status error_code; /* Error checking & reporting version */
+  //  if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string))) {
+  //    gt_error(SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE,init_position,init_position+total_length,seq_id);
+  //    return GT_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE;
+  //  }
   gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string);
   // RC (if needed)
   if (strand==REVERSE) {
@@ -324,7 +324,7 @@ GT_INLINE void gt_segmented_sequence_new_iterator(
   if (gt_expect_true(position<sequence->sequence_total_length)) {
     gt_segmented_sequence_iterator_seek(sequence_iterator,position,direction);
   } else {
-    sequence_iterator->global_pos = position;
+    sequence_iterator->global_pos = position; // EOS
   }
 }
 GT_INLINE void gt_segmented_sequence_iterator_seek(
@@ -349,8 +349,7 @@ GT_INLINE char gt_segmented_sequence_iterator_following(gt_segmented_sequence_it
   // Seek to proper position (load block if necessary)
   if (sequence_iterator->local_pos==GT_SEQ_ARCHIVE_BLOCK_SIZE) {
     gt_segmented_sequence_iterator_seek(sequence_iterator,sequence_iterator->global_pos,sequence_iterator->direction);
-    gt_check(sequence_iterator->local_pos%GT_SEQ_ARCHIVE_BLOCK_SIZE ==
-        sequence_iterator->global_pos%GT_SEQ_ARCHIVE_BLOCK_SIZE,ALG_INCONSISNTENCY);
+    gt_check(sequence_iterator->global_pos%GT_SEQ_ARCHIVE_BLOCK_SIZE != 0,ALG_INCONSISNTENCY);
   }
   // Update position
   ++sequence_iterator->global_pos;

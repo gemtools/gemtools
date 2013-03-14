@@ -13,7 +13,7 @@
 #include "gt_map.h"
 #include "gt_sequence_archive.h"
 
-#include "gt_output_map.h"
+#include "gt_output_map.h"  // FIXME: ERASEME DEBUG
 
 /*
  * Error Codes
@@ -45,6 +45,12 @@ GT_INLINE gt_status gt_map_check_alignment_sa(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     gt_sequence_archive* const sequence_archive);
 
+GT_INLINE gt_status gt_map_recover_mismatches(
+    gt_map* const map,char* const pattern,const uint64_t pattern_length,
+    char* const sequence,const uint64_t sequence_length);
+GT_INLINE gt_status gt_map_recover_mismatches_sa(
+    gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive);
+
 GT_INLINE gt_status gt_map_realign_hamming(
     gt_map* const map,char* const pattern,char* const sequence,const uint64_t length);
 GT_INLINE gt_status gt_map_realign_hamming_sa(
@@ -53,15 +59,13 @@ GT_INLINE gt_status gt_map_realign_levenshtein(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length,const bool ends_free);
 GT_INLINE gt_status gt_map_realign_levenshtein_sa(
-    gt_map* const map,gt_string* const pattern,
-    gt_sequence_archive* const sequence_archive,const uint64_t extra_length,const bool ends_free);
+    gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive);
 GT_INLINE gt_status gt_map_realign_weighted(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length,int32_t (*gt_weigh_fx)(char*,char*));
 GT_INLINE gt_status gt_map_realign_weighted_sa(
     gt_map* const map,gt_string* const pattern,
-    gt_sequence_archive* const sequence_archive,const uint64_t extra_length,
-    int32_t (*gt_weigh_fx)(char*,char*));
+    gt_sequence_archive* const sequence_archive,int32_t (*gt_weigh_fx)(char*,char*));
 
 GT_INLINE void gt_map_search_global_alignment_hamming(
     gt_map* const map,char* const pattern,char* const sequence,const uint64_t max_scope,const uint64_t max_hamming_distance);

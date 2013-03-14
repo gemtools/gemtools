@@ -180,6 +180,7 @@ extern FILE* gt_error_stream;
 
 // Template/Alignment/Map/Misms errors
 #define GT_ERROR_MISMS_TYPE "Misms incorrect type"
+#define GT_ERROR_MISMS_TRANSITION "Incorrect mismatch transition (Same base at both sides)"
 #define GT_ERROR_MISMS_SPLICE_POS "Splicing distance must be positive (non-zero)"
 #define GT_ERROR_COUNTERS_POS_STRATUM "Stratum must be strictly positive (stratum>0)"
 #define GT_ERROR_MAP_MISMS_NOT_PARSED "Map's mismatches not parsed yet"
@@ -270,6 +271,7 @@ extern FILE* gt_error_stream;
  * Map Alignment
  */
 #define GT_ERROR_MAP_ALG_WRONG_ALG "(Re)Aligning Map. Wrong alignment"
+#define GT_ERROR_MAP_RECOVER_MISMS_WRONG_BASE_ALG "Recovering mismatches from map. Wrong initial alignment"
 
 /*
  * General purpose checkers

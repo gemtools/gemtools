@@ -535,6 +535,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             ++total_levenshtein;
             ++total_bases_not_matching;
             // Record transition
+            gt_check(misms->base==gt_string_get_string(read)[misms->position],MISMS_TRANSITION);
             register uint64_t idx = 0;
             idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
             idx *= GT_STATS_MISMS_BASE_RANGE;

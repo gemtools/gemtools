@@ -596,14 +596,29 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
     register const uint64_t read_length = *text_line-seq_read;
     GT_NEXT_CHAR(text_line);
-    // Here we should check that the read if the same as previous occurrences
-    // Was disabled due to wrong SAM outputs produced some mappers when trimming
+    // Set the read
     if (gt_string_is_null(alignment->read)) {
       gt_dna_string_set_nstring(alignment->read,seq_read,read_length);
       if (reverse_strand) {
         gt_dna_string_reverse_complement(alignment->read);
       }
     }
+//    else if (pedantic) {
+//      // Here we should check that the read if the same as previous occurrences
+//      // Was disabled due to wrong SAM outputs produced some mappers when trimming
+//      register gt_string* const check_read = gt_string_new(0); // Writing to buffer's info
+//      gt_string_set_nstring(check_read,seq_read,read_length);
+//      if (*alignment_flag&GT_SAM_FLAG_REVERSE_COMPLEMENT) {
+//        gt_dna_string_reverse_complement(check_read);
+//      }
+//      register const bool equals = gt_string_equals(alignment->read,check_read);
+//      gt_string_delete(check_read);
+//
+//      if (!equals) {
+//        gt_map_delete(map);
+//        return GT_ISP_PE_WRONG_READ_CONTENT;
+//      }
+//    }
     if (gt_map_get_base_length(map)==0) gt_map_set_base_length(map,gt_alignment_get_read_length(alignment));
   }
   /*
@@ -797,7 +812,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   gt_vector_delete(pending_v);
   if (error_code) gt_isp_skip_remaining_records(buffered_sam_input,template->tag);
   // Deduce alignment's tag info
-  gt_template_dup_tags_to_alignments(template);
+  gt_template_dup_tags_to_alignments(template); // TODO: Add Pair attributes
   return error_code;
 }
 /* SOAP2-SAM */
@@ -834,7 +849,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
     gt_template_add_mmap_va(template,&attr,map_end1,map_end2);
     ++pos_end_it;
   }
-  // Deduce alignment's tag info
+  // Deduce alignment's tag info // TODO: Add Pair attributes
   gt_template_dup_tags_to_alignments(template);
   return 0;
 }
@@ -857,7 +872,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
       return error_code;
     }
   } while (gt_isp_fetch_next_line(buffered_sam_input,alignment->tag,false));
-  // Chomp /1 /2 // TODO
+  // Chomp /1 /2 // TODO: Add Pair attributes
   gt_input_fasta_tag_chomp_end_info(alignment->tag);
   return 0;
 }

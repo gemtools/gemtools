@@ -50,6 +50,31 @@ GT_INLINE void gt_template_dup_tags_to_alignments(gt_template* const template) {
     gt_string_set_nstring(alignment->tag,gt_string_get_string(template->tag),gt_string_get_length(template->tag));
   }
 }
+GT_INLINE void gt_template_setup_pair_attributes_to_alignments(gt_template* const template,const bool copy_tags) {
+  GT_TEMPLATE_CHECK(template);
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  int64_t i, p;
+  // Setup all alignments' tags + attr
+  for (i=0;i<num_blocks;i++) {
+    register gt_alignment* const alignment = gt_template_get_block(template,i);
+    if (copy_tags) gt_string_copy(alignment->tag,template->tag);
+    p = (num_blocks>1) ? i+1 : *((int64_t*)gt_attribute_get(template->attributes,GT_TAG_PAIR));
+    gt_attribute_set(alignment->attributes,GT_TAG_PAIR,&p,int64_t);
+    if (gt_shash_is_contained(template->attributes,GT_TAG_CASAVA)) {
+      gt_string* src = gt_shash_get(template->attributes,GT_TAG_CASAVA,gt_string);
+      gt_attribute_set_string(alignment->attributes,GT_TAG_CASAVA,gt_string_dup(src));
+    }
+    if (gt_shash_is_contained(template->attributes, GT_TAG_EXTRA)) {
+      gt_string* src = gt_shash_get(template->attributes,GT_TAG_EXTRA,gt_string);
+      gt_attribute_set_string(alignment->attributes,GT_TAG_EXTRA,gt_string_dup(src));
+    }
+  }
+  // Clear template's pair info
+  if (num_blocks > 1) {
+    p = 0;
+    gt_attribute_set(template->attributes,GT_TAG_PAIR,&p,int64_t);
+  }
+}
 
 /*
  * Template's MMaps operators (Update global state: counters, ...)
@@ -529,6 +554,14 @@ GT_INLINE gt_template* gt_template_intersect_template_mmaps(
 /*
  * Template realignment
  */
+GT_INLINE void gt_template_recover_mismatches(gt_template* const template,gt_sequence_archive* const sequence_archive) {
+  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+    gt_alignment_recover_mismatches(alignment,sequence_archive);
+  }
+  if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
+}
 GT_INLINE void gt_template_realign_hamming(gt_template* const template,gt_sequence_archive* const sequence_archive) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
@@ -556,9 +589,8 @@ GT_INLINE void gt_template_realign_weighted(
   if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
 }
 
-
 /*
- * template trimming
+ * Template trimming
  */
 GT_INLINE void gt_template_trim(gt_template* const template, uint64_t const left, uint64_t const right, uint64_t const min_length, bool const set_extra){
   GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
@@ -579,7 +611,4 @@ GT_INLINE void gt_template_trim(gt_template* const template, uint64_t const left
     }
   }
 }
-
-
-
 

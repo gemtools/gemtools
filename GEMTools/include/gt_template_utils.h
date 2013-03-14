@@ -20,6 +20,7 @@
 GT_INLINE void gt_template_deduce_alignments_tags(gt_template* const template);
 GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_alignment* const alignment);
 GT_INLINE void gt_template_dup_tags_to_alignments(gt_template* const template);
+GT_INLINE void gt_template_setup_pair_attributes_to_alignments(gt_template* const template,const bool copy_tags);
 
 /*
  * Template's MMaps high-level insertion (basic building block)
@@ -114,6 +115,7 @@ GT_INLINE gt_template* gt_template_intersect_template_mmaps(
 /*
  * Template realignment
  */
+GT_INLINE void gt_template_recover_mismatches(gt_template* const template,gt_sequence_archive* const sequence_archive);
 GT_INLINE void gt_template_realign_hamming(gt_template* const template,gt_sequence_archive* const sequence_archive);
 GT_INLINE void gt_template_realign_levenshtein(gt_template* const template,gt_sequence_archive* const sequence_archive);
 GT_INLINE void gt_template_realign_weighted(

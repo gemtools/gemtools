@@ -34,4 +34,4 @@ $(GT_LIB): $(OBJS)
 	$(AR) -rcs $(GT_LIB) $(FOLDER_BUILD)/*.o
 
 $(FOLDER_BUILD)/%.o : %.c
-	-$(CC) $(GEM_TOOLS_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@
+	$(CC) $(GEM_TOOLS_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@

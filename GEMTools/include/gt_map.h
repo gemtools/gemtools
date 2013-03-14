@@ -143,9 +143,10 @@ GT_INLINE void gt_map_reverse_misms(gt_map* const map);
  */
 GT_INLINE void gt_map_add_misms(gt_map* const map,gt_misms* misms);
 GT_INLINE void gt_map_clear_misms(gt_map* const map);
-GT_INLINE gt_misms* gt_map_get_misms(gt_map* const map,uint64_t offset);
-GT_INLINE void gt_map_set_misms(gt_map* const map,gt_misms* misms,uint64_t offset);
+GT_INLINE gt_misms* gt_map_get_misms(gt_map* const map,const uint64_t offset);
+GT_INLINE void gt_map_set_misms(gt_map* const map,gt_misms* misms,const uint64_t offset);
 GT_INLINE uint64_t gt_map_get_num_misms(gt_map* const map);
+GT_INLINE void gt_map_set_num_misms(gt_map* const map,const uint64_t num_misms);
 
 GT_INLINE void gt_map_clear_misms_string(gt_map* const map);
 GT_INLINE char* gt_map_get_misms_string(gt_map* const map);

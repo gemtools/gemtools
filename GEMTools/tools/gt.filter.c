@@ -21,6 +21,7 @@ typedef struct {
   /* Filter */
   bool mapped;
   bool unmapped;
+  bool perform_map_filter;
   bool no_split_maps;
   bool only_split_maps;
   bool best_map;
@@ -28,7 +29,21 @@ typedef struct {
   bool make_counters;
   bool only_unmapped;
   bool only_mapped;
+  uint64_t min_event_distance;
+  uint64_t max_event_distance;
+  uint64_t min_levenshtein_distance;
+  uint64_t max_levenshtein_distance;
+  gt_vector* filter_map_ids;
+  /* Filter-pairs */
+  int64_t max_inss;
+  int64_t min_inss;
+  bool filter_by_strand;
+  bool allow_strand_rf;
+  bool allow_strand_fr;
+  bool allow_strand_ff;
+  bool allow_strand_rr;
   /* Filter-Realign */
+  bool mismatch_recovery;
   bool realign_hamming;
   bool realign_levenshtein;
   /* Hidden */
@@ -49,6 +64,7 @@ gt_stats_args parameters = {
     /* Filter */
     .mapped=false,
     .unmapped=false,
+    .perform_map_filter = false,
     .no_split_maps=false,
     .only_split_maps=false,
     .best_map=false,
@@ -56,7 +72,21 @@ gt_stats_args parameters = {
     .make_counters=false,
     .only_unmapped=false,
     .only_mapped=false,
+    .min_event_distance=0,
+    .max_event_distance=UINT64_MAX,
+    .min_levenshtein_distance=0,
+    .max_levenshtein_distance=UINT64_MAX,
+    .filter_map_ids=NULL,
+    /* Filter-pairs */
+    .max_inss=INT64_MAX,
+    .min_inss=INT64_MIN,
+    .filter_by_strand=false,
+    .allow_strand_rf=false,
+    .allow_strand_fr=false,
+    .allow_strand_ff=false,
+    .allow_strand_rr=false,
     /* Filter-Realign */
+    .mismatch_recovery=false,
     .realign_hamming=false,
     .realign_levenshtein=false,
     /* Hidden */
@@ -67,19 +97,64 @@ gt_stats_args parameters = {
     .verbose=false,
 };
 
-void gt_template_filter(gt_template *template_dst,gt_template *template_src) {
+void gt_filter_delete_map_ids(gt_vector* filter_map_ids) {
+  // Free vector
+  if (filter_map_ids!=NULL) {
+    GT_VECTOR_ITERATE(filter_map_ids,map_id,pos,gt_string*) {
+      gt_string_delete(*map_id);
+    }
+    gt_vector_delete(filter_map_ids);
+  }
+}
+
+GT_INLINE bool gt_filter_is_sequence_name_allowed(gt_string* const seq_name) {
+  GT_VECTOR_ITERATE(parameters.filter_map_ids,map_id,pos,gt_string*) {
+    if (gt_string_equals(seq_name,*map_id)) return true;
+  }
+  return false;
+}
+
+void gt_template_filter(gt_template* template_dst,gt_template* template_src) {
+  /*
+   * SE
+   */
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      // Check sequence name
+      if (parameters.filter_map_ids!=NULL) {
+        if (!gt_filter_is_sequence_name_allowed(map->seq_name)) continue;
+      }
+      // Check SM contained
       register const uint64_t num_blocks = gt_map_get_num_blocks(map);
       if (parameters.no_split_maps && num_blocks>1) continue;
       if (parameters.only_split_maps && num_blocks==1) continue;
+      // Check strata
+      if (parameters.min_event_distance > 0 || parameters.max_event_distance < UINT64_MAX) {
+        register const int64_t total_distance = gt_map_get_global_distance(map);
+        if (parameters.min_event_distance > total_distance || total_distance > parameters.max_event_distance) continue;
+      }
+      // Check levenshtein distance
+      if (parameters.min_levenshtein_distance > 0 || parameters.max_levenshtein_distance < UINT64_MAX) {
+        register const int64_t total_distance = gt_map_get_global_levenshtein_distance(map);
+        if (parameters.min_levenshtein_distance > total_distance || total_distance > parameters.max_levenshtein_distance) continue;
+      }
+      // Insert the map
       gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      // Skip the rest if best
       if (parameters.best_map) return;
     }
   } GT_TEMPLATE_END_REDUCTION__RETURN;
+  /*
+   * PE
+   */
   register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
   GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
+    // Check sequence name
+    if (parameters.filter_map_ids!=NULL) {
+      if (!gt_filter_is_sequence_name_allowed(mmap[0]->seq_name)) continue;
+      if (!gt_filter_is_sequence_name_allowed(mmap[1]->seq_name)) continue;
+    }
     // Check SM contained
     register uint64_t has_sm = false;
     if (parameters.no_split_maps || parameters.only_split_maps) {
@@ -91,6 +166,29 @@ void gt_template_filter(gt_template *template_dst,gt_template *template_src) {
     }
     if (parameters.no_split_maps && has_sm) continue;
     if (parameters.only_split_maps && !has_sm) continue;
+    // Check strata
+    if (parameters.min_event_distance > 0 || parameters.max_event_distance < UINT64_MAX) {
+      register const int64_t total_distance = gt_map_get_global_distance(mmap[0])+gt_map_get_global_distance(mmap[1]);
+      if (parameters.min_event_distance > total_distance || total_distance > parameters.max_event_distance) continue;
+    }
+    // Check levenshtein distance
+    if (parameters.min_levenshtein_distance > 0 || parameters.max_levenshtein_distance < UINT64_MAX) {
+      register const int64_t total_distance = gt_map_get_global_levenshtein_distance(mmap[0])+gt_map_get_global_levenshtein_distance(mmap[1]);
+      if (parameters.min_levenshtein_distance > total_distance || total_distance > parameters.max_levenshtein_distance) continue;
+    }
+    // Check inss
+    if (parameters.min_inss > INT64_MIN || parameters.max_inss < INT64_MAX) {
+      uint64_t gt_err;
+      register const int64_t inss = gt_template_get_insert_size(mmap,&gt_err);
+      if (parameters.min_inss > inss || inss > parameters.max_inss) continue;
+    }
+    // Check strandness
+    if (parameters.filter_by_strand) {
+      if (mmap[0]->strand==FORWARD && mmap[1]->strand==REVERSE && !parameters.allow_strand_fr) continue;
+      if (mmap[0]->strand==REVERSE && mmap[1]->strand==FORWARD && !parameters.allow_strand_rf) continue;
+      if (mmap[0]->strand==FORWARD && mmap[1]->strand==FORWARD && !parameters.allow_strand_ff) continue;
+      if (mmap[0]->strand==REVERSE && mmap[1]->strand==REVERSE && !parameters.allow_strand_rr) continue;
+    }
     // Add the mmap
     register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
     gt_template_add_mmap(template_dst,mmap_copy,mmap_attr);
@@ -98,6 +196,41 @@ void gt_template_filter(gt_template *template_dst,gt_template *template_src) {
     // Skip the rest if best
     if (parameters.best_map) return;
   }
+}
+
+void gt_filter_hidden_options(gt_template* const template) {
+  if (parameters.error_plot) {
+    if (parameters.best_map)  {
+      uint64_t best_distance = UINT64_MAX;
+      GT_TEMPLATE_ITERATE_(template,mmap) {
+        register const uint64_t dist = gt_map_get_global_levenshtein_distance(*mmap);
+        if (dist < best_distance) best_distance = dist;
+      }
+      if (best_distance < UINT64_MAX) fprintf(stdout,"%lu\n",best_distance);
+    } else {
+      GT_TEMPLATE_ITERATE_(template,mmap) {
+        fprintf(stdout,"%lu\n",gt_map_get_global_levenshtein_distance(*mmap));
+      }
+    }
+  } else if (parameters.insert_size_plot && gt_template_get_num_blocks(template)>1) {
+    uint64_t error_code;
+    GT_TEMPLATE_ITERATE_(template,mmap) {
+      fprintf(stdout,"%lu\n",gt_template_get_insert_size(mmap,&error_code));
+      if (parameters.best_map) break;
+    }
+  }
+}
+
+void gt_filter_open_sequence_archive(gt_sequence_archive** sequence_archive) {
+  *sequence_archive = gt_sequence_archive_new();
+  register gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
+  fprintf(stderr,"Loading reference file ...");
+  if (gt_input_multifasta_parser_get_archive(reference_file,*sequence_archive)!=GT_IFP_OK) {
+    fprintf(stderr,"\n");
+    gt_fatal_error_msg("Error parsing reference file '%s'\n",parameters.name_reference_file);
+  }
+  gt_input_file_close(reference_file);
+  fprintf(stderr," done! \n");
 }
 
 void gt_filter_read__write() {
@@ -108,17 +241,10 @@ void gt_filter_read__write() {
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
   // Open reference file
-  register gt_sequence_archive* sequence_archive = NULL;
-  if (parameters.name_reference_file!=NULL && (parameters.realign_hamming || parameters.realign_levenshtein)) {
-    sequence_archive = gt_sequence_archive_new();
-    register gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
-    fprintf(stderr,"Loading reference file ...");
-    if (gt_input_multifasta_parser_get_archive(reference_file,sequence_archive)!=GT_IFP_OK) {
-      fprintf(stderr,"\n");
-      gt_fatal_error_msg("Error parsing reference file '%s'\n",parameters.name_reference_file);
-    }
-    gt_input_file_close(reference_file);
-    fprintf(stderr," done! \n");
+  gt_sequence_archive* sequence_archive = NULL;
+  if (parameters.name_reference_file!=NULL &&
+      (parameters.realign_hamming || parameters.realign_levenshtein || parameters.mismatch_recovery)) {
+    gt_filter_open_sequence_archive(&sequence_archive);
   }
 
   // Parallel reading+process
@@ -147,49 +273,35 @@ void gt_filter_read__write() {
 
       // Hidden options (aborts the rest)
       if (parameters.error_plot || parameters.insert_size_plot) {
-        if (parameters.error_plot) {
-          if (parameters.best_map)  {
-            uint64_t best_distance = UINT64_MAX;
-            GT_TEMPLATE_ITERATE_(template,mmap) {
-              register const uint64_t dist = gt_map_get_global_levenshtein_distance(*mmap);
-              if (dist < best_distance) best_distance = dist;
-            }
-            if (best_distance < UINT64_MAX) fprintf(stdout,"%lu\n",best_distance);
-          } else {
-            GT_TEMPLATE_ITERATE_(template,mmap) {
-              fprintf(stdout,"%lu\n",gt_map_get_global_levenshtein_distance(*mmap));
-            }
-          }
-        } else if (parameters.insert_size_plot && gt_template_get_num_blocks(template)>1) {
-          uint64_t error_code;
-          GT_TEMPLATE_ITERATE_(template,mmap) {
-            fprintf(stdout,"%lu\n",gt_template_get_insert_size(mmap,&error_code));
-            if (parameters.best_map) break;
-          }
-        }
+        gt_filter_hidden_options(template);
       } else {
         // First realign
         if (parameters.realign_levenshtein) {
           gt_template_realign_levenshtein(template,sequence_archive);
         } else if (parameters.realign_hamming) {
           gt_template_realign_hamming(template,sequence_archive);
+        } else if (parameters.mismatch_recovery) {
+          gt_template_recover_mismatches(template,sequence_archive);
         }
 
-        // Pick up best-map || erase splitmaps
-        if (parameters.best_map || parameters.no_split_maps || parameters.only_split_maps) {
-          gt_template *template_best = gt_template_copy(template,false,false);
-          gt_template_filter(template_best,template);
+        // Map level filtering
+        if (parameters.perform_map_filter) {
+          gt_template *template_filtered = gt_template_copy(template,false,false);
+          gt_template_filter(template_filtered,template);
           gt_template_delete(template);
-          template = template_best;
+          template = template_filtered;
         }
 
         // Make counters
-        if (parameters.make_counters) {
+        if (parameters.make_counters || parameters.perform_map_filter) {
           gt_template_recalculate_counters(template);
         }
 
         // Print template
-        gt_output_map_bofprint_template(buffered_output,template,&output_attributes);
+        if (gt_output_map_bofprint_template(buffered_output,template,&output_attributes)) {
+          gt_error_msg("Fatal error outputting read '"PRIgts"'(InputLine:%"PRIu64")\n",
+              PRIgts_content(gt_template_get_string_tag(template)),buffered_input->current_line_num-1);
+        }
       }
     }
 
@@ -197,10 +309,11 @@ void gt_filter_read__write() {
     gt_template_delete(template);
     gt_buffered_input_file_close(buffered_input);
     gt_buffered_output_file_close(buffered_output);
-    if (sequence_archive != NULL) gt_sequence_archive_delete(sequence_archive);
   }
 
-  // Clean
+  // Release archive & Clean
+  if (sequence_archive != NULL) gt_sequence_archive_delete(sequence_archive);
+  gt_filter_delete_map_ids(parameters.filter_map_ids);
   gt_input_file_close(input_file);
   gt_output_file_close(output_file);
 }
@@ -219,15 +332,63 @@ void usage() {
                   "           --best-map\n"
                   "           --max-matches <number>\n"
                   "           --make-counters <number>\n"
+                  "           --min-strata <number>\n"
+                  "           --max-strata <number>\n"
+                  "           --min-levenshtein-error <number>\n"
+                  "           --max-levenshtein-error <number>\n"
+                  "           --map-id [SequenceId],... (Eg 'Chr1','Chr2')\n"
+                  "         [Filter-pairs]\n"
+                  "           --pair-strandness [COMB],...\n"
+                  "               [COMB] := 'FR'|'RF'|'FF'|'RR'\n"
+                  "           --min-inss <number>\n"
+                  "           --max-inss <number>\n"
                   "         [Filter-Realign]\n"
+                  "           --mismatch-recovery\n"
                   "           --hamming-realign\n"
                   "           --levenshtein-realign\n"
-                  "         [Output]\n"
-                  "           --display-pretty\n"
+//                  "         [Output]\n"
+//                  "           --display-pretty\n"
                   "         [Misc]\n"
                   "           --threads|t\n"
                   "           --verbose|v\n"
                   "           --help|h\n");
+}
+
+void gt_filter_get_argument_pair_strandness(char* const strandness_opt) {
+  char *opt;
+  opt = strtok(strandness_opt,",");
+  while (opt!=NULL) {
+    if (gt_streq(opt,"FR")) {
+      parameters.allow_strand_fr = true;
+    } else if (gt_streq(opt,"RF")) {
+      parameters.allow_strand_rf = true;
+    } else if (gt_streq(opt,"FF")) {
+      parameters.allow_strand_ff = true;
+    } else if (gt_streq(opt,"RR")) {
+      parameters.allow_strand_rr = true;
+    } else {
+      gt_fatal_error_msg("Strandness option not recognized '%s'\n",opt);
+    }
+    opt = strtok(NULL,","); // Reload
+  }
+  parameters.filter_by_strand = true;
+}
+
+void gt_filter_get_argument_map_id(char* const strandness_opt) {
+  // Allocate vector
+  parameters.filter_map_ids = gt_vector_new(20,sizeof(gt_string*));
+  // Add all the valid map Ids (sequence names)
+  char *opt;
+  opt = strtok(strandness_opt,",");
+  while (opt!=NULL) {
+    // Get id
+    gt_string* map_id = gt_string_new(0);
+    gt_string_set_string(map_id,opt);
+    // Add to the vector
+    gt_vector_insert(parameters.filter_map_ids,map_id,gt_string*);
+    // Next
+    opt = strtok(NULL,","); // Reload
+  }
 }
 
 void parse_arguments(int argc,char** argv) {
@@ -246,11 +407,22 @@ void parse_arguments(int argc,char** argv) {
     { "best-map", no_argument, 0, 6 },
     { "max-matches", required_argument, 0, 7 },
     { "make-counters", no_argument, 0, 8 },
-    { "hamming-realign", no_argument, 0, 9 },
-    { "levenshtein-realign", no_argument, 0, 10 },
+    { "min-strata", required_argument, 0, 9 },
+    { "max-strata", required_argument, 0, 10 },
+    { "min-levenshtein-error", required_argument, 0, 11 },
+    { "max-levenshtein-error", required_argument, 0, 12 },
+    { "map-id", required_argument, 0, 13 },
+    /* Filter-pairs */
+    { "pair-strandness", required_argument, 0, 30 },
+    { "min-inss", required_argument, 0, 31 },
+    { "max-inss", required_argument, 0, 32 },
+    /* Filter-Realign */
+    { "mismatch-recovery", no_argument, 0, 40 },
+    { "hamming-realign", no_argument, 0, 41 },
+    { "levenshtein-realign", no_argument, 0, 42 },
     /* Hidden */
-    { "error-plot", no_argument, 0, 20 },
-    { "insert-size-plot", no_argument, 0, 21 },
+    { "error-plot", no_argument, 0, 50 },
+    { "insert-size-plot", no_argument, 0, 51 },
     /* Misc */
     { "threads", required_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
@@ -281,16 +453,19 @@ void parse_arguments(int argc,char** argv) {
     case 2: // mapped
       parameters.mapped = true;
       break;
-    case 3: // unmapped
+    case 3:
       parameters.unmapped = true;
       break;
-    case 4: // no-split-maps
+    case 4:
+      parameters.perform_map_filter = true;
       parameters.no_split_maps = true;
       break;
-    case 5: // only-split-maps
+    case 5:
+      parameters.perform_map_filter = true;
       parameters.only_split_maps = true;
       break;
     case 6:
+      parameters.perform_map_filter = true;
       parameters.best_map = true;
       break;
     case 7:
@@ -300,16 +475,53 @@ void parse_arguments(int argc,char** argv) {
       parameters.make_counters = true;
       break;
     case 9:
-      parameters.realign_hamming = true;
+      parameters.perform_map_filter = true;
+      parameters.min_event_distance = atoll(optarg);
       break;
     case 10:
+      parameters.perform_map_filter = true;
+      parameters.max_event_distance = atoll(optarg);
+      break;
+    case 11:
+      parameters.perform_map_filter = true;
+      parameters.min_levenshtein_distance = atoll(optarg);
+      break;
+    case 12:
+      parameters.perform_map_filter = true;
+      parameters.max_levenshtein_distance = atoll(optarg);
+      break;
+    case 13: // map-id
+      parameters.perform_map_filter = true;
+      gt_filter_get_argument_map_id(optarg);
+      break;
+    /* Filter-pairs */
+    case 30: // pair-strandness
+      parameters.perform_map_filter = true;
+      gt_filter_get_argument_pair_strandness(optarg);
+      break;
+    case 31:
+      parameters.perform_map_filter = true;
+      parameters.min_inss = atoll(optarg);
+      break;
+    case 32:
+      parameters.perform_map_filter = true;
+      parameters.max_inss = atoll(optarg);
+      break;
+    /* Filter-Realign */
+    case 40:
+      parameters.mismatch_recovery = true;
+      break;
+    case 41:
+      parameters.realign_hamming = true;
+      break;
+    case 42:
       parameters.realign_levenshtein = true;
       break;
     /* Hidden */
-    case 20:
+    case 50:
       parameters.error_plot = true;
       break;
-    case 21:
+    case 51:
       parameters.insert_size_plot = true;
       break;
     /* Misc */
@@ -330,7 +542,7 @@ void parse_arguments(int argc,char** argv) {
   /*
    * Parameters check
    */
-  if (parameters.realign_hamming || parameters.realign_levenshtein) {
+  if (parameters.realign_hamming || parameters.realign_levenshtein || parameters.mismatch_recovery) {
     if (parameters.name_reference_file==NULL) gt_fatal_error_msg("Reference file required to realign");
   }
 }

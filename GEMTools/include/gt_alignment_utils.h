@@ -93,6 +93,7 @@ GT_INLINE gt_alignment* gt_alignment_intersect_alignment_maps(
 /*
  * Alignment realignment
  */
+GT_INLINE void gt_alignment_recover_mismatches(gt_alignment* const alignment,gt_sequence_archive* const sequence_archive);
 GT_INLINE void gt_alignment_realign_hamming(gt_alignment* const alignment,gt_sequence_archive* const sequence_archive);
 GT_INLINE void gt_alignment_realign_levenshtein(gt_alignment* const alignment,gt_sequence_archive* const sequence_archive);
 GT_INLINE void gt_alignment_realign_weighted(

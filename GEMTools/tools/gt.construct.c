@@ -716,7 +716,7 @@ int main(int argc,char** argv) {
   //gt_dummy_example();
 
   //gt_filter_fastq();
-  //gt_load_reference__dump_it();
+  gt_load_reference__dump_it();
 
   //gt_example_map_parsing();
 
