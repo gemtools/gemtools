@@ -2,9 +2,11 @@
 """Gemtools commands"""
 import argparse
 import gem
+import gem.utils
 import gem.production
 import sys
 from sys import exit
+import signal
 
 __VERSION__ = "1.6"
 
@@ -25,7 +27,8 @@ def gemtools():
             "merge": gem.production.Merge,
             "gtf-junctions": gem.production.Junctions,
             "denovo-junctions": gem.production.JunctionExtraction,
-            "stats": gem.production.Stats
+            "stats": gem.production.Stats,
+            "report": gem.production.StatsReport
         }
         instances = {}
 
@@ -38,6 +41,18 @@ def gemtools():
         args = parser.parse_args()
         if args.loglevel is not None:
             gem.loglevel(args.loglevel)
+
+        # register cleanup signal handler
+        def cleanup_in_signal(signal, frame):
+            # cleanup
+            gem.utils.teminate_processes()
+            gem.files._cleanup()
+
+        signal.signal(signal.SIGINT, cleanup_in_signal)
+        signal.signal(signal.SIGQUIT, cleanup_in_signal)
+        signal.signal(signal.SIGHUP, cleanup_in_signal)
+        signal.signal(signal.SIGTERM, cleanup_in_signal)
+
         try:
             instances[args.command].run(args)
         except gem.utils.CommandException, e:
@@ -47,6 +62,8 @@ def gemtools():
         exit(1)
     finally:
         # cleanup
+        gem.utils.teminate_processes()
         gem.files._cleanup()
+
 if __name__ == "__main__":
     gemtools()

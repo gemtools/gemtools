@@ -9,6 +9,7 @@ from sys import exit
 
 import gem
 import gem.commands
+import gem.stats
 import gem.gemtools as gt
 
 from gem.pipeline import MappingPipeline, PipelineError
@@ -68,6 +69,25 @@ class Stats(Command):
         stats.write(of)
         of.close()
 
+
+class StatsReport(Command):
+    title = "Create a stats report from a .json stats file"
+    description = """Takes a .json stats file and create a HTML report including
+plots of the main statistics.
+"""
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-i', '--input', dest="input", help='Input map file', required=True)
+        parser.add_argument('-o', '--output', dest="output", help='The output name. Defaults to the input name + _stats')
+        parser.add_argument('-p', '--paired', dest="paired", action="store_true", default=False, help="Paired end reads")
+        parser.add_argument('-e', '--extract', dest="extract", action="store_true", default=False, help="Keep the directory next to the .zip archive")
+
+    def run(self, args):
+        output = args.output
+        if output is None:
+            output = os.path.abspath(args.input) + "_stats"
+        gem.stats.create_report(args.input, output, paired=args.paired, extract=args.extract)
 
 
 class Junctions(Command):

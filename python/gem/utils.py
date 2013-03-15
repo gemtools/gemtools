@@ -20,6 +20,27 @@ import tempfile
 import multiprocessing as mp
 
 
+# clobal process registry
+# which is used to save multiprocessing.Process instances
+# to be able to terminate them in case
+# an error occured somewhere
+_process_registry = set([])
+
+
+def register_process(process):
+    """Register a Process with the registry"""
+    _process_registry.add(process)
+
+
+def teminate_processes():
+    """Do a hard cleanup and terminata all registered
+    processes.
+    """
+    for p in _process_registry:
+        if p.is_alive():
+            p.terminate()
+
+
 class Timer(object):
     """Helper class to take runtimes
     To use this, create a new instance. The timer is
@@ -207,7 +228,7 @@ class Process(object):
                 with open(self.logfile) as f:
                     for line in f:
                         logging.error("%s" % (line.strip()))
-            raise ProcessError("Process '%s' finished with %d", str(self), exit_value)
+            raise ProcessError("Process '%s' finished with %d" % (str(self), exit_value))
         return exit_value
 
     def to_bash(self):
@@ -259,6 +280,7 @@ class ProcessInput(object):
         self.process = process
         logging.debug("Preparing process input stream -- clean_id: %s, append_extra: %s, write_map:%s" % (str(self.clean_id), str(self.append_extra), str(self.write_map)))
         self.thread = mp.Process(target=ProcessInput.__write_input, args=(self,))
+        register_process(self.thread)
         #self.thread = Thread(target=ProcessInput.__write_input, args=(self,))
         self.thread.start()
         self.process.stdin.close()
@@ -364,7 +386,7 @@ class ProcessWrapper(object):
             self.exit_value = exit_value
             return ev
         except Exception, e:
-            print "An error occured while waiting for on the child processes:", e
+            print "An error occured while waiting for one the child processes:", e
             self.exit_value = 1
         finally:
             if not self.keep_logfiles:

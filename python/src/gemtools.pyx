@@ -5,6 +5,7 @@ import sys
 import multiprocessing
 import string
 
+
 from cython.parallel import parallel, prange
 
 cdef class TemplateFilter(object):
@@ -183,23 +184,6 @@ cdef class interleave(object):
         write_map     -- if true, write map, otherwise write fasta/q sequence
         threads       -- number of threads to use (if supported by the iterator)
         """
-
-        # cdef gt_output_file* output_file = output.output_file
-        # cdef uint64_t num_inputs = len(self.files)
-        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        # cdef bool clean_id = output.clean_id
-        # cdef bool append_extra = output.append_extra
-        # cdef bool interleave = self.interleave
-        # cdef uint64_t use_threads = max(threads, self.threads)
-
-        # for i in range(num_inputs):
-        #     inputs[i] = (<InputFile> self.files[i])._open()
-        # with nogil:
-        #     gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
-        # output.close()
-        # for i in range(num_inputs):
-        #     gt_input_file_close(inputs[i])
-        # free(inputs)
         __run_write_stream(self.files, output, write_map, max(threads, self.threads), self.interleave, None)
 
     cpdef close(self):
@@ -518,20 +502,6 @@ cdef class InputFile(object):
         interleave    -- interleave muliple inputs
         threads       -- number of threads to use (if supported by the iterator)
         """
-        # cdef gt_output_file* output_file = output.output_file
-        # cdef uint64_t num_inputs = 1
-        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        # cdef bool clean_id = output.clean_id
-        # cdef bool append_extra = output.append_extra
-        # inputs[0] = self._open()
-
-        # with nogil:
-        #     gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, True, threads, write_map)
-        # output.close()
-        # gt_input_file_close(inputs[0])
-        # free(inputs)
-        # if self.process is not None:
-        #     self.process.wait()
         __run_write_stream([self], output, write_map, threads, True, self.process)
 
     cpdef close(self):
@@ -547,8 +517,11 @@ cdef class InputFile(object):
 
 
 cpdef __run_write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True, parent=None, function=__write_stream, bool async=False):
+    import gem.utils
     process = multiprocessing.Process(target=function, args=(source, output, write_map, threads, interleave,))
+    gem.utils.register_process(process)
     process.start()
+
     if not async:
         process.join()
         if parent is not None:
@@ -1095,14 +1068,16 @@ cpdef read_stats(source, Stats all=None, Stats best=None, uint64_t threads=1):
     #__run_stats(all, best, source, threads)
     __calculate_stats(all, best, source, threads)
 
-# cpdef __run_stats(all_stats, best_stats, source, uint64_t threads=1):
-#     process = multiprocessing.Process(target=__calculate_stats, args=(all_stats, best_stats, source, threads))
-#     process.start()
-#     process.join()
-
-#     return process
 
 cpdef __calculate_stats(Stats all_stats, Stats best_stats, source, uint64_t threads=1):
+    import gem.utils
+    process = multiprocessing.Process(target=__calculate_stats_process, args=(all_stats, best_stats, source, threads))
+    gem.utils.register_process(process)
+    process.start()
+    process.join()
+
+
+cpdef __calculate_stats_process(Stats all_stats, Stats best_stats, source, uint64_t threads=1):
     cdef gt_input_file* input = <gt_input_file*> (<InputFile>source)._open()
     cdef uint64_t use_threads = threads
     cdef gt_stats* target_all = NULL
@@ -1117,35 +1092,4 @@ cpdef __calculate_stats(Stats all_stats, Stats best_stats, source, uint64_t thre
 
     with nogil:
         gt_stats_fill(input, target_all, target_best, threads, paired)
-
-    #gt_input_file_close(input)
-
-
-# cdef class TestFilter(object):
-#     cdef InputFile input_file
-
-#     def __init__(self, InputFile input_file):
-#         self.input_file = input_file
-
-#     cpdef go(self):
-#         cdef gt_input_file* inf = self.input_file._open()
-#         cdef Py_ssize_t idx, i, n = 100
-#         #with nogil, parallel(num_threads=4):
-#         for i in prange(4, nogil=True):
-#             do_stuff(inf, i)
-
-
-# cdef void do_stuff(gt_input_file* inf, Py_ssize_t i) nogil:
-#     cdef gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(inf)
-#     cdef gt_template* template = gt_template_new()
-#     cdef gt_generic_parser_attr* generic_parser_attr =  gt_input_generic_parser_attributes_new(False)
-#     cdef gt_status status = gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr)
-#     while status == GT_STATUS_OK:
-#         with gil:
-#             print gt_template_get_tag(template), i
-#         status = gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr)
-#     gt_template_delete(template)
-#     gt_buffered_input_file_close(buffered_input)
-
-
 

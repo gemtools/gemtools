@@ -258,7 +258,8 @@ def _prepare_output(process, output=None, quality=None, bam=False):
         # we are writing to a file
         # wait for the process to finish
         if process is not None and process.wait() != 0:
-            raise ValueError("Execution failed!")
+            #raise ValueError("Execution failed!")
+            raise gem.utils.ProcessError("Execution failed!")
         logging.debug("Opening output file %s" % (output))
         if output.endswith(".bam") or bam:
             return gt.InputFile(gem.files.open_bam(output), quality=quality, process=process)
@@ -1021,6 +1022,7 @@ class merger(object):
         self._input = os.fdopen(r, 'r')
         self._output = os.fdopen(w, 'w')
         process = mp.Process(target=merger.__async_merge, args=(self, threads))
+        gem.utils.register_process(process)
 
         def ww():
             process.join()

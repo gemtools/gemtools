@@ -1,11 +1,11 @@
 #!/usr/bin/env
 """Pipeline utilities"""
-import os
-import logging
 import gem
-import traceback
 import json
-
+import logging
+import os
+import signal
+import traceback
 
 from gem.utils import Timer
 import gem.gemtools as gt
@@ -392,7 +392,7 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             max_junction_matches=cfg["max_junction_matches"]
         )
 
-        logging.gemtools.gt("Found Denovo Junctions %d with coverage >= %d" % (len(denovo_junctions), cfg["coverage"]))
+        logging.gemtools.gt("Found Denovo Junctions %d with coverage >= %s" % (len(denovo_junctions), str(cfg["coverage"])))
 
         filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, cfg["min_split_length"], cfg["max_split_length"]))
         logging.gemtools.gt("Denovo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
@@ -455,10 +455,10 @@ class ExtractJunctionsStep(PipelineStep):
             max_junction_matches=cfg["max_junction_matches"]
         )
 
-        logging.gemtools.gt("Found de-novo Junctions %d with coverage >= %d" % (len(denovo_junctions), cfg["coverage"]))
+        logging.gemtools.gt("Found de-novo Junctions %d with coverage >= %s" % (len(denovo_junctions), str(cfg["coverage"])))
         filtered_denovo_junctions = set(gem.junctions.filter_by_distance(denovo_junctions, cfg["min_split_length"], cfg["max_split_length"]))
 
-        logging.gemtools.gt("de-novo junction passing distance filter (min: %d max: %d): %d (%d removed)" % (cfg["min_split_length"], cfg["max_split_length"],
+        logging.gemtools.gt("de-novo junction passing distance filter (min: %s max: %s): %d (%s removed)" % (str(cfg["min_split_length"]), str(cfg["max_split_length"]),
             len(filtered_denovo_junctions), (len(denovo_junctions) - len(filtered_denovo_junctions))))
 
         gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
@@ -987,8 +987,13 @@ class MappingPipeline(object):
             # get name from input files
             name = os.path.basename(self.input[0])
             if name.endswith(".gz"):
-                name = name[-3:]
-            self.name = name[:name.rfind(".")]
+                name = name[:-3]
+            idx = name.rfind(".")
+            if idx > 0:
+                self.name = name[:idx]
+
+        if self.name is None or len(self.name) == 0:
+            errors.append("No name specified and unable to guess one. Please use --name to set a name explicitly.")
 
         if self.index is None:
             errors.append("No index specified")
@@ -1108,14 +1113,22 @@ index generated from your annotation.""")
             c = 0
             inp = self.open_input()
             for template in inp:
-                if c == 0:
-                    p1 = template.get_pair()
-                elif c == 1:
-                    p2 = template.get_pair()
-                c += 1
-                if c >= 2:
+                if template.num_alignments == 2:
+                    ## paired alignment
+                    p1 = 1
+                    p2 = 2
                     inp.close()
                     break
+                else:
+                    if c == 0:
+                        p1 = template.get_pair()
+                    elif c == 1:
+                        p2 = template.get_pair()
+                    c += 1
+                    if c >= 2:
+                        inp.close()
+                        break
+            inp.close()
             if p1 == 0 or p2 == 0 or (p1 == 1 and p2 != 2) or (p2 == 1 and p1 != 2):
                 errors.append("""Unable to get pairing information from input.
                     Please check your read id's and make sure its either in casava >= 1.8 format or the
@@ -1250,6 +1263,20 @@ index generated from your annotation.""")
         if run_step:
             ids = self.run_steps
 
+        step = None
+
+        # register signal handler to catch
+        # interruptions and perform cleanup
+         # register cleanup signal handler
+        def cleanup_in_signal(signal, frame):
+            logging.gemtools.warning("Job step canceled, forcing cleanup!")
+            step.cleanup(force=True)
+
+        signal.signal(signal.SIGINT, cleanup_in_signal)
+        signal.signal(signal.SIGQUIT, cleanup_in_signal)
+        signal.signal(signal.SIGHUP, cleanup_in_signal)
+        signal.signal(signal.SIGTERM, cleanup_in_signal)
+
         for step_id in ids:
             step = self.steps[step_id]
 
@@ -1276,6 +1303,12 @@ index generated from your annotation.""")
                     step.cleanup(force=True)
                     error = True
                     break
+                except gem.utils.ProcessError, e:
+                    logging.gemtools.error("Error while executing step %s : %s" % (step.name, str(e)))
+                    logging.gemtools.warning("Cleaning up after failed step : %s", step.name)
+                    step.cleanup(force=True)
+                    error = True
+                    break
                 except Exception, e:
                     traceback.print_exc()
                     logging.gemtools.error("Error while executing step %s : %s" % (step.name, str(e)))
@@ -1286,7 +1319,10 @@ index generated from your annotation.""")
                 finally:
                     t.stop(step.name + " completed in %s", loglevel=None)
                     times[step.id] = t.end
-                    logging.gemtools.gt("Step %s finished in : %s", step.name, t.end)
+                    if not error:
+                        logging.gemtools.gt("Step %s finished in : %s", step.name, t.end)
+                    else:
+                        logging.gemtools.gt("Step %s failed after : %s", step.name, t.end)
             else:
                 logging.gemtools.warning("Skipping step %s, output already exists" % (step.name))
 
@@ -1296,17 +1332,16 @@ index generated from your annotation.""")
             for step in self.steps:
                 step.cleanup()
 
-        time.stop("Completed in %s", loglevel=None)
-
-        logging.gemtools.gt("Step Times")
-        logging.gemtools.gt("-------------------------------------")
-        for s in self.steps:
-            if s.id in times:
-                logging.gemtools.gt("{0:>25} : {1}".format(s.name, times[s.id]))
-            else:
-                logging.gemtools.gt("{0:>25} : skipped".format(s.name))
-        logging.gemtools.gt("-------------------------------------")
-        logging.gemtools.gt("Pipeline run finshed in %s", time.end)
+            time.stop("Completed in %s", loglevel=None)
+            logging.gemtools.gt("Step Times")
+            logging.gemtools.gt("-------------------------------------")
+            for s in self.steps:
+                if s.id in times:
+                    logging.gemtools.gt("{0:>25} : {1}".format(s.name, times[s.id]))
+                else:
+                    logging.gemtools.gt("{0:>25} : skipped".format(s.name))
+            logging.gemtools.gt("-------------------------------------")
+            logging.gemtools.gt("Pipeline run finshed in %s", time.end)
 
     def cleanup(self):
         """Delete all remaining temporary and intermediate files
@@ -1372,7 +1407,6 @@ index generated from your annotation.""")
         self.register_stats(parser)
         self.register_execution(parser)
 
-
     def register_filtering(self, parser):
         """Register all filtering parameters with given
         argparse parser
@@ -1381,9 +1415,9 @@ index generated from your annotation.""")
         """
         filtering_group = parser.add_argument_group('Filtering and Scoring')
         filtering_group.add_argument('-S', '--scoring', dest="scoring_scheme", metavar="scheme", help='''The scoring scheme to use. Default %s''' % str(self.scoring_scheme))
-        filtering_group.add_argument('--filter-max-matches', dest="filter_max_matches", metavar="max_matches", help='''Maximum number of printed matches. Default %d''' % self.filter_max_matches)
-        filtering_group.add_argument('--filter-min-strata', dest="filter_min_strata", metavar="min_strata", help='''Minimum number of printed strata. Default %d''' % self.filter_min_strata)
-        filtering_group.add_argument('--filter-max-strata', dest="filter_max_strata", metavar="max_strata", help='''Maximum number of printed strata. Default %d''' % self.filter_max_strata)
+        filtering_group.add_argument('--filter-max-matches', dest="filter_max_matches", metavar="max_matches", type=int, help='''Maximum number of printed matches. Default %d''' % self.filter_max_matches)
+        filtering_group.add_argument('--filter-min-strata', dest="filter_min_strata", metavar="min_strata", type=int, help='''Minimum number of printed strata. Default %d''' % self.filter_min_strata)
+        filtering_group.add_argument('--filter-max-strata', dest="filter_max_strata", metavar="max_strata", type=int, help='''Maximum number of printed strata. Default %d''' % self.filter_max_strata)
 
     def register_bam(self, parser):
         """Register all bam parameters with given
@@ -1392,7 +1426,7 @@ index generated from your annotation.""")
         parser -- the argparse parser
         """
         bam_group = parser.add_argument_group('BAM conversion')
-        bam_group.add_argument('--map-quality', dest="bam_mapq", default=self.bam_mapq, help="Filter resulting bam for minimum map quality, Default %d" % self.bam_mapq)
+        bam_group.add_argument('--map-quality', dest="bam_mapq", default=self.bam_mapq, type=int, help="Filter resulting bam for minimum map quality, Default %d" % self.bam_mapq)
         bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=None, help="Do not create bam file")
         bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=None, help="Do not sort bam file")
         bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=None, help="Do not index the bam file")
@@ -1454,9 +1488,9 @@ index generated from your annotation.""")
         """
         # genome mapping parameter
         mapping_group = parser.add_argument_group('General mapping parameters')
-        mapping_group.add_argument('-s', '--strata-after-best', dest="genome_strata_after_best", metavar="strata", help='The number of strata examined after the best one. Default %d' % (self.genome_strata_after_best))
+        mapping_group.add_argument('-s', '--strata-after-best', dest="genome_strata_after_best", type=int, metavar="strata", help='The number of strata examined after the best one. Default %d' % (self.genome_strata_after_best))
         mapping_group.add_argument('-m', '--mismatches', dest="genome_mismatches", metavar="mm", help='Set the allowed mismatch ratio as 0 < mm < 1. Default %s' % (str(self.genome_mismatches)))
-        mapping_group.add_argument('--quality-threshold', dest="genome_quality_threshold", metavar="qth", help='Good quality threshold. Bases with a quality score >= threshold are considered good. Default %d' % self.genome_quality_threshold)
+        mapping_group.add_argument('--quality-threshold', dest="genome_quality_threshold", type=int, metavar="qth", help='Good quality threshold. Bases with a quality score >= threshold are considered good. Default %d' % self.genome_quality_threshold)
         mapping_group.add_argument('--max-decoded-matches', dest="genome_max_decoded_matches", metavar="mdm", help='Maximum decoded matches. Default %d' % (self.genome_max_decoded_matches))
         mapping_group.add_argument('--min-decoded-strata', dest="genome_min_decoded_strata", metavar="mds", help='Minimum decoded strata. Default to %d' % self.genome_min_decoded_strata)
         mapping_group.add_argument('--min-matched-bases', dest="genome_min_matched_bases", metavar="mmb", help='Minimum ratio of bases that must be matched. Default %d' % (self.genome_min_matched_bases))
@@ -1501,12 +1535,12 @@ index generated from your annotation.""")
             help='Set the allowed mismatch ratio for junction detection as 0 < mm < 1. Default %s' % (str(self.junction_mismatches)))
         junctions_group.add_argument('--junction-max-matches', dest="junctions_max_junction_matches", metavar="mm",
             help='Maximum number of multi-maps allowed for a junction. Default %d' % (self.junctions_max_junction_matches))
-        junctions_group.add_argument('--min-intron-size', dest="junctions_min_intron_size", metavar="mil", help='Minimum intron length. Default %d' % self.junctions_min_intron_size)
-        junctions_group.add_argument('--max-intron-length', dest="junctions_max_intron_size", metavar="mil", help='Maximum intron length. Default %d' % self.junctions_max_intron_size)
+        junctions_group.add_argument('--min-intron-size', dest="junctions_min_intron_size", type=int, metavar="mil", help='Minimum intron length. Default %d' % self.junctions_min_intron_size)
+        junctions_group.add_argument('--max-intron-length', dest="junctions_max_intron_size", type=int, metavar="mil", help='Maximum intron length. Default %d' % self.junctions_max_intron_size)
         junctions_group.add_argument('--refinement-step', dest="junctions_refinement_step_size", metavar="r", help='Refine the minimum split size when constraints on number of candidates are not met. Default %d' % self.junctions_refinement_step_size)
-        junctions_group.add_argument('--min-split-size', dest="junctions_min_split_size", metavar="mss", help='Minimum split length. Default 15')
+        junctions_group.add_argument('--min-split-size', dest="junctions_min_split_size", type=int, metavar="mss", help='Minimum split length. Default 15')
         junctions_group.add_argument('--matches-threshold', dest="junctions_matches_threshold", metavar="mt", help='Maximum number canidates considered when splitting the read. Default 75')
-        junctions_group.add_argument('--junction-coverage', dest="junctions_coverage", metavar="jc", help='Minimum allowed junction converage. Default %d' % self.junctions_coverage)
+        junctions_group.add_argument('--junction-coverage', dest="junctions_coverage", type=int, metavar="jc", help='Minimum allowed junction converage. Default %d' % self.junctions_coverage)
         junctions_group.add_argument('--junction-consensus', dest="junctions_consensus", metavar="jc", help='Consensus used to detect junction sites. Default \'%s\'' % (",".join(["(%s,%s)" % (c[0], c[1]) for c in self.junctions_consensus])))
         junctions_group.add_argument('--junction-strata-after-best', dest="junctions_strata_after_best", metavar="s", help='Maximum number of strata to examin after best. Default %d' % (self.junctions_strata_after_best))
 
