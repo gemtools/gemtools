@@ -59,6 +59,8 @@ def gemtools():
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
     except KeyboardInterrupt:
+        gem.utils.teminate_processes()
+        gem.files._cleanup()
         exit(1)
     finally:
         # cleanup
