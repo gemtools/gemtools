@@ -58,13 +58,13 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
             # junctions to make sure that coverage is ignored
             # if the junctions is covered just by one side of
             # the annotation junciton side
-            logging.debug("Updating junction position lookup")
+            logging.info("Updating junction position lookup")
             annotation_positions = {}
             for site in annotation_junctions:
                 j1, j2 = __get_junciton_sites(site)
                 annotation_positions[j1] = True
                 annotation_positions[j2] = True
-            logging.debug("Annotation position lookup prepared")
+            logging.info("Annotation position lookup prepared")
 
         for i, e in local_sites.items():
             if e.coverage >= coverage:

@@ -389,7 +389,9 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             refinement_step_size=cfg["refinement_step_size"],
             min_split_size=cfg["min_split_size"],
             matches_threshold=cfg["matches_threshold"],
-            max_junction_matches=cfg["max_junction_matches"]
+            max_junction_matches=cfg["max_junction_matches"],
+            annotation=cfg['annotation']
+
         )
 
         logging.gemtools.gt("Found Denovo Junctions %d with coverage >= %s" % (len(denovo_junctions), str(cfg["coverage"])))
@@ -819,6 +821,7 @@ class MappingPipeline(object):
         config.min_split_size = self.junctions_min_split_size
         config.matches_threshold = self.junctions_matches_threshold
         config.coverage = self.junctions_coverage
+        config.annotation = self.annotation
 
         if configuration is not None:
             self.__update_dict(config, configuration)
