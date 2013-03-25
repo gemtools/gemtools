@@ -849,7 +849,7 @@ def _check_samtools(command, threads=1, extend=None):
 
 def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1, sort_memory="768M"):
     sam2bam_p = _check_samtools("view", threads=threads, extend=["-S", "-b"])
-    if mapq is not None:
+    if mapq is not None and int(mapq) > 0:
         sam2bam_p.append("-q")
         sam2bam_p.append(str(mapq))
     sam2bam_p.append('-')

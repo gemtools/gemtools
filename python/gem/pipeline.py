@@ -234,27 +234,36 @@ class CreateStatsStep(PipelineStep):
         return self._files
 
     def run(self):
-        cfg = self.configuration
+        def __read__write_stats(cfg, all_stats, best_stats, threads, out, infile):
+            gt.read_stats(infile, all_stats, best_stats, threads=threads)
+            # out = self.files()
+            if cfg['stats_json'] is not None:
+                with open(out[1], 'w') as f:
+                    json.dump(all_stats.__dict__, f)
+                with open(out[3], 'w') as f:
+                    json.dump(best_stats.__dict__, f)
 
+            with open(out[0], 'w') as f:
+                all_stats.write(f)
+
+            with open(out[2], 'w') as f:
+                best_stats.write(f)
+
+        cfg = self.configuration
         infile = self._input()
         best_stats = gt.Stats(True, cfg["stats_paired"])
         all_stats = gt.Stats(False, cfg["stats_paired"])
 
-        gt.read_stats(infile, all_stats, best_stats, threads=self.pipeline.threads)
+        import gem.utils
+        import multiprocessing
 
-        out = self.files()
+        process = multiprocessing.Process(target=__read__write_stats, args=(cfg, all_stats, best_stats, self.pipeline.threads, self.files(), infile))
+        gem.utils.register_process(process)
+        process.start()
+        process.join()
 
-        if cfg['stats_json'] is not None:
-            with open(out[1], 'w') as f:
-                json.dump(all_stats.__dict__, f)
-            with open(out[3], 'w') as f:
-                json.dump(best_stats.__dict__, f)
 
-        with open(out[0], 'w') as f:
-            all_stats.write(f)
 
-        with open(out[2], 'w') as f:
-            best_stats.write(f)
 
 
 class CreateBamStep(PipelineStep):

@@ -541,6 +541,7 @@ cpdef __write_stream(source, OutputFile output, bool write_map=False, uint64_t t
 
     with nogil:
         gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
+
     output.close()
     for i in range(num_inputs):
         gt_input_file_close(inputs[i])
