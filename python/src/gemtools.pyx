@@ -563,6 +563,221 @@ cpdef __write_merge_stream(source, OutputFile output, bool write_map=False, uint
     free(inputs)
 
 
+cdef _create_alignment(gt_alignment* ali):
+    a = Alignment(initialize=False)
+    a.alignment = ali
+    return a
+
+cdef class Alignment:
+    """Wrapper class around gt_alignment"""
+    cdef gt_alignment* alignment
+    cdef bool initialize
+
+    def __cinit__(self, initialize=True):
+        self.initialize = initialize
+        if initialize:
+            self.alignment = gt_alignment_new()
+
+    def __dealloc__(self):
+        if self.initialize:
+            gt_alignment_delete(self.alignment)
+
+
+    property tag:
+        def __get__(self):
+            return gt_alignment_get_tag(self.alignment)
+        def __set__(self, value):
+            gt_alignment_set_tag(self.alignment, value, len(value))
+
+    property pair:
+        def __get__(self):
+            return gt_alignment_get_pair(self.alignment)
+
+    property counters:
+        def __get__(self):
+            return gt_alignment_get_num_counters(self.alignment)
+
+    property num_maps:
+        def __get__(self):
+            return gt_alignment_get_num_maps(self.alignment)
+
+    property mcs:
+        def __get__(self):
+            return gt_alignment_get_mcs(self.alignment)
+        def __set__(self, value):
+            gt_alignment_set_mcs(self.alignment, value)
+
+    property has_qualities:
+        def __get__(self):
+            return gt_alignment_has_qualities(self.alignment)
+
+    property not_unique_flag:
+        def __get__(self):
+            return gt_alignment_get_not_unique_flag(self.alignment)
+        def __set__(self, value):
+            gt_alignment_set_not_unique_flag(self.alignment, value)
+
+    property length:
+        def __get__(self):
+            return self._length()
+
+    property read:
+        def __get__(self):
+            return self._read()
+
+    property qualities:
+        def __get__(self):
+            return self._qualities()
+
+    cdef uint64_t _length(self):
+        return gt_alignment_get_read_length(self.alignment)
+
+    cdef char* _read(self):
+        return gt_alignment_get_read(self.alignment)
+
+    cdef char* _qualities(self):
+        return gt_alignment_get_qualities(self.alignment)
+
+
+    cpdef uint64_t get_counter(self, uint64_t stratum):
+        return gt_alignment_get_counter(self.alignment, stratum)
+
+    cpdef set_counter(self, uint64_t stratum, uint64_t value):
+        gt_alignment_set_counter(self.alignment, stratum, value)
+
+    cpdef uint64_t get_num_maps(self):
+        return gt_alignment_get_num_maps(self.alignment)
+
+
+    def to_map(self):
+        cdef gt_string* gt = self._to_map()
+        s = ""+gt_string_get_string(gt)
+        gt_string_delete(gt)
+        return s
+
+    def to_fasta(self):
+        cdef gt_string* gt = self._to_fasta()
+        s = ""+gt_string_get_string(gt)
+        gt_string_delete(gt)
+        return s
+
+    def to_fastq(self):
+        cdef gt_string* gt = self._to_fastq()
+        s = ""+gt_string_get_string(gt)
+        gt_string_delete(gt)
+        return s
+
+    def to_sequence(self):
+        cdef gt_string* gt = self._to_sequence()
+        s = ""+gt_string_get_string(gt)
+        gt_string_delete(gt)
+        return s
+
+
+    cdef gt_string* _to_map(self):
+        cdef gt_string* s = gt_string_new(512)
+        cdef gt_output_map_attributes* attr = gt_output_map_attributes_new()
+        gt_output_map_sprint_alignment(s,self.alignment, attr)
+        gt_string_set_length(s, gt_string_get_length(s)-1)
+        gt_string_append_eos(s)
+        gt_output_map_attributes_delete(attr)
+        return s
+
+    cdef gt_string* _to_fasta(self):
+        cdef gt_string* s = gt_string_new(512)
+        cdef gt_output_fasta_attributes* attr = gt_output_fasta_attributes_new()
+        gt_output_fasta_attributes_set_format(attr, F_FASTA)
+        gt_output_fasta_sprint_alignment(s,self.alignment, attr)
+        gt_string_set_length(s, gt_string_get_length(s)-1)
+        gt_string_append_eos(s)
+        gt_output_fasta_attributes_delete(attr)
+        return s
+
+    cdef gt_string* _to_fastq(self):
+        cdef gt_string* s = gt_string_new(512)
+        cdef gt_output_fasta_attributes* attr = gt_output_fasta_attributes_new()
+        gt_output_fasta_sprint_alignment(s,self.alignment, attr)
+        gt_string_set_length(s, gt_string_get_length(s)-1)
+        gt_string_append_eos(s)
+        gt_output_fasta_attributes_delete(attr)
+        return s
+
+    cdef gt_string* _to_sequence(self):
+        if gt_alignment_has_qualities(self.alignment):
+            return self._to_fastq()
+        else:
+            return self._to_fasta()
+
+    cpdef int64_t get_min_mismatches(self):
+        """Return minimum number of mismatches or -1 if
+        the alignment is unmapped"""
+        cdef gt_alignment* alignment = self.alignment
+        cdef uint64_t counter = 0
+        cdef uint64_t c = gt_alignment_get_num_counters(alignment)
+        cdef int64_t i = 0
+        for i in range(c):
+            counter = gt_alignment_get_counter(alignment, i)
+            if counter > 0:
+                return i
+        return -1
+
+    cpdef get_pair(self):
+        """Return 0 for unpaired or 1 or 2"""
+        return gt_alignment_get_pair(self.alignment)
+
+    cpdef int64_t level(self, uint64_t max_level=GT_ALL):
+        cdef gt_alignment* alignment = self.alignment
+        cdef uint64_t counter = 0
+        cdef uint64_t c = gt_alignment_get_num_counters(alignment)
+        cdef int64_t i, j = 0
+        cdef int64_t level = 0
+        for i in range(c):
+            counter = gt_alignment_get_counter(alignment, i)
+            if counter == 1:
+                for j in range(i+1, c):
+                    if level >= max_level:
+                        return level
+                    counter = gt_alignment_get_counter(alignment, j)
+                    if counter > 0:
+                        return <int64_t> (j-(i+1))
+                    else:
+                        level += 1
+                return <int64_t> (c - (i+1))
+            elif counter > 1:
+                return -1
+        return -1
+
+    cpdef maps(self):
+        return [_create_map(gt_alignment_get_map(self.alignment, i)) for i in range(self.num_maps)]
+
+cdef _create_map(gt_map* _map):
+    m = Map(initialize=False)
+    m._map = _map
+    return m
+
+cdef class Map:
+    cdef gt_map* _map
+    cdef bool initialize
+
+    def __cinit__(self, initialize=True):
+        self.initialize = initialize
+        if initialize:
+            self._map = gt_map_new()
+
+    def __dealloc__(self):
+        if self.initialize:
+            gt_map_delete(self._map)
+
+    property seqname:
+        """The sequence name of the genomic sequence (i.e. Chromosome)"""
+        def __get__(self):
+            return gt_map_get_seq_name(self._map);
+
+    property strand:
+        """The strand, either FORWARD or REVERSE"""
+        def __get__(self):
+            return gt_map_get_strand(self._map);
+
 
 
 cdef class Template:
@@ -766,6 +981,9 @@ cdef class Template:
     cpdef parse(self, char* string):
         gt_input_map_parse_template(string, self.template)
         return self
+
+    cpdef alignments(self):
+        return [_create_alignment(gt_template_get_block(self.template, i)) for i in range(self.num_alignments)]
 
 cdef class Stats(object):
     cdef gt_stats* stats
@@ -989,6 +1207,9 @@ cdef class StatsMapProfile(object):
     property total_bases_trimmed:
         def __get__(self):
             return self.profile.total_bases_trimmed
+    property inss_fine_grain:
+        def __get__(self):
+            return [self.profile.inss_fine_grain[i] for i in range(GT_STATS_INSS_FG_RANGE)]
     property inss:
         def __get__(self):
             return [self.profile.inss[i] for i in range(16)]
@@ -1046,6 +1267,7 @@ cdef class StatsMapProfile(object):
                 "total_bases_matching": self.total_bases_matching,
                 "total_bases_trimmed": self.total_bases_trimmed,
                 "inss": self.inss,
+                "inss_fine_grain": self.inss_fine_grain,
                 "inss_description": self.inss_description,
                 "misms_transition": self.misms_transition,
                 "qual_score_misms": self.qual_score_misms,
@@ -1070,11 +1292,12 @@ cpdef read_stats(source, Stats all=None, Stats best=None, uint64_t threads=1):
 
 
 cpdef __calculate_stats(Stats all_stats, Stats best_stats, source, uint64_t threads=1):
-    import gem.utils
-    process = multiprocessing.Process(target=__calculate_stats_process, args=(all_stats, best_stats, source, threads))
-    gem.utils.register_process(process)
-    process.start()
-    process.join()
+    # import gem.utils
+    # process = multiprocessing.Process(target=__calculate_stats_process, args=(all_stats, best_stats, source, threads))
+    # gem.utils.register_process(process)
+    # process.start()
+    # process.join()
+    __calculate_stats_process(all_stats, best_stats, source, threads)
 
 
 cpdef __calculate_stats_process(Stats all_stats, Stats best_stats, source, uint64_t threads=1):
@@ -1092,4 +1315,5 @@ cpdef __calculate_stats_process(Stats all_stats, Stats best_stats, source, uint6
 
     with nogil:
         gt_stats_fill(input, target_all, target_best, threads, paired)
+
 

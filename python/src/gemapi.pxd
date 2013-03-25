@@ -38,6 +38,7 @@ cdef extern from "gem_tools.h" nogil:
     cdef uint64_t GT_ALL
     cdef int GT_STATUS_OK
     cdef int GT_STATUS_FAIL
+    cdef int GT_STATS_INSS_FG_RANGE
 
     ctypedef struct gt_vector:
         pass
@@ -166,6 +167,7 @@ cdef extern from "gem_tools.h" nogil:
     void gt_alignment_set_counter(gt_alignment* alignment,uint64_t stratum,uint64_t value)
     void gt_alignment_dec_counter(gt_alignment* alignment,uint64_t stratum)
     void gt_alignment_inc_counter(gt_alignment* alignment,uint64_t stratum)
+    int64_t gt_alignment_get_pair(gt_alignment* alignment)
 
     cdef char* GT_ATTR_MAX_COMPLETE_STRATA "MCS"
     cdef char* GT_ATTR_NOT_UNIQUE "NOT-UNIQUE"
@@ -186,6 +188,22 @@ cdef extern from "gem_tools.h" nogil:
     #
     ctypedef struct gt_map:
         pass
+    enum gt_strand:
+        FORWARD
+        REVERSE
+
+    enum gt_junction_t:
+        NO_JUNCTION
+        SPLICE
+        POSITIVE_SKIP
+        NEGATIVE_SKIP
+        INSERT
+        JUNCTION_UNKNOWN
+
+    gt_map* gt_map_new()
+    void gt_map_delete(gt_map* map)
+    char* gt_map_get_seq_name(gt_map* map)
+    gt_strand gt_map_get_strand(gt_map* map)
 
     # template
     ctypedef struct gt_template:
@@ -268,11 +286,13 @@ cdef extern from "gem_tools.h" nogil:
     gt_status gt_output_fasta_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template, gt_output_fasta_attributes* output_attributes)
     gt_status gt_output_fasta_sprint_template(gt_string* string,gt_template* template, gt_output_fasta_attributes* output_attributes)
     gt_status gt_output_fasta_ofprint_template(gt_output_file* output_file,gt_template* template, gt_output_fasta_attributes* attributes)
+    gt_status gt_output_fasta_sprint_alignment(gt_string* string,gt_alignment* alignment, gt_output_fasta_attributes* output_attributes)
 
     ## print map
     gt_status gt_output_map_bofprint_template(gt_buffered_output_file* buffered_output_file,gt_template* template,gt_output_map_attributes* attributes)
     gt_status gt_output_map_bofprint_alignment(gt_buffered_output_file* buffered_output_file,gt_alignment* alignment,gt_output_map_attributes* attributes)
     gt_status gt_output_map_sprint_template(gt_string* string,gt_template* template,gt_output_map_attributes* attributes)
+    gt_status gt_output_map_sprint_alignment(gt_string* string,gt_alignment* alignment,gt_output_map_attributes* attributes)
     gt_status gt_output_map_ofprint_template(gt_output_file* output_file,gt_template* template, gt_output_map_attributes* attributes)
 
 cdef extern from "gt_stats.h":
@@ -293,6 +313,7 @@ cdef extern from "gt_stats.h":
         uint64_t total_bases_trimmed
 
         uint64_t *inss
+        uint64_t *inss_fine_grain
 
         uint64_t *misms_transition
         uint64_t *qual_score_misms

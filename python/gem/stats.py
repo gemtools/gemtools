@@ -284,7 +284,7 @@ def write_mmaps_and_uniq_ranges(data, out_dir):
 
     subplots_adjust(hspace=0.3)
     ## mmap ranges plot
-    subplot2grid((2, 2), (0, 0))
+    subplot2grid((3, 2), (0, 0))
     grid(True)
     bar(xrange(9), rest, color=__default_color, align="center")
     plt.xticks(xrange(10), ("0", "1", "(1,5]", "(5,10]", "(10,50]", "(50,100]", "(100,500]", "(500,1000]", "(1000,inf]"), rotation=45, )
@@ -301,7 +301,7 @@ def write_mmaps_and_uniq_ranges(data, out_dir):
     rest = [(d / alignments) * 100.0 for d in rest]
     # plot
     ## unique ranges
-    subplot2grid((2, 2), (0, 1))
+    subplot2grid((3, 2), (0, 1))
     grid(True)
     ylim([0, 100])
     bar(xrange(8), rest, color=__default_color, align="center")
@@ -310,17 +310,34 @@ def write_mmaps_and_uniq_ranges(data, out_dir):
     xlabel("Ranges")
     ylabel("% Alignments")
 
-    subplot2grid((2, 2), (1, 0), colspan=2)
+    subplot2grid((3, 2), (1, 0), colspan=2)
     inss = data["maps_profile"]["inss"]
     labels = ["(-inf, 0)", "(-100, 0)", "(0, 100]", "(100, 200]", "(200, 300]", "(300, 400]", "(400, 500]", "(500, 600]", "(600, 700]", "(700, 800]", "(800, 900]", "(900, 1000]", "(1000, 2000]", "(2000, 5000]", "(5000, 10000]", "(10000, inf]"]
     num_maps = (float)(data["num_maps"])
     rest = [(d / num_maps) * 100.0 for d in inss]
-
     grid(True)
     ylim([0, 100])
     bar(xrange(16), rest, color=__default_color)
     xticks(xrange(16), labels, rotation=45, )
     title("Insert sizes")
+    xlabel("Ranges")
+    ylabel("% Alignments")
+
+    subplot2grid((3, 2), (2, 0), colspan=2)
+    inss = data["maps_profile"]["inss_fine_grain"]
+    num_maps = (float)(data["num_maps"])
+    rest = [(d / num_maps) * 100.0 for d in inss]
+    grid(True)
+    xlim([-1000, 10000])
+    bar(xrange(-1000, 10000, 10), rest, color=__default_color)
+
+    # labels = ["<1000"]
+    # ticks = [0]
+    # for x in range(-900, 10000, 100):
+    #     labels.append(str(x))
+    #     ticks.append(x + 901)
+    # xticks(ticks, labels, rotation=0, )
+    title("Insert sizes (fine grained)")
     xlabel("Ranges")
     ylabel("% Alignments")
 
@@ -407,6 +424,8 @@ def write_junctions_profile(data, out_dir):
     sp = data["splits_profile"]
     max_len = data["max_length"]
     total_junctions = (float)(sp["total_junctions"])
+    if total_junctions == 0:
+        total_junctions = 1.0
 
     figure(figsize=(20, 12))
     #subplots_adjust( hspace=0, wspace=0 )
@@ -428,6 +447,9 @@ def write_junctions_profile(data, out_dir):
     subplot2grid((2, 3), (0, 2))
     pe = [sp["pe_rm_rm"], sp["pe_sm_rm"], sp["pe_sm_sm"]]
     sum_pe = (float)(sum(pe))
+    if sum_pe == 0:
+        sum_pe = 1.0
+
     da = [(d / sum_pe) * 100.0 for d in pe]
     labels = ["RM+RM", "SM+RM", "SM+SM"]
     da, labels = __exclude_zero(da, labels)
@@ -437,6 +459,7 @@ def write_junctions_profile(data, out_dir):
     subplot2grid((2, 3), (1, 0), colspan=3)
     da = sp["junction_position"]
     da = [(d / total_junctions) * 100.0 for d in da]
+    max_len = min(max_len, len(da))
     plot(da[:max_len], color="black")
     fill_between(range(max_len), da[:max_len], color=__default_color)
     xlim([0, max_len])
@@ -594,6 +617,10 @@ def create_report(input_file, output_name, paired=True, extract=False, name=None
         m = re.match("(.*)(\.stats\.(all|best)\.json$)", input_file)
         if m:
             name = m.group(1)
+        else:
+            idx = input_file.rfind(".")
+            if idx > 0:
+                name = input_file[:idx]
 
     # create output directory
     try:
