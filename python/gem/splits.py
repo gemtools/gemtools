@@ -5,7 +5,7 @@ import gem
 from gem.junctions import JunctionSite
 
 
-def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, coverage=0, max_junction_matches=1, process=None, threads=1):
+def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, coverage=0, max_junction_matches=1, process=None, threads=1, annotation_junctions=None):
     """Extract denovo junctions from a split map run.
 
     gemoutput - a read iterator over gem splitmapper Output
@@ -42,9 +42,38 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
             sites.add(js)
 
     if coverage > 0:
+        annotation_positions = None
+
+        def __get_junciton_sites(site):
+            """Helper to create hashable strings out of the junctions site chromosome
+            and position. This returns a tuple with two string that represent
+            the two junciton sites
+            """
+            j1 = "%s-%s" % (str(site.descriptor[0]), str(site.descriptor[2]))
+            j2 = "%s-%s" % (str(site.descriptor[3]), str(site.descriptor[5]))
+            return (j1, j2)
+
+        if annotation_junctions is not None:
+            # create a position dict from the annotation
+            # junctions to make sure that coverage is ignored
+            # if the junctions is covered just by one side of
+            # the annotation junciton side
+            logging.debug("Updating junction position lookup")
+            annotation_positions = {}
+            for site in annotation_junctions:
+                j1, j2 = __get_junciton_sites(site)
+                annotation_positions[j1] = True
+                annotation_positions[j2] = True
+            logging.debug("Annotation position lookup prepared")
+
         for i, e in local_sites.items():
             if e.coverage >= coverage:
                 sites.add(e)
+            else:
+                if annotation_positions is not None:
+                    j1, j2 = __get_junciton_sites(e)
+                    if j1 in annotation_positions or j2 in annotation_positions:
+                        sites.add(e)
 
     exit_value = p.wait()
     if process is not None:

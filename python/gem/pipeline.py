@@ -452,7 +452,8 @@ class ExtractJunctionsStep(PipelineStep):
             refinement_step_size=cfg["refinement_step_size"],
             min_split_size=cfg["min_split_size"],
             matches_threshold=cfg["matches_threshold"],
-            max_junction_matches=cfg["max_junction_matches"]
+            max_junction_matches=cfg["max_junction_matches"],
+            annotation=cfg["annotation"],
         )
 
         logging.gemtools.gt("Found de-novo Junctions %d with coverage >= %s" % (len(denovo_junctions), str(cfg["coverage"])))
@@ -831,6 +832,7 @@ class MappingPipeline(object):
         config = dotdict()
 
         config.index = self.index
+        config.annotation = self.annotation
         config.filter = self.junctions_filtering
         config.junctions_consensus = self.junctions_consensus
         config.mismatches = self.junction_mismatches

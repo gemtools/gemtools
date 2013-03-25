@@ -309,6 +309,7 @@ class JunctionExtraction(Command):
         general_group.add_argument('-q', '--quality', dest="quality", metavar="quality",
             default=pipeline.quality, help='Quality offset. 33, 64 or "ignore" to disable qualities.')
         general_group.add_argument('-i', '--index', dest="index", metavar="index", help='Path to the .gem genome index')
+        general_group.add_argument('-a', '--annotation', dest="gtf", metavar="gtf", help='Path to the .gtf annotation that will be used to keep junctions even if the site does not have enough coverage.')
         general_group.add_argument('--dry', dest="dry", action="store_true", default=None, help="Print and write configuration but do not start the pipeline")
         general_group.add_argument('-t', '--threads', dest="threads", metavar="threads", type=int, help="Number of threads to use. Default %d" % pipeline.threads)
 
@@ -322,6 +323,10 @@ class JunctionExtraction(Command):
         except PipelineError, e:
             sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
+
+        # add annotation to the game
+        if args.gtf is not None:
+            pipeline.update({"annotation": args.gtf})
 
         pipeline.extract_junctions("extract", description="Extract Junctions", final=True)
 

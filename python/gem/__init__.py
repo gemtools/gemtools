@@ -14,6 +14,7 @@ import splits
 import gem.filter as gemfilter
 import gem.gemtools as gt
 import gem
+import gem.junctions
 import __builtin__
 
 import multiprocessing as mp
@@ -610,6 +611,7 @@ def extract_junctions(input,
                       coverage=0,
                       max_junction_matches=5,
                       tmpdir=None,
+                      annotation=None,
                       extra=None):
     ## run the splitmapper
     splitmap = splitmapper(input,
@@ -628,6 +630,12 @@ def extract_junctions(input,
         threads=threads,
         extra=extra)
 
+    annotation_junctions = None
+    if annotation is not None:
+        annotation_junctions = annotation
+        if isinstance(annotation, basestring):
+            annotation_junctions = gem.junctions.from_gtf(annotation)
+
     denovo_junctions = splits.extract_denovo_junctions(
         splitmap.raw_stream(),  # pass the raw stream
         minsplit=min_split,
@@ -636,7 +644,8 @@ def extract_junctions(input,
         sites=merge_with,
         max_junction_matches=max_junction_matches,
         process=splitmap.process,
-        threads=max(1, threads / 2)
+        threads=max(1, threads / 2),
+        annotation_junctions=annotation_junctions
     )
     return denovo_junctions
 
