@@ -7,8 +7,8 @@ import gem
 from testfiles import testfiles
 
 def test_splice_consensus_conversion():
-    assert gem._prepare_splice_consensus_parameter(None) == '"GT"+"AG","CT"+"AC"'
-    assert gem._prepare_splice_consensus_parameter([("AA", "BB"), ("CC", "DD")]) == '"AA"+"BB","CC"+"DD"'
+    assert gem._prepare_splice_consensus_parameter(None) == 'GT+AG'
+    assert gem._prepare_splice_consensus_parameter([("AA", "BB"), ("CC", "DD")]) == 'AA+BB,CC+DD'
 
 
 def test_quality_parameter():

@@ -208,7 +208,7 @@ def _prepare_splice_consensus_parameter(splice_consensus):
         splice_cons = splice_consensus
     else:
         ## translate the splice consensus tupel structure
-        splice_cons = ",".join(['"%s"+"%s"' % (x[0], x[1]) for x in splice_consensus])
+        splice_cons = ",".join(['%s+%s' % (x[0], x[1]) for x in splice_consensus])
     return splice_cons
 
 
@@ -558,7 +558,6 @@ def splitmapper(input,
 
     ## extend with additional parameters
     _extend_parameters(pa, extra)
-
     trim_c = [executables['gem-2-gem'], '-c', '-T', str(min_threads)]
     if trim is not None:
         ## check type
@@ -800,22 +799,27 @@ def score(input,
 
 def gem2sam(input, index=None, output=None,
     single_end=False, compact=False, threads=1,
-    quality=None, check_ids=True):
-    # if output is None:
-    #     raise ValueError("You have to specify a sam output file! We are working on the piping support!")
+    quality=None, check_ids=True, add_length=True, consensus=None):
 
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
+    else:
+        add_length=False
 
     gem_2_sam_p = [executables['gem-2-sam'],
                    '-T', str(threads)
     ]
     if index is not None:
         gem_2_sam_p.extend(['-I', index])
+    if add_length is not None:
+        gem_2_sam_p.append('-l')
 
     quality = _prepare_quality_parameter(quality, input)
     if quality is not None and not quality == "ignore":
         gem_2_sam_p.extend(["-q", quality])
+
+    if consensus is not None:
+        gem_2_sam_p.extend(['-s', _prepare_splice_consensus_parameter(consensus)])
 
     if single_end:
         gem_2_sam_p.append("--expect-single-end-reads")

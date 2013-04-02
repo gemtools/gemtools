@@ -334,7 +334,7 @@ https://github.com/gemtools/gemtools
         package_data={"": ["%s/%s" % ("python/gem/gembinaries", x) for x in ["gem-2-sam",
                                                                      "gem-indexer_bwt-dna",
                                                                      "gem-indexer_generate",
-                                                                     "gem-map-2-map",
+                                                                     "gem-2-gem",
                                                                      "gem-retriever",
                                                                      "gtf-2-junctions",
                                                                      "gem-indexer",

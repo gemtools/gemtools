@@ -194,6 +194,7 @@ def test_interleaved_pair_aligner_run():
 
 @with_setup(setup_func, cleanup)
 def test_sync_splitmapper_execution():
+    gem.loglevel("debug")
     input = files.open(testfiles["reads_1.fastq"])
     mappings = gem.splitmapper(input, index, results_dir + "/splitmap_out.mapping")
     assert mappings is not None

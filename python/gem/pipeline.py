@@ -277,7 +277,7 @@ class CreateBamStep(PipelineStep):
 
     def run(self):
         cfg = self.configuration
-        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality)
+        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality, consensus=cfg['consensus'])
         gem.sam2bam(sam, self._final_output(), sorted=cfg["sort"], mapq=cfg["mapq"], threads=self.pipeline.threads, sort_memory=self.pipeline.sort_memory)
 
 
@@ -885,6 +885,7 @@ class MappingPipeline(object):
         config.index = self.index
         config.mapq = self.bam_mapq
         config.sort = self.bam_sort
+        config.consensus = self.junctions_consensus
 
         if configuration is not None:
             self.__update_dict(config, configuration)
