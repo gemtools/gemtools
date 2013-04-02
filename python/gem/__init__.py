@@ -65,12 +65,12 @@ logging.gemtools.level = logging.WARNING
 log_output = LOG_NOTHING
 
 
-default_splice_consensus = [("GT", "AG"), ("CT", "AC")]
-extended_splice_consensus = [("GT", "AG"), ("CT", "AC"),
-    ("GC", "AG"), ("CT", "GC"),
-    ("ATATC", "A."), (".T", "GATAT"),
-    ("GTATC", "AT"), ("AT", "GATAC")
-]
+default_splice_consensus = [("GT", "AG")]
+extended_splice_consensus = [("GT", "AG"), 
+    ("GC", "AG"),
+    ("ATATC", "A."), 
+    ("GTATC", "AT")]
+
 
 #default filter
 default_filter = "same-chromosome,same-strand"
@@ -81,7 +81,7 @@ use_bundled_executables = True
 ## max mappings to replace mapping counts for + and ! summaries
 _max_mappings = 999999999
 
-## filter to work around GT-32 and #006 in gem-map-2-map
+## filter to work around GT-32 and #006 in gem-2-gem
 __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t' + str(_max_mappings) + '\t"$5}else{print}}}']
 
 
@@ -129,7 +129,7 @@ executables = execs_dict({
     "gem-indexer": "gem-indexer",
     "gem-mapper": "gem-mapper",
     "gem-rna-mapper": "gem-rna-mapper",
-    "gem-map-2-map": "gem-map-2-map",
+    "gem-2-gem": "gem-2-gem",
     "gem-2-sam": "gem-2-sam",
     "samtools": "samtools",
     "gem-info": "gem-info",
@@ -372,7 +372,7 @@ def mapper(input, index, output=None,
     ## extend with additional parameters
     _extend_parameters(pa, extra)
 
-    trim_c = [executables['gem-map-2-map'], '-c', '-T', str(threads)]
+    trim_c = [executables['gem-2-gem'], '-c', '-T', str(threads)]
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
@@ -559,7 +559,7 @@ def splitmapper(input,
     ## extend with additional parameters
     _extend_parameters(pa, extra)
 
-    trim_c = [executables['gem-map-2-map'], '-c', '-T', str(min_threads)]
+    trim_c = [executables['gem-2-gem'], '-c', '-T', str(min_threads)]
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
@@ -719,7 +719,7 @@ def realign(input,
             output=None,
             threads=1, ):
     index = _prepare_index_parameter(index, gem_suffix=True)
-    validate_p = [executables['gem-map-2-map'],
+    validate_p = [executables['gem-2-gem'],
                   '-I', index,
                   '-r',
                   '-T', str(threads)
@@ -735,7 +735,7 @@ def validate(input,
              validate_filter=None,  # "1,2,25"
              threads=1, ):
     index = _prepare_index_parameter(index, gem_suffix=True)
-    validate_p = [executables['gem-map-2-map'],
+    validate_p = [executables['gem-2-gem'],
                   '-I', index,
                   '-v', '-r',
                   '-T', str(max(threads, 1))
@@ -770,7 +770,7 @@ def score(input,
 
     quality = _prepare_quality_parameter(quality)
     index = _prepare_index_parameter(index, gem_suffix=True)
-    score_p = [executables['gem-map-2-map'],
+    score_p = [executables['gem-2-gem'],
                '-I', index,
                '-q', quality,
                '-s', scoring,
