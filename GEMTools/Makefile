@@ -11,9 +11,12 @@ ROOT_PATH=$(CURDIR)
 include Makefile.mk
 
 all: release
-	
-release: setup
-	
+
+static:	setup
+	$(MAKE) --directory=src
+	$(MAKE) --directory=tools static
+
+release: setup	
 	$(MAKE) --directory=src
 	$(MAKE) --directory=tools
 
