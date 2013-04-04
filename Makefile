@@ -1,4 +1,4 @@
-VERSION			   = "1.6"
+VERSION			   = "1.7"
 VIRTUALENV         = dist-utils/virtualenv.py
 VIRTUALENV_NAME    = environment
 
