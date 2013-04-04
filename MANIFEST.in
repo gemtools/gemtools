@@ -3,4 +3,5 @@ exclude python/gem/gembinaries/*
 include python/src/*
 include python/test/*
 include python/testdata/*
-include README.md
+include Readme.md
+include distribute_setup.py
