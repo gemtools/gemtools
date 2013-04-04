@@ -10,12 +10,13 @@ import shutil
 import zipfile
 
 #import matplotlib stuff
+__plotlib_avail = False
 try:
     from pylab import *
     from matplotlib.ticker import FuncFormatter
+    __plotlib_avail = True
 except Exception, e:
-    # todo: trigger warning about missing imports
-    raise
+    pass
 
 ## set locale to get thousands separator easily in 2.6
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
@@ -599,6 +600,16 @@ def create_report(input_file, output_name, paired=True, extract=False, name=None
     name:
         Name of the dataset
     """
+    if not __plotlib_avail:
+        raise Exception("""
+Matplotlib could not be imported. We need the matplotlib library
+to render the stats report! 
+
+Please install matplotlib and its dependencies. For example:
+
+pip install numpy
+pip install matplotlib
+""")
     if input_file is None:
         raise ValueError("No input file specified")
     if output_name is None:
