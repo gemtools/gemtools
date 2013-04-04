@@ -40,7 +40,7 @@ install-pyinstaller: fetch-pyinstaller
 
 dist: prep-dist install-pyinstaller
 	@mkdir -p dist
-	./dist-utils/pyinstaller-2.0/pyinstaller.py -F -p python/ --hidden-import=matplotlib --hidden-import=numpy --hidden-import=gem --hidden-import=gem.gemtools -o dist/ -y python/gem/commands.py -n gemtools
+	./dist-utils/pyinstaller-2.0/pyinstaller.py -F -p python/ --hidden-import=matplotlib --hidden-import=pylab --hidden-import=numpy --hidden-import=gem --hidden-import=gem.gemtools -o dist/ -y python/gem/commands.py -n gemtools
 	python setup.py package_static
 
 clean:
