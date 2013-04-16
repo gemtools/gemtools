@@ -179,8 +179,8 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
     gt_ihash_element* ihash_element_b = NULL;
     gt_ihash_element* ihash_element_e = NULL;
     register const uint64_t vector_position = gt_vector_get_used(alignment_dst->maps);
-    register const uint64_t begin_position = gt_map_get_position_(map_src)-gt_map_get_left_trim_length(map_src);
-    register const uint64_t end_position = gt_map_get_position_(map_src)+gt_map_get_length(map_src);
+    register const uint64_t begin_position = gt_map_get_position(map_src)-gt_map_get_left_trim_length(map_src);
+    register const uint64_t end_position = gt_map_get_position(map_src)+gt_map_get_length(map_src);
     // Try add
     if (gt_alignment_dictionary_try_add(alignment_dst->alg_dictionary,map_src,
           begin_position,end_position,&alg_dicc_elem,&ihash_element_b,&ihash_element_e,vector_position)) {
@@ -470,20 +470,20 @@ GT_INLINE void gt_alignment_trim(gt_alignment* const alignment,uint64_t const le
     } else {
       gt_sprintf_append(extra," B T %s %s    ",left_read,right_read);
     }
-    if (gt_shash_is_contained(alignment->attributes,GT_TAG_EXTRA)) {
-      gt_string* old = gt_shash_get(alignment->attributes,GT_TAG_EXTRA,gt_string);
+    if (gt_shash_is_contained(alignment->attributes,GT_ATTR_ID_TAG_EXTRA)) {
+      gt_string* old = gt_shash_get(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,gt_string);
       gt_string_delete(old);
     }
-    gt_shash_insert(alignment->attributes,GT_TAG_EXTRA,extra,gt_string);
+    gt_shash_insert(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,extra,gt_string);
   }
 
-  // free(left_read);
-  // free(trimmed_read);
-  // free(right_read);
+  // gt_free(left_read);
+  // gt_free(trimmed_read);
+  // gt_free(right_read);
   // if (qual != NULL ){
-  //   free(trimmed_qual);
-  //   free(left_qual);
-  //   free(right_qual);
+  //   gt_free(trimmed_qual);
+  //   gt_free(left_qual);
+  //   gt_free(right_qual);
   // }
 }
 

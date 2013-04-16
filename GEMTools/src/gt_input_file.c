@@ -19,8 +19,7 @@
 gt_input_file* gt_input_stream_open(FILE* stream) {
   GT_NULL_CHECK(stream);
   // Allocate handler
-  gt_input_file* input_file = malloc(sizeof(gt_input_file));
-  gt_cond_fatal_error(!input_file,MEM_HANDLER);
+  gt_input_file* input_file = gt_alloc(gt_input_file);
   // Input file
   input_file->file_name = GT_STREAM_FILE_NAME;
   input_file->file_type = STREAM;
@@ -31,8 +30,7 @@ gt_input_file* gt_input_stream_open(FILE* stream) {
   input_file->file_format = FILE_FORMAT_UNKNOWN;
   gt_cond_fatal_error(pthread_mutex_init(&input_file->input_mutex, NULL),SYS_MUTEX_INIT);
   // Auxiliary Buffer (for synch purposes)
-  input_file->file_buffer = malloc(GT_INPUT_BUFFER_SIZE);
-  gt_cond_fatal_error(!input_file->file_buffer,MEM_ALLOC);
+  input_file->file_buffer = gt_malloc(GT_INPUT_BUFFER_SIZE);
   input_file->buffer_size = 0;
   input_file->buffer_begin = 0;
   input_file->buffer_pos = 0;
@@ -47,8 +45,7 @@ gt_input_file* gt_input_stream_open(FILE* stream) {
 gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
   GT_NULL_CHECK(file_name);
   // Allocate handler
-  gt_input_file* input_file = malloc(sizeof(gt_input_file));
-  gt_cond_fatal_error(!input_file,MEM_HANDLER);
+  gt_input_file* input_file = gt_alloc(gt_input_file);
   // Input file
   struct stat stat_info;
   unsigned char tbuf[4];
@@ -65,7 +62,7 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
     gt_cond_fatal_error(input_file->fildes==-1,FILE_OPEN,file_name);
     input_file->file_buffer =
       (uint8_t*) mmap(0,input_file->file_size,PROT_READ,MAP_PRIVATE,input_file->fildes,0);
-    gt_cond_fatal_error(input_file->file_buffer==MAP_FAILED,SYS_MMAP,file_name);
+    gt_cond_fatal_error(input_file->file_buffer==MAP_FAILED,SYS_MMAP_FILE,file_name);
     input_file->file_type = MAPPED_FILE;
   } else {
     input_file->fildes = -1;
@@ -89,8 +86,7 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
     } else {
       input_file->eof=0;
     }
-    input_file->file_buffer = malloc(GT_INPUT_BUFFER_SIZE);
-    gt_cond_fatal_error(!input_file->file_buffer,MEM_ALLOC);
+    input_file->file_buffer = gt_malloc(GT_INPUT_BUFFER_SIZE);
   }
   // Auxiliary Buffer (for synch purposes)
   input_file->buffer_size = 0;
@@ -114,15 +110,15 @@ gt_status gt_input_file_close(gt_input_file* const input_file) {
   int bzerr;
   switch (input_file->file_type) {
     case REGULAR_FILE:
-      free(input_file->file_buffer);
+      gt_free(input_file->file_buffer);
       if (fclose(input_file->file)) status = GT_INPUT_FILE_CLOSE_ERR;
       break;
     case GZIPPED_FILE:
-      free(input_file->file_buffer);
+      gt_free(input_file->file_buffer);
       if (gzclose(input_file->file)) status = GT_INPUT_FILE_CLOSE_ERR;
       break;
     case BZIPPED_FILE:
-      free(input_file->file_buffer);
+      gt_free(input_file->file_buffer);
       BZ2_bzReadClose(&bzerr,input_file->file);
       if (bzerr!=BZ_OK) status = GT_INPUT_FILE_CLOSE_ERR;
       break;
@@ -131,10 +127,10 @@ gt_status gt_input_file_close(gt_input_file* const input_file) {
       if (close(input_file->fildes)) status = GT_INPUT_FILE_CLOSE_ERR;
       break;
     case STREAM:
-      free(input_file->file_buffer);
+      gt_free(input_file->file_buffer);
       break;
   }
-  free(input_file);
+  gt_free(input_file);
   return status;
 }
 

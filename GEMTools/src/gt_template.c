@@ -8,6 +8,7 @@
  */
 
 #include "gt_template.h"
+#include "gt_sam_data_attributes.h"
 
 #define GT_TEMPLATE_TAG_INITIAL_LENGTH 100
 #define GT_TEMPLATE_NUM_INITIAL_COUNTERS 10
@@ -18,8 +19,7 @@
  * Setup
  */
 GT_INLINE gt_template* gt_template_new() {
-  gt_template* template = malloc(sizeof(gt_template));
-  gt_cond_fatal_error(!template,MEM_HANDLER);
+  gt_template* template = gt_alloc(gt_template);
   template->template_id = UINT32_MAX;
   template->in_block_id = UINT32_MAX;
   template->tag = gt_string_new(GT_TEMPLATE_TAG_INITIAL_LENGTH);
@@ -27,14 +27,12 @@ GT_INLINE gt_template* gt_template_new() {
   template->counters = gt_vector_new(GT_TEMPLATE_NUM_INITIAL_COUNTERS,sizeof(uint64_t));
   template->mmaps = gt_vector_new(GT_TEMPLATE_NUM_INITIAL_MMAPS,sizeof(gt_map*));
   template->mmaps_attributes = gt_vector_new(GT_TEMPLATE_NUM_INITIAL_MMAPS,sizeof(gt_mmap_attributes));
-  template->maps_txt = NULL;
   template->attributes = gt_attribute_new();
   return template;
 }
 GT_INLINE void gt_template_clear_handler(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   gt_string_clear(template->tag);
-  template->maps_txt = NULL;
   gt_attribute_clear(template->attributes);
 }
 GT_INLINE void gt_template_clear(gt_template* const template,const bool delete_alignments) {
@@ -62,19 +60,12 @@ GT_INLINE void gt_template_delete(gt_template* const template) {
   gt_vector_delete(template->mmaps);
   gt_vector_delete(template->mmaps_attributes);
   gt_attribute_delete(template->attributes);
-  free(template);
+  gt_free(template);
 }
 
 /*
  * Accessors
  */
-GT_INLINE int64_t gt_template_get_pair(gt_template* const template){
-  GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-    return gt_alignment_get_pair(alignment);
-  } GT_TEMPLATE_END_REDUCTION;
-  return *gt_shash_get(template->attributes,GT_TAG_PAIR,int64_t);
-}
 GT_INLINE char* gt_template_get_tag(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
@@ -107,6 +98,13 @@ GT_INLINE uint64_t gt_template_get_total_length(gt_template* const template) {
     total_length += gt_alignment_get_read_length(alignment);
   }
   return total_length;
+}
+GT_INLINE int64_t gt_template_get_pair(gt_template* const template){
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_pair(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  return *gt_shash_get(template->attributes,GT_ATTR_ID_TAG_PAIR,int64_t);
 }
 /* Blocks (single alignments) */
 GT_INLINE uint64_t gt_template_get_num_blocks(gt_template* const template) {
@@ -216,7 +214,7 @@ GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     return gt_alignment_get_mcs(alignment);
   } GT_TEMPLATE_END_REDUCTION;
-  register uint64_t* mcs = gt_attribute_get(template->attributes,GT_ATTR_MAX_COMPLETE_STRATA);
+  register uint64_t* mcs = gt_attribute_get(template->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA);
   if (mcs == NULL) return UINT64_MAX;
   return *mcs;
 }
@@ -225,7 +223,7 @@ GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_comp
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     gt_alignment_set_mcs(alignment,max_complete_strata);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
-  gt_attribute_set(template->attributes,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
+  gt_attribute_add(template->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
 }
 GT_INLINE bool gt_template_has_qualities(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
@@ -245,7 +243,7 @@ GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template) {
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     return gt_alignment_get_not_unique_flag(alignment);
   } GT_TEMPLATE_END_REDUCTION;
-  register bool* const not_unique_flag = gt_attribute_get(template->attributes,GT_ATTR_NOT_UNIQUE);
+  register bool* const not_unique_flag = gt_attribute_get(template->attributes,GT_ATTR_ID_NOT_UNIQUE);
   if (not_unique_flag==NULL) return false;
   return *not_unique_flag;
 }
@@ -254,7 +252,18 @@ GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool 
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     gt_alignment_set_not_unique_flag(alignment,is_not_unique);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
-  gt_attribute_set(template->attributes,GT_ATTR_NOT_UNIQUE,&is_not_unique,bool);
+  gt_attribute_add(template->attributes,GT_ATTR_ID_NOT_UNIQUE,&is_not_unique,bool);
+}
+GT_INLINE gt_map** gt_template_get_mmap_primary(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  // NOTE: No reduction performed
+  return gt_attribute_get(template->attributes,GT_ATTR_ID_SAM_PRIMARY_ALIGNMENT);
+}
+GT_INLINE void gt_template_set_mmap_primary(gt_template* const template,gt_map** const mmap) {
+  GT_TEMPLATE_CHECK(template);
+  GT_NULL_CHECK(mmap);
+  // NOTE: No reduction performed
+  gt_attribute_add(template->attributes,GT_ATTR_ID_SAM_PRIMARY_ALIGNMENT,mmap,gt_map**);
 }
 
 /*
@@ -262,8 +271,9 @@ GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool 
  */
 GT_INLINE void gt_template_mmap_attr_new(gt_mmap_attributes* const mmap_attr) {
   GT_NULL_CHECK(mmap_attr);
-  mmap_attr->score = 0;
   mmap_attr->distance = 0;
+  mmap_attr->gt_score = GT_MAP_NO_GT_SCORE;
+  mmap_attr->phred_score = GT_MAP_NO_PHRED_SCORE;
 }
 GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
@@ -416,7 +426,6 @@ GT_INLINE void gt_template_copy_handler(gt_template* template_dst,gt_template* c
   template_dst->template_id = template_src->template_id;
   template_dst->in_block_id = template_src->in_block_id;
   gt_string_copy(template_dst->tag,template_src->tag);
-  template_dst->maps_txt = template_src->maps_txt;
   // Copy templates' attributes
   gt_shash_copy(template_dst->attributes,template_src->attributes);
 }

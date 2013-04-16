@@ -9,7 +9,7 @@
 #ifndef GT_MISMS_H_
 #define GT_MISMS_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 
 /*
  * Type of Mismatches

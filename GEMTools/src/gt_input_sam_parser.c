@@ -28,9 +28,8 @@ typedef struct {
 
 #define GT_SAM_INIT_PENDING { .map_seq_name.allocated=0, .next_seq_name.allocated=0 }
 
-GT_INLINE gt_sam_parser_attr* gt_sam_parser_attr_new(bool const sam_soap_style){
-  gt_sam_parser_attr* attr = malloc(sizeof(gt_sam_parser_attr));
-  gt_cond_fatal_error(!attr,MEM_HANDLER);
+GT_INLINE gt_sam_parser_attr* gt_sam_parser_attr_new(bool const sam_soap_style) { // FIXME
+  gt_sam_parser_attr* attr = gt_alloc(gt_sam_parser_attr);
   attr->sam_soap_style = sam_soap_style;
   return attr;
 }
@@ -353,7 +352,7 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map** _map,
         // Create a new map block
         gt_map* next_map = gt_map_new();
         gt_map_set_seq_name(next_map,gt_map_get_seq_name(map),gt_map_get_seq_name_length(map));
-        gt_map_set_position(next_map,gt_map_get_position_(map)+reference_span+length);
+        gt_map_set_position(next_map,gt_map_get_position(map)+reference_span+length);
         gt_map_set_strand(next_map,gt_map_get_strand(map));
         gt_map_set_base_length(next_map,gt_map_get_base_length(map)-position);
         // Close current map block
@@ -508,8 +507,8 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     GT_NULL_CHECK(_alignment);
     alignment = _alignment;
   }
-  if (!gt_attribute_get(alignment->attributes,GT_ATTR_SAM_FLAGS)) {
-    gt_attribute_set(alignment->attributes,GT_ATTR_SAM_FLAGS,alignment_flag,uint64_t);
+  if (!gt_attribute_get(alignment->attributes,GT_ATTR_ID_SAM_FLAGS)) {
+    gt_attribute_add(alignment->attributes,GT_ATTR_ID_SAM_FLAGS,alignment_flag,uint64_t);
   }
   /*
    * Parse RNAME (Sequence-name/Chromosome)
@@ -536,7 +535,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   /*
    * Parse MAPQ (Score)
    */
-  GT_ISP_PARSE_SAM_ALG_PARSE_NUMBER(map->score);
+  GT_ISP_PARSE_SAM_ALG_PARSE_NUMBER(map->phred_score);
   GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL__NEXT();
   /*
    * Parse CIGAR
@@ -714,7 +713,7 @@ GT_INLINE void gt_isp_add_mmap(
     map_end[0] = (pending_maps_end1>1) ? mmap_end1[i] : mmap_end1[0];
     map_end[1] = (pending_maps_end2>1) ? mmap_end2[i] : mmap_end2[0];
     attr.distance = gt_map_get_global_distance(map_end[0])+gt_map_get_global_distance(map_end[1]);
-    attr.score = GT_MAP_NO_SCORE;
+    attr.phred_score = GT_MAP_NO_PHRED_SCORE;
     gt_template_inc_counter(template,attr.distance);
     gt_template_add_mmap_va(template,&attr,map_end[0],map_end[1]);
   }
@@ -811,8 +810,8 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   error_code = gt_isp_solve_remaining_maps(pending_v,template);
   gt_vector_delete(pending_v);
   if (error_code) gt_isp_skip_remaining_records(buffered_sam_input,template->tag);
-  // Deduce alignment's tag info
-  gt_template_dup_tags_to_alignments(template); // TODO: Add Pair attributes
+  // Setup alignment's tag info
+  gt_template_setup_pair_attributes_to_alignments(template,true);
   return error_code;
 }
 /* SOAP2-SAM */
@@ -849,8 +848,8 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
     gt_template_add_mmap_va(template,&attr,map_end1,map_end2);
     ++pos_end_it;
   }
-  // Deduce alignment's tag info // TODO: Add Pair attributes
-  gt_template_dup_tags_to_alignments(template);
+  // Setup alignment's tag info
+  gt_template_setup_pair_attributes_to_alignments(template,true);
   return 0;
 }
 /* SE-SAM */
@@ -872,8 +871,9 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
       return error_code;
     }
   } while (gt_isp_fetch_next_line(buffered_sam_input,alignment->tag,false));
-  // Chomp /1 /2 // TODO: Add Pair attributes
-  gt_input_fasta_tag_chomp_end_info(alignment->tag);
+  // Chomp /1/2 and add the pair info
+  int64_t pair = gt_input_parse_tag_chomp_pairend_info(alignment->tag);
+  if (pair) gt_attribute_add(alignment->attributes,GT_ATTR_ID_TAG_PAIR,&pair,int64_t);
   return 0;
 }
 

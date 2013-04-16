@@ -9,7 +9,7 @@
 #ifndef GT_OUTPUT_FILE_H_
 #define GT_OUTPUT_FILE_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_output_buffer.h"
 
 #define GT_MAX_OUTPUT_BUFFERS 20

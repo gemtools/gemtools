@@ -11,7 +11,7 @@
 
 #include "gem_tools.h"
 
-typedef enum { GT_MAP_SET_INTERSECTION, GT_MAP_SET_UNION, GT_MAP_SET_DIFFERENCE, GT_MAP_SET_PASTE, GT_MAP_SET_COMPARE } gt_operation;
+typedef enum { GT_MAP_SET_INTERSECTION, GT_MAP_SET_UNION, GT_MAP_SET_DIFFERENCE, GT_MAP_SET_JOIN, GT_MAP_SET_COMPARE } gt_operation;
 
 typedef struct {
   char* name_input_file_1;
@@ -114,14 +114,16 @@ GT_INLINE gt_status gt_mapset_read_template_get_commom_map(
     gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
   }
   if (error_code_slave==GT_IMP_EOF) { // Check EOF conditions
-    gt_fatal_error_msg("<<Slave>> is not contained in master <<Master>>");
+    gt_fatal_error_msg("<<Slave>> is not contained in master <<Master>> (looking for '"PRIgts"')",
+        PRIgts_content(gt_template_get_string_tag(template_master)));
   }
   // Synch loop
   while (gt_string_cmp(gt_template_get_string_tag(template_master),gt_template_get_string_tag(template_slave))) {
     // Fetch next slave's template
     if ((error_code_master=gt_input_generic_parser_get_template(
         buffered_input_slave,template_slave,&generic_parser_attr))!=GT_IMP_OK) {
-      gt_fatal_error_msg("<<Slave>> is not contained in master <<Master>>");
+      gt_fatal_error_msg("<<Slave>> is not contained in master <<Master>> (looking for '"PRIgts"')",
+          PRIgts_content(gt_template_get_string_tag(template_master)));
     }
   }
   return GT_IMP_OK;
@@ -207,18 +209,17 @@ void gt_mapset_perform_cmp_operations() {
     current_read_length = gt_template_get_total_length(template_1);
     // Apply operation
     switch (parameters.operation) {
-      case GT_MAP_SET_PASTE:
+      case GT_MAP_SET_JOIN:
         // Print Master's TAG+Counters+Maps
         gt_output_map_bofprint_tag(buffered_output,template_1->tag,template_1->attributes,output_map_attributes);
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_1));
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_1)); // Master's Counters
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_1,output_map_attributes);
-        // Print Slave's Counters+Maps
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_2)); // Slave's Counters
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_2));
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_1,output_map_attributes); // Master's Maps
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_2,output_map_attributes);
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_2,output_map_attributes); // Slave's Maps
         gt_bofprintf(buffered_output,"\n");
         break;
       case GT_MAP_SET_COMPARE: {
@@ -230,21 +231,20 @@ void gt_mapset_perform_cmp_operations() {
          * Print results :: (TAG (Master-Slave){COUNTER MAPS} (Slave-Master){COUNTER MAPS} (Intersection){COUNTER MAPS})
          */
         gt_output_map_bofprint_tag(buffered_output,template_1->tag,template_1->attributes,output_map_attributes);
-        // (TAG (Master-Slave){COUNTER MAPS}
+        // Counters
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_master_minus_slave));
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_master_minus_slave)); // (Master-Slave){COUNTER}
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_master_minus_slave,output_map_attributes);
-        // (Slave-Master){COUNTER MAPS}
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_slave_minus_master)); // (Slave-Master){COUNTER}
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_slave_minus_master));
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_intersection)); // (Intersection){COUNTER}
+        // Maps
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_slave_minus_master,output_map_attributes);
-        // (Intersection){COUNTER MAPS})
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_master_minus_slave,output_map_attributes); // (Master-Slave){COUNTER}
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_intersection));
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_slave_minus_master,output_map_attributes); // (Slave-Master){COUNTER}
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_intersection,output_map_attributes);
+        gt_output_map_bofprint_template_maps_g(buffered_output,template_intersection,output_map_attributes); // (Intersection){COUNTER}
         gt_bofprintf(buffered_output,"\n");
         // Delete templates
         gt_template_delete(template_master_minus_slave);
@@ -276,7 +276,7 @@ void usage() {
                   "         intersection\n"
                   "         difference\n"
                   "         compare\n"
-                  "         paste\n"
+                  "         join\n"
                   "       [ARGS]\n"
                   "         --i1 [FILE]\n"
                   "         --i2 [FILE]\n"
@@ -293,7 +293,7 @@ void usage() {
 
 void parse_arguments(int argc,char** argv) {
   // Parse operation
-  if (argc<=1) gt_fatal_error_msg("Please specify operation {union,intersection,difference,compare}");
+  if (argc<=1) gt_fatal_error_msg("Please specify operation {union,intersection,difference,compare,join}");
   if (gt_streq(argv[1],"INTERSECCTION") || gt_streq(argv[1],"Intersection") || gt_streq(argv[1],"intersection")) {
     parameters.operation = GT_MAP_SET_INTERSECTION;
   } else if (gt_streq(argv[1],"UNION") || gt_streq(argv[1],"Union") || gt_streq(argv[1],"union")) {
@@ -302,8 +302,8 @@ void parse_arguments(int argc,char** argv) {
     parameters.operation = GT_MAP_SET_DIFFERENCE;
   } else if (gt_streq(argv[1],"COMPARE") || gt_streq(argv[1],"Compare") || gt_streq(argv[1],"compare")) {
     parameters.operation = GT_MAP_SET_COMPARE;
-  } else if (gt_streq(argv[1],"PASTE") || gt_streq(argv[1],"Paste") || gt_streq(argv[1],"paste")) {
-    parameters.operation = GT_MAP_SET_PASTE;
+  } else if (gt_streq(argv[1],"JOIN") || gt_streq(argv[1],"Join") || gt_streq(argv[1],"join")) {
+    parameters.operation = GT_MAP_SET_JOIN;
   } else {
     if (argv[1][0]=='I' || argv[1][0]=='i') {
       fprintf(stderr,"\tAssuming 'Intersection' ...\n");
@@ -318,8 +318,8 @@ void parse_arguments(int argc,char** argv) {
       fprintf(stderr,"\tAssuming 'Compare' ...\n");
       parameters.operation = GT_MAP_SET_COMPARE;
     } else if (argv[1][0]=='P' || argv[1][0]=='p') {
-      fprintf(stderr,"\tAssuming 'Paste' ...\n");
-      parameters.operation = GT_MAP_SET_PASTE;
+      fprintf(stderr,"\tAssuming 'Join' ...\n");
+      parameters.operation = GT_MAP_SET_JOIN;
     } else {
       gt_fatal_error_msg("Unknown operation '%s'\n",argv[1]);
     }

@@ -17,14 +17,10 @@
 #define GT_MAP_ALG_MISMS_INS 2
 #define GT_MAP_ALG_MISMS_DEL 3
 
-#define GT_MAP_CHECK_RELOAD_MISMS(map,misms_offset,misms_ptr,num_misms) { \
-  if (misms_offset<num_misms) { \
-    misms=gt_map_get_misms(map,misms_offset); \
-  } else { \
-    misms=NULL; \
-  } \
-}
-GT_INLINE gt_status gt_map_check_alignment(
+/*
+ * Map check/recover operators
+ */
+GT_INLINE gt_status gt_map_block_check_alignment(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length) {
   GT_MAP_CHECK(map);
@@ -35,7 +31,7 @@ GT_INLINE gt_status gt_map_check_alignment(
   register const uint64_t num_misms = gt_map_get_num_misms(map);
   register uint64_t misms_offset=0;
   register gt_misms* misms;
-  GT_MAP_CHECK_RELOAD_MISMS(map,misms_offset,misms,num_misms);
+  GT_MAP_CHECK__RELOAD_MISMS_PTR(map,misms_offset,misms,num_misms);
   // Traverse the sequence
   while (pattern_centinel<pattern_length || sequence_centinel<sequence_length) {
     if (misms!=NULL && misms->position==pattern_centinel) { // Misms
@@ -56,7 +52,7 @@ GT_INLINE gt_status gt_map_check_alignment(
           break;
       }
       ++misms_offset;
-      GT_MAP_CHECK_RELOAD_MISMS(map,misms_offset,misms,num_misms);
+      GT_MAP_CHECK__RELOAD_MISMS_PTR(map,misms_offset,misms,num_misms);
     } else { // Match
       if (pattern_centinel>=pattern_length || sequence_centinel>=sequence_length) return GT_MAP_CHECK_ALG_MATCH_OUT_OF_SEQ;
       if (pattern[pattern_centinel]!=sequence[sequence_centinel]) return GT_MAP_CHECK_ALG_MISMATCH;
@@ -67,9 +63,8 @@ GT_INLINE gt_status gt_map_check_alignment(
   // Ok, no complains
   return 0;
 }
-GT_INLINE gt_status gt_map_check_alignment_sa(
-    gt_map* const map,char* const pattern,const uint64_t pattern_length,
-    gt_sequence_archive* const sequence_archive) {
+GT_INLINE gt_status gt_map_block_check_alignment_sa(
+    gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive) {
   GT_MAP_CHECK(map);
   GT_NULL_CHECK(pattern);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
@@ -78,13 +73,38 @@ GT_INLINE gt_status gt_map_check_alignment_sa(
   register gt_string* const sequence = gt_string_new(sequence_length+1);
   register gt_status error_code;
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
       sequence_length,0,sequence))) return error_code;
   // Check Alignment
-  return gt_map_check_alignment(map,pattern,pattern_length,gt_string_get_string(sequence),sequence_length);
+  return gt_map_block_check_alignment(map,
+      gt_string_get_string(pattern),gt_string_get_length(pattern),
+      gt_string_get_string(sequence),sequence_length);
+}
+GT_INLINE gt_status gt_map_check_alignment_sa(
+    gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive) {
+  GT_MAP_CHECK(map);
+  GT_NULL_CHECK(pattern);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  // Handle SMs
+  register gt_status error_code;
+  if (gt_map_get_num_blocks(map)==1) { // Single-Block
+    return gt_map_block_check_alignment_sa(map,pattern,sequence_archive);
+  } else { // Realigning Slit-Maps (let's try not to spoil the splice-site consensus)
+    register gt_string* read_chunk = gt_string_new(0);
+    register uint64_t offset = 0;
+    GT_MAP_ITERATE(map,map_block) {
+      gt_string_set_nstring(read_chunk,gt_string_get_string(pattern)+offset,gt_map_get_base_length(map_block));
+      if ((error_code=gt_map_block_check_alignment_sa(map_block,read_chunk,sequence_archive))) {
+        return error_code;
+      }
+      offset += gt_map_get_base_length(map_block);
+    }
+    gt_string_delete(read_chunk);
+    return 0;
+  }
 }
 
-GT_INLINE gt_status gt_map_recover_mismatches(
+GT_INLINE gt_status gt_map_block_recover_mismatches(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length) {
   GT_MAP_CHECK(map);
@@ -97,32 +117,35 @@ GT_INLINE gt_status gt_map_recover_mismatches(
   // Traverse pattern & annotate mismatches
   register uint64_t sequence_centinel=0, pattern_centinel=0;
   register uint64_t misms_offset=0;
-  register gt_misms* misms = NULL;
-  GT_MAP_CHECK_RELOAD_MISMS(map,misms_offset,misms,num_base_misms);
+  gt_misms misms = {.position = UINT64_MAX};
+  GT_MAP_CHECK__RELOAD_MISMS(map,misms_offset,misms,num_base_misms);
   while (sequence_centinel<sequence_length || pattern_centinel<pattern_length) {
-    if (misms!=NULL && misms->position==pattern_centinel) { // Misms annotated
-      switch (misms->misms_type) {
+    if (misms.position==pattern_centinel) { // Misms annotated
+      switch (misms.misms_type) {
         case MISMS:
-          if (pattern_centinel>=pattern_length || sequence_centinel>=sequence_length) return GT_MAP_CHECK_ALG_MATCH_OUT_OF_SEQ;
+          if (pattern_centinel>=pattern_length || sequence_centinel>=sequence_length) {
+            return GT_MAP_CHECK_ALG_MATCH_OUT_OF_SEQ;
+          }
           if (pattern[pattern_centinel]==sequence[sequence_centinel]) return GT_MAP_CHECK_ALG_NO_MISMS;
           ++pattern_centinel; ++sequence_centinel;
           break;
         case INS:
-          if (sequence_centinel+misms->size>sequence_length) return GT_MAP_CHECK_ALG_INS_OUT_OF_SEQ;
-          sequence_centinel+=misms->size;
+          if (sequence_centinel+misms.size>sequence_length) return GT_MAP_CHECK_ALG_INS_OUT_OF_SEQ;
+          sequence_centinel+=misms.size;
           break;
         case DEL:
-          if (pattern_centinel+misms->size>pattern_length) return GT_MAP_CHECK_ALG_DEL_OUT_OF_SEQ;
-          pattern_centinel+=misms->size;
+          if (pattern_centinel+misms.size>pattern_length) return GT_MAP_CHECK_ALG_DEL_OUT_OF_SEQ;
+          pattern_centinel+=misms.size;
           break;
       }
       // Add the misms + reload old misms
-      gt_misms aux_misms = *misms;
-      gt_map_add_misms(map,&aux_misms);
+      gt_map_add_misms(map,&misms);
       ++misms_offset;
-      GT_MAP_CHECK_RELOAD_MISMS(map,misms_offset,misms,num_base_misms);
+      GT_MAP_CHECK__RELOAD_MISMS(map,misms_offset,misms,num_base_misms);
     } else { // Nothing annotated
-      if (pattern_centinel>=pattern_length || sequence_centinel>=sequence_length) return GT_MAP_CHECK_ALG_MATCH_OUT_OF_SEQ;
+      if (pattern_centinel>=pattern_length || sequence_centinel>=sequence_length) {
+        return GT_MAP_CHECK_ALG_MATCH_OUT_OF_SEQ;
+      }
       if (pattern[pattern_centinel]!=sequence[sequence_centinel]) {
         new_misms.position = pattern_centinel;
         new_misms.base = sequence[sequence_centinel];
@@ -140,7 +163,7 @@ GT_INLINE gt_status gt_map_recover_mismatches(
   gt_map_set_num_misms(map,total_misms-num_base_misms);
   return 0;
 }
-GT_INLINE gt_status gt_map_recover_mismatches_sa_(
+GT_INLINE gt_status gt_map_block_recover_mismatches_sa(
     gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive) {
   GT_MAP_CHECK(map);
   GT_STRING_CHECK(pattern);
@@ -151,22 +174,18 @@ GT_INLINE gt_status gt_map_recover_mismatches_sa_(
   register const uint64_t sequence_length = gt_map_get_length(map);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
       sequence_length,0,sequence))) return error_code;
   // Recover mismatches
   register const uint64_t num_misms = gt_map_get_num_misms(map);
-  if ((error_code=gt_map_recover_mismatches(map,gt_string_get_string(pattern),
+  if ((error_code=gt_map_block_recover_mismatches(map,gt_string_get_string(pattern),
       pattern_length,gt_string_get_string(sequence),sequence_length))) {
     gt_map_set_num_misms(map,num_misms); // Restore state
-    //    gt_output_map_fprint_pretty_alignment(stderr,map,true,
-    //        gt_string_get_string(pattern),pattern_length,
-    //        gt_string_get_string(sequence),sequence_length);
     gt_error(MAP_RECOVER_MISMS_WRONG_BASE_ALG);
     return error_code;
   }
   return 0;
 }
-
 GT_INLINE gt_status gt_map_recover_mismatches_sa(
     gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive) {
   GT_MAP_CHECK(map);
@@ -175,7 +194,7 @@ GT_INLINE gt_status gt_map_recover_mismatches_sa(
   // Handle SMs
   register gt_status error_code;
   if (gt_map_get_num_blocks(map)==1) { // Single-Block
-    if ((error_code=gt_map_recover_mismatches_sa_(map,pattern,sequence_archive))) {
+    if ((error_code=gt_map_block_recover_mismatches_sa(map,pattern,sequence_archive))) {
       return error_code;
     }
     return 0;
@@ -184,7 +203,7 @@ GT_INLINE gt_status gt_map_recover_mismatches_sa(
     register gt_string* read_chunk = gt_string_new(0);
     GT_MAP_ITERATE(map,map_block) {
       gt_string_set_nstring(read_chunk,gt_string_get_string(pattern)+offset,gt_map_get_base_length(map_block));
-      if ((error_code=gt_map_recover_mismatches_sa_(map_block,read_chunk,sequence_archive))) {
+      if ((error_code=gt_map_block_recover_mismatches_sa(map_block,read_chunk,sequence_archive))) {
         return error_code;
       }
       offset += gt_map_get_base_length(map_block);
@@ -194,7 +213,10 @@ GT_INLINE gt_status gt_map_recover_mismatches_sa(
   }
 }
 
-GT_INLINE gt_status gt_map_realign_hamming(
+/*
+ * Map (Re)alignment operators
+ */
+GT_INLINE gt_status gt_map_block_realign_hamming(
     gt_map* const map,char* const pattern,char* const sequence,const uint64_t length) {
   GT_MAP_CHECK(map);
   GT_NULL_CHECK(pattern);
@@ -215,7 +237,7 @@ GT_INLINE gt_status gt_map_realign_hamming(
   }
   return 0;
 }
-GT_INLINE gt_status gt_map_realign_hamming_sa_(
+GT_INLINE gt_status gt_map_block_realign_hamming_sa(
     gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive) {
   GT_MAP_CHECK(map);
   GT_STRING_CHECK(pattern);
@@ -225,10 +247,10 @@ GT_INLINE gt_status gt_map_realign_hamming_sa_(
   register const uint64_t pattern_length = gt_string_get_length(pattern);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
       pattern_length,0,sequence))) return error_code;
   // Realign Hamming
-  return gt_map_realign_hamming(map,gt_string_get_string(pattern),gt_string_get_string(sequence),pattern_length);
+  return gt_map_block_realign_hamming(map,gt_string_get_string(pattern),gt_string_get_string(sequence),pattern_length);
 }
 GT_INLINE gt_status gt_map_realign_hamming_sa(
     gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive) {
@@ -238,13 +260,13 @@ GT_INLINE gt_status gt_map_realign_hamming_sa(
   // Handle SMs
   register gt_status error_code;
   if (gt_map_get_num_blocks(map)==1) { // Single-Block
-    return gt_map_realign_hamming_sa_(map,pattern,sequence_archive);
+    return gt_map_block_realign_hamming_sa(map,pattern,sequence_archive);
   } else { // Realigning Slit-Maps (let's try not to spoil the splice-site consensus)
     register gt_string* read_chunk = gt_string_new(0);
     register uint64_t offset = 0;
     GT_MAP_ITERATE(map,map_block) {
       gt_string_set_nstring(read_chunk,gt_string_get_string(pattern)+offset,gt_map_get_base_length(map_block));
-      if ((error_code=gt_map_realign_hamming_sa_(map_block,read_chunk,sequence_archive))) {
+      if ((error_code=gt_map_block_realign_hamming_sa(map_block,read_chunk,sequence_archive))) {
         return error_code;
       }
       offset += gt_map_get_base_length(map_block);
@@ -287,7 +309,6 @@ GT_INLINE gt_status gt_map_realign_hamming_sa(
   } \
   prev_misms = GT_MAP_ALG_MISMS_DEL; \
 }
-
 GT_INLINE void gt_map_realign_dp_matrix_print(
     uint64_t* const dp_array,const uint64_t pattern_len,const uint64_t sequence_len,
     const uint64_t pattern_limit,const uint64_t sequence_limit) {
@@ -300,7 +321,7 @@ GT_INLINE void gt_map_realign_dp_matrix_print(
   }
   fprintf(stderr,"\n");
 }
-GT_INLINE gt_status gt_map_realign_levenshtein(
+GT_INLINE gt_status gt_map_block_realign_levenshtein(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length,const bool ends_free) {
   GT_MAP_CHECK(map);
@@ -311,7 +332,7 @@ GT_INLINE gt_status gt_map_realign_levenshtein(
   // Allocate DP matrix
   register const uint64_t pattern_len = pattern_length+1;
   register const uint64_t sequence_len = sequence_length+1;
-  register uint64_t* dp_array = gt_calloc(pattern_len*sequence_len,uint64_t);
+  register uint64_t* dp_array = gt_calloc(pattern_len*sequence_len,uint64_t,false);
   register uint64_t min_val = UINT32_MAX;
   register uint64_t i, j, i_pos = sequence_len-1;
   // Calculate DP-Matrix
@@ -373,18 +394,18 @@ GT_INLINE gt_status gt_map_realign_levenshtein(
   // Set map base length
   gt_map_set_base_length(map,pattern_length);
   // Safe check
-  if (gt_map_check_alignment(map,pattern,pattern_length,
+  gt_debug_block(gt_map_block_check_alignment(map,pattern,pattern_length,
       sequence+((ends_free)?i:0),gt_map_get_length(map))!=0) {
-    gt_output_map_fprint_pretty_alignment(stderr,map,false,pattern,pattern_length,
+    gt_output_map_fprint_map_block_pretty(stderr,map,pattern,pattern_length,
        sequence+((ends_free)?i:0),gt_map_get_length(map));
-//    gt_cond_fatal_error(gt_map_check_alignment(map,pattern,pattern_length,
+//    gt_cond_fatal_error(gt_map_block_check_alignment(map,pattern,pattern_length,
 //      sequence+((ends_free)?i:0),gt_map_get_length(map))!=0,MAP_ALG_WRONG_ALG);
   }
   // Free
-  free(dp_array);
+  gt_free(dp_array);
   return 0;
 }
-GT_INLINE gt_status gt_map_realign_levenshtein_sa_(
+GT_INLINE gt_status gt_map_block_realign_levenshtein_sa(
     gt_map* const map,gt_string* const pattern,
     gt_sequence_archive* const sequence_archive,const uint64_t extra_length,const bool ends_free) {
   GT_MAP_CHECK(map);
@@ -396,13 +417,13 @@ GT_INLINE gt_status gt_map_realign_levenshtein_sa_(
   register const uint64_t extra_decode_length = (ends_free) ? extra_length : 0;
   register gt_string* const sequence = gt_string_new(decode_length+extra_decode_length+1);
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
       decode_length,extra_decode_length,sequence))) {
     gt_string_delete(sequence); // Free
     return error_code;
   }
   // Realign Levenshtein
-  error_code = gt_map_realign_levenshtein(map,
+  error_code = gt_map_block_realign_levenshtein(map,
       gt_string_get_string(pattern),gt_string_get_length(pattern),
       gt_string_get_string(sequence),gt_string_get_length(sequence),ends_free);
   gt_string_delete(sequence); // Free
@@ -416,13 +437,13 @@ GT_INLINE gt_status gt_map_realign_levenshtein_sa(
   // Handle SMs
   register gt_status error_code;
   if (gt_map_get_num_blocks(map)==1) {
-    return gt_map_realign_levenshtein_sa_(map,pattern,sequence_archive,GT_MAP_REALIGN_EXPANSION_FACTOR,true);
+    return gt_map_block_realign_levenshtein_sa(map,pattern,sequence_archive,GT_MAP_REALIGN_EXPANSION_FACTOR,true);
   } else { // Realigning SM (let's try not to spoil the splice-site consensus)
     register gt_string* read_chunk = gt_string_new(0);
     register uint64_t offset = 0;
     GT_MAP_ITERATE(map,map_block) {
       gt_string_set_nstring(read_chunk,gt_string_get_string(pattern)+offset,gt_map_get_base_length(map_block));
-      if ((error_code=gt_map_realign_levenshtein_sa_(map_block,read_chunk,sequence_archive,0,false))) {
+      if ((error_code=gt_map_block_realign_levenshtein_sa(map_block,read_chunk,sequence_archive,0,false))) {
         return error_code;
       }
       offset += gt_map_get_base_length(map_block);
@@ -431,13 +452,14 @@ GT_INLINE gt_status gt_map_realign_levenshtein_sa(
     return 0;
   }
 }
-GT_INLINE gt_status gt_map_realign_weighted(
+
+GT_INLINE gt_status gt_map_block_realign_weighted(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length,int32_t (*gt_weigh_fx)(char*,char*)) {
   // TODO
   return 0;
 }
-GT_INLINE gt_status gt_map_realign_weighted_sa_(
+GT_INLINE gt_status gt_map_block_realign_weighted_sa(
     gt_map* const map,gt_string* const pattern,
     gt_sequence_archive* const sequence_archive,const uint64_t extra_length,
     int32_t (*gt_weigh_fx)(char*,char*)) {
@@ -449,10 +471,10 @@ GT_INLINE gt_status gt_map_realign_weighted_sa_(
   register const uint64_t pattern_length = gt_string_get_length(pattern);
   register gt_string* const sequence = gt_string_new(pattern_length+1);
   if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
-      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position_(map),
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
       pattern_length,extra_length,sequence))) return error_code;
   // Realign Weighted
-  return gt_map_realign_weighted(map,
+  return gt_map_block_realign_weighted(map,
       gt_string_get_string(pattern),pattern_length,
       gt_string_get_string(sequence),gt_string_get_length(sequence),gt_weigh_fx);
 }
@@ -464,13 +486,13 @@ GT_INLINE gt_status gt_map_realign_weighted_sa(
   // Handle SMs
   register gt_status error_code;
   if (gt_map_get_num_blocks(map)==1) {
-    return gt_map_realign_weighted_sa_(map,pattern,sequence_archive,GT_MAP_REALIGN_EXPANSION_FACTOR,gt_weigh_fx);
+    return gt_map_block_realign_weighted_sa(map,pattern,sequence_archive,GT_MAP_REALIGN_EXPANSION_FACTOR,gt_weigh_fx);
   } else { // Realigning SM (let's try not to spoil the splice-site consensus)
     register gt_string* read_chunk = gt_string_new(0);
     register uint64_t offset = 0;
     GT_MAP_ITERATE(map,map_block) {
       gt_string_set_nstring(read_chunk,gt_string_get_string(pattern)+offset,gt_map_get_base_length(map_block));
-      if ((error_code=gt_map_realign_weighted_sa_(
+      if ((error_code=gt_map_block_realign_weighted_sa(
           map_block,read_chunk,sequence_archive,GT_MAP_REALIGN_EXPANSION_FACTOR,gt_weigh_fx))) {
         return error_code;
       }

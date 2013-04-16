@@ -16,15 +16,15 @@
  * Setup
  */
 GT_INLINE gt_map* gt_map_new() {
-  gt_map* map = malloc(sizeof(gt_map));
-  gt_cond_fatal_error(!map,MEM_HANDLER);
+  gt_map* map = gt_alloc(gt_map);
   map->seq_name = gt_string_new(GT_MAP_INITIAL_SEQ_NAME_SIZE);
   map->position = 0;
   map->base_length = 0;
-  map->score = GT_MAP_NO_SCORE;
+  map->gt_score = GT_MAP_NO_GT_SCORE;
+  map->phred_score = GT_MAP_NO_PHRED_SCORE;
   map->mismatches = gt_vector_new(GT_MAP_NUM_INITIAL_MISMS,sizeof(gt_misms));
-  map->misms_txt = NULL;
   map->next_block = NULL;
+  map->attributes = NULL;
   return map;
 }
 GT_INLINE void gt_map_clear(gt_map* const map) {
@@ -32,22 +32,24 @@ GT_INLINE void gt_map_clear(gt_map* const map) {
   gt_string_clear(map->seq_name);
   map->position = 0;
   map->base_length = 0;
-  map->score = GT_MAP_NO_SCORE;
+  map->gt_score = GT_MAP_NO_GT_SCORE;
+  map->phred_score = GT_MAP_NO_PHRED_SCORE;
   gt_map_clear_misms(map);
-  map->misms_txt = NULL;
   map->next_block = NULL;
+  if (map->attributes!=NULL) gt_attribute_clear(map->attributes);
 }
 GT_INLINE void gt_map_block_delete(gt_map* const map) {
   GT_MAP_CHECK(map);
   gt_string_delete(map->seq_name);
   gt_vector_delete(map->mismatches);
-  free(map);
+  if (map->attributes!=NULL) gt_attribute_delete(map->attributes);
+  gt_free(map);
 }
 GT_INLINE void gt_map_delete(gt_map* const map) {
   GT_MAP_CHECK(map);
   if (map->next_block != NULL) {
     gt_map_delete(map->next_block->map);
-    free(map->next_block);
+    gt_free(map->next_block);
   }
   gt_map_block_delete(map);
 }
@@ -77,12 +79,11 @@ GT_INLINE void gt_map_set_string_seq_name(gt_map* const map,gt_string* const seq
   GT_STRING_CHECK(seq_name);
   gt_string_set_nstring(map->seq_name,gt_string_get_string(seq_name),gt_string_get_length(seq_name));
 }
-
 GT_INLINE uint64_t gt_map_get_global_position(gt_map* const map) {
   GT_MAP_CHECK(map);
-  return (map->strand==FORWARD) ? gt_map_get_position_(map): gt_map_get_position_(gt_map_get_last_block(map));
+  return (map->strand==FORWARD) ? gt_map_get_position(map): gt_map_get_position(gt_map_get_last_block(map));
 }
-GT_INLINE uint64_t gt_map_get_position_(gt_map* const map) {
+GT_INLINE uint64_t gt_map_get_position(gt_map* const map) {
   GT_MAP_CHECK(map);
   return map->position;
 }
@@ -105,6 +106,22 @@ GT_INLINE uint64_t gt_map_get_base_length(gt_map* const map) {
 GT_INLINE void gt_map_set_base_length(gt_map* const map,const uint64_t length) {
   GT_MAP_CHECK(map);
   map->base_length = length;
+}
+
+/*
+ * Attributes (lazy allocation of the attributes field)
+ */
+GT_INLINE void* gt_map_attribute_get(gt_map* const map,char* const attribute_id) {
+  GT_MAP_CHECK(map);
+  GT_NULL_CHECK(attribute_id);
+  return (map->attributes==NULL) ? NULL : gt_attribute_get(map->attributes,attribute_id);
+}
+GT_INLINE void gt_map_attribute_set_(gt_map* const map,char* const attribute_id,void* const attribute,const size_t element_size) {
+  GT_MAP_CHECK(map);
+  if (map->attributes==NULL) {
+    map->attributes = gt_attribute_new();
+  }
+  gt_attribute_add_primitive(map->attributes,attribute_id,attribute,element_size);
 }
 
 /*
@@ -131,14 +148,24 @@ GT_INLINE uint64_t gt_map_get_distance(gt_map* const map) {
   GT_MAP_CHECK(map);
   return gt_vector_get_used(map->mismatches);
 }
+
 GT_INLINE int64_t gt_map_get_score(gt_map* const map) {
   GT_MAP_CHECK(map);
-  return map->score;
+  return map->gt_score;
 }
 GT_INLINE void gt_map_set_score(gt_map* const map,const int64_t score) {
   GT_MAP_CHECK(map);
-  map->score = score;
+  map->gt_score = score;
 }
+GT_INLINE uint8_t gt_map_get_phred_score(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  return map->phred_score;
+}
+GT_INLINE void gt_map_set_phred_score(gt_map* const map,const uint8_t phred_score) {
+  GT_MAP_CHECK(map);
+  map->phred_score = phred_score;
+}
+
 
 /*
  * Multiple Block Maps Handlers
@@ -174,16 +201,13 @@ GT_INLINE void gt_map_set_next_block(
   GT_MAP_CHECK(map);
   if (gt_expect_true(next_map!=NULL)) {
     GT_MAP_CHECK(next_map);
-    if (map->next_block==NULL) {
-      map->next_block = malloc(sizeof(gt_map_junction));
-      gt_cond_fatal_error(!map->next_block,MEM_HANDLER);
-    }
+    if (map->next_block==NULL) map->next_block = gt_alloc(gt_map_junction);
     map->next_block->junction = junction;
     map->next_block->junction_size = junction_size;
     map->next_block->map = next_map;
   } else {
     if (map->next_block!=NULL) {
-      free(map->next_block);
+      gt_free(map->next_block);
       map->next_block = NULL;
     }
   }
@@ -193,10 +217,7 @@ GT_INLINE void gt_map_insert_next_block(
   GT_MAP_CHECK(map);
   GT_MAP_CHECK(next_map);
   register gt_map_junction *aux_next_block = map->next_block;
-  if (map->next_block==NULL) {
-    map->next_block = malloc(sizeof(gt_map_junction));
-    gt_cond_fatal_error(!map->next_block,MEM_HANDLER);
-  }
+  if (map->next_block==NULL) map->next_block = gt_alloc(gt_map_junction);
   map->next_block->junction = junction;
   map->next_block->map = next_map;
   next_map->next_block = aux_next_block;
@@ -293,25 +314,6 @@ GT_INLINE void gt_map_set_num_misms(gt_map* const map,const uint64_t num_misms) 
   gt_vector_set_used(map->mismatches,num_misms);
 }
 
-GT_INLINE void gt_map_clear_misms_string(gt_map* const map) {
-  GT_MAP_CHECK(map);
-  map->misms_txt = NULL;
-}
-GT_INLINE char* gt_map_get_misms_string(gt_map* const map) {
-  GT_MAP_CHECK(map);
-  return map->misms_txt;
-}
-GT_INLINE gt_misms_string_t gt_map_get_misms_string_format(gt_map* const map) {
-  GT_MAP_CHECK(map);
-  return map->misms_txt_format;
-}
-GT_INLINE void gt_map_set_misms_string(gt_map* const map,char* misms_string,const gt_misms_string_t format) {
-  GT_MAP_CHECK(map);
-  GT_NULL_CHECK(misms_string);
-  map->misms_txt = misms_string;
-  map->misms_txt_format = format;
-}
-
 // Counting
 GT_INLINE uint64_t gt_map_get_num_mismatch_bases(gt_map* const map) {
   GT_MAP_CHECK(map);
@@ -395,11 +397,6 @@ GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map) {
   } GT_END_MAP_BLOCKS_ITERATOR;
   return distance;
 }
-GT_INLINE uint64_t gt_map_get_global_score(gt_map* const map) {
-  GT_MAP_CHECK(map);
-  // FIXME: Don't know what to do with this
-  return map->score;
-}
 /*
  * Begin/End Position
  */
@@ -448,7 +445,7 @@ GT_INLINE uint64_t gt_map_get_bases_aligned(gt_map* const map) {
         break;
     }
   }
-  gt_cond_fatal_error(bases_aligned<0,MAP_NEG_LENGTH); // FIXME: Error msg
+  gt_cond_fatal_error(bases_aligned<0,MAP_NEG_MAPPED_BASES);
   return (uint64_t)bases_aligned;
 }
 GT_INLINE uint64_t gt_map_get_global_bases_aligned(gt_map* const map) {
@@ -509,7 +506,7 @@ GT_INLINE uint64_t gt_map_vector_get_score(gt_vector* const maps) {
   GT_NULL_CHECK(maps);
   register uint64_t score = 0;
   GT_VECTOR_ITERATE(maps,map,map_pos,gt_map*) {
-    score += gt_map_get_global_score(*map);
+    score += gt_map_get_score(*map);
   }
   return score;
 }
@@ -616,14 +613,13 @@ GT_INLINE gt_map* gt_map_copy(gt_map* const map) {
   map_cpy->position = map->position;
   map_cpy->base_length = map->base_length;
   map_cpy->strand = map->strand;
-  map_cpy->score = map->score;
+  map_cpy->phred_score = map->phred_score;
+  map_cpy->gt_score = map->gt_score;
   gt_vector_copy(map_cpy->mismatches,map->mismatches);
-  map_cpy->misms_txt = map->misms_txt;
-  map_cpy->misms_txt_format = map->misms_txt_format;
-  if (map->next_block==NULL || map->misms_txt!=NULL) {
+  if (map->next_block==NULL) {
     map_cpy->next_block = NULL;
   } else {
-    map_cpy->next_block = malloc(sizeof(gt_map_junction));
+    map_cpy->next_block = gt_alloc(gt_map_junction);
     map_cpy->next_block->junction = map->next_block->junction;
     map_cpy->next_block->junction_size = map->next_block->junction_size;
     map_cpy->next_block->map = gt_map_copy(map->next_block->map);
@@ -632,8 +628,7 @@ GT_INLINE gt_map* gt_map_copy(gt_map* const map) {
 }
 GT_INLINE gt_map** gt_mmap_array_copy(gt_map** mmap,const uint64_t num_blocks) {
   GT_ZERO_CHECK(num_blocks);
-  gt_map** mmap_copy = malloc(num_blocks*sizeof(gt_map*));
-  gt_cond_fatal_error(!mmap_copy,MEM_HANDLER);
+  gt_map** mmap_copy = gt_calloc(num_blocks,gt_map*,false);
   register uint64_t i;
   for (i=0;i<num_blocks;++i) {
     GT_MAP_CHECK(mmap[i]);

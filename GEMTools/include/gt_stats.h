@@ -122,13 +122,6 @@
 #define GT_STATS_INDEL_2_CONTEXT           (GT_STATS_MISMS_BASE_RANGE)   /* TODO */
 
 /*
- * Handy Functions
- */
-#define GT_STATS_GET_PERCENTAGE(AMOUNT,TOTAL) ((TOTAL)?100.0*(float)(AMOUNT)/(float)(TOTAL):0.0)
-#define GT_STATS_DIV(NUMERATOR,DENOMINATOR) ((DENOMINATOR)?(NUMERATOR)/(DENOMINATOR):(0))
-#define GT_STATS_DIV_F(NUMERATOR,DENOMINATOR) ((DENOMINATOR)?(float)(NUMERATOR)/(float)(DENOMINATOR):(0))
-
-/*
  * Stats Data Structures
  */
 typedef struct {

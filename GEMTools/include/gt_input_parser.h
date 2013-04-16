@@ -10,22 +10,24 @@
 #ifndef GT_INPUT_PARSER_H_
 #define GT_INPUT_PARSER_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_data_attributes.h"
 
-#define GT_TAG_PAIR "pair"
-#define GT_TAG_CASAVA "casava"
-#define GT_TAG_EXTRA "extra"
+// Attributes ID
+#define GT_ATTR_ID_TAG_PAIR "pair"     // (int64_t)
+#define GT_ATTR_ID_TAG_CASAVA "casava" // (gt_string*)
+#define GT_ATTR_ID_TAG_EXTRA "extra"   // (gt_string*)
 
 #define GT_PAIR_SE 0
-#define GT_PAIR_BOTH 3
 #define GT_PAIR_PE_1 1
 #define GT_PAIR_PE_2 2
+#define GT_PAIR_BOTH 3
 
 /*
  * Generic tag parser
  */
 GT_INLINE gt_status gt_input_parse_tag(char** const text_line,gt_string* const tag,gt_shash* const attributes);
+GT_INLINE uint64_t gt_input_parse_tag_chomp_pairend_info(gt_string* const tag);
 
 /*
  * Internal Building Blocks for parsing

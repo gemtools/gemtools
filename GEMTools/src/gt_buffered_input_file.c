@@ -16,8 +16,7 @@
  */
 gt_buffered_input_file* gt_buffered_input_file_new(gt_input_file* const input_file) {
   GT_NULL_CHECK(input_file);
-  gt_buffered_input_file* buffered_input_file = malloc(sizeof(gt_buffered_input_file));
-  gt_cond_fatal_error(!buffered_input_file,MEM_HANDLER);
+  gt_buffered_input_file* buffered_input_file = gt_alloc(gt_buffered_input_file);
   /* Input file */
   buffered_input_file->input_file = input_file;
   /* Block buffer and cursors */
@@ -32,7 +31,7 @@ gt_buffered_input_file* gt_buffered_input_file_new(gt_input_file* const input_fi
 gt_status gt_buffered_input_file_close(gt_buffered_input_file* const buffered_input_file) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
   gt_vector_delete(buffered_input_file->block_buffer);
-  free(buffered_input_file);
+  gt_free(buffered_input_file);
   return GT_BMI_OK;
 }
 GT_INLINE uint64_t gt_buffered_input_file_get_cursor_pos(gt_buffered_input_file* const buffered_input_file) {

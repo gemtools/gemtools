@@ -8,9 +8,6 @@
 
 #include "gem_tools.h"
 
-// OMP
-#include "omp.h"
-
 /*
  * Parsers Helpers
  */
@@ -68,7 +65,7 @@ GT_INLINE void gt_merge_synch_map_files_(
   gt_buffered_input_file_attach_buffered_output(buffered_input_file[0],buffered_output_file);
   // Init templates
   register uint64_t i;
-  register gt_template** template = gt_malloc(num_files,gt_template*);
+  register gt_template** template = gt_calloc(num_files,gt_template*,false);
   for (i=0;i<num_files;++i) {
     template[i] = gt_template_new(); // Allocate template
   }
@@ -107,7 +104,7 @@ GT_INLINE void gt_merge_synch_map_files_(
   for (i=0;i<num_files;++i) {
     gt_template_delete(template[i]);
   }
-  free(template);
+  gt_free(template);
 }
 
 GT_INLINE void gt_merge_synch_map_files_a(
@@ -121,7 +118,7 @@ GT_INLINE void gt_merge_synch_map_files_a(
   register gt_buffered_output_file* const buffered_output_file = gt_buffered_output_file_new(output_file);
   // Init Buffered Input Files
   register uint64_t i;
-  register gt_buffered_input_file** buffered_input_file = gt_malloc(num_files,gt_buffered_input_file*);
+  register gt_buffered_input_file** buffered_input_file = gt_calloc(num_files,gt_buffered_input_file*,false);
   for (i=0;i<num_files;++i) {
     GT_INPUT_FILE_CHECK(input_map_files[i]);
     // Open buffered input file
@@ -133,7 +130,7 @@ GT_INLINE void gt_merge_synch_map_files_a(
   for (i=0;i<num_files;++i) {
     gt_buffered_input_file_close(buffered_input_file[i]);
   }
-  free(buffered_input_file);
+  gt_free(buffered_input_file);
   gt_buffered_output_file_close(buffered_output_file);
 }
 
@@ -148,7 +145,7 @@ GT_INLINE void gt_merge_synch_map_files_v(
   // Setup slaves
   register uint64_t i;
   register const uint64_t num_files = num_slaves+1;
-  register gt_buffered_input_file** buffered_input_file = gt_malloc(num_files,gt_buffered_input_file*);
+  register gt_buffered_input_file** buffered_input_file = gt_calloc(num_files,gt_buffered_input_file*,false);
   // Init master (i=0)
   GT_INPUT_FILE_CHECK(input_map_master);
   buffered_input_file[0] = gt_buffered_input_file_new(input_map_master);
@@ -166,7 +163,7 @@ GT_INLINE void gt_merge_synch_map_files_v(
   for (i=0;i<num_files;++i) {
     gt_buffered_input_file_close(buffered_input_file[i]);
   }
-  free(buffered_input_file);
+  gt_free(buffered_input_file);
   gt_buffered_output_file_close(buffered_output_file);
 }
 

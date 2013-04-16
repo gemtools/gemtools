@@ -30,8 +30,7 @@ GT_INLINE void gt_output_file_init_buffers(gt_output_file* const output_file) {
 
 gt_output_file* gt_output_stream_new(FILE* const file,const gt_output_file_type output_file_type) {
   GT_NULL_CHECK(file);
-  gt_output_file* output_file = malloc(sizeof(gt_output_file));
-  gt_cond_fatal_error(!output_file,MEM_HANDLER);
+  gt_output_file* output_file = gt_alloc(gt_output_file);
   /* Output file */
   output_file->file_name=GT_STREAM_FILE_NAME;
   output_file->file=file;
@@ -42,8 +41,7 @@ gt_output_file* gt_output_stream_new(FILE* const file,const gt_output_file_type 
 }
 gt_output_file* gt_output_file_new(char* const file_name,const gt_output_file_type output_file_type) {
   GT_NULL_CHECK(file_name);
-  gt_output_file* output_file = malloc(sizeof(gt_output_file));
-  gt_cond_fatal_error(!output_file,MEM_HANDLER);
+  gt_output_file* output_file = gt_alloc(gt_output_file);
   /* Output file */
   output_file->file_name=file_name;
   gt_cond_fatal_error(!(output_file->file=fopen(file_name,"w")),FILE_OPEN,file_name);
@@ -69,7 +67,7 @@ gt_status gt_output_file_close(gt_output_file* const output_file) {
   gt_cond_error(error_code|=pthread_cond_destroy(&output_file->out_write_cond),SYS_COND_VAR_INIT);
   gt_cond_error(error_code|=pthread_mutex_destroy(&output_file->out_file_mutex),SYS_MUTEX_DESTROY);
   // Free handler
-  free(output_file);
+  gt_free(output_file);
   return error_code;
 }
 

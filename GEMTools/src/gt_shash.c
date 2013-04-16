@@ -7,6 +7,10 @@
  */
 
 #include "gt_hash.h"
+#include "gt_commons.h"
+#include "gt_error.h"
+#include "gt_mm.h"
+#include "gt_string.h"
 
 /*
  * Setup
@@ -15,7 +19,7 @@ GT_INLINE void gt_shash_free_element(gt_shash_element* const shash_element) {
   GT_NULL_CHECK(shash_element);
   switch (shash_element->element_type) {
     case GT_HASH_TYPE_REGULAR:
-      free(shash_element->element);
+      gt_free(shash_element->element);
       break;
     case GT_HASH_TYPE_OBJECT:
       shash_element->element_setup.element_free_fx(shash_element->element);
@@ -28,19 +32,18 @@ GT_INLINE void gt_shash_free_element(gt_shash_element* const shash_element) {
 GT_INLINE void gt_shash_free_shash_element(gt_shash_element* const shash_element,const bool free_element) {
   GT_NULL_CHECK(shash_element);
   // Free key
-  free(shash_element->key);
+  gt_free(shash_element->key);
   // Free element
   if (free_element) gt_shash_free_element(shash_element);
   // Free handler
-  free(shash_element);
+  gt_free(shash_element);
 }
 
 /*
  * Constructor
  */
 GT_INLINE gt_shash* gt_shash_new(void) {
-  gt_shash* shash=malloc(sizeof(gt_shash));
-  gt_cond_fatal_error(!shash,MEM_HANDLER);
+  gt_shash* shash = gt_alloc(gt_shash);
   shash->shash_head = NULL; // uthash initializer
   return shash;
 }
@@ -55,7 +58,7 @@ GT_INLINE void gt_shash_clear(gt_shash* const shash,const bool free_element) {
 GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element) {
   GT_HASH_CHECK(shash);
   gt_shash_clear(shash,free_element);
-  free(shash);
+  gt_free(shash);
 }
 
 /*
@@ -75,8 +78,7 @@ GT_INLINE char* gt_shash_insert_primitive(
   GT_NULL_CHECK(key); GT_NULL_CHECK(element);
   register gt_shash_element *shash_element = gt_shash_get_shash_element(shash,key);
   if (gt_expect_true(shash_element==NULL)) {
-    shash_element = malloc(sizeof(gt_shash_element));
-    gt_cond_fatal_error(!shash_element,MEM_ALLOC);
+    shash_element = gt_alloc(gt_shash_element);
     register const uint64_t key_length = strlen(key);
     shash_element->key = gt_strndup(key,key_length);
     shash_element->element = element;
@@ -99,8 +101,7 @@ GT_INLINE char* gt_shash_insert_object(
   GT_NULL_CHECK(element_dup_fx); GT_NULL_CHECK(element_free_fx);
   register gt_shash_element *shash_element = gt_shash_get_shash_element(shash,key);
   if (gt_expect_true(shash_element==NULL)) {
-    shash_element = malloc(sizeof(gt_shash_element));
-    gt_cond_fatal_error(!shash_element,MEM_ALLOC);
+    shash_element = gt_alloc(gt_shash_element);
     register const uint64_t key_length = strlen(key);
     shash_element->key = gt_strndup(key,key_length);
     shash_element->element = object;

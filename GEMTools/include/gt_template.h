@@ -10,7 +10,7 @@
 #ifndef GT_TEMPLATE_H_
 #define GT_TEMPLATE_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_alignment.h"
 #include "gt_input_parser.h"
 
@@ -26,13 +26,14 @@ typedef struct {
   gt_vector* counters; /* (uint64_t) */
   gt_vector* mmaps; /* (gt_map*) */
   gt_vector* mmaps_attributes; /* ( (gt_mmap_attributes) ) */
-  char* maps_txt;
   gt_shash* attributes;
 } gt_template;
 
 typedef struct {
   uint64_t distance;
-  int64_t score;
+  int64_t gt_score;
+  uint8_t phred_score;
+  gt_shash* attributes;
 } gt_mmap_attributes;
 
 // Iterators
@@ -75,7 +76,6 @@ typedef struct {
  *  #define GT_TEMPLATE_EDITABLE_CHECK(template) \
  *  GT_TEMPLATE_CONSISTENCY_CHECK(template); \
  *  gt_fatal_check(template->maps_txt!=NULL,TEMPLATE_MAPS_NOT_PARSED)
- *  TODO: Scheduled for v2.0 (high level handling modules)
  */
 
 /*
@@ -132,6 +132,8 @@ GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_comp
 GT_INLINE bool gt_template_has_qualities(gt_template* const template);
 GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template);
 GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique);
+GT_INLINE void gt_template_set_mmap_primary(gt_template* const template,gt_map** const mmap);
+GT_INLINE gt_map** gt_template_get_mmap_primary(gt_template* const template);
 
 /*
  * Multi-maps handlers (Map's relation)

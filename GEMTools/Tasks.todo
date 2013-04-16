@@ -14,6 +14,5 @@
 ===================================================================================================
         + SAM Reader
           - pedantic warnings (SAM format checks)
-            - PE warning if SE is selected & pairing info is conatined
-        + gt.filter --check
+            - PE warning if SE is selected & pairing info is contained
 ===================================================================================================

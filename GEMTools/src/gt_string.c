@@ -9,6 +9,9 @@
  */
 
 #include "gt_string.h"
+#include "gt_commons.h"
+#include "gt_error.h"
+#include "gt_mm.h"
 
 #define GT_STRING_STATIC 0
 #define GT_STRING_DEFAULT_BUFFER_SIZE 200
@@ -17,12 +20,10 @@
  * Constructor & Accessors
  */
 GT_INLINE gt_string* gt_string_new(const uint64_t initial_buffer_size) {
-  gt_string* string = malloc(sizeof(gt_string));
-  gt_cond_fatal_error(!string,MEM_HANDLER);
+  gt_string* string = gt_alloc(gt_string);
   // Initialize string
   if (gt_expect_true(initial_buffer_size>0)) {
-    string->buffer = malloc(initial_buffer_size);
-    gt_cond_fatal_error(!string->buffer,MEM_ALLOC_INFO,initial_buffer_size);
+    string->buffer = gt_malloc(initial_buffer_size);
     string->buffer[0] = EOS;
   } else {
     string->buffer = NULL;
@@ -47,8 +48,8 @@ GT_INLINE void gt_string_clear(gt_string* const string) {
 }
 GT_INLINE void gt_string_delete(gt_string* const string) {
   GT_STRING_CHECK(string);
-  if (string->allocated) free(string->buffer);
-  free(string);
+  if (string->allocated) gt_free(string->buffer);
+  gt_free(string);
 }
 
 GT_INLINE bool gt_string_is_static(gt_string* const string) {
@@ -58,7 +59,7 @@ GT_INLINE bool gt_string_is_static(gt_string* const string) {
 GT_INLINE void gt_string_cast_static(gt_string* const string) {
   GT_STRING_CHECK(string);
   if (string->allocated > 0) {
-    free(string->buffer);
+    gt_free(string->buffer);
     string->allocated = 0;
   }
   string->buffer = NULL;
@@ -73,8 +74,7 @@ GT_INLINE void gt_string_cast_dynamic(gt_string* const string,const uint64_t ini
       string->buffer = gt_strndup(string->buffer,string->length);
       string->allocated = string->length+1;
     } else {
-      string->buffer = malloc(initial_buffer_size);
-      gt_cond_fatal_error(!string->buffer,MEM_ALLOC);
+      string->buffer = gt_malloc(initial_buffer_size);
       string->buffer[0] = EOS;
     }
   }
@@ -202,6 +202,19 @@ GT_INLINE bool gt_string_nequals(gt_string* const string_a,gt_string* const stri
 /*
  * Handlers
  */
+GT_INLINE void gt_string_reverse(gt_string* const sequence) {
+  GT_STRING_CHECK(sequence);
+  register const uint64_t string_length = sequence->length;
+  register const uint64_t middle = string_length/2;
+  register char* const buffer = sequence->buffer;
+  register uint64_t i;
+  for (i=0;i<middle;++i) {
+    register const char aux = buffer[i];
+    buffer[i] = buffer[string_length-i-1];
+    buffer[string_length-i-1] = aux;
+  }
+}
+
 GT_INLINE gt_string* gt_string_dup(gt_string* const sequence) {
   GT_STRING_CHECK(sequence);
   register gt_string* sequence_cpy = gt_string_new(sequence->length+1);
@@ -230,17 +243,11 @@ GT_INLINE void gt_string_reverse_copy(gt_string* const sequence_dst,gt_string* c
   buffer_dst[string_length] = EOS;
   sequence_dst->length = string_length;
 }
-GT_INLINE void gt_string_reverse(gt_string* const sequence) {
+GT_INLINE gt_string* gt_string_reverse_dup(gt_string* const sequence) {
   GT_STRING_CHECK(sequence);
-  register const uint64_t string_length = sequence->length;
-  register const uint64_t middle = string_length/2;
-  register char* const buffer = sequence->buffer;
-  register uint64_t i;
-  for (i=0;i<middle;++i) {
-    register const char aux = buffer[i];
-    buffer[i] = buffer[string_length-i-1];
-    buffer[string_length-i-1] = aux;
-  }
+  gt_string* const sequence_dst = gt_string_new(gt_string_get_length(sequence)+1);
+  gt_string_reverse_copy(sequence_dst,sequence);
+  return sequence_dst;
 }
 
 /*
@@ -285,4 +292,39 @@ GT_INLINE gt_status gt_sprintf_append(gt_string* const sequence,const char *temp
   register const gt_status chars_printed = gt_vsprintf_append(sequence,template,v_args);
   va_end(v_args);
   return chars_printed;
+}
+
+/*
+ * String-Buffer functions
+ */
+GT_INLINE void gt_strncpy(char* const buffer_dst,char* const buffer_src,const uint64_t length) {
+  GT_NULL_CHECK(buffer_dst); GT_NULL_CHECK(buffer_src);
+  memcpy(buffer_dst,buffer_src,length);
+  buffer_dst[length] = EOS;
+}
+GT_INLINE char* gt_strndup(char* const buffer,const uint64_t length) {
+  GT_NULL_CHECK(buffer);
+  register char* const buffer_cpy = gt_malloc(length+1);
+  gt_strncpy(buffer_cpy,buffer,length);
+  return buffer_cpy;
+}
+GT_INLINE int gt_strcmp(char* const buffer_a,char* const buffer_b) {
+  GT_NULL_CHECK(buffer_a); GT_NULL_CHECK(buffer_b);
+  return strcmp(buffer_a,buffer_b);
+}
+GT_INLINE bool gt_streq(char* const buffer_a,char* const buffer_b) { // TODO: Add safe mem str_cmp
+  GT_NULL_CHECK(buffer_a); GT_NULL_CHECK(buffer_b);
+  return strcmp(buffer_a,buffer_b)==0;
+}
+GT_INLINE int gt_strncmp(char* const buffer_a,char* const buffer_b,const uint64_t length) {
+  GT_NULL_CHECK(buffer_a); GT_NULL_CHECK(buffer_b);
+  return strncmp(buffer_a,buffer_b,length);
+}
+GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_t length) {
+  GT_NULL_CHECK(buffer_a); GT_NULL_CHECK(buffer_b);
+  return strncmp(buffer_a,buffer_b,length)==0;
+}
+GT_INLINE uint64_t gt_strlen(char* const buffer) {
+  GT_NULL_CHECK(buffer);
+  return strlen(buffer);
 }

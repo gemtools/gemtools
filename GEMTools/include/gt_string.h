@@ -12,6 +12,7 @@
 #define GT_STRING_H_
 
 #include "gt_commons.h"
+#include "gt_error.h"
 
 typedef struct {
   char* buffer;
@@ -75,10 +76,12 @@ GT_INLINE bool gt_string_nequals(gt_string* const string_a,gt_string* const stri
 /*
  * Handlers
  */
+GT_INLINE void gt_string_reverse(gt_string* const sequence);
+
 GT_INLINE gt_string* gt_string_dup(gt_string* const sequence);
 GT_INLINE void gt_string_copy(gt_string* const sequence_dst,gt_string* const sequence_src);
 GT_INLINE void gt_string_reverse_copy(gt_string* const sequence_dst,gt_string* const sequence_src);
-GT_INLINE void gt_string_reverse(gt_string* const sequence);
+GT_INLINE gt_string* gt_string_reverse_dup(gt_string* const sequence);
 
 /*
  * String Printers
@@ -97,5 +100,15 @@ GT_INLINE gt_status gt_sprintf_append(gt_string* const sequence,const char *temp
   register const char* mem = gt_string_get_string(string); \
   for (pos=0;pos<__length_##mem;++pos) /* mem[pos] */
 
+/*
+ * String-Buffer functions
+ */
+GT_INLINE void gt_strncpy(char* const buffer_dst,char* const buffer_src,const uint64_t length);
+GT_INLINE char* gt_strndup(char* const buffer,const uint64_t length);
+GT_INLINE int gt_strcmp(char* const buffer_a,char* const buffer_b);
+GT_INLINE bool gt_streq(char* const buffer_a,char* const buffer_b);
+GT_INLINE int gt_strncmp(char* const buffer_a,char* const buffer_b,const uint64_t length);
+GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_t length);
+GT_INLINE uint64_t gt_strlen(char* const buffer);
 
 #endif /* GT_STRING_H_ */

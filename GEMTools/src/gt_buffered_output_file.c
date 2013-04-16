@@ -15,8 +15,7 @@
  */
 gt_buffered_output_file* gt_buffered_output_file_new(gt_output_file* const output_file) {
   GT_OUTPUT_FILE_CHECK(output_file);
-  gt_buffered_output_file* buffered_output_file = malloc(sizeof(gt_buffered_output_file));
-  gt_cond_fatal_error(!buffered_output_file,MEM_HANDLER);
+  gt_buffered_output_file* buffered_output_file = gt_alloc(gt_buffered_output_file);
   // Initialize the bof
   buffered_output_file->output_file = output_file;
   buffered_output_file->buffer = gt_output_file_request_buffer(buffered_output_file->output_file);
@@ -28,7 +27,7 @@ void gt_buffered_output_file_close(gt_buffered_output_file* const buffered_outpu
     gt_buffered_output_file_dump(buffered_output_file);
     gt_output_file_release_buffer(buffered_output_file->output_file,buffered_output_file->buffer);
   }
-  free(buffered_output_file);
+  gt_free(buffered_output_file);
 }
 
 /*

@@ -9,7 +9,8 @@
 #ifndef GT_INPUT_MAP_PARSER_H_
 #define GT_INPUT_MAP_PARSER_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
+
 #include "gt_dna_string.h"
 #include "gt_dna_read.h"
 
@@ -23,13 +24,15 @@
 #include "gt_template.h"
 #include "gt_template_utils.h"
 
-// Codes gt_status
+/*
+ * Codes gt_status
+ */
 #define GT_IMP_OK   GT_STATUS_OK
 #define GT_IMP_FAIL GT_STATUS_FAIL
 #define GT_IMP_EOF  0
 
 /*
- * Parsing error/state codes // TODO Move common errors to input_parser.h
+ * Parsing error/state codes
  */
 #define GT_IMP_PE_WRONG_FILE_FORMAT 10
 #define GT_IMP_PE_NOT_IMPLEMENTED 11
@@ -50,7 +53,6 @@
 #define GT_IMP_PE_COUNTERS_BAD_CHARACTER 50
 
 #define GT_IMP_PE_MAP_PENDING_MAPS 60
-#define GT_IMP_PE_MAP_ALREADY_PARSED 61
 #define GT_IMP_PE_MAP_BAD_NUMBER_OF_BLOCKS 62
 #define GT_IMP_PE_MAP_BAD_CHARACTER 63
 
@@ -106,24 +108,17 @@
 #define GT_MAP_SKIP_NEGATIVE '-'
 #define GT_MAP_SKIP_SPLICE '*'
 
-/*
- * Lazy parsing:
- *   PARSE_READ         Parses TAG,READ,QUALITY,COUNTERS
- *   PARSE_READ__MAPS   Parses TAG,READ,QUALITY,COUNTERS,MAPS
- *   PARSE_ALL          Parses TAG,READ,QUALITY,COUNTERS,MAPS,CIGAR
- */
-typedef enum {PARSE_READ, PARSE_READ__MAPS, PARSE_ALL} gt_lazy_parse_mode;
+typedef enum {MISMATCH_STRING_GEMv0, MISMATCH_STRING_GEMv1} gt_misms_string_t; // Mismatch string format (lazy parsing)
 
 /*
- * Parsing attributes
+ * Map Parser Attributes
  */
 typedef struct {
   bool force_read_paired; // Forces to read paired reads
   uint64_t max_parsed_maps; // Maximum number of maps to be parsed
-  gt_string* src_text; // Src text line parsed
+  gt_string* src_text; // src text line parsed
   bool skip_based_model; // Allows only mismatches & skips in the cigar string
   bool remove_duplicates; // TODO
-  gt_lazy_parse_mode parse_mode;
 } gt_map_parser_attr;
 
 #define GT_MAP_PARSER_ATTR_DEFAULT(_force_read_paired) { \
@@ -131,8 +126,7 @@ typedef struct {
   .max_parsed_maps=GT_ALL,  \
   .src_text=NULL, \
   .skip_based_model=false, \
-  .remove_duplicates=false, \
-  .parse_mode=PARSE_ALL \
+  .remove_duplicates=false \
 }
 
 GT_INLINE gt_map_parser_attr* gt_input_map_parser_attributes_new(const bool force_read_paired);

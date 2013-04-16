@@ -22,6 +22,53 @@
   (character=='+' || character==':' || character=='x')
 
 /*
+ * Map Parser Attributes
+ */
+GT_INLINE gt_map_parser_attr* gt_input_map_parser_attributes_new(const bool force_read_paired) {
+  gt_map_parser_attr* attributes = gt_alloc(gt_map_parser_attr);
+  gt_input_map_parser_attributes_reset_defaults(attributes);
+  gt_input_map_parser_attributes_set_paired(attributes,force_read_paired);
+  return attributes;
+}
+GT_INLINE void gt_input_map_parser_attributes_delete(gt_map_parser_attr* const attributes) {
+  GT_NULL_CHECK(attributes);
+  gt_free(attributes);
+}
+
+GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr* const attributes) {
+  GT_NULL_CHECK(attributes);
+  attributes->max_parsed_maps = GT_ALL;
+  attributes->force_read_paired = false;
+  attributes->src_text = NULL;
+  attributes->skip_based_model=false;
+  attributes->remove_duplicates=false;
+}
+GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attr* const attributes) {
+  GT_NULL_CHECK(attributes);
+  return attributes->force_read_paired;
+}
+GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attr* const attributes,const bool force_read_paired) {
+  GT_NULL_CHECK(attributes);
+  attributes->force_read_paired = force_read_paired;
+}
+GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attr* const attributes,const uint64_t max_parsed_maps) {
+  GT_NULL_CHECK(attributes);
+  attributes->max_parsed_maps = max_parsed_maps;
+}
+GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attr* const attributes,gt_string* const src_text) {
+  GT_NULL_CHECK(attributes);
+  attributes->src_text = src_text;
+}
+GT_INLINE void gt_input_map_parser_attributes_set_skip_model(gt_map_parser_attr* const attributes,const bool skip_based_model) {
+  GT_NULL_CHECK(attributes);
+  attributes->skip_based_model = skip_based_model;
+}
+GT_INLINE void gt_input_map_parser_attributes_set_duplicates_removal(gt_map_parser_attr* const attributes,const bool remove_duplicates) {
+  GT_NULL_CHECK(attributes);
+  attributes->remove_duplicates = remove_duplicates;
+}
+
+/*
  * MAP File Format test
  */
 GT_INLINE bool gt_input_map_parser_test_map(
@@ -159,7 +206,6 @@ GT_INLINE void gt_input_map_parser_prompt_error(
     case GT_IMP_PE_QUAL_BAD_LENGTH: gt_error(PARSE_MAP_QUAL_BAD_LENGTH,file_name,line_num,column_pos); break;
     case GT_IMP_PE_QUAL_BAD_CHARACTER: gt_error(PARSE_MAP_QUAL_BAD_CHARACTER,file_name,line_num,column_pos); break;
     case GT_IMP_PE_COUNTERS_BAD_CHARACTER: gt_error(PARSE_MAP_COUNTERS_BAD_CHARACTER,file_name,line_num,column_pos); break;
-    case GT_IMP_PE_MAP_ALREADY_PARSED: gt_error(PARSE_MAP_MAP_ALREADY_PARSED,file_name,line_num); break;
     case GT_IMP_PE_MAP_BAD_NUMBER_OF_BLOCKS: gt_error(PARSE_MAP_MAP_BAD_NUMBER_OF_BLOCKS,file_name,line_num,column_pos); break;
     case GT_IMP_PE_MAP_BAD_CHARACTER: gt_error(PARSE_MAP_MAP_BAD_CHARACTER,file_name,line_num,column_pos); break;
     case GT_IMP_PE_SPLIT_MAP_BAD_CHARACTER: gt_error(PARSE_MAP_SPLIT_MAP_BAD_CHARACTER,file_name,line_num,column_pos); break;
@@ -369,7 +415,7 @@ GT_INLINE gt_status gt_imp_counters(char** const text_line,gt_vector* const coun
   // Handle 'not-unique' flag
   if (**text_line==GT_MAP_COUNTS_NOT_UNIQUE) {
     bool not_unique = true;
-    gt_attribute_set(attributes,GT_ATTR_NOT_UNIQUE,&not_unique,bool);
+    gt_attribute_add(attributes,GT_ATTR_ID_NOT_UNIQUE,&not_unique,bool);
     GT_NEXT_CHAR(text_line);
     if (gt_expect_false(**text_line!=TAB)) return GT_IMP_PE_COUNTERS_BAD_CHARACTER;
     GT_NEXT_CHAR(text_line);
@@ -399,7 +445,7 @@ GT_INLINE gt_status gt_imp_counters(char** const text_line,gt_vector* const coun
     } else if (**text_line==GT_MAP_MCS) {
       if (prev_char_was_sep || is_mcs_set) return GT_IMP_PE_COUNTERS_BAD_CHARACTER;
       is_mcs_set = true;
-      gt_attribute_set(attributes,GT_ATTR_MAX_COMPLETE_STRATA,&(gt_vector_get_used(counters)),uint64_t);
+      gt_attribute_add(attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA,&(gt_vector_get_used(counters)),uint64_t);
       GT_NEXT_CHAR(text_line);
       prev_char_was_sep = true;
     } else if (**text_line==GT_MAP_COUNTS_SEP) {
@@ -413,7 +459,7 @@ GT_INLINE gt_status gt_imp_counters(char** const text_line,gt_vector* const coun
   }
   // Set default MCS
   if (!is_mcs_set) {
-    gt_attribute_set(attributes,GT_ATTR_MAX_COMPLETE_STRATA,&(gt_vector_get_used(counters)),uint64_t);
+    gt_attribute_add(attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA,&(gt_vector_get_used(counters)),uint64_t);
   }
   // Parse attributes (if any)
   if (**text_line==GT_MAP_COUNTS_SEP && *(*text_line+1)==GT_MAP_COUNTS_SEP) { // 0:0::<Value>::<Value>
@@ -447,7 +493,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(char** const text_line,gt_ma
   // Store reference map (left-most position in the genome, strand, ...)
   register gt_map* const head_map = map;
   register const uint64_t global_length = gt_map_get_base_length(map);
-  register const uint64_t start_position = gt_map_get_position_(map);
+  register const uint64_t start_position = gt_map_get_position(map);
   register const bool reverse_strand = (gt_map_get_strand(map)==REVERSE);
   // Auxiliary variables as to track the position in the read and the base length of the chunks
   register uint64_t last_position = 0, last_cut_point = 0, num_blocks = 1;
@@ -528,7 +574,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(char** const text_line,gt_ma
         gt_map_set_base_length(next_map,global_length-position);
         // Attach the next block
         gt_map_set_next_block(map,next_map,SPLICE,size); ++num_blocks;
-        gt_map_set_position(next_map,gt_map_get_position_(map)+gt_map_get_base_length(map)+size);
+        gt_map_set_position(next_map,gt_map_get_position(map)+gt_map_get_base_length(map)+size);
         // Swap maps & Reset length,position
         map = next_map;
       }
@@ -550,7 +596,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(char** const text_line,gt_ma
   gt_map_clear_misms(map);
   // Store reference map (left-most position in the genome, strand, ...)
   register gt_map* const head_map = map;
-  register const uint64_t start_position = gt_map_get_position_(map);
+  register const uint64_t start_position = gt_map_get_position(map);
   register const bool reverse_strand = (gt_map_get_strand(map)==REVERSE);
   // Aux variables as to track the position in the read and the genome span
   register uint64_t position=0, reference_span=0, num_blocks=1;
@@ -638,7 +684,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(char** const text_line,gt_ma
         gt_map_set_base_length(next_map,gt_map_get_base_length(map)-position);
         // Attach the next block & close current map block
         gt_map_set_base_length(map,position);
-        gt_map_set_position(next_map,gt_map_get_position_(map)+reference_span+size);
+        gt_map_set_position(next_map,gt_map_get_position(map)+reference_span+size);
         gt_map_set_next_block(map,next_map,junction,size); ++num_blocks;
         // Swap maps & Reset reference_span,position
         map = next_map;
@@ -746,10 +792,10 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(char** text_line,gt_vector* const 
   // Link both donor & acceptor
   gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
   if (gt_map_get_strand(donor_map)==FORWARD) {
-    gt_map_set_next_block(donor_map,acceptor_map,SPLICE,gt_map_get_position_(acceptor_map)-gt_map_get_position_(donor_map)+gt_map_get_length(donor_map));
+    gt_map_set_next_block(donor_map,acceptor_map,SPLICE,gt_map_get_position(acceptor_map)-gt_map_get_position(donor_map)+gt_map_get_length(donor_map));
   } else {
     register const uint64_t acceptor_map_length = (read_base_length!=UINT64_MAX) ? gt_map_get_length(acceptor_map) : 0;
-    gt_map_set_next_block(acceptor_map,donor_map,SPLICE,gt_map_get_position_(donor_map)-gt_map_get_position_(acceptor_map)+acceptor_map_length);
+    gt_map_set_next_block(acceptor_map,donor_map,SPLICE,gt_map_get_position(donor_map)-gt_map_get_position(acceptor_map)+acceptor_map_length);
   }
   // Detect multiple donor position
   if (gt_expect_false((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0)) { // [30;34]=chr10:F74776624~chr10:F[74790025;74790029]
@@ -796,7 +842,7 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(char** text_line,gt_vector* const 
 GT_INLINE gt_status gt_imp_parse_map_score_v0(char** text_line,gt_map* const map) {
   // Parse score1
   if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-  GT_PARSE_NUMBER(text_line,map->score);
+  GT_PARSE_NUMBER(text_line,map->gt_score);
   // Skip score2 (no use)
   if (gt_expect_false(**text_line!=GT_MAP_SCORE_SEP)) return GT_IMP_PE_MAP_BAD_CHARACTER;
   GT_NEXT_CHAR(text_line);
@@ -807,7 +853,7 @@ GT_INLINE gt_status gt_imp_parse_map_score_v0(char** text_line,gt_map* const map
 GT_INLINE gt_status gt_imp_parse_map_score_v1(char** text_line,gt_map* const map) {
   // Parse score
   if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-  GT_PARSE_NUMBER(text_line,map->score);
+  GT_PARSE_NUMBER(text_line,map->gt_score);
   return 0;
 }
 GT_INLINE gt_status gt_imp_parse_map_attr_v0(char** text_line) {
@@ -912,19 +958,12 @@ GT_INLINE gt_status gt_imp_parse_map(char** text_line,gt_map* const map,gt_map_p
     GT_NEXT_CHAR(text_line);
   }
   // Parse Mismatch String
-  if (map_parser_attr->parse_mode==PARSE_ALL) {
-    gt_map_clear_misms_string(map);
-    map->misms_txt_format = misms_format; // Just in case!
-    if (misms_format==MISMATCH_STRING_GEMv1) {
-      error_code=gt_imp_parse_mismatch_string_v1(text_line,map,map_parser_attr);
-    } else {
-      error_code=gt_imp_parse_mismatch_string_v0(text_line,map,map_parser_attr);
-    }
-    if (error_code) return error_code;
+  if (misms_format==MISMATCH_STRING_GEMv1) {
+    error_code=gt_imp_parse_mismatch_string_v1(text_line,map,map_parser_attr);
   } else {
-    gt_map_set_misms_string(map,*text_line,misms_format);
-    GT_READ_UNTIL(text_line,(**text_line)==GT_MAP_SEP || (**text_line)==GT_MAP_NEXT || (**text_line)==GT_MAP_SCORE_GEMv0);
+    error_code=gt_imp_parse_mismatch_string_v0(text_line,map,map_parser_attr);
   }
+  if (error_code) return error_code;
   // Parse map's attributes (if any) and spot next item.
   register bool parsed_score = false;
   while (true) {
@@ -960,8 +999,6 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
     char** text_line,gt_template* const template,gt_map_parser_attr* const map_parser_attr) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK((*text_line));
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  // Set as parsed (whatever the result is)
-  template->maps_txt = NULL;
   // Check null maps
   if ((**text_line)==GT_MAP_NONE) {
     GT_SKIP_LINE(text_line);
@@ -1009,11 +1046,11 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
     mmap_attr.distance = gt_map_vector_get_distance(vector_maps);
     if (error_code==GT_IMP_PE_MAP_GLOBAL_ATTR) {
       if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-      GT_PARSE_NUMBER(text_line,mmap_attr.score);
+      GT_PARSE_NUMBER(text_line,mmap_attr.gt_score);
       error_code=gt_imp_parse_map_global_attr(text_line);
       if (GT_IMP_PARSE_MAP_ERROR(error_code)) return error_code;
     } else {
-      mmap_attr.score = GT_MAP_NO_SCORE;
+      mmap_attr.gt_score = GT_MAP_NO_GT_SCORE;
     }
     /*
      * Check number of blocks parsed & Store MAP blocks parsed (only PE or more)
@@ -1034,8 +1071,6 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
 GT_INLINE gt_status gt_imp_parse_alignment_maps(char** text_line,gt_alignment* alignment,gt_map_parser_attr* const map_parser_attr) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK((*text_line));
   GT_ALIGNMENT_CHECK(alignment);
-  // Set as parsed (whatever the result is)
-  alignment->maps_txt = NULL;
   // Check null maps
   if ((**text_line)==GT_MAP_NONE) {
     GT_SKIP_LINE(text_line);
@@ -1081,7 +1116,7 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(char** text_line,gt_alignment* a
             if (gt_expect_false(split_maps!=NULL)) gt_vector_delete(split_maps);
             return GT_IMP_PE_MAP_BAD_CHARACTER;
           }
-          GT_PARSE_NUMBER(text_line,map->score);
+          GT_PARSE_NUMBER(text_line,map->gt_score);
           error_code=gt_imp_parse_map_attr_v1(text_line);
           break;
         case GT_IMP_PE_MAP_PENDING_MAPS:
@@ -1113,7 +1148,7 @@ GT_INLINE gt_status gt_imp_map_blocks(char** const text_line,gt_map* const map,g
     error_code = gt_imp_parse_map(text_line,next_map,map_parser_attr);
     if (GT_IMP_PARSE_MAP_ERROR(error_code)) return error_code;
     gt_map_append_block(map,next_map,JUNCTION_UNKNOWN,
-        abs(((int64_t)gt_map_get_position_(map))-((int64_t)gt_map_get_position_(next_map))));
+        abs(((int64_t)gt_map_get_position(map))-((int64_t)gt_map_get_position(next_map))));
   }
   // Skip attributes
   if (error_code==GT_IMP_PE_MAP_GLOBAL_ATTR) {
@@ -1185,16 +1220,10 @@ GT_INLINE gt_status gt_imp_parse_template(
   if (gt_expect_false((**text_line)!=TAB)) return GT_IMP_PE_PREMATURE_EOL;
   GT_NEXT_CHAR(text_line);
   // MAPS
-  if (map_parser_attr->parse_mode!=PARSE_READ) {
-    template->maps_txt = NULL;
-    if (gt_expect_true(num_blocks>1)) {
-      error_code = gt_imp_parse_template_maps(text_line,template,map_parser_attr);
-    } else {
-      error_code = gt_imp_parse_alignment_maps(text_line,gt_template_get_block(template,0),map_parser_attr);
-    }
-  } else { // (lazy parsing)
-    template->maps_txt = *text_line;
-    error_code = 0;
+  if (gt_expect_true(num_blocks>1)) {
+    error_code = gt_imp_parse_template_maps(text_line,template,map_parser_attr);
+  } else {
+    error_code = gt_imp_parse_alignment_maps(text_line,gt_template_get_block(template,0),map_parser_attr);
   }
   return error_code;
 }
@@ -1225,13 +1254,7 @@ GT_INLINE gt_status gt_imp_parse_alignment(
   if (**text_line!=TAB) return GT_IMP_PE_BAD_SEPARATOR;
   GT_NEXT_CHAR(text_line);
   // MAPS
-  if (map_parser_attr->parse_mode!=PARSE_READ) {
-    alignment->maps_txt = NULL;
-    error_code=gt_imp_parse_alignment_maps(text_line,alignment,map_parser_attr);
-  } else { // (lazy parsing)
-    alignment->maps_txt = *text_line;
-    error_code=0;
-  }
+  error_code=gt_imp_parse_alignment_maps(text_line,alignment,map_parser_attr);
   return error_code;
 }
 GT_INLINE gt_status gt_input_map_parse_template(char* const string,gt_template* const template) {
@@ -1314,65 +1337,6 @@ GT_INLINE gt_status gt_input_map_parse_map_list_g(char* const string,gt_vector* 
       gt_vector_insert(maps,map,gt_map*);
     }
   } while (error_code==GT_IMP_PE_MAP_PENDING_MAPS && gt_vector_get_used(maps)<map_parser_attr->max_parsed_maps);
-  return 0;
-}
-
-/*
- * MAP Lazy Parsers
- */
-GT_INLINE gt_status gt_input_map_parser_parse_template_maps(gt_template* template,uint64_t num_maps) {
-  GT_TEMPLATE_CHECK(template);
-  if (gt_expect_false(template->maps_txt==NULL)) return GT_IMP_PE_MAP_ALREADY_PARSED;
-  gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(false);
-  register gt_status error_code = gt_imp_parse_template_maps(&template->maps_txt,template,&map_parser_attr);
-  template->maps_txt = NULL;
-  return error_code;
-}
-GT_INLINE gt_status gt_input_map_parser_parse_alignment_maps(gt_alignment* alignment,uint64_t num_maps) {
-  GT_ALIGNMENT_CHECK(alignment);
-  if (gt_expect_false(alignment->maps_txt==NULL)) return GT_IMP_PE_MAP_ALREADY_PARSED;
-  gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(false);
-  register gt_status error_code = gt_imp_parse_alignment_maps(&alignment->maps_txt,alignment,&map_parser_attr);
-  alignment->maps_txt = NULL;
-  return error_code;
-}
-GT_INLINE gt_status gt_input_map_parse_template_mismatch_string(gt_template* template,gt_map_parser_attr* const map_parser_attr) {
-  GT_TEMPLATE_CHECK(template);
-  register gt_status error_code;
-  gt_template_maps_iterator template_maps_iterator;
-  gt_template_new_mmap_iterator(template,&template_maps_iterator);
-  register const uint64_t num_blocks_template = gt_vector_get_used(template->blocks);
-  gt_map** map_array;
-  while (gt_template_next_mmap(&template_maps_iterator,&map_array,NULL)) {
-    register uint64_t i;
-    for (i=0;i<num_blocks_template;++i) {
-      if (gt_expect_false(map_array[i]->misms_txt==NULL)) return GT_IMP_PE_MISMS_ALREADY_PARSED;
-      if ((error_code = (gt_map_get_misms_string_format(map_array[i])==MISMATCH_STRING_GEMv1) ?
-          gt_imp_parse_mismatch_string_v1(&(map_array[i]->misms_txt),map_array[i],map_parser_attr):
-          gt_imp_parse_mismatch_string_v0(&(map_array[i]->misms_txt),map_array[i],map_parser_attr))) {
-        return error_code;
-      }
-      gt_map_clear_misms_string(map_array[i]);
-    }
-  }
-  free(map_array);
-  return 0;
-}
-GT_INLINE gt_status gt_input_map_parse_alignment_mismatch_string(gt_alignment* alignment,gt_map_parser_attr* const map_parser_attr) {
-  GT_ALIGNMENT_CHECK(alignment);
-  register gt_status error_code;
-  gt_map* map;
-  gt_alignment_map_iterator map_iterator;
-  gt_alignment_new_map_iterator(alignment,&map_iterator);
-  while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
-    if (gt_expect_false(map->misms_txt==NULL)) return GT_IMP_PE_MISMS_ALREADY_PARSED;
-    if ((error_code = (gt_map_get_misms_string_format(map)==MISMATCH_STRING_GEMv1) ?
-        gt_imp_parse_mismatch_string_v1(&map->misms_txt,map,map_parser_attr):
-        gt_imp_parse_mismatch_string_v0(&map->misms_txt,map,map_parser_attr))) {
-      return error_code;
-    }
-    gt_map_clear_misms_string(map);
-  }
   return 0;
 }
 
@@ -1474,55 +1438,6 @@ GT_INLINE gt_status gt_input_map_parser_get_alignment(
   GT_ALIGNMENT_CHECK(alignment);
   gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(false);
   return gt_input_map_parser_get_alignment_g(buffered_map_input,alignment,&map_parser_attr);
-}
-
-/*
- * Map Parser Attributes
- */
-GT_INLINE gt_map_parser_attr* gt_input_map_parser_attributes_new(const bool force_read_paired) {
-  gt_map_parser_attr* attributes = malloc(sizeof(gt_map_parser_attr));
-  gt_cond_fatal_error(!attributes,MEM_HANDLER);
-  gt_input_map_parser_attributes_reset_defaults(attributes);
-  gt_input_map_parser_attributes_set_paired(attributes,force_read_paired);
-  return attributes;
-}
-GT_INLINE void gt_input_map_parser_attributes_delete(gt_map_parser_attr* const attributes) {
-  GT_NULL_CHECK(attributes);
-  free(attributes);
-}
-
-GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr* const attributes) {
-  GT_NULL_CHECK(attributes);
-  attributes->max_parsed_maps = GT_ALL;
-  attributes->force_read_paired = false;
-  attributes->src_text = NULL;
-  attributes->skip_based_model=false;
-  attributes->remove_duplicates=false;
-  attributes->parse_mode=PARSE_ALL;
-}
-GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attr* const attributes) {
-  GT_NULL_CHECK(attributes);
-  return attributes->force_read_paired;
-}
-GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attr* const attributes,const bool force_read_paired) {
-  GT_NULL_CHECK(attributes);
-  attributes->force_read_paired = force_read_paired;
-}
-GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attr* const attributes,const uint64_t max_parsed_maps) {
-  GT_NULL_CHECK(attributes);
-  attributes->max_parsed_maps = max_parsed_maps;
-}
-GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attr* const attributes,gt_string* const src_text) {
-  GT_NULL_CHECK(attributes);
-  attributes->src_text = src_text;
-}
-GT_INLINE void gt_input_map_parser_attributes_set_skip_model(gt_map_parser_attr* const attributes,const bool skip_based_model) {
-  GT_NULL_CHECK(attributes);
-  attributes->skip_based_model = skip_based_model;
-}
-GT_INLINE void gt_input_map_parser_attributes_set_duplicates_removal(gt_map_parser_attr* const attributes,const bool remove_duplicates) {
-  GT_NULL_CHECK(attributes);
-  attributes->remove_duplicates = remove_duplicates;
 }
 
 /*

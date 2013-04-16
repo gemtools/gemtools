@@ -12,15 +12,14 @@
  * Setup
  */
 GT_INLINE gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool const paired_reads) {
-  gt_generic_parser_attr* attributes = malloc(sizeof(gt_generic_parser_attr));
-  gt_cond_fatal_error(!attributes,MEM_HANDLER);
+  gt_generic_parser_attr* attributes = gt_alloc(gt_generic_parser_attr);
   gt_input_generic_parser_attributes_reset_defaults(attributes);
   gt_input_generic_parser_attributes_set_paired(attributes,paired_reads);
   return attributes;
 }
 GT_INLINE void gt_input_generic_parser_attributes_delete(gt_generic_parser_attr* const attributes) {
   GT_NULL_CHECK(attributes);
-  free(attributes);
+  gt_free(attributes);
 }
 
 /*

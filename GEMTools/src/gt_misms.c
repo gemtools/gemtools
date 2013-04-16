@@ -12,15 +12,14 @@
  * Constructors
  */
 GT_INLINE gt_misms* gt_misms_new() {
-  gt_misms* misms = malloc(sizeof(gt_misms));
-  gt_cond_fatal_error(!misms,MEM_HANDLER);
+  gt_misms* misms = gt_alloc(gt_misms);
   misms->position = 0;
   misms->size = 0;
   return misms;
 }
 GT_INLINE void gt_misms_delete(gt_misms* misms) {
   GT_NULL_CHECK(misms);
-  free(misms);
+  gt_free(misms);
 }
 GT_INLINE void gt_misms_set_mismatch(gt_misms* const misms,const uint64_t position,const char base) {
   GT_NULL_CHECK(misms);

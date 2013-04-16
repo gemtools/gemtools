@@ -7,6 +7,9 @@
  */
 
 #include "gt_hash.h"
+#include "gt_commons.h"
+#include "gt_error.h"
+#include "gt_mm.h"
 
 /*
  * Setup
@@ -15,7 +18,7 @@ GT_INLINE void gt_ihash_free_element(gt_ihash_element *ihash_element) {
   GT_NULL_CHECK(ihash_element);
   switch (ihash_element->element_type) {
     case GT_HASH_TYPE_REGULAR:
-      free(ihash_element->element);
+      gt_free(ihash_element->element);
       break;
     case GT_HASH_TYPE_OBJECT:
       ihash_element->element_setup.element_free_fx(ihash_element->element);
@@ -30,15 +33,14 @@ GT_INLINE void gt_ihash_free_ihash_element(gt_ihash_element *ihash_element,const
   // Free element
   if (free_element) gt_ihash_free_element(ihash_element);
   // Free handler
-  free(ihash_element);
+  gt_free(ihash_element);
 }
 
 /*
  * Constructor
  */
 GT_INLINE gt_ihash* gt_ihash_new(void) {
-  gt_ihash* ihash=malloc(sizeof(gt_ihash));
-  gt_cond_fatal_error(!ihash,MEM_HANDLER);
+  gt_ihash* ihash = gt_alloc(gt_ihash);
   ihash->ihash_head = NULL; // uthash initializer
   return ihash;
 }
@@ -53,7 +55,7 @@ GT_INLINE void gt_ihash_clear(gt_ihash* const ihash,const bool free_element) {
 GT_INLINE void gt_ihash_delete(gt_ihash* const ihash,const bool free_element) {
   GT_HASH_CHECK(ihash);
   gt_ihash_clear(ihash,free_element);
-  free(ihash);
+  gt_free(ihash);
 }
 
 /*
@@ -72,8 +74,7 @@ GT_INLINE void gt_ihash_insert_primitive(
   GT_NULL_CHECK(element);
   gt_ihash_element* ihash_element = gt_ihash_get_ihash_element(ihash,key);
   if (gt_expect_true(ihash_element==NULL)) {
-    ihash_element = malloc(sizeof(gt_ihash_element));
-    gt_cond_fatal_error(!ihash_element,MEM_ALLOC);
+    ihash_element = gt_alloc(gt_ihash_element);
     ihash_element->key = key;
     ihash_element->element = element;
     HASH_ADD_INT(ihash->ihash_head,key,ihash_element);
@@ -93,8 +94,7 @@ GT_INLINE void gt_ihash_insert_object(
   GT_NULL_CHECK(element_dup_fx); GT_NULL_CHECK(element_free_fx);
   gt_ihash_element* ihash_element = gt_ihash_get_ihash_element(ihash,key);
   if (gt_expect_true(ihash_element==NULL)) {
-    ihash_element = malloc(sizeof(gt_ihash_element));
-    gt_cond_fatal_error(!ihash_element,MEM_ALLOC);
+    ihash_element = gt_alloc(gt_ihash_element);
     ihash_element->key = key;
     ihash_element->element = object;
     HASH_ADD_INT(ihash->ihash_head,key,ihash_element);

@@ -9,7 +9,7 @@
 #ifndef GT_BUFFERED_INPUT_FILE_H_
 #define GT_BUFFERED_INPUT_FILE_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_input_file.h"
 #include "gt_template.h"
 #include "gt_buffered_output_file.h"

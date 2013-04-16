@@ -9,7 +9,7 @@
 #ifndef GT_TEMPLATE_UTILS_H_
 #define GT_TEMPLATE_UTILS_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_alignment.h"
 #include "gt_alignment_utils.h"
 #include "gt_template.h"
@@ -17,9 +17,9 @@
 /*
  * Template basic tools
  */
-GT_INLINE void gt_template_deduce_alignments_tags(gt_template* const template);
-GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_alignment* const alignment);
-GT_INLINE void gt_template_dup_tags_to_alignments(gt_template* const template);
+//GT_INLINE void gt_template_deduce_alignments_tags(gt_template* const template);
+//GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_alignment* const alignment);
+//GT_INLINE void gt_template_dup_tags_to_alignments(gt_template* const template); // FIXME: DELETEME
 GT_INLINE void gt_template_setup_pair_attributes_to_alignments(gt_template* const template,const bool copy_tags);
 
 /*

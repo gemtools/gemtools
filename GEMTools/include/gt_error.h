@@ -10,94 +10,143 @@
 #define GT_ERROR_H_
 
 #include <stdio.h>
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdarg.h>
 
-inline void gt_print_stack_trace();
+// Internally to Gem-tools error codes are returned as gt_status
+typedef int32_t gt_status;
+
+// Codes gt_status
+#define GT_STATUS_OK 1
+#define GT_STATUS_FAIL -1
 
 // Base-name of the sources
 #define GT_ERROR_BASENAME(S) \
   ({ register const char* const slash=strrchr((S),'/'); \
      slash ? slash + 1 : (S); })
 
-// Gem-tools error/output streams
+// Gem-tools error/output ELD-streams
 extern FILE* gt_error_stream;
-// Getters/Setters
-#define gt_error_get_stream() (gt_error_stream?gt_error_stream:stderr)
-#define gt_error_set_stream(stream) gt_error_stream=(stream)
+extern FILE* gt_log_stream;
+extern FILE* gt_debug_stream;
+extern bool mute_error_stream;
+extern bool mute_report_stream;
+// Getters/Setters ELD-streams
+#define GT_DEFAULT_REPORT_STREAM stderr
+inline FILE* gt_error_get_stream();
+inline void gt_error_set_stream(FILE* const stream);
+inline FILE* gt_log_get_stream();
+inline void gt_log_set_stream(FILE* const stream);
+inline FILE* gt_debug_get_stream();
+inline void gt_debug_set_stream(FILE* const stream);
+// Mute/Articulate ELD-streams
+inline void gt_mute_error_stream();
+inline void gt_mute_report_stream();
+inline void gt_articulate_error_stream();
+inline void gt_articulate_report_stream();
+
+// Labels
+#define GT_LABEL_ERROR "Error"
+#define GT_LABEL_FATAL_ERROR "Fatal error"
+#define GT_LABEL_DEBUG "GTDebug"
+#define GT_LABEL_LOG "GTLog"
+#define GT_LABEL_WARNING "Warning"
 
 /*
- * Low-level error handling functions
+ * StackTrace Printer
+ */
+void gt_print_stack_trace();
+
+/*
+ * Error Signal Handler
+ */
+void gt_handle_error_signals();
+
+/*
+ * Print ErrNo
+ */
+void gt_perror();
+
+/*
+ * Low-level code report functions
  *
  * E.g. EXITING ERROR (FATAL)
- *  _gt_error_begin_block(gt_error_name,args...) {
+ *  gt_report_error_begin_block(gt_label,gt_error_name,args...) {
  *    ..Code Block..
- *  } _gt_error_end_block(exit_error_code);
+ *  } gt_report_end_block__exit(exit_error_code,true/false);
  *
  * E.g. NOT-EXITING
- *  _gt_error_begin_block(gt_error_name,args...) {
+ *  gt_report_error_begin_block(gt_label,gt_report_msg,args...) {
  *    ..Code Block..
- *  } _gt_error_end_block(exit_error_code);
+ *  } gt_report_end_block();
  */
-#define _gt_error_begin_block(gt_error_name,args...) \
+#define gt_report_error_begin_block(gt_label,gt_error_name,args...) \
   do { \
-    register FILE* const error_stream=gt_error_get_stream(); \
-    fprintf(error_stream, \
-      "Fatal error (%s:%d,%s)\n "GT_ERROR_##gt_error_name"\n", \
-       GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
-    fflush(error_stream);
-#define _gt_error_end_block() \
+    if (!mute_error_stream) { \
+      register FILE* const error_stream=gt_error_get_stream(); \
+      fprintf(error_stream,gt_label" (%s:%d,%s)\n "GT_ERROR_##gt_error_name"\n", \
+        GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
+      fflush(error_stream); \
+    }
+#define gt_report_begin_block(gt_label,stream,gt_report_msg,args...) \
+  do { \
+    if (!mute_report_stream) { \
+      register FILE* const gt_stream=gt_##stream##_get_stream(); \
+      fprintf(gt_stream,gt_label" (%s:%d,%s)\n "gt_report_msg"\n", \
+        GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
+      fflush(gt_stream); \
+    }
+#define gt_report_raw_begin_block(gt_label,stream,gt_report_msg,args...) \
+  do { \
+    if (!mute_report_stream) { \
+      register FILE* const gt_stream=gt_##stream##_get_stream(); \
+      fprintf(gt_stream,gt_label":: "gt_report_msg"\n",##args); \
+      fflush(gt_stream); \
+    }
+#define gt_report__timestamp_begin_block(gt_label,stream,gt_report_msg,args...) \
+  do { \
+    if (!mute_report_stream) { \
+      register FILE* const gt_stream=gt_##stream##_get_stream(); \
+      gt_tfprintf(gt_stream,gt_label":: "gt_report_msg"\n",##args); \
+      fflush(gt_stream); \
+    }
+#define gt_report_end_block() \
   } while (0)
-#define _gt_error_end_block__exit(exit_error_code) \
-    gt_print_stack_trace(); \
-    exit(exit_error_code); \
+#define gt_report_end_block__exit(exit_code,print_stack_trace) \
+    if (print_stack_trace) gt_print_stack_trace(); \
+    exit(exit_code); \
   } while (0)
 /*
- * Error handlers
- */
-#define _gt_fatal_error(error_handling_function,exit_error_code,gt_error_name,args...) \
-  _gt_error_begin_block(gt_error_name,##args) { \
-    error_handling_function; \
-  } _gt_error_end_block__exit(exit_error_code)
-#define _gt_error(error_handling_function,gt_error_name,args...) \
-  _gt_error_begin_block(gt_error_name,##args) { \
-    error_handling_function; \
-  } _gt_error_end_block()
-/*
- * Error msg
- */
-#define gt_fatal_error_msg(gt_error_msg,args...) \
-  do { \
-  register FILE* const error_stream=gt_error_get_stream(); \
-  fprintf(error_stream, \
-    "Fatal error (%s:%d,%s)\n "gt_error_msg"\n", \
-     GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
-  fflush(error_stream); \
-  gt_print_stack_trace(); \
-  exit(1); \
-  } while (0)
-#define gt_error_msg(gt_error_msg,args...) \
-  do { \
-  register FILE* const error_stream=gt_error_get_stream(); \
-  fprintf(error_stream, \
-    "Error (%s:%d,%s)\n "gt_error_msg"\n", \
-     GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
-  fflush(error_stream); \
-  } while (0)
-/*
- * Succinct error handlers
+ * GT-Error handlers
  */
 #define gt_fatal_error(gt_error_name,args...) \
-  _gt_error_begin_block(gt_error_name,##args) \
-  _gt_error_end_block__exit(1)
+  gt_report_error_begin_block(GT_LABEL_FATAL_ERROR,gt_error_name,##args) \
+  gt_report_end_block__exit(1,1)
+#define gt_fatal_error__perror(gt_error_name,args...) \
+  gt_report_error_begin_block(GT_LABEL_FATAL_ERROR,gt_error_name,##args) \
+  gt_perror(); \
+  gt_report_end_block__exit(1,1)
 #define gt_error(gt_error_name,args...) \
-  do { \
-    register FILE* const error_stream=gt_error_get_stream(); \
-    fprintf(error_stream, \
-      "Fatal error (%s:%d,%s)\n "GT_ERROR_##gt_error_name"\n", \
-       GT_ERROR_BASENAME(__FILE__),__LINE__,__func__,##args); \
-    fflush(error_stream); \
-  } while (0)
+  gt_report_error_begin_block(GT_LABEL_ERROR,gt_error_name,##args) \
+  gt_report_end_block()
 /*
- * Exception handlers (conditional error handlers)
+ * ErrorMsg handlers
+ */
+#define gt_fatal_error_msg(gt_error_msg,args...) \
+  gt_report_begin_block(GT_LABEL_FATAL_ERROR,error,gt_error_msg,##args) \
+  gt_report_end_block__exit(1,1)
+#define gt_error_msg(gt_error_msg,args...) \
+  gt_report_begin_block(GT_LABEL_ERROR,error,gt_error_msg,##args) \
+  gt_report_end_block()
+/*
+ * GT-Warning handler
+ */
+#define gt_warn(gt_warning_name,args...) \
+  gt_report_error_begin_block(GT_LABEL_WARNING,gt_warning_name,##args) \
+  gt_report_end_block()
+/*
+ * GT-Exception handlers (conditional error handlers)
  */
 #define gt_cond_fatal_error(condition,gt_error_name,args...) \
   do { \
@@ -105,10 +154,31 @@ extern FILE* gt_error_stream;
       gt_fatal_error(gt_error_name,##args); \
     } \
   } while (0)
+#define gt_cond_fatal_error__perror(condition,gt_error_name,args...) \
+  do { \
+    if (__builtin_expect((condition),0)){ \
+      gt_fatal_error__perror(gt_error_name,##args); \
+    } \
+  } while (0)
 #define gt_cond_error(condition,gt_error_name,args...) \
   do { \
     if (__builtin_expect((condition),0)){ \
       gt_error(gt_error_name,##args); \
+    } \
+  } while (0)
+/*
+ * Exception handlers (conditional error handlers)
+ */
+#define gt_cond_fatal_error_msg(condition,gt_error_msg,args...) \
+  do { \
+    if (__builtin_expect((condition),0)){ \
+      gt_fatal_error_msg(gt_error_name,##args); \
+    } \
+  } while (0)
+#define gt_cond_error_msg(condition,gt_error_msg,args...) \
+  do { \
+    if (__builtin_expect((condition),0)){ \
+      gt_error_msg(gt_error_name,##args); \
     } \
   } while (0)
 /*
@@ -121,14 +191,67 @@ extern FILE* gt_error_stream;
 #else
   #define gt_fatal_check(condition,gt_error_name,args...)
   #define gt_check(condition,gt_error_name,args...)
-  #define gt_check_block(condition) if (false)
+  #define gt_check_block(condition) if (0)
 #endif
+/*
+ * Debug Utilities
+ */
+#ifdef GT_DEBUG
+  #define gt_debug(gt_debug_msg,args...) \
+    gt_report_raw_begin_block(GT_LABEL_DEBUG,debug,gt_debug_msg,##args) \
+    gt_report_end_block()
+  #define gt_debug_msg(gt_debug_msg,args...) \
+    gt_report_begin_block(GT_LABEL_DEBUG,debug,gt_debug_msg,##args) \
+    gt_report_end_block()
+  #define gt_cond_debug_msg(condition,gt_debug_msg,args...) \
+    do { \
+      if (__builtin_expect((condition),0)){ \
+        gt_debug_msg(gt_debug_msg,##args); \
+      } \
+    } while (0)
+  #define gt_debug_msg__stack(gt_debug_msg,args...) \
+    gt_debug_msg(gt_debug_msg,args...); \
+    gt_print_stack_trace();
+  #define gt_debug_block(condition) if (condition)
+#else
+  #define gt_debug_msg(gt_debug_msg,args...)
+  #define gt_debug_msg__stack(gt_debug_msg,args...)
+  #define gt_cond_debug_msg(condition,gt_debug_msg,args...)
+  #define gt_debug_block(condition) if (0)
+#endif
+/*
+ * Log Utilities
+ */
+#define gt_log(gt_log_msg,args...) \
+  gt_report__timestamp_begin_block(GT_LABEL_LOG,log,gt_log_msg,##args) \
+  gt_report_end_block()
+#define gt_slog(gt_log_msg,args...) \
+  do { \
+    if (!mute_report_stream) { \
+      register FILE* const gt_stream=gt_log_get_stream(); \
+      fprintf(gt_stream,gt_log_msg,##args); \
+      fflush(gt_stream); \
+    } \
+  } while (0)
+#define gt_cond_log(condition,gt_log_msg,args...) \
+  do { \
+    if (__builtin_expect((condition),0)){ \
+      gt_log(gt_log_msg,##args); \
+    } \
+  } while (0)
+
+/*
+ * Time Printed Formated functions
+ */
+gt_status gt_vtfprintf(FILE* stream,const char* format,va_list v_args);
+gt_status gt_tfprintf(FILE* stream,const char* format,...);
+gt_status gt_vtprintf(const char* format,va_list v_args);
+gt_status gt_tprintf(const char* format,...);
 
 /*
  * ERROR CODES/MSG
  *   #define GT_ERROR_<CODE> "<MSG>"
  */
-
 // Library/Program errors
 #define GT_ERROR_NOT_ZERO "Value Zero. Variable %s must be non-zero"
 #define GT_ERROR_POSITION_OUT_OF_RANGE "Requested position out of range"
@@ -136,17 +259,26 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_SELECTION_NOT_IMPLEMENTED "Library error. Selection not implemented"
 #define GT_ERROR_SELECTION_NOT_VALID "Library error. Selection not valid"
 #define GT_ERROR_ALG_INCONSISNTENCY "Library error. Algorithmic inconsistency, check your program"
+#define GT_ERROR_NOT_IMPLEMENTED "Function/Feature not implemented yet (sorry)"
 
 // Memory errors
 #define GT_ERROR_MEM_HANDLER "Could not allocate handler"
 #define GT_ERROR_MEM_ALLOC "Could not allocate memory"
 #define GT_ERROR_MEM_ALLOC_INFO "Could not allocate memory (%"PRIu64" requested)"
+#define GT_ERROR_MEM_ALLOC_DISK "Requested %"PRIu64" Bytes. Resorting to disk"
+#define GT_ERROR_MEM_ALLOC_MMAP_DISK_FAIL "Requested %"PRIu64" Bytes. Failed to mmap memory to '%s'"
+#define GT_ERROR_MEM_ALLOC_MMAP_FAIL "Requested %"PRIu64" Bytes. Failed to mmap memory"
 #define GT_ERROR_MEM_REALLOC "Could not reallocate memory"
+#define GT_ERROR_MEM_CURSOR_OUT_OF_SEGMENT "Current memory cursor is out of boundaries (Segmentation fault)"
+#define GT_ERROR_MEM_CURSOR_SEEK "Could not seek to address %"PRIu64". Out of boundaries (Segmentation fault)"
+#define GT_ERROR_MEM_ALG_FAILED "Failed aligning the memory address to the specified boundary"
 #define GT_ERROR_NULL_HANDLER "Null handler or fields not properly allocated"
 #define GT_ERROR_NULL_HANDLER_INFO "Null handler %s "
 
 // System errors
-#define GT_ERROR_SYS_MMAP "Could not map file '%s' to memory"
+#define GT_ERROR_SYS_ERROR "System error signal raised"
+#define GT_ERROR_SYS_MMAP "Mmap call error"
+#define GT_ERROR_SYS_MMAP_FILE "Could not map file '%s' to memory"
 #define GT_ERROR_SYS_UNMAP "Could not unmap memory"
 #define GT_ERROR_SYS_THREAD "Could not create thread"
 #define GT_ERROR_SYS_MUTEX "Mutex call error"
@@ -155,6 +287,8 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_SYS_COND_VAR "Conditional variable call error"
 #define GT_ERROR_SYS_COND_VAR_INIT "Conditional variable initialization error"
 #define GT_ERROR_SYS_COND_VAR_DESTROY "Conditional variable destroy call error"
+#define GT_ERROR_SYS_MKSTEMP "Could not create a temporal file (mkstemp:'%s')"
+#define GT_ERROR_SYS_HANDLE_TMP "Failed to handle temporal file"
 
 // String errors
 #define GT_ERROR_STRING_STATIC "Could not perform operation on static string"
@@ -163,7 +297,9 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_FILE_STAT "Could not stat file '%s'"
 #define GT_ERROR_FILE_OPEN "Could not open file '%s'"
 #define GT_ERROR_FILE_READ "Could not read from file '%s'"
+#define GT_ERROR_FILE_READ_FD "Could not read from file descriptor"
 #define GT_ERROR_FILE_WRITE "Could not write to file '%s'"
+#define GT_ERROR_FILE_SEEK "Could not seek file '%s' to %"PRIu64" "
 #define GT_ERROR_FILE_CLOSE "Could not close file '%s'"
 #define GT_ERROR_FILE_FORMAT "Could not determine file format"
 #define GT_ERROR_FILE_GZIP_OPEN "Could not open GZIPPED file '%s'"
@@ -172,6 +308,7 @@ extern FILE* gt_error_stream;
 // Output errors
 #define GT_ERROR_FPRINTF "Printing output. 'fprintf' call failed"
 #define GT_ERROR_SPRINTF "Printing output. 'sprintf' call failed"
+#define GT_ERROR_TPRINTF "Printing output. 'tprintf' call failed"
 #define GT_ERROR_BPRINTF "Printing output. Buffer print formated 'gt_bprintf' call failed"
 #define GT_ERROR_OFPRINTF "Printing output. Output File print formated 'gt_ofprintf' call failed"
 #define GT_ERROR_BOFPRINTF "Printing output. Buffered Output file print formated 'gt_bofprintf' call failed"
@@ -185,6 +322,7 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_COUNTERS_POS_STRATUM "Stratum must be strictly positive (stratum>0)"
 #define GT_ERROR_MAP_MISMS_NOT_PARSED "Map's mismatches not parsed yet"
 #define GT_ERROR_MAP_NEG_LENGTH "Negative Map total length"
+#define GT_ERROR_MAP_NEG_MAPPED_BASES "Negative number of bases mapped"
 #define GT_ERROR_ALIGNMENT_READ_QUAL_LENGTH "Read and quality length differs"
 #define GT_ERROR_ALIGNMENT_MAPS_NOT_PARSED "Alignment's maps not parsed yet"
 #define GT_ERROR_ALIGNMENT_INCONSISTENT_COUNTERS "Alignment inconsistency. Maps inconsistent with counters values"
@@ -201,6 +339,7 @@ extern FILE* gt_error_stream;
 // Sequence Archive/Segmented Sequence errors
 #define GT_ERROR_SEGMENTED_SEQ_IDX_OUT_OF_RANGE "Error accessing segmented sequence. Index %"PRIu64" out out range [0,%"PRIu64")"
 #define GT_ERROR_CDNA_IT_OUT_OF_RANGE "Error seeking sequence. Index %"PRIu64" out out range [0,%"PRIu64")"
+#define GT_ERROR_SEQ_ARCHIVE_WRONG_TYPE "Wrong sequence archive type"
 #define GT_ERROR_SEQ_ARCHIVE_NOT_FOUND "Sequence '%s' not found in reference archive"
 #define GT_ERROR_SEQ_ARCHIVE_POS_OUT_OF_RANGE "Requested position '%"PRIu64"' out of sequence boundaries"
 #define GT_ERROR_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE "Requested sequence string [%"PRIu64",%"PRIu64") out of sequence '%s' boundaries"
@@ -223,7 +362,6 @@ extern FILE* gt_error_stream;
 #define GT_ERROR_PARSE_MAP_BAD_TEMPLATE_SEP "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Read character '%c' not valid (%s)"
 #define GT_ERROR_PARSE_MAP_DIFF_TEMPLATE_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Different number of template blocks {read(%"PRIu64"),qualities(%"PRIu64")}"
 #define GT_ERROR_PARSE_MAP_NOT_AN_ALIGNMENT "Parsing MAP error(%s:%"PRIu64"). File doesn't contains simple alignments (use template)"
-#define GT_ERROR_PARSE_MAP_MAP_ALREADY_PARSED "Parsing MAP error(%s:%"PRIu64"). Maps already parsed or null lazy-parsing handler"
 #define GT_ERROR_PARSE_MAP_MISMS_ALREADY_PARSED "Parsing MAP error(%s:%"PRIu64"). Mismatch string already parsed or null lazy-parsing handler"
 #define GT_ERROR_PARSE_MAP_NOT_IMPLEMENTED "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Feature not implemented yet (sorry)"
 #define GT_ERROR_PARSE_MAP_PREMATURE_EOL "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Premature End-of-line found"

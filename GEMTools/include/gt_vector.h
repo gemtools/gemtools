@@ -1,34 +1,20 @@
 /*
  * PROJECT: GEM-Tools library
  * FILE: gt_vector.h
- * DATE: 01/06/2012
- * DESCRIPTION: This file implements vectors based on raw memory buffers.
- * AUTHOR:
- *   (C) 2008-2011 P. Ribeca <paolo.ribeca@gmail.com>, all rights reserved
- *   (C) 2011      S. Marco Sola <santiagomsola@gmail.com>, all rights reserved.
- *
- * This program is free software: you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
+ * DATE: 01/02/2013
+ * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
+ * DESCRIPTION: // TODO
  */
 
 #ifndef _GT_VECTOR_H_GUARD_
 #define _GT_VECTOR_H_GUARD_
 
 #include "gt_commons.h"
+#include "gt_error.h"
 
 // Codes gt_status
-#define GT_VECTOR_OK 1
-#define GT_VECTOR_FAIL 0
+#define GT_VECTOR_OK 0
+#define GT_VECTOR_FAIL 1
 
 /*
  * Checkers
@@ -61,6 +47,7 @@ typedef struct {
 #define gt_vector_dec_used(vector) (--((vector)->used))
 #define gt_vector_add_used(vector,additional) gt_vector_set_used(vector,gt_vector_get_used(vector)+additional)
 #define gt_vector_clear(vector) (vector)->used=0
+#define gt_vector_is_empty(vector) (gt_vector_get_used(vector)==0)
 // Initialization and allocation
 #define gt_vector_reserve_additional(vector,additional) gt_vector_reserve(vector,gt_vector_get_used(vector)+additional,false)
 #define gt_vector_prepare(vector,data_type,num_elements) \
@@ -89,7 +76,7 @@ typedef struct {
 
 #define gt_vector_set_elm(vector,position,type,elm) (*gt_vector_get_elm(vector,position,type) = elm)
 
-GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size);
+GT_INLINE gt_vector* gt_vector_new(size_t num_initial_elements,size_t element_size); // FIXME: wrt to type MACRO
 GT_INLINE gt_status gt_vector_reserve(gt_vector* vector,size_t num_elements,bool zero_mem);
 GT_INLINE gt_status gt_vector_resize__clear(gt_vector* vector,size_t num_elements);
 

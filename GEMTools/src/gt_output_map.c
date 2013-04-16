@@ -11,14 +11,13 @@
 #define GT_OUTPUT_MAP_COMPACT_COUNTERS_ZEROS_TH 5
 
 GT_INLINE gt_output_map_attributes* gt_output_map_attributes_new() {
-	gt_output_map_attributes* attr = malloc(sizeof(gt_output_map_attributes));
-	gt_cond_fatal_error(!attr,MEM_HANDLER);
-	gt_output_map_attributes_reset_defaults(attr);
-	return attr;
+	gt_output_map_attributes* attributes = gt_alloc(gt_output_map_attributes);
+	gt_output_map_attributes_reset_defaults(attributes);
+	return attributes;
 }
 GT_INLINE void gt_output_map_attributes_delete(gt_output_map_attributes* attributes) {
   GT_NULL_CHECK(attributes);
-	free(attributes);
+  gt_free(attributes);
 }
 GT_INLINE void gt_output_map_attributes_reset_defaults(gt_output_map_attributes* const attributes) {
   GT_NULL_CHECK(attributes);
@@ -71,25 +70,52 @@ GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_att
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,attributes,output_map_attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_tag,gt_string* const tag,gt_shash* const attributes,gt_output_map_attributes* const output_map_attributes);
 GT_INLINE gt_status gt_output_map_gprint_tag(
-    gt_generic_printer* const gprinter,gt_string* const tag,gt_shash* const attributes,gt_output_map_attributes* const output_map_attributes) {
+    gt_generic_printer* const gprinter,gt_string* const tag,gt_shash* const attributes,
+    gt_output_map_attributes* const output_map_attributes) {
+  GT_GENERIC_PRINTER_CHECK(gprinter);
+  GT_STRING_CHECK(tag);
+  GT_HASH_CHECK(attributes);
   // PRIgts needed as this calls gt_string_get_string downstream, which returns the full buffer not trimmed to length
   gt_gprintf(gprinter,PRIgts,PRIgts_content(tag));
   // Check if we have casava attributes
-  if (gt_output_map_attributes_is_print_casava(output_map_attributes) && gt_shash_is_contained(attributes,GT_TAG_CASAVA)) {
+  if (gt_output_map_attributes_is_print_casava(output_map_attributes) && gt_shash_is_contained(attributes,GT_ATTR_ID_TAG_CASAVA)) {
     // Print casava
-    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_shash_get(attributes,GT_TAG_CASAVA,gt_string)));
+    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_shash_get(attributes,GT_ATTR_ID_TAG_CASAVA,gt_string)));
   } else {
     // Append /1 /2 if paired
-    if (gt_shash_is_contained(attributes,GT_TAG_PAIR)) {
-      int64_t p = *gt_shash_get(attributes,GT_TAG_PAIR,int64_t);
-      if (p > 0) gt_gprintf(gprinter,"/%d",p);
+    if (gt_shash_is_contained(attributes,GT_ATTR_ID_TAG_PAIR)) {
+      int64_t p = *gt_shash_get(attributes,GT_ATTR_ID_TAG_PAIR,int64_t);
+      if (p > 0) gt_gprintf(gprinter,"/%"PRId64,p);
     }
   }
-  if(gt_output_map_attributes_is_print_extra(output_map_attributes) && gt_shash_is_contained(attributes,GT_TAG_EXTRA)) {
-    // Print additional
-    gt_gprintf(gprinter," "PRIgts, PRIgts_content(gt_shash_get(attributes,GT_TAG_EXTRA,gt_string)));
+  // Print additional info (extra tag)
+  if(gt_output_map_attributes_is_print_extra(output_map_attributes) && gt_shash_is_contained(attributes,GT_ATTR_ID_TAG_EXTRA)) {
+    gt_gprintf(gprinter," "PRIgts, PRIgts_content(gt_shash_get(attributes,GT_ATTR_ID_TAG_EXTRA,gt_string)));
   }
   return 0;
+}
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template_tag,gt_template* const template);
+GT_INLINE gt_status gt_output_map_gprint_template_tag(
+    gt_generic_printer* const gprinter,gt_template* const template) {
+  GT_GENERIC_PRINTER_CHECK(gprinter);
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_output_map_gprint_alignment_tag(gprinter,alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  gt_output_map_attributes output_map_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
+  return gt_output_map_gprint_tag(gprinter,template->tag,template->attributes,&output_map_attributes);
+}
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment_tag,gt_alignment* const alignment);
+GT_INLINE gt_status gt_output_map_gprint_alignment_tag(
+    gt_generic_printer* const gprinter,gt_alignment* const alignment) {
+  GT_GENERIC_PRINTER_CHECK(gprinter);
+  GT_ALIGNMENT_CHECK(alignment);
+  gt_output_map_attributes output_map_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
+  return gt_output_map_gprint_tag(gprinter,alignment->tag,alignment->attributes,&output_map_attributes);
 }
 /*
  * Internal MAP printers (take parameters as to control flow/format options)
@@ -208,8 +234,8 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
     }
   }
   // Print attributes (scores)
-  if (print_scores && gt_map_get_global_score(map)!=GT_MAP_NO_SCORE) {
-    gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_global_score(map));
+  if (print_scores && gt_map_get_score(map)!=GT_MAP_NO_GT_SCORE) {
+    gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_score(map));
   }
   // Print possible next blocks (out of the current sequence => split-maps across chromosomes)
   if (gt_map_has_next_block(map_it)) {
@@ -348,8 +374,8 @@ GT_INLINE gt_status gt_output_map_gprint_counters_g(gt_generic_printer* const gp
   GT_VECTOR_CHECK(counters);
   GT_HASH_CHECK(attributes);
   GT_NULL_CHECK(output_map_attributes);
-  register uint64_t* const mcs_ptr = (uint64_t*)gt_attribute_get(attributes,GT_ATTR_MAX_COMPLETE_STRATA);
-  register bool* const not_unique_flag = (bool*)gt_attribute_get(attributes,GT_ATTR_NOT_UNIQUE);
+  register uint64_t* const mcs_ptr = (uint64_t*)gt_attribute_get(attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA);
+  register bool* const not_unique_flag = (bool*)gt_attribute_get(attributes,GT_ATTR_ID_NOT_UNIQUE);
   return gt_output_map_gprint_counters_(gprinter,counters,output_map_attributes,
       ((mcs_ptr!=NULL) ? *mcs_ptr : UINT64_MAX),
       ((not_unique_flag!=NULL) ? *not_unique_flag : false));
@@ -413,8 +439,8 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_g(
           if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
           error_code|=gt_output_map_gprint_map_(gprinter,map,output_map_attributes,false,true);
         }
-        if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
-          gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
+        if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->gt_score!=GT_MAP_NO_GT_SCORE) {
+          gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->gt_score);
         }
         if (total_maps_printed>=output_map_attributes->max_printable_maps || total_maps_printed>=num_maps) return error_code;
         if (pending_maps==0) break;
@@ -486,8 +512,8 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_unsorted(
       GT_MULTIMAP_ITERATE(map_array,map,end_position) {
         if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
         error_code|=gt_output_map_gprint_map_(gprinter,map,output_map_attributes,false,true);
-        if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->score!=GT_MAP_NO_SCORE) {
-          gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->score);
+        if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->gt_score!=GT_MAP_NO_GT_SCORE) {
+          gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->gt_score);
         }
       }
     }
@@ -660,24 +686,22 @@ GT_INLINE gt_status gt_output_map_gprint_mismatch_summary(gt_generic_printer* co
   gt_gprintf(gprinter,"\n");
   return 0;
 }
-#define GT_OUTPUT_MAP_RELOAD_MISMS(map,misms_offset,misms_ptr) { \
-  if (misms_offset<gt_map_get_num_misms(map)) { \
-    misms_ptr=gt_map_get_misms(map,misms_offset); \
-  } else { \
-    misms_ptr=NULL; \
-  } \
-}
-GT_INLINE gt_status gt_output_map_gprint_pretty_alignment_(
+
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,pattern,pattern_length,sequence,sequence_length
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_map_block_pretty,gt_map* const map,
+    char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length);
+GT_INLINE gt_status gt_output_map_gprint_map_block_pretty(
     gt_generic_printer* const gprinter,gt_map* const map,
     char* const pattern,const uint64_t pattern_length,
-    char* const sequence,const uint64_t sequence_length,const uint64_t block_num) {
+    char* const sequence,const uint64_t sequence_length) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_MAP_CHECK(map);
   GT_NULL_CHECK(pattern); GT_NULL_CHECK(sequence);
   /*
-   * Print the alignment (in short)
+   * Print the map block (in short)
    */
-  gt_gprintf(gprinter,"#%lu{",block_num);
+  gt_gprintf(gprinter,"#{");
   gt_output_map_gprint_map_block(gprinter,map);
   gt_gprintf(gprinter,"}\n");
   /*
@@ -690,8 +714,9 @@ GT_INLINE gt_status gt_output_map_gprint_pretty_alignment_(
   register uint64_t pattern_centinel=0, sequence_centinel=0;
   // Init misms
   register uint64_t misms_offset=0, i;
+  register const uint64_t num_misms = gt_map_get_num_misms(map);
   register gt_misms* misms;
-  GT_OUTPUT_MAP_RELOAD_MISMS(map,misms_offset,misms);
+  GT_MAP_CHECK__RELOAD_MISMS_PTR(map,misms_offset,misms,num_misms);
   // Some printing artifacts
   for (i=0;i<4;++i) {
     gt_string_append_char(sequence_scheme,'-');
@@ -740,7 +765,7 @@ GT_INLINE gt_status gt_output_map_gprint_pretty_alignment_(
           break;
       }
       ++misms_offset;
-      GT_OUTPUT_MAP_RELOAD_MISMS(map,misms_offset,misms);
+      GT_MAP_CHECK__RELOAD_MISMS_PTR(map,misms_offset,misms,num_misms);
     } else { // Match
       if (pattern_centinel>=pattern_length || sequence_centinel>=sequence_length) {
         exception=true; break;
@@ -793,30 +818,67 @@ GT_INLINE gt_status gt_output_map_gprint_pretty_alignment_(
   gt_string_delete(pattern_scheme);
   return exception?1:0;
 }
-#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,print_all_blocks,pattern,pattern_length,sequence,sequence_length
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_pretty_alignment,
-    gt_map* const map,const bool print_all_blocks,char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length);
-GT_INLINE gt_status gt_output_map_gprint_pretty_alignment(
-    gt_generic_printer* const gprinter,gt_map* const map,const bool print_all_blocks,
-    char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length) {
+
+GT_INLINE gt_status gt_output_map_gprint_pretty_map_block_sa(
+    gt_generic_printer* const gprinter,gt_map* const map,gt_string* const pattern,
+    gt_sequence_archive* const sequence_archive) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_MAP_CHECK(map);
-  GT_NULL_CHECK(pattern); GT_NULL_CHECK(sequence);
-  // Print map (short)
-  gt_gprintf(gprinter,"[");
-  gt_output_map_gprint_map(gprinter,map);
-  gt_gprintf(gprinter,"] TotalBlocks=%lu\n",gt_map_get_num_blocks(map));
-  if (print_all_blocks) { // Print all the blocks (pretty)
-    register uint64_t block_pos = 0;
-    GT_MAP_ITERATE(map,map_block) {
-      gt_output_map_gprint_pretty_alignment_(gprinter,map_block,
-          pattern,pattern_length,sequence,sequence_length,block_pos++);
-    }
-  } else {
-    gt_output_map_gprint_pretty_alignment_(gprinter,map,
-        pattern,pattern_length,sequence,sequence_length,0);
-  }
-  return 0;
+  GT_STRING_CHECK(pattern);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  // Retrieve the sequence
+  register const uint64_t sequence_length = gt_map_get_length(map);
+  register gt_string* const sequence = gt_string_new(sequence_length+1);
+  register gt_status error_code;
+  if ((error_code=gt_sequence_archive_retrieve_sequence_chunk(sequence_archive,
+      gt_map_get_seq_name(map),gt_map_get_strand(map),gt_map_get_position(map),
+      sequence_length,0,sequence))) return error_code;
+  // Check Alignment
+  return gt_output_map_gprint_map_block_pretty(gprinter,map,
+      gt_string_get_string(pattern),gt_string_get_length(pattern),
+      gt_string_get_string(sequence),gt_string_get_length(sequence));
 }
 
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map,pattern,sequence_archive
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_map_pretty_sa,
+    gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive);
+GT_INLINE gt_status gt_output_map_gprint_map_pretty_sa(
+    gt_generic_printer* const gprinter,gt_map* const map,
+    gt_string* const pattern,gt_sequence_archive* const sequence_archive) {
+  GT_GENERIC_PRINTER_CHECK(gprinter);
+  GT_MAP_CHECK(map);
+  GT_STRING_CHECK(pattern);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  // Print map (short)
+  register const uint64_t num_blocks = gt_map_get_num_blocks(map);
+  if (num_blocks > 1) {
+    gt_gprintf(gprinter,"SM [ ");
+    gt_output_map_gprint_map(gprinter,map);
+    gt_gprintf(gprinter," ] TotalBlocks=%lu\n",gt_map_get_num_blocks(map));
+  } else {
+    gt_gprintf(gprinter,"RM ");
+  }
+  // Print all map blocks (Handle SMs)
+  register gt_status error_code;
+  if (num_blocks==1) { // Single-Block
+    return gt_output_map_gprint_pretty_map_block_sa(gprinter,map,pattern,sequence_archive);
+  } else { // Slit-Maps
+    register gt_string* read_chunk = gt_string_new(0);
+    register uint64_t offset = 0, block_num = 0;
+    GT_MAP_ITERATE(map,map_block) {
+      gt_string_set_nstring(read_chunk,gt_string_get_string(pattern)+offset,gt_map_get_base_length(map_block));
+      // Print the mapBlock number
+      gt_gprintf(gprinter,"#%lu/%lu",block_num,num_blocks);
+      // Print the map block pretty
+      if ((error_code=gt_output_map_gprint_pretty_map_block_sa(gprinter,map_block,read_chunk,sequence_archive))) {
+        gt_string_delete(read_chunk);
+        return error_code;
+      }
+      offset += gt_map_get_base_length(map_block);
+      ++block_num;
+    }
+    gt_string_delete(read_chunk);
+    return 0;
+  }
+}
