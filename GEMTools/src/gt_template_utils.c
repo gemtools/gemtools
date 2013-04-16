@@ -124,7 +124,7 @@ GT_INLINE gt_map** gt_template_put_mmap(
   register bool is_duplicated = gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp_fx,
       template,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr));
   register gt_map** template_mmap;
-  if (!is_duplicated || replace_duplicated) { // FIXME: Chose which to replace (like alignment)
+  if (!is_duplicated || replace_duplicated) { // TODO: Chose which to replace (like alignment)
     // Resolve mmap aliasing/insertion
     register gt_map** uniq_mmaps = malloc(gt_template_get_num_blocks(template)*sizeof(gt_map*));
     gt_template_alias_dup_mmap_members(gt_map_cmp_fx,template,mmap,uniq_mmaps);
