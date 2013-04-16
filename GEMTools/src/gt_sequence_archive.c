@@ -120,7 +120,7 @@ GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
   GT_NULL_CHECK(seq_id);
   GT_ZERO_CHECK(length);
   GT_STRING_CHECK_NO_STATIC(string);
-  register gt_status error_code;
+  gt_status error_code;
   // Retrieve the sequence
   gt_segmented_sequence* seg_seq = NULL;
   switch (seq_archive->sequence_archive_type) {
@@ -131,10 +131,7 @@ GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
     if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,position,length,string))) return error_code;
     break;
   case GT_BED_ARCHIVE:
-    // TODO
-
-    // gt_sequence_archive_get_bed_sequence_string ...
-
+    if ((error_code=gt_sequence_archive_get_bed_sequence_string(seq_archive,seq_id,position,length,string)) < 0) return error_code;
     break;
   default:
     gt_fatal_error(NOT_IMPLEMENTED);
@@ -151,29 +148,30 @@ GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
   GT_ZERO_CHECK(position);
   GT_NULL_CHECK(seq_id);
   GT_STRING_CHECK_NO_STATIC(string);
+  gt_status error_code;
   // Retrieve the sequence
-  gt_segmented_sequence* seg_seq = NULL;
+  gt_segmented_sequence* seg_seq = gt_sequence_archive_get_segmented_sequence(seq_archive,seq_id);
+  if (seg_seq==NULL) {
+    gt_error(SEQ_ARCHIVE_NOT_FOUND,seq_id);
+    return GT_SEQUENCE_NOT_FOUND;
+  }
+  // Calculate sequence's boundaries
+  const uint64_t sequence_total_length = seg_seq->sequence_total_length;
+  uint64_t init_position, total_length;
+  if (position-1 >= seg_seq->sequence_total_length) { // Check position
+    gt_error(SEQ_ARCHIVE_POS_OUT_OF_RANGE,position-1);
+    return GT_SEQUENCE_POS_OUT_OF_RANGE;
+  }
+  // Adjust init_position,total_length wrt strand
+  init_position = position-1;
+  if (strand==REVERSE) {
+    init_position = (extra_length>init_position) ? 0 : init_position-extra_length;
+  }
+  total_length = length+extra_length;
+  if (total_length >= sequence_total_length) total_length = seg_seq->sequence_total_length-1;
+  // Get the sequence string
   switch (seq_archive->sequence_archive_type) {
   case GT_CDNA_ARCHIVE:
-    seg_seq = gt_sequence_archive_get_segmented_sequence(seq_archive,seq_id);
-    if (seg_seq==NULL) {
-      gt_error(SEQ_ARCHIVE_NOT_FOUND,seq_id);
-      return GT_SEQUENCE_NOT_FOUND;
-    }
-    // Calculate sequence's boundaries
-    const uint64_t sequence_total_length = seg_seq->sequence_total_length;
-    uint64_t init_position, total_length;
-    if (position-1 >= seg_seq->sequence_total_length) { // Check position
-      gt_error(SEQ_ARCHIVE_POS_OUT_OF_RANGE,position-1);
-      return GT_SEQUENCE_POS_OUT_OF_RANGE;
-    }
-    // Adjust init_position,total_length wrt strand
-    init_position = position-1;
-    if (strand==REVERSE) {
-      init_position = (extra_length>init_position) ? 0 : init_position-extra_length;
-    }
-    total_length = length+extra_length;
-    if (total_length >= sequence_total_length) total_length = seg_seq->sequence_total_length-1;
     // Get the actual chunk
     //  register gt_status error_code; /* Error checking & reporting version */
     //  if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string))) {
@@ -183,7 +181,8 @@ GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
     gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string);
     break;
   case GT_BED_ARCHIVE:
-    // TODO
+    if ((error_code=gt_sequence_archive_get_bed_sequence_string(
+        seq_archive,seq_id,init_position,total_length,string)) < 0) return error_code;
     break;
   default:
     gt_fatal_error(NOT_IMPLEMENTED);

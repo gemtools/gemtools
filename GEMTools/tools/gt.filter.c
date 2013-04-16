@@ -211,8 +211,8 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src) {
     }
     // Add the mmap
     register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-    gt_template_add_mmap(template_dst,mmap_copy,mmap_attr);
-    gt_free(mmap_copy);
+    gt_template_insert_mmap(template_dst,mmap_copy,mmap_attr);
+    free(mmap_copy);
     // Skip the rest if best
     if (parameters.best_map) return;
   }
