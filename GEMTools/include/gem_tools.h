@@ -9,9 +9,8 @@
 #ifndef GEM_TOOLS_H_
 #define GEM_TOOLS_H_
 
-// Common
-#include "gt_commons.h"
-#include "gt_string.h"
+// Essentials
+#include "gt_essentials.h"
 #include "gt_dna_string.h"
 
 // Input handlers
@@ -47,6 +46,9 @@
 
 // HighLevel Modules
 #include "gt_stats.h"
+
+// GEM Idx Loader
+#include "gt_gemIdx_loader.h"
 
 // Merge functions (synch files)
 #define gt_merge_synch_map_files(input_mutex,paired_end,output_file,input_map_master,input_map_slave) \

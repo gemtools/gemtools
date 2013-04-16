@@ -353,13 +353,13 @@ GT_INLINE gt_status gt_input_fasta_parser_get_template(
     if ((error_code=gt_input_fasta_parser_get_alignment(buffered_fasta_input,alignment)) != GT_IFP_OK) {
       return error_code;
     }
-    //
-    gt_attribute_set(template->attributes,GT_TAG_PAIR,
-        gt_shash_get(alignment->attributes, GT_TAG_PAIR, int64_t),int64_t);
+    // Set pair attribute
+    gt_attribute_add(template->attributes,GT_ATTR_ID_TAG_PAIR,
+        gt_shash_get(alignment->attributes,GT_ATTR_ID_TAG_PAIR,int64_t),int64_t);
   } else {
     // copy pairing information to tag attributes
     int64_t pair = GT_PAIR_BOTH;
-    gt_attribute_set(template->attributes,GT_TAG_PAIR,&pair,int64_t);
+    gt_attribute_add(template->attributes,GT_ATTR_ID_TAG_PAIR,&pair,int64_t);
   }
   return GT_IFP_OK;
 }
@@ -373,8 +373,8 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
     gt_input_file* const input_multifasta_file,gt_sequence_archive* const sequence_archive) {
   GT_INPUT_FILE_CHECK(input_multifasta_file);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
-  // Clear sequence archive
-  gt_sequence_archive_clear(sequence_archive);
+  // Clear sequence archive (Why? Could be done in an accumulative fashion)
+  // gt_sequence_archive_clear(sequence_archive);
   // Check the file. Reload buffer if needed
   if (input_multifasta_file->eof) return GT_IFP_OK;
   GT_INPUT_FILE_CHECK(input_multifasta_file);
@@ -414,7 +414,7 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
       }
     }
     // Store the parsed sequence
-    gt_sequence_archive_add_sequence(sequence_archive,seg_seq);
+    gt_sequence_archive_add_segmented_sequence(sequence_archive,seg_seq);
   }
   gt_string_delete(buffer);
   return GT_IFP_OK;

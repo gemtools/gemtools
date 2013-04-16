@@ -9,28 +9,30 @@
 #ifndef GT_MAP_H_
 #define GT_MAP_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
+#include "gt_data_attributes.h"
+
 #include "gt_misms.h"
+#include "gt_dna_string.h"
 
-#define GT_MAP_NO_SCORE (-1)
-
-// Orientation (strand)
-typedef enum { FORWARD, REVERSE } gt_strand;
-// Types of junctions between map blocks
-typedef enum { NO_JUNCTION, SPLICE, POSITIVE_SKIP, NEGATIVE_SKIP, INSERT, JUNCTION_UNKNOWN } gt_junction_t;
-// Mismatch string format (lazy parsing)
-typedef enum { MISMATCH_STRING_GEMv0, MISMATCH_STRING_GEMv1 } gt_misms_string_t;
-
-typedef struct _gt_map gt_map; // Forward declaration of gt_map
+/*
+ * Constants
+ */
+#define GT_MAP_NO_GT_SCORE UINT64_MAX
+#define GT_MAP_NO_PHRED_SCORE 255
 
 /*
  * Junction (gt_map_junction)
  */
+// Types of junctions between map blocks
+typedef enum { NO_JUNCTION, SPLICE, POSITIVE_SKIP, NEGATIVE_SKIP, INSERT, JUNCTION_UNKNOWN } gt_junction_t;
+typedef struct _gt_map gt_map; // Forward declaration of gt_map
 typedef struct {
   gt_map* map;
   gt_junction_t junction;
   int64_t junction_size;
 } gt_map_junction;
+
 /*
  * Map (gt_map)
  */
@@ -41,13 +43,14 @@ struct _gt_map {
   uint64_t base_length; // Length not including indels
   gt_strand strand;
   /* Metrics */
-  int64_t score;
+  int64_t gt_score;
+  uint8_t phred_score;
   /* Mismatches/Indels */
   gt_vector* mismatches; /* (misms_t) */
-  char* misms_txt;
-  gt_misms_string_t misms_txt_format;
   /* Multiple Block Map (splice-map, local alignments, ...) */
   gt_map_junction* next_block;
+  /* Attributes */
+  gt_shash* attributes;
 };
 
 // Iterators
@@ -62,17 +65,20 @@ typedef struct {
   gt_map* next_map;
 } gt_map_block_iterator;
 
-// Checkers
-#define GT_MAP_CHECK(map) gt_fatal_check((map)==NULL||(map)->mismatches==NULL,NULL_HANDLER)
 /*
- *  TODO: Scheduled for v2.0 (all lazy parsing)
-  #define GT_MAP_EDITABLE_CHECK(map) \
-    GT_MAP_CHECK(map); \
-    gt_fatal_check(map->mismatches_txt!=NULL,MAP_MISMS_NOT_PARSED)
+ * Checkers
  */
+#define GT_MAP_CHECK(map) \
+  GT_NULL_CHECK(map); \
+  GT_NULL_CHECK((map)->mismatches)
 #define GT_MAP_NEXT_BLOCK_CHECK(map) \
   GT_NULL_CHECK(map->next_block); \
   GT_MAP_CHECK(map->next_block->map)
+/* TODO: Scheduled for v2.0 (all lazy parsing)
+ * #define GT_MAP_EDITABLE_CHECK(map) \
+ *   GT_MAP_CHECK(map); \
+ *  gt_fatal_check(map->mismatches_txt!=NULL,MAP_MISMS_NOT_PARSED)
+ */
 
 /*
  * Setup
@@ -91,18 +97,26 @@ GT_INLINE void gt_map_set_seq_name(gt_map* const map,char* const seq_name,const 
 GT_INLINE void gt_map_set_string_seq_name(gt_map* const map,gt_string* const seq_name);
 
 GT_INLINE uint64_t gt_map_get_global_position(gt_map* const map);
-GT_INLINE uint64_t gt_map_get_position_(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_position(gt_map* const map);
 GT_INLINE void gt_map_set_position(gt_map* const map,const uint64_t position);
 GT_INLINE gt_strand gt_map_get_strand(gt_map* const map);
 GT_INLINE void gt_map_set_strand(gt_map* const map,const gt_strand strand);
 GT_INLINE uint64_t gt_map_get_base_length(gt_map* const map); // Length of the base read (no indels)
 GT_INLINE void gt_map_set_base_length(gt_map* const map,const uint64_t length);
 
+// Attributes (lazy allocation of the attributes field)
+GT_INLINE void* gt_map_attribute_get(gt_map* const map,char* const attribute_id);
+GT_INLINE void gt_map_attribute_set_(gt_map* const map,char* const attribute_id,void* const attribute,const size_t element_size);
+#define gt_map_attribute_set(map,attribute_id,attribute,element_type) \
+    gt_map_attribute_set_(map,attribute_id,(void*)attribute,sizeof(element_type))
+
 // Local metrics (over first blocks)
 GT_INLINE uint64_t gt_map_get_length(gt_map* const map); // Indel taken into account to calculate the length
 GT_INLINE uint64_t gt_map_get_distance(gt_map* const map);
 GT_INLINE int64_t gt_map_get_score(gt_map* const map);
 GT_INLINE void gt_map_set_score(gt_map* const map,const int64_t score);
+GT_INLINE uint8_t gt_map_get_phred_score(gt_map* const map);
+GT_INLINE void gt_map_set_phred_score(gt_map* const map,const uint8_t phred_score);
 
 /*
  * Multiple Block Maps Handlers
@@ -148,10 +162,21 @@ GT_INLINE void gt_map_set_misms(gt_map* const map,gt_misms* misms,const uint64_t
 GT_INLINE uint64_t gt_map_get_num_misms(gt_map* const map);
 GT_INLINE void gt_map_set_num_misms(gt_map* const map,const uint64_t num_misms);
 
-GT_INLINE void gt_map_clear_misms_string(gt_map* const map);
-GT_INLINE char* gt_map_get_misms_string(gt_map* const map);
-GT_INLINE gt_misms_string_t gt_map_get_misms_string_format(gt_map* const map);
-GT_INLINE void gt_map_set_misms_string(gt_map* const map,char* misms_string,const gt_misms_string_t format);
+// Map check/recover operators
+#define GT_MAP_CHECK__RELOAD_MISMS_PTR(map,misms_offset,misms_ptr,num_misms) { \
+  if (misms_offset<num_misms) { \
+    misms_ptr=gt_map_get_misms(map,misms_offset); \
+  } else { \
+    misms_ptr=NULL; \
+  } \
+}
+#define GT_MAP_CHECK__RELOAD_MISMS(map,misms_offset,misms,num_misms) { \
+  if (misms_offset<num_misms) { \
+    misms=*gt_map_get_misms(map,misms_offset); \
+  } else { \
+    misms.position=UINT64_MAX; \
+  } \
+}
 
 // Counting
 GT_INLINE uint64_t gt_map_get_num_mismatch_bases(gt_map* const map);
@@ -165,7 +190,6 @@ GT_INLINE uint64_t gt_map_get_num_deletions(gt_map* const map);
 // Global metrics (over all blocks)
 GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map);
-GT_INLINE uint64_t gt_map_get_global_score(gt_map* const map);
 // Begin/End Position
 GT_INLINE uint64_t gt_map_get_begin_position(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_end_position(gt_map* const map);
@@ -182,7 +206,6 @@ GT_INLINE uint64_t gt_map_get_global_levenshtein_distance(gt_map* const map);
 // Vector based ( Metrics out of a set of maps )
 GT_INLINE uint64_t gt_map_vector_get_length(gt_vector* const maps);
 GT_INLINE uint64_t gt_map_vector_get_distance(gt_vector* const maps);
-GT_INLINE uint64_t gt_map_vector_get_score(gt_vector* const maps);
 // Map compare functions
 GT_INLINE int64_t gt_map_cmp(gt_map* const map_1,gt_map* const map_2);
 GT_INLINE int64_t gt_map_range_cmp(gt_map* const map_1,gt_map* const map_2,const uint64_t range_tolerated);
@@ -233,6 +256,5 @@ GT_INLINE uint64_t gt_map_next_misms_pos(gt_map_mism_iterator* const map_mism_it
   register gt_misms* misms; \
   gt_map_new_misms_iterator(map_block,&(__##misms##_iterator)); \
   while ((misms=gt_map_next_misms(&(__##misms##_iterator))))
-
 
 #endif /* GT_MAP_H_ */

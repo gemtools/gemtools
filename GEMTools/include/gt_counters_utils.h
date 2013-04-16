@@ -9,7 +9,7 @@
 #ifndef GT_COUNTERS_UTILS_H_
 #define GT_COUNTERS_UTILS_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 
 GT_INLINE int64_t gt_counters_get_uniq_degree(gt_vector* const counters);
 

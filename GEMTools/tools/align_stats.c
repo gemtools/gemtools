@@ -603,7 +603,7 @@ int main(int argc,char *argv[])
 						int64_t x=gt_template_get_insert_size(mmap,&gt_err);
 						if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param.min_insert && x<=param.max_insert) {
 							attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
-							attr.score=GT_MAP_NO_SCORE;
+							attr.gt_score=GT_MAP_NO_GT_SCORE;
 							gt_template_inc_counter(template,attr.distance+1);
 							gt_template_add_mmap_va(template,&attr,map1,map2);
 						}

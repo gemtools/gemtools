@@ -14,8 +14,7 @@
  * Setup
  */
 GT_INLINE gt_output_buffer* gt_output_buffer_new(void) {
-  gt_output_buffer* output_buffer = malloc(sizeof(gt_output_buffer));
-  gt_cond_fatal_error(!output_buffer,MEM_HANDLER);
+  gt_output_buffer* output_buffer = gt_alloc(gt_output_buffer);
   output_buffer->buffer=gt_vector_new(GT_OUTPUT_BUFFER_INITIAL_SIZE,sizeof(char));
   gt_output_buffer_initiallize(output_buffer,GT_OUTPUT_BUFFER_FREE);
   return output_buffer;
@@ -35,7 +34,7 @@ GT_INLINE void gt_output_buffer_initiallize(gt_output_buffer* const output_buffe
 GT_INLINE void gt_output_buffer_delete(gt_output_buffer* const output_buffer) {
   GT_OUTPUT_BUFFER_CHECK(output_buffer);
   gt_vector_delete(output_buffer->buffer);
-  free(output_buffer);
+  gt_free(output_buffer);
 }
 
 /*

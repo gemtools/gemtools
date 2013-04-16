@@ -9,7 +9,7 @@
 #ifndef GT_OUTPUT_MAP_H_
 #define GT_OUTPUT_MAP_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_template.h"
 #include "gt_output_buffer.h"
 #include "gt_buffered_output_file.h"
@@ -27,22 +27,22 @@
  * Output attributes
  */
 typedef struct {
-  /* TAG */
+  /* Tag */
   bool print_extra; // print extra information stored in attributes
-  bool print_casava; // if available print casava ids, otherwise, appends /1 /2 for paird reads
-  /* COUNTERS */
+  bool print_casava; // if available print casava ids, otherwise, appends /1 /2 for paired reads
+  /* Counters */
   bool compact;
-  /* MAPS */
+  /* Maps */
   bool print_scores; // Print alignment scores
   uint64_t max_printable_maps; // Maximum number of maps printed
 } gt_output_map_attributes;
 #define GT_OUTPUT_MAP_ATTR_DEFAULT() { \
-   /* TAG */ \
+   /* Tag */ \
   .print_extra=true, \
   .print_casava=true, \
-   /* COUNTERS */ \
+   /* Counters */ \
   .compact=false, \
-   /* MAPS */ \
+   /* Maps */ \
   .print_scores=true, \
   .max_printable_maps=GT_ALL \
 }
@@ -68,6 +68,8 @@ GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_att
  */
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_tag,gt_string* const tag,
     gt_shash* const attributes,gt_output_map_attributes* const output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_tag,gt_template* const template);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_tag,gt_alignment* const alignment);
 
 /*
  * MAP building block printers
@@ -124,7 +126,9 @@ GT_INLINE gt_status gt_output_map_bofprint_gem_template(gt_buffered_output_file*
  * Misc. Handy printers
  */
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_summary,gt_map* const map);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_pretty_alignment,gt_map* const map,const bool print_all_blocks,
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_block_pretty,gt_map* const map,
     char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_pretty_sa,gt_map* const map,
+    gt_string* const pattern,gt_sequence_archive* const sequence_archive);
 
 #endif /* GT_OUTPUT_MAP_H_ */

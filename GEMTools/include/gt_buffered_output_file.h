@@ -9,7 +9,7 @@
 #ifndef GT_BUFFERED_OUTPUT_FILE_H_
 #define GT_BUFFERED_OUTPUT_FILE_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_output_buffer.h"
 #include "gt_output_file.h"
 

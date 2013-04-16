@@ -120,6 +120,12 @@ GT_INLINE void gt_dna_string_reverse_complement_copy(gt_dna_string* const dna_st
   buffer_dst[length] = EOS;
   dna_string_dst->length = length;
 }
+GT_INLINE gt_dna_string* gt_dna_string_reverse_complement_dup(gt_dna_string* const dna_string) {
+  GT_STRING_CHECK(dna_string);
+  gt_dna_string* const dna_string_dst = gt_string_new(gt_string_get_length(dna_string)+1);
+  gt_dna_string_reverse_complement_copy(dna_string_dst,dna_string);
+  return dna_string_dst;
+}
 
 /*
  * DNA String Iterator

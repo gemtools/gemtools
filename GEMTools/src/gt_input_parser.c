@@ -17,7 +17,12 @@ GT_INLINE uint64_t gt_input_count_casava_fields(char* const field, uint64_t leng
   }
   return count;
 }
-
+/*
+ * GT tag parsing
+ *   Removes all pair info /1/2/3 and puts it as attribute
+ *   Parses CASAVA information
+ *   Parses EXTRA TAG information
+ */
 GT_INLINE gt_status gt_input_parse_tag(char** const text_line,gt_string* const tag,gt_shash* const attributes){
   // Delimit the tag
   register char* const tag_begin = *text_line;
@@ -59,7 +64,7 @@ GT_INLINE gt_status gt_input_parse_tag(char** const text_line,gt_string* const t
         GT_NEXT_CHAR(text_line);
       }
       attr_begin = *text_line;
-      gt_attribute_set_string(attributes,GT_TAG_CASAVA,casava_string);
+      gt_attribute_add_string(attributes,GT_ATTR_ID_TAG_CASAVA,casava_string);
     }
     GT_READ_UNTIL(text_line, **text_line==TAB);
     attr_length = *text_line-attr_begin;
@@ -70,13 +75,33 @@ GT_INLINE gt_status gt_input_parse_tag(char** const text_line,gt_string* const t
       GT_NEXT_CHAR(text_line);
     }
     attr_begin += attr_length;
-    gt_attribute_set_string(attributes,GT_TAG_EXTRA,extra_string);
+    gt_attribute_add_string(attributes,GT_ATTR_ID_TAG_EXTRA,extra_string);
   }
-  gt_attribute_set(attributes,GT_TAG_PAIR,&pair,int64_t);
+  gt_attribute_add(attributes,GT_ATTR_ID_TAG_PAIR,&pair,int64_t);
   // Skip separator
   if (!GT_IS_EOL(text_line)) {
     GT_NEXT_CHAR(text_line);
   }
   return GT_STATUS_OK;
+}
+
+GT_INLINE uint64_t gt_input_parse_tag_chomp_pairend_info(gt_string* const tag) {
+  GT_STRING_CHECK(tag);
+  // Parse the end information {/1,/2}
+  register const uint64_t tag_length = gt_string_get_length(tag);
+  if (tag_length>2 && *gt_string_char_at(tag,tag_length-2)==SLASH) {
+    register const char tag_end = *gt_string_char_at(tag,tag_length-1);
+    if (tag_end=='1') {
+      gt_string_set_length(tag,tag_length-2);
+      return GT_PAIR_PE_1;
+    } else if (tag_end=='2' || tag_end=='3') {
+      gt_string_set_length(tag,tag_length-2);
+      return GT_PAIR_PE_2;
+    } else {
+      return 0;
+    }
+  } else {
+    return 0;
+  }
 }
 

@@ -9,8 +9,7 @@
 #ifndef GT_DNA_STRING_H_
 #define GT_DNA_STRING_H_
 
-#include "gt_commons.h"
-#include "gt_map.h"
+#include "gt_essentials.h"
 
 #define GT_DNA_RANGE 5
 
@@ -21,6 +20,9 @@
 #define GT_DNA_CHAR_N 'N'
 
 #define gt_dna_string gt_string
+
+// Orientation (strand)
+typedef enum { FORWARD, REVERSE } gt_strand;
 
 typedef struct {
   gt_dna_string* dna_string;
@@ -78,6 +80,7 @@ GT_INLINE void gt_dna_string_set_nstring(gt_dna_string* const dna_string,char* c
 
 GT_INLINE void gt_dna_string_reverse_complement(gt_dna_string* const dna_string);
 GT_INLINE void gt_dna_string_reverse_complement_copy(gt_dna_string* const dna_string_dst,gt_dna_string* const dna_string_src);
+GT_INLINE gt_dna_string* gt_dna_string_reverse_complement_dup(gt_dna_string* const dna_string);
 
 /*
  * DNA String Iterator

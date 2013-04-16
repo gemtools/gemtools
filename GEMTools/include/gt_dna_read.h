@@ -9,7 +9,7 @@
 #ifndef GT_DNA_READ_H_
 #define GT_DNA_READ_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 
 typedef struct {
   gt_string* tag;

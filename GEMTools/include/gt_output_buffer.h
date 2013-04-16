@@ -9,7 +9,7 @@
 #ifndef GT_OUTPUT_BUFFER_H_
 #define GT_OUTPUT_BUFFER_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 
 typedef enum { GT_OUTPUT_BUFFER_FREE, GT_OUTPUT_BUFFER_BUSY, GT_OUTPUT_BUFFER_WRITE_PENDING } gt_output_buffer_state;
 

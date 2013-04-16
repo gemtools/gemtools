@@ -15,8 +15,7 @@
  * Constructor
  */
 GT_INLINE gt_dna_read* gt_dna_read_new(void) {
-  gt_dna_read* read = malloc(sizeof(gt_dna_read));
-  gt_cond_fatal_error(!read,MEM_HANDLER);
+  gt_dna_read* read = gt_alloc(gt_dna_read);
   read->tag = gt_string_new(GT_DNA_READ_TAG_INITIAL_LENGTH);
   read->read = gt_string_new(GT_DNA_READ_INITIAL_LENGTH);
   read->qualities = gt_string_new(GT_DNA_READ_INITIAL_LENGTH);

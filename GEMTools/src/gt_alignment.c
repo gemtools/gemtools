@@ -7,6 +7,7 @@
  */
 
 #include "gt_alignment.h"
+#include "gt_sam_data_attributes.h"
 
 #define GT_ALIGNMENT_TAG_INITIAL_LENGTH 100
 #define GT_ALIGNMENT_READ_INITIAL_LENGTH 150
@@ -17,8 +18,7 @@
  * Setup
  */
 GT_INLINE gt_alignment* gt_alignment_new() {
-  gt_alignment* alignment = malloc(sizeof(gt_alignment));
-  gt_cond_fatal_error(!alignment,MEM_HANDLER);
+  gt_alignment* alignment = gt_alloc(gt_alignment);
   alignment->alignment_id = UINT32_MAX;
   alignment->in_block_id = UINT32_MAX;
   alignment->tag = gt_string_new(GT_ALIGNMENT_TAG_INITIAL_LENGTH);
@@ -26,7 +26,6 @@ GT_INLINE gt_alignment* gt_alignment_new() {
   alignment->qualities = gt_string_new(GT_ALIGNMENT_READ_INITIAL_LENGTH);
   alignment->counters = gt_vector_new(GT_ALIGNMENT_NUM_INITIAL_COUNTERS,sizeof(uint64_t));
   alignment->maps = gt_vector_new(GT_ALIGNMENT_NUM_INITIAL_MAPS,sizeof(gt_map));
-  alignment->maps_txt = NULL;
   alignment->attributes = gt_attribute_new();
   alignment->alg_dictionary = NULL;
   return alignment;
@@ -36,7 +35,6 @@ GT_INLINE void gt_alignment_clear_handler(gt_alignment* const alignment) {
   gt_string_clear(alignment->tag);
   gt_string_clear(alignment->read);
   gt_string_clear(alignment->qualities);
-  alignment->maps_txt = NULL;
   gt_attribute_clear(alignment->attributes);
   if (alignment->alg_dictionary!=NULL) gt_alignment_dictionary_delete(alignment->alg_dictionary);
   alignment->alg_dictionary = NULL;
@@ -57,7 +55,7 @@ GT_INLINE void gt_alignment_delete(gt_alignment* const alignment) {
   gt_vector_delete(alignment->maps);
   gt_attribute_delete(alignment->attributes);
   if (alignment->alg_dictionary!=NULL) gt_alignment_dictionary_delete(alignment->alg_dictionary);
-  free(alignment);
+  gt_free(alignment);
 }
 
 /*
@@ -156,29 +154,37 @@ GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint
  */
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  register uint64_t* const mcs = (uint64_t*)gt_attribute_get(alignment->attributes,GT_ATTR_MAX_COMPLETE_STRATA);
+  register uint64_t* const mcs = (uint64_t*)gt_attribute_get(alignment->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA);
   if (mcs == NULL) return UINT64_MAX;
   return *mcs;
 }
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,uint64_t max_complete_strata) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_attribute_set(alignment->attributes,GT_ATTR_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
+  gt_attribute_add(alignment->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
 }
 GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  register bool* const not_unique_flag = (bool*)gt_attribute_get(alignment->attributes,GT_ATTR_NOT_UNIQUE);
+  register bool* const not_unique_flag = (bool*)gt_attribute_get(alignment->attributes,GT_ATTR_ID_NOT_UNIQUE);
   if (not_unique_flag==NULL) return false;
   return *not_unique_flag;
 }
 GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique) {
   GT_ALIGNMENT_CHECK(alignment);
-  gt_attribute_set(alignment->attributes,GT_ATTR_NOT_UNIQUE,&is_not_unique,bool);
+  gt_attribute_add(alignment->attributes,GT_ATTR_ID_NOT_UNIQUE,&is_not_unique,bool);
 }
 GT_INLINE int64_t gt_alignment_get_pair(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  return *((int64_t*)gt_attribute_get(alignment->attributes,GT_TAG_PAIR));
+  return *((int64_t*)gt_attribute_get(alignment->attributes,GT_ATTR_ID_TAG_PAIR));
 }
-
+GT_INLINE void gt_alignment_set_map_primary(gt_alignment* const alignment,gt_map* const map) {
+  GT_ALIGNMENT_CHECK(alignment);
+  GT_MAP_CHECK(map);
+  gt_attribute_add(alignment->attributes,GT_ATTR_ID_SAM_PRIMARY_ALIGNMENT,map,gt_map*);
+}
+GT_INLINE gt_map* gt_alignment_get_map_primary(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  return gt_attribute_get(alignment->attributes,GT_ATTR_ID_SAM_PRIMARY_ALIGNMENT);
+}
 
 /*
  * Maps Handlers
@@ -240,7 +246,6 @@ GT_INLINE void gt_alignment_handler_copy(gt_alignment* const alignment_dst,gt_al
   gt_string_copy(alignment_dst->tag,alignment_src->tag);
   gt_string_copy(alignment_dst->read,alignment_src->read);
   gt_string_copy(alignment_dst->qualities,alignment_src->qualities);
-  alignment_dst->maps_txt = alignment_src->maps_txt;
   // Copy attributes
   gt_shash_copy(alignment_dst->attributes,alignment_src->attributes);
 }
@@ -293,8 +298,7 @@ GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const al
  * Map Dictionary (For Fast Indexing)
  */
 GT_INLINE gt_alignment_dictionary_element* gt_alignment_dictionary_element_add(gt_alignment_dictionary* const alignment_dictionary,char* const key) {
-  gt_alignment_dictionary_element* alg_dicc_elem = malloc(sizeof(gt_alignment_dictionary_element));
-  gt_cond_fatal_error(!alg_dicc_elem,MEM_HANDLER);
+  gt_alignment_dictionary_element* alg_dicc_elem = gt_alloc(gt_alignment_dictionary_element);
   // Init Dictionary Element
   alg_dicc_elem->begin_position = gt_ihash_new();
   alg_dicc_elem->end_position = gt_ihash_new();
@@ -306,11 +310,10 @@ GT_INLINE void gt_alignment_dictionary_element_delete(gt_alignment_dictionary_el
   GT_NULL_CHECK(alg_dicc_elem);
   gt_ihash_delete(alg_dicc_elem->begin_position,true);
   gt_ihash_delete(alg_dicc_elem->end_position,true);
-  free(alg_dicc_elem);
+  gt_free(alg_dicc_elem);
 }
 GT_INLINE gt_alignment_dictionary* gt_alignment_dictionary_new(gt_alignment* const alignment) {
-  gt_alignment_dictionary* alignment_dictionary = malloc(sizeof(gt_alignment_dictionary));
-  gt_cond_fatal_error(!alignment_dictionary,MEM_HANDLER);
+  gt_alignment_dictionary* alignment_dictionary = gt_alloc(gt_alignment_dictionary);
   alignment_dictionary->maps_dictionary = gt_shash_new();
   alignment_dictionary->alignment = alignment;
   return alignment_dictionary;
@@ -321,13 +324,13 @@ GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const ali
     gt_alignment_dictionary_element_delete(alg_dicc_elem);
   } GT_SHASH_END_ITERATE;
   gt_shash_delete(alignment_dictionary->maps_dictionary,false);
-  free(alignment_dictionary);
+  gt_free(alignment_dictionary);
 }
 GT_INLINE void gt_alignment_dictionary_element_add_position(
     gt_alignment_dictionary_element* const alg_dicc_elem,const uint64_t begin_position,const uint64_t end_position,uint64_t const vector_position) {
   // Allocate new position in vector
-  register uint64_t* const vlpos_b = gt_malloc_int64();
-  register uint64_t* const vlpos_e = gt_malloc_int64();
+  register uint64_t* const vlpos_b = gt_malloc_uint64();
+  register uint64_t* const vlpos_e = gt_malloc_uint64();
   *vlpos_b = vector_position;
   *vlpos_e = vector_position;
   // Insert
@@ -370,7 +373,7 @@ GT_INLINE void gt_alignment_dictionary_record_position(
   if (ihash_element_b!=NULL) {
     *((uint64_t*)ihash_element_b->element) = vector_position;
   } else {
-    register uint64_t* const vlpos_b = gt_malloc_int64();
+    register uint64_t* const vlpos_b = gt_malloc_uint64();
     *vlpos_b = vector_position;
     gt_ihash_insert(alg_dicc_elem->begin_position,begin_position,vlpos_b,uint64_t);
   }
@@ -378,7 +381,7 @@ GT_INLINE void gt_alignment_dictionary_record_position(
   if (ihash_element_e!=NULL) {
     *((uint64_t*)ihash_element_e->element) = vector_position;
   } else {
-    register uint64_t* const vlpos_e = gt_malloc_int64();
+    register uint64_t* const vlpos_e = gt_malloc_uint64();
     *vlpos_e = vector_position;
     gt_ihash_insert(alg_dicc_elem->end_position,end_position,vlpos_e,uint64_t);
   }

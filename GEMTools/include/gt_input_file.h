@@ -9,8 +9,9 @@
 #ifndef GT_INPUT_FILE_H_
 #define GT_INPUT_FILE_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_data_attributes.h"
+#include "gt_sam_data_attributes.h"
 
 #include <zlib.h>
 #include <bzlib.h>
@@ -71,7 +72,6 @@ gt_status gt_input_file_close(gt_input_file* const input_file);
  * Advanced I/O
  *   // TODO
  */
-
 //gt_input_file* gt_input_file_segmented_file_open(
 //    char* const file_name,const bool mmap_file,
 //    const uint64_t segment_number,const uint64_t total_segments);

@@ -9,30 +9,8 @@
 #include "gt_compact_dna_string.h"
 
 /*
- * Blocks encoding dimensions
- */
-#define GT_CDNA_BLOCK_CHARS 64
-#define GT_CDNA_BLOCK_BITMAP_SIZE 8
-#define GT_CDNA_BLOCK_BITMAPS 3
-#define GT_CDNA_BLOCK_SIZE (GT_CDNA_BLOCK_BITMAP_SIZE*GT_CDNA_BLOCK_BITMAPS)
-
-/*
  * CDNA Bitmaps Encoding
  */
-#define GT_CDNA_ENC_CHAR_A 0
-#define GT_CDNA_ENC_CHAR_C 1
-#define GT_CDNA_ENC_CHAR_G 2
-#define GT_CDNA_ENC_CHAR_T 3
-#define GT_CDNA_ENC_CHAR_N 4
-
-#define GT_CDNA_ZERO_MASK       0xFFFFFFFFFFFFFFFEull
-#define GT_CDNA_ONE_MASK        0x0000000000000001ull
-#define GT_CDNA_ONE_LAST_MASK   0x8000000000000000ull
-#define GT_CDNA_ZERO_LAST_MASK  0x7FFFFFFFFFFFFFFFull
-
-#define GT_CDNA_EXTRACT_MASK      GT_CDNA_ONE_MASK
-#define GT_CDNA_EXTRACT_LAST_MASK GT_CDNA_ONE_LAST_MASK
-
 #define GT_CDNA_ENCODED_CHAR_BM0 ((uint8_t)1)
 #define GT_CDNA_ENCODED_CHAR_BM1 ((uint8_t)2)
 #define GT_CDNA_ENCODED_CHAR_BM2 ((uint8_t)4)
@@ -123,10 +101,9 @@ const uint8_t gt_cdna_encode[256] = {
  * Constructor
  */
 GT_INLINE gt_compact_dna_string* gt_cdna_string_new(const uint64_t initial_chars) {
-  gt_compact_dna_string* cdna_string = malloc(sizeof(gt_compact_dna_string));
-  gt_cond_fatal_error(!cdna_string,MEM_HANDLER);
+  gt_compact_dna_string* cdna_string = gt_alloc(gt_compact_dna_string);
   register const uint64_t initial_blocks = initial_chars ? GT_CDNA_GET_NUM_BLOCKS(initial_chars) : 1;
-  cdna_string->bitmaps = malloc(GT_CDNA_GET_BLOCKS_MEM(initial_blocks));
+  cdna_string->bitmaps = gt_malloc(GT_CDNA_GET_BLOCKS_MEM(initial_blocks));
   gt_cond_fatal_error(!cdna_string->bitmaps,MEM_ALLOC);
   cdna_string->allocated = GT_CDNA_GET_NUM_CHARS(initial_blocks);
   cdna_string->length = 0;
@@ -149,8 +126,8 @@ GT_INLINE void gt_cdna_string_clear(gt_compact_dna_string* const cdna_string) {
 }
 GT_INLINE void gt_cdna_string_delete(gt_compact_dna_string* const cdna_string) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
-  free(cdna_string->bitmaps);
-  free(cdna_string);
+  gt_free(cdna_string->bitmaps);
+  gt_free(cdna_string);
 }
 
 /*
@@ -230,7 +207,7 @@ GT_INLINE void gt_cdna_string_append_string(gt_compact_dna_string* const cdna_st
  */
 GT_INLINE void gt_cdna_string_new_iterator(
     gt_compact_dna_string* const cdna_string,const uint64_t position,gt_string_traversal const direction,
-    gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+    gt_compact_dna_string_iterator* const cdna_string_iterator) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
   GT_NULL_CHECK(cdna_string_iterator);
   // Initialize the iterator
@@ -243,7 +220,7 @@ GT_INLINE void gt_cdna_string_new_iterator(
   }
 }
 GT_INLINE void gt_cdna_string_iterator_seek(
-    gt_compact_dna_sequence_iterator* const cdna_string_iterator,
+    gt_compact_dna_string_iterator* const cdna_string_iterator,
     const uint64_t position,gt_string_traversal const direction) {
   GT_NULL_CHECK(cdna_string_iterator);
   GT_NULL_CHECK(cdna_string_iterator->cdna_string);
@@ -266,11 +243,11 @@ GT_INLINE void gt_cdna_string_iterator_seek(
         cdna_string_iterator->bm_0,cdna_string_iterator->bm_1,cdna_string_iterator->bm_2);
   }
 }
-GT_INLINE bool gt_cdna_string_iterator_eos(gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+GT_INLINE bool gt_cdna_string_iterator_eos(gt_compact_dna_string_iterator* const cdna_string_iterator) {
   GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator);
   return cdna_string_iterator->current_pos>=cdna_string_iterator->cdna_string->length;
 }
-GT_INLINE char gt_cdna_string_iterator_following(gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+GT_INLINE char gt_cdna_string_iterator_following(gt_compact_dna_string_iterator* const cdna_string_iterator) {
   GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator);
   GT_COMPACT_DNA_STRING_POSITION_CHECK(cdna_string_iterator->cdna_string,cdna_string_iterator->current_pos);
   // Extract character
@@ -289,7 +266,7 @@ GT_INLINE char gt_cdna_string_iterator_following(gt_compact_dna_sequence_iterato
   // Return the character decoded
   return character;
 }
-GT_INLINE char gt_cdna_string_iterator_previous(gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+GT_INLINE char gt_cdna_string_iterator_previous(gt_compact_dna_string_iterator* const cdna_string_iterator) {
   GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator);
   GT_COMPACT_DNA_STRING_POSITION_CHECK(cdna_string_iterator->cdna_string,cdna_string_iterator->current_pos);
   // Extract character
@@ -308,7 +285,7 @@ GT_INLINE char gt_cdna_string_iterator_previous(gt_compact_dna_sequence_iterator
   // Return the character decoded
   return character;
 }
-GT_INLINE char gt_cdna_string_iterator_next(gt_compact_dna_sequence_iterator* const cdna_string_iterator) {
+GT_INLINE char gt_cdna_string_iterator_next(gt_compact_dna_string_iterator* const cdna_string_iterator) {
   GT_COMPACT_DNA_STRING_ITERATOR_CHECK(cdna_string_iterator);
   return (cdna_string_iterator->direction==GT_ST_FORWARD) ?
       gt_cdna_string_iterator_following(cdna_string_iterator) :
