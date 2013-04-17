@@ -1,230 +1,159 @@
 .. _rna_pipeline:
 
-RNA Pipeline
-============
+RNA Pipeline Quickstart
+=======================
 
-General remarks
----------------
-To map things during this tutorial, we are going to use the GEM (GEnome Multi-tool)
-programs for short-read processing (see http://gemlibrary.sourceforge.net). Several
-programs are provided (continuous mapper, split mapper, etc.) all based on a common
-very optimized alignment library. You find more information about the mapper in
-http://www.nature.com/nmeth/journal/vaop/ncurrent/full/nmeth.2221.html.
-In general, alignment is performed by querying an FM-index. This requires the index to
-be pre-generated (command gem-indexer) and then loaded in memory (takes 1-2 times
-the length of the sequence to be indexed depending on the sampling rate). After that
-you map reads with either the gem-mapper or the gem-split-mapper, or both. After
-mapping you can re-reprocess the output —which is produced in a format proprietary to
-GEM, as SAM is not general enough and much bulkier— to score/select/combine/verify
-matches and create pipelines (command gem-map-2-map). Finally, you would convert to
-SAM (command gem-2-sam).
-Typical common options for all programs are -I (index file), -i (input file) and -o
-(output file). Input/output file can usually be omitted, as all the mappers work as filters
-(accepting input from stdin and writing the results on stdout — commands can be
-piped). In most cases programs are multi-threaded to improve wall-clock time, you just
-need to specify the option -T.
-In this tutorial we examine in some detail the GEM commends. However, if you are using
-the latest GEM distributions you do not actually need to learn all the details: a toplevel
-pipeline named gemtools is provided which performs for you all the steps needed to do
-RNA-seq mapping. You will just need to learn how to configure it.
+1) Download and install the gemtools
+------------------------------------
+If that goes well, you will have a "gemtools" command line tool available.
+Please check the `GEMTools homepage <http://gemtools.github.io/>`_ for download
+and installation instructions.
+
+2) Create a genome index
+------------------------
+In order to run the pipeline for any given genome, you need to create a gem 
+index for that particular genome. The gem-indexer takes a single single fasta 
+file as input. Assume you have a genome.fa file, you can create the .gem index
+by calling::
+
+    gemtools index -i genome.fa -t 8
+
+Here ``-t 8`` indicates to use 8 threads/cpus, put this to the number of cpus 
+available to you. The command will create 3 files just next to the fasta file::
+
+    genome.gem  -- the gem index
+    genome.hash -- hash version of the genome. You probably don't need this 
+                   and the creation can be avoided using --no-hash
+    genome.log  -- log file of the indexing process
+
+3) Transcriptome index
+---------------------------------
+If you have a genome annotation in GTF format available, you should
+create a transriptome index from that GTF file. Say you have an ``annotation.gtf``, 
+file. You can create a transcriptome index like this::
+
+    gemtools t-index -a annotation.gtf -i genome.gem -t 8
+
+The transcriptome indexer takes the annotation in GTF format and the previously
+generated .gem index as input. The ``-t 8`` again indicates that 8 threads should
+be used by the process.
+
+This creates 5 files in the current folder:
+
+    annotation.gtf.junctions      -- the splice junctions 
+    annotation.gtf.junctions.fa   -- the transcriptome
+    annotation.gtf.junctions.gem  -- the transcriptome index
+    annotation.gtf.junctions.keys -- keys to translate from transcriptome to genome
+    annotation.gtf.junctions.log  -- indexer log file
+
+The pipeline needs all the files except the log file and its searching for them
+automatically just next to the annotation fiel (if you do not specify the paths
+explicitly). For a quick start, just keep the files next to the annotation.
+
+4) Run the pipeline
+-------------------
+With the index and the optional transcript index you can run the pipeline.
+For this example, lets assume you have paired-end reads in two files 
+``reads_1.fastq.gz`` and ``reads_2.fastq.gz``.
+
+Run this command to get an overview of what will happen::
+
+    gemtools rna-pipeline -i genome.gem -a annotation.gtf -f reads_1.fastq -q 33 -t 8 --dry
+
+The tool will complain if anything is missing, otherwise it will print an
+overview of the pipeline steps. Note that we assume here that everything is in
+the same folder for the sake of simplicity. The main paramters are::
 
 
-Output Format
--------------
-The typical output format of GEM looks like this:
+    -i genome.gem     -- the gem genome index
+    -a annotation.gtf -- the annotation. You can just skip this if you don't 
+                         have one. Otherwise the tool will search for the transcriptome 
+                         index just next to the annotation. If you put it 
+                         somewhere else you have to explicitly set the paths. Call
+                         gemtools rna-pipeline --help for an overview of the available
+                         options.
 
-    HW I - S T 6 6 1 : 1 3 0 : C 0 3 7 K A C X X : 8 : 1 1 0 1 : 1 5 4 6 : 2 1 6 2 t a b
-    N G T T N A C A C C A A C T T G C G C A A A A A C A A C A G A C A G C C C T A T G C T G T C A G T G AA T T A G C A G G T C A T C A G A C T A G T G Cs p a c e
-    C T C G A A C T C T G G G A A T T C G A G C C A C A G C T C T G C C A G T A C C C C A A G A C T C A GC A C T A G T C T G A T G A C C T G C T A A T Tt a b
-    # 0 ; ? # 2 8 > ? @ ? > ? ? @ @ ? ? ? = < @ @ ? ? ? < < < > > ? 7 > ? ? ? ? ? > < ? ? ? > ? ? ? ? ? ?? ? ? ? ? ? ? @ @ > ? ? = ? ? > ; = ; = > > ? >s p a c e
-    @ C @ F D F F F H G H H D F D H I I I G H I J J > G C F G I I I J J I J I I I I I I J I G I G I G G BH < F F G D @ F G I H J > D G H H G G G E @ ? Ct a b
-    0 : 0 : 0 : 0 : 0 : 0 : 0 : 1 : 1 t a b
-    c h r 3 : - : 1 8 5 1 3 6 3 7 6 : T 3 C 3 4 C 4 C 2 4 C 5 : : c h r 3 : + : 1 8 5 1 3 6 3 2 6 : 2 4 T3 0 G 1 9 : : : 3 2 5 7 6 ,
-    c h r 1 5 : - : 6 6 7 9 5 4 8 7 : T 3 C 5 4 > 1 9 3 * 1 6 : : c h r 1 5 : + : 6 6 7 9 5 4 3 7 : 6 8 AA A 1 T 1 G : : : 1 3 8 8 8
+    -f reads_1.fastq  -- the input file. NOTE that by default we assume you have 
+                         paired end reads and we search for a second file called 
+                         reads_2.fastq.gz (works also for other variants like 
+                         reads.0.fastq, reads_0.fq). If it doesn't find the 
+                         second file, specify it explicitly like 
+                         -f reads_1.fastq.gz reads_2.fastq.gz. If you do NOT 
+                         HAVE PAREID reads, just specify the input file and 
+                         add --single-end to the paramters.
 
-There are 5 tab-separated fields:
+    -q 33             -- this is the quality offset. Should be 33 or 64, but 
+                         you have to specify this as figuring this out automatically
+                         can be expensive.
+    -t 8              -- threads again. This is important as it significantly 
+                         speeds up the runs!
 
-Read name. When paired alignments found, the trailing /1 and /2 are removed
-Read sequence. When more than one end present and paired alignments found, the
-sequences are presented one after the other, separated by spaces
-Read qualities. When more than one end present and paired alignments found, the
-sequences are presented one after the other, separated by spaces
+Now, if everything looks good, start the same command but remove the ``--dry`` 
+to actually start the run. With the default configuration you will get these 
+output files::
 
-Match summary. Counts of the alignments found for the read. A list of colonseparated numbers. The first number describes how many matches have been
-found having error 0, the second number how many alignments have been found
-having error 1, and so on. Occasionally a + can be found in place of a colon.
-Alignments. Either - (means ``no alignment found'') or a list of comma-separated
-alignments.
+    reads.map.gz    -- the gem aligned reads
+    reads.bam       -- alignments in bam format
+    reads.junctions -- the denovo junction sites found
+    reads.stats*    -- two sets of stats, *all* for all the mappings found, 
+                       *best* considering only the best mappings. You get two 
+                       files each. .txt is the human readable form, .json is 
+                       in JSON format so you can easily read the stats with 
+                       more or less any modern programming language.
 
-Each alignment has the following structure:
-Matching blocks. A list of one or more matching blocks, separated by a doublecolon sign `::'. Each matching block describes one or more alignment operations
-performed on the same (sequence,strand) couple.
-Annotations. An optional sequence of annotations, starting by a triple-colon
-sign `:::', and separated by colons. They encode additional global information for the alignment, typically its quality.
-Each matching block has the following fields, separated by colon signs:
-Matching sequence name. The name of the sequence in the reference the block is
-matching to.
-Matching sequence strand. The strand (`+' for forward, and `-' for reverse) of the
-sequence in the reference the block is matching to.
-Position. The lowest position (in 1-based strand-independent format) in the reference
-sequence the block is matching to.
-``GIGAR'' string. The ``GEM-CIGAR'', a description of the alignment in terms of basic
-operations. Such operations are written consecutively without any separator, and
-can be:
-Match. A number. For instance, 75 would mean that 75 bases have been
-matched exactly.
-Substitution. A letter. Indicates that in the reference that letter is present
-instead of the corresponding one present in the read.
-Skip. A sign `>' followed by a number n, and by one of the symbols `+', `-', `*'
-and `/'. Such four possible kinds of skips are:
-`+'. Skip of n positions in the genome, according to the natural direction
-of each strand (forward or left-to-right if the match is on the + strand,
-and backward or right-to-left if the match is on the - strand). Note
-that the skip may well be negative (for instance in the case of two
-partially overlapping sub-blocks).
-`-'. Skip of n positions in the read, walking the read from left to right.
-`*'. Splice of n positions (that is, as a skip of n positions in the genome,
-but with the additional constraint that a suitable splice-site consensus is obeyed by the sequences flanking the skipped block).
-One should note that, differently from the ordinary notion of ``insertion/deletion'', this notation is unambiguous, as no confusion is possible
-about where the indel is present (either read or sequence).
-Trim. The notation `(' followed by a number n followed by a symbol `)' represents a trim, that is a `-'-skip in the read with the additional constraint that
-the skip happens either at the beginning or at the end of the read.
-2An example of aligned block represented as a GIGAR string is the following:
-T3C54>193*16
-means ``replace a T at the beginning of the read to get the reference, match 3 bases
-exactly, replace the next one with a C, match 54 bases, skip 193 bases in the
-genome (it is a splice, and the consensus is obeyed), and finally match 16 bases
-exactly.
-Annotations. An optional sequence of annotations, separated by colons. They encode
-additional information for the alignment block.
-An example of alignment might thus be:
-chr15:-:66795487:T3C54>193*16::chr15:+:66795437:68AAA1T1G:::13888
-that is: the first read fragment (the first read end in this case) matches to the negative
-strand of chromosome 15 at position 66795487, with the alignment seen in the example
-above; the second read fragment (the second read end in this case) matches to the
-positive strand of the same chromosome, at position 66795437 (68 bases match exactly,
-then several mismatches are present). The overall quality for the paired end alignment
-is 13888.
-One should note that:
-• the GEM mapper always returns correct counters for all the matches up to some
-given stratum as per the mapping parameters specified by the user, although
-not all the matches might have been printed (depends on the command-line
-configuration)
-• the matches are sorted by increasing error (first come all the matches with error=0,
-if any, the all the matches with error=1, and so on)
-• any alignment can be represented in this format, without limitations (in particular,
-the GEM format is much more powerful than the SAM format). Hence, one should
-delay the transformation to SAM as much as possible, as it implies a loss of
-information
-• when a few matches are present (as typical in the case of longer reads) this format
-is several times more compact that SAM
-• tasks like SNP-calling can be performed without consulting the reference, thanks
-to the definition of the GIGAR string.
-Installation
-Nothing special is required, just unpack your GEM binaries into a directory of your
-choice. Then set the PATH so as to include that directory:
-export PATH=/my/GEM/directory/:$PATH
-Several kinds of binaries exist, some (the core_i3 series) providing better performance
-than others (the core_2 series). However, the most optimized ones might crash on your
-machine if your CPU does not provide support for some hardware instructions.
-Generating the index
-You have to run gem-indexer, which in turn will automatically call other programs to
-do the job. The input format is FASTA, the output a single file containing a GEM archive
-(extension .gem). In our case
+5) Run a stats report on the output
+-----------------------------------
+This step is optional, but allows a quick result check::
 
-g e m - i n d e x e r - i d m e l - a l l - c h r o m o s o m e - r 5 . 4 8 . f a s t a - o d m e l - a l l - c h r o m o s o m e - r 5 . 4 8
-with no special options will do the job. The only thing one might wish to tune is whether
-both strands or just one are indexed.
-Continuous mapping
-Once the index has been generated, running the mapper is pretty much straightforward.
-The mapper can perform both paired-end and single-end alignment, depending on your
-input. A typical command line might be (for single-end mapping):
-g e m - m a p p e r - I d m e l - a l l - c h r o m o s o m e - r 5 . 4 8 . g e m - i T E S T . f a s t q - q o f f s e t - 3 3 - m 4 - s 1 - e 8
-- - f a s t - m a p p i n g = 0 - - m i n - d e c o d e d - s t r a t a 2 - T 8
-Most relevant parameters are:
--q. quality type, necessary when FASTQ input
--m. number or fraction of mismatches
--e. number or fraction of errors
--s. number of match strata to be reported
--T. number of threads.
-In the case of paired-end mapping things go pretty much the same way, but for a few
-parameters more to specify how the mapper should handle pairing-related issues:
-g e m - m a p p e r - I d m e l - a l l - c h r o m o s o m e - r 5 . 4 8 . g e m - i T E S T . f a s t q - q o f f s e t - 3 3 - m 4 - s 1 - e 8
-- - f a s t - m a p p i n g = 0 - - m i n - d e c o d e d - s t r a t a 2 - T 8 - p - - m a x - i n s e r t - s i z e = 6 0 0 . . .
-The fine print
-There are many more subtleties about how you can tune the behavior of the GEM
-mapper, in particular with respect to paired-end mapping. As a general concept,
-the GEM mapper can map a pair either by first finding matches for one of the ends
-and subsequently extending them to the other end, or by first mapping the two ends
-independently and then recombining the matches for the two ends. In our case (RNA
-mapping) we will map the two ends of each pair separately, which is the simplest strategy
-(more control, less tuning — slower in the case of DNA mapping, the only possibility in
-the case of RNA).
-Hence we will use the gem-mapper in several invocations:
-1. as a single-end mapper (two times) to map end 1 and end 2 of each read
-2. as a pairer, giving it the final results of the mapping pipeline for both ends
-(the mapper decides what to do depending on the format of the input).
-General remarks about how GEMmaps reads
-GEM is quite different with respect to other mappers, in that it always reports all
-matches that exist within the alignment parameters specified by the user. No arbitrary
-choice is imposed on you — in the basic output of the mapper there is no such a thing
-as a ``probabilistic score'' or a ``best match'', as those concepts depend on priors which
-might not be the correct ones for your situation. You can rescore the matches by your
-score of choice later on, though.
+    gemtools report -i reads.stats.all.json -p
 
-Also, you can tune virtually all the alignment parameters as you like best. But remember:
-privilege implies responsibility! You will get better results, but you have to understand
-how the basics of the mapper work. We believe this is the correct approach to get the
-most out of your analysis (the field is full of biases generated by the fact that mappers
-work as ``black boxes'').
-RNAmapping
-Mapping RNA data is definitely more complicated, as it requires
-1. either a good knowledge of the annotation (splice junctions) — you can then
-perform continuous mapping to the annotated transcriptome
-2. or the ability of performing spliced mapping — you can then reconstruct/find denovo splice junctions out of splitting reads which have a sufficient support, and
-go back to step (1).
-To map our example dataset I have used a pipeline similar to the one that mapped the
-Geuvadis data. Actually it does several complicated things one after the other:
+The report command will create a .zip file with a graphical report (-p 
+indicates paired end reads). Unzip the file and open the index.html in 
+your web browser.
 
-A few words of caution. How this is done is not that relevant, what is done is. Inflexible
-setups where all the decisions have already been taken for you by somebody else are
-dangerous, so one should understand and master the data flow — the good data analyst
-should always be in control. This one is not necessarily the best analysis pipeline for all
-cases: some steps require decisions (pairing: what to discard? scoring: what is best?)
-and the pipeline might need some rewiring depending on the parameters of the run (for
-instance, the read length).
+Notes
+-----
+- the pipeline is restartable. When it failed at some point you can just try to restart the run, it will skip the already completed steps.
+- you can save pipeline configuration and reuse them later. This is handy if you have more datasets. For example::
 
-Preparation
-First of all, you need to have an annotation —as good as possible— of the organism you
-intend to map to. Typically such annotation will be made available to you as a .gff/.gtf
-file.
+    gemtools rna-pipeline -i genome.gem -a annotation.gtf -q 33 -t 8 --save config.gt
 
-    2 L F l y B a s e e x o n 1 1 9 2 2 5 6 1 1 9 2 6 2 5 . + . t r a n s c r i p t _ i d F B g n 0 0 3 1 3 2 2
-    2 L F l y B a s e e x o n 1 1 9 2 2 6 8 1 1 9 2 6 2 5 . + . t r a n s c r i p t _ i d F B g n 0 0 3 1 3 2 2
-    2 L F l y B a s e e x o n 1 1 9 6 2 1 6 1 1 9 6 8 0 7 . + . t r a n s c r i p t _ i d F B g n 0 0 3 1 3 2 2
-    2 L F l y B a s e e x o n 1 1 9 8 4 6 5 1 1 9 9 2 0 4 . - . t r a n s c r i p t _ i d F B g n 0 0 3 1 3 2 3
-    2 L F l y B a s e e x o n 1 1 9 9 4 1 2 1 1 9 9 9 2 4 . + . t r a n s c r i p t _ i d F B g n 0 2 6 3 0 8 0
-    2 L F l y B a s e e x o n 1 1 9 9 4 1 2 1 1 9 9 7 0 9 . + . t r a n s c r i p t _ i d F B g n 0 2 6 3 0 8 0
-    2 L F l y B a s e e x o n 1 2 0 0 2 0 5 1 2 0 0 6 6 3 . + . t r a n s c r i p t _ i d F B g n 0 2 6 3 0 8 1
-    2 L F l y B a s e e x o n 1 2 0 0 2 0 5 1 2 0 0 5 8 0 . + . t r a n s c r i p t _ i d F B g n 0 2 6 3 0 8 1
+  will not run anything but save the configuration to a ``config.gt`` file. 
+  You can reuse the configuration like this::
 
-The mapper actually does not understand this format, but a much simpler one defining
-only splice junctions:
+    gemtools rna-pipeline --load config.gt -f reads_A_1.fastq.gz
+    gemtools rna-pipeline --load config.gt -f reads_B_1.fastq.gz
+    gemtools rna-pipeline --load config.gt -f reads_C_1.fastq.gz
+    ....
 
-    2 L + 1 0 0 0 6 5 8 5 2 L + 1 0 0 0 6 9 0 8 3
-    2 L + 1 0 0 0 7 1 7 8 2 L + 1 0 0 0 7 2 5 2 1 7
-    2 L + 1 0 0 0 7 1 7 8 2 L + 1 0 0 0 7 2 5 5 2 2
-    2 L + 1 0 0 0 7 3 4 1 2 L + 1 0 0 0 7 4 1 4 1
-    2 L + 1 0 0 0 7 5 0 3 2 L + 1 0 0 0 7 5 6 7 4
-    2 L + 1 0 0 0 9 5 3 6 2 L + 1 0 0 1 0 3 6 0 2 0
-    2 L + 1 0 0 0 9 5 3 6 2 L + 1 0 0 1 0 7 3 7 1 0
-    2 L + 1 0 0 1 0 5 5 7 2 L + 1 0 0 1 0 7 3 7 8
-    2 L + 1 0 0 1 1 5 5 2 2 L + 1 0 0 1 1 6 0 7 7
+  All the configuration is taken from the config.gt file and you override the 
+  input file from the command line. Note that the configuration file is stored in
+  JSON format. You can read this easily and also create configuration files 
+  automatically.
 
-In fact, all the needed conversions are performed for you internally by the GEM RNA
-mapping pipeline provided with the GEM distribution.
-The input can be supplied in several ways (in case of paired-end data, as two separate
-files containing one end each, or as a single file containing interleaved ends, i.e. a file
-where for each read the two ends are presented one after the other).
-If you say gemtools, the pipeline will show you a (very long) list of options that you can
-use to modify its behavior. You can also use configuration files to drive it.
+- ``gemtools`` has a lot of options. Take a look with ``gemtools rna-pipeline --help``. Here are a few important ones::
+
+    --name         -- specify an output name, otherwise the input file name 
+                      is used as a template
+    --compress-all -- if you have very limited disk space, you can tell the 
+                      pipeline to compress all intermediate files on the fly. 
+                      This costs performance though!
+    --direct-input -- in case of limited disk space, add this to stream the 
+                      initial data directly into gem rather then creating a 
+                      dedicated input file.
+
+*LAST BUT VERY IMPORTANT NOTE*
+
+The pipeline expects to find ``samtools`` installed on the system. Try to get
+the lates samtools from their github repository
+(https://github.com/samtools/samtools -- clone or download and call make to
+build it). The latest version is multi-threaded (i.e. ``samtools view --help`` will
+show a ``-@`` paramter). Also, see if you have ``pigz`` installed in the system 
+you try to run gemtools on. ``pigz`` is a parallel compressor and the pipeline
+makes use of it if it is available. It will speed up compression steps a lot!
+
+Running into problems?
+----------------------
+Please do not hesitate to contact us if you run into any problems or you would
+like to see other features implemented. Please consider using the `GEMTools issue
+tracker <https://github.com/gemtools/gemtools/issues?>`_.
