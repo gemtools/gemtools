@@ -1463,7 +1463,7 @@ index generated from your annotation.""")
         bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=None, help="Do not create bam file")
         bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=None, help="Do not sort bam file")
         bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=None, help="Do not index the bam file")
-        bam_group.add_argument('--no-sequence-header', dest="sam_no_seq_header", action="store_true", default=None, help="Do not index the bam file")
+        bam_group.add_argument('--no-sequence-header', dest="sam_no_seq_header", action="store_true", default=None, help="Do not add the reference sequence header to the sam/bam file")
         bam_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
 
     def register_general(self, parser):
