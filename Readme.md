@@ -202,6 +202,12 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 
 Change log
 =====================
+	1.6.1
+    - GEMTools SAM conversion doesnow include the header again
+    - Pair detection fixed for reads with space in the id and not casava
+    - Pipeline -o paramter does create the output folder now automatically
+    - samtools sorter max memory is now properly set for the non-threads version
+    - Added option to create sam-compact format in the pipeline
 
     1.6
 	- Parallel file conversion for pipeline
