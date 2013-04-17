@@ -54,17 +54,23 @@ def _is_i3_compliant():
     return i3_flags.issubset(cpu_flags)
 
 
-def download(type):
+def download(type, target_dir=None):
     file_name = __DOWNLOAD_FILE_TEMPLATE__ % (__VERSION__, type)
     base_url = "%s/%s" % (__DOWNLOAD_URL__, file_name)
 
-    parent_dir = os.path.split(os.path.abspath(__file__))[0]
-    dirpath = "%s/%s" % (parent_dir, "downloads")
-    if not os.path.exists(dirpath):
-        os.makedirs(dirpath)
-    # support jenkins builds with latest artefacts
-    jenkins_src = "%s/jenkins-gem-binaries-%s.tgz" % (dirpath, type)
-    target = "%s/%s" % (dirpath, file_name)
+    if target_dir is None:
+        parent_dir = os.path.split(os.path.abspath(__file__))[0]
+        dirpath = "%s/%s" % (parent_dir, "downloads")
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath)
+        # support jenkins builds with latest artefacts
+        target = "%s/%s" % (dirpath, file_name)
+    else:
+        target = "%s/%s" % (target_dir, file_name)
+
+    parent_dir = os.path.split(os.path.abspath(target))[0]
+    jenkins_src = "%s/current-%s.tar.gz" % (parent_dir, type)
+
     if os.path.exists(jenkins_src):
         print "copy jenkins build for", type
         shutil.copyfile(jenkins_src, target)
@@ -161,8 +167,7 @@ def _install_bundle(install_dir, base=None):
         keep = True
     else:
         if not os.path.exists(target):
-            print "Downloading %s bundle from %s to %s" % (type, base_url, target)
-            urllib.urlretrieve(base_url, target)
+            download(type, dirpath)
 
     tar = subprocess.Popen("tar xzvf %s --exclude \"._*\"" % (os.path.abspath(target)), shell=True, cwd=dirpath)
     if tar.wait() != 0:
