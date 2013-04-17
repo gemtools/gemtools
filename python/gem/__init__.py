@@ -66,9 +66,9 @@ log_output = LOG_NOTHING
 
 
 default_splice_consensus = [("GT", "AG")]
-extended_splice_consensus = [("GT", "AG"), 
+extended_splice_consensus = [("GT", "AG"),
     ("GC", "AG"),
-    ("ATATC", "A."), 
+    ("ATATC", "A."),
     ("GTATC", "AT")]
 
 
@@ -799,7 +799,8 @@ def score(input,
 
 def gem2sam(input, index=None, output=None,
     single_end=False, compact=False, threads=1,
-    quality=None, check_ids=True, add_length=True, consensus=None):
+    quality=None, check_ids=True, add_length=True, consensus=None,
+    exclude_header=False):
 
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
@@ -811,6 +812,8 @@ def gem2sam(input, index=None, output=None,
     ]
     if index is not None:
         gem_2_sam_p.extend(['-I', index])
+        if not exclude_header:
+            gem_2_sam_p.append("-l")
     if add_length is not None:
         gem_2_sam_p.append('-l')
 

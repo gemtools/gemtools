@@ -277,7 +277,7 @@ class CreateBamStep(PipelineStep):
 
     def run(self):
         cfg = self.configuration
-        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality, consensus=cfg['consensus'])
+        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality, consensus=cfg['consensus'], exclude_header=cfg['sam_no_seq_header'])
         gem.sam2bam(sam, self._final_output(), sorted=cfg["sort"], mapq=cfg["mapq"], threads=self.pipeline.threads, sort_memory=self.pipeline.sort_memory)
 
 
@@ -590,6 +590,7 @@ class MappingPipeline(object):
         self.bam_create = True  # create bam
         self.bam_sort = True  # sort bam
         self.bam_index = True  # index bam
+        self.sam_no_seq_header = False  # exlude seq header
         self.single_end = False  # single end alignments
         self.write_config = None  # write configuration
         self.dry = False  # only dry run
@@ -886,6 +887,7 @@ class MappingPipeline(object):
         config.mapq = self.bam_mapq
         config.sort = self.bam_sort
         config.consensus = self.junctions_consensus
+        config.sam_no_seq_header = self.sam_no_seq_header
 
         if configuration is not None:
             self.__update_dict(config, configuration)
@@ -1445,6 +1447,7 @@ index generated from your annotation.""")
         bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=None, help="Do not create bam file")
         bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=None, help="Do not sort bam file")
         bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=None, help="Do not index the bam file")
+        bam_group.add_argument('--no-sequence-header', dest="sam_no_seq_header", action="store_true", default=None, help="Do not index the bam file")
         bam_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
 
     def register_general(self, parser):
