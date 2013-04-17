@@ -853,6 +853,10 @@ def _check_samtools(command, threads=1, extend=None):
         p.extend(extend)
     return p
 
+def __is_parallel_samtools():
+    if __parallel_samtools is None:
+        _check_samtools("view", threads=2)
+    return __parallel_samtools
 
 def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1, sort_memory="768M"):
     sam2bam_p = _check_samtools("view", threads=threads, extend=["-S", "-b"])
@@ -864,6 +868,18 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1,
     tools = [sam2bam_p]
     out_name = output
     if sorted:
+        if not __is_parallel_samtools():
+            # check the memory paramters
+            try:
+                m = int(sort_memory)
+                if m < 128 * 1024 * 128:  # ugly but we assume you give it at least 128 mb
+                    sort_memory = 768 * 1024 * 1024
+                    if m < 1024 * 32:
+                        sort_memory = m * 1024 * 1024
+            except Exception, e:
+                # convert to default byte
+                sort_memory = 768 * 1024 * 1024
+
         bam_sort = _check_samtools("sort", threads=threads, extend=["-m", str(sort_memory), "-o", "-"])
         suffix = ""
         if output is not None:
