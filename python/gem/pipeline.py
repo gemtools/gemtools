@@ -1313,7 +1313,7 @@ index generated from your annotation.""")
                 logging.gemtools.gt("Running step: %s" % step.name)
                 t = Timer()
 
-                if not os.path.exist(self.output_dir):
+                if not os.path.exists(self.output_dir):
                     # make sure we create the ouput folder
                     logging.gemtools.warn("Creating output folder %s", self.output_dir)
                     try:
