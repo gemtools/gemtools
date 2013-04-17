@@ -278,7 +278,7 @@ class CreateBamStep(PipelineStep):
 
     def run(self):
         cfg = self.configuration
-        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality, consensus=cfg['consensus'], exclude_header=cfg['sam_no_seq_header'])
+        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality, consensus=cfg['consensus'], exclude_header=cfg['sam_no_seq_header'], compact=cfg['sam_compact'])
         gem.sam2bam(sam, self._final_output(), sorted=cfg["sort"], mapq=cfg["mapq"], threads=self.pipeline.threads, sort_memory=self.pipeline.sort_memory)
 
 
@@ -592,6 +592,7 @@ class MappingPipeline(object):
         self.bam_sort = True  # sort bam
         self.bam_index = True  # index bam
         self.sam_no_seq_header = False  # exlude seq header
+        self.sam_compact = False  # sam compact format
         self.single_end = False  # single end alignments
         self.write_config = None  # write configuration
         self.dry = False  # only dry run
@@ -889,6 +890,7 @@ class MappingPipeline(object):
         config.sort = self.bam_sort
         config.consensus = self.junctions_consensus
         config.sam_no_seq_header = self.sam_no_seq_header
+        config.sam_compact = self.sam_compact
 
         if configuration is not None:
             self.__update_dict(config, configuration)
@@ -1180,6 +1182,7 @@ index generated from your annotation.""")
         printer("Compress output  : %s", self.compress)
         printer("Compress all     : %s", self.compress_all)
         printer("Create BAM       : %s", self.bam_create)
+        printer("SAM/BAM compact  : %s", self.sam_compact)
         printer("Sort BAM         : %s", self.bam_sort)
         printer("Index BAM        : %s", self.bam_index)
         printer("Keep Temporary   : %s", not self.remove_temp)
@@ -1464,6 +1467,7 @@ index generated from your annotation.""")
         bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=None, help="Do not sort bam file")
         bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=None, help="Do not index the bam file")
         bam_group.add_argument('--no-sequence-header', dest="sam_no_seq_header", action="store_true", default=None, help="Do not add the reference sequence header to the sam/bam file")
+        bam_group.add_argument('--compact', dest="sam_compact", action="store_true", default=None, help="Create sam/bam compact format where each read is represented as a single line and any multi-maps are encoded in extra fields. The selection is based on the score.")
         bam_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
 
     def register_general(self, parser):
