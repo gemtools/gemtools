@@ -4,6 +4,7 @@ import gem
 import json
 import logging
 import os
+import errno
 import signal
 import traceback
 
@@ -1027,6 +1028,7 @@ class MappingPipeline(object):
 
         if self.output_dir is None:
             self.output_dir = os.getcwd()
+
         self.output_dir = os.path.abspath(self.output_dir)
 
         if self.annotation is not None:
@@ -1307,6 +1309,20 @@ index generated from your annotation.""")
             if run_step or self.force or not step.is_done():
                 logging.gemtools.gt("Running step: %s" % step.name)
                 t = Timer()
+
+                if not os.path.exist(self.output_dir):
+                    # make sure we create the ouput folder
+                    logging.gemtools.warn("Creating output folder %s", self.output_dir)
+                    try:
+                        os.makedirs(self.output_dir)
+                    except OSError as exc: # Python >2.5
+                        if exc.errno == errno.EEXIST and os.path.isdir(path):
+                            pass
+                        else:
+                            logging.gemtools.error("unable to create output folder %s", self.output_dir)
+                            error = True
+                            break
+
                 try:
                     step.run()
                 except KeyboardInterrupt:
