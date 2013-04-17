@@ -131,7 +131,7 @@ GT_INLINE void gt_string_append_eos(gt_string* const string_dst) {
 GT_INLINE void gt_string_append_string(gt_string* const string_dst,char* const string_src,const uint64_t length) {
   GT_STRING_CHECK_NO_STATIC(string_dst);
   GT_NULL_CHECK(string_src);
-  register const uint64_t final_length = string_dst->length+length+1;
+  register const uint64_t final_length = string_dst->length+length;
   gt_string_resize(string_dst,final_length);
   gt_strncpy(string_dst->buffer+string_dst->length,string_src,length);
   string_dst->length = final_length;
@@ -139,7 +139,7 @@ GT_INLINE void gt_string_append_string(gt_string* const string_dst,char* const s
 GT_INLINE void gt_string_append_gt_string(gt_string* const string_dst,gt_string* const string_src) {
   GT_STRING_CHECK_NO_STATIC(string_dst);
   GT_STRING_CHECK(string_src);
-  register const uint64_t final_length = string_dst->length+string_src->length+1;
+  register const uint64_t final_length = string_dst->length+string_src->length;
   gt_string_resize(string_dst,final_length);
   gt_strncpy(string_dst->buffer+string_dst->length,string_src->buffer,string_src->length);
   string_dst->length = final_length;

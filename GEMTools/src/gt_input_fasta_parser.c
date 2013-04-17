@@ -432,7 +432,7 @@ GT_INLINE uint64_t gt_input_fasta_tag_chomp_end_info(gt_string* const tag) {
     if (tag_end=='1') {
       gt_string_set_length(tag,tag_length-2);
       return 0;
-    } else if (tag_end=='2') {
+    } else if (tag_end=='2' || tag_end=='3') {
       gt_string_set_length(tag,tag_length-2);
       return 1;
     } else {
