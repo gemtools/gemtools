@@ -20,6 +20,11 @@ with the library code. Note that the GEM binaries are distributed under the
 [*GEM Non commercial binary license*](http://algorithms.cnag.cat/wiki/GEM:Non_commercial_binary_license)
 while the GEM-Tools is licensed under GPL.
 
+Contact
+-------
+If you have any questions or you run into problems, feel free to join the 
+gemtools mailing list at gemtools@googlegroups.com
+
 Installation
 ==================
 The GEM-Tools library is distributed in three different flavors. You can get a
