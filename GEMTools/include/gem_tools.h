@@ -47,6 +47,7 @@
 
 // HighLevel Modules
 #include "gt_stats.h"
+#include "gt_gtf.h"
 
 // Merge functions (synch files)
 #define gt_merge_synch_map_files(input_mutex,paired_end,output_file,input_map_master,input_map_slave) \

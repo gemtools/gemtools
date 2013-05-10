@@ -184,9 +184,8 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
         }
 
     }
-
-    gt_output_fasta_attributes_delete(attributes);
-    gt_output_map_attributes_delete(map_attributes);
+    if(attributes != NULL) gt_output_fasta_attributes_delete(attributes);
+    if(map_attributes != NULL)gt_output_map_attributes_delete(map_attributes);
     gt_input_generic_parser_attributes_delete(parser_attributes);
 
     // register uint64_t i = 0;
@@ -257,5 +256,102 @@ void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired
   // }
 }
 
+void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
+    /*SE*/
+    GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+        GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+        GT_ALIGNMENT_ITERATE(alignment_src,map) {
+            // Check SM contained
+            register const uint64_t num_blocks = gt_map_get_num_blocks(map);
+            register const int64_t total_distance = gt_map_get_global_distance(map);
+            register const int64_t lev_distance = gt_map_get_global_levenshtein_distance(map);
+            if (params->min_event_distance > total_distance || total_distance > params->max_event_distance) continue;
+            //if (0 > lev_distance || lev_distance > 2) continue;
+            // Insert the map
+            gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+            // Skip the rest if best
+            //if (parameters.best_map) return;
+        }
+    } GT_TEMPLATE_END_REDUCTION__RETURN;
 
+    /*
+     * PE
+     */
+    register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+    GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
+        if(params->min_score > 0){
 
+        }
+        // Check strata
+        register const int64_t total_distance = gt_map_get_global_distance(mmap[0])+gt_map_get_global_distance(mmap[1]);
+        if (params->min_event_distance > total_distance || total_distance > params->max_event_distance) continue;
+
+        // Check levenshtein distance
+        register const int64_t lev_distance = gt_map_get_global_levenshtein_distance(mmap[0])+gt_map_get_global_levenshtein_distance(mmap[1]);
+        if (params->min_levenshtein_distance > lev_distance || lev_distance > params->max_levenshtein_distance) continue;
+
+        // Check inss
+        if (params->min_inss > INT64_MIN || params->max_inss < INT64_MAX) {
+            uint64_t gt_err;
+            register const int64_t inss = gt_template_get_insert_size(mmap,&gt_err);
+            if (params->min_inss > inss || inss > params->max_inss) continue;
+        }
+        // Check strandness
+        if (params->filter_by_strand) {
+            if (mmap[0]->strand==FORWARD && mmap[1]->strand==FORWARD) continue;
+            if (mmap[0]->strand==REVERSE && mmap[1]->strand==REVERSE) continue;
+        }
+        // Add the mmap
+        register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attr);
+        free(mmap_copy);
+      // Skip the rest if best
+//      if (parameters.best_map) return;
+    }
+}
+
+void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t threads, gt_filter_params* params){
+    // prepare attributes
+    gt_output_map_attributes* map_attributes = gt_output_map_attributes_new();
+    gt_output_map_attributes_set_print_extra(map_attributes, true);
+    gt_output_map_attributes_set_print_casava(map_attributes, true);
+
+    // generic parser attributes
+    gt_generic_parser_attr* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
+
+    if(params->max_matches > 0){
+        parser_attributes->map_parser_attr.max_parsed_maps = params->max_matches;
+    }
+
+    pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+    // main loop, cat
+    #pragma omp parallel num_threads(threads)
+    {
+        gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input);
+        gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);
+        gt_buffered_input_file_attach_buffered_output(buffered_input, buffered_output);
+        gt_template* template = gt_template_new();
+        gt_status status = 0;
+        register bool is_mapped = false;
+        // read
+        while( (status = gt_input_generic_parser_get_template(buffered_input,template, parser_attributes)) == GT_STATUS_OK ){
+            is_mapped = gt_template_is_mapped(template);
+            register const bool is_unique = gt_template_get_not_unique_flag(template);
+
+            if(is_mapped && (!is_unique || !params->keep_unique )){
+                gt_template *template_filtered = gt_template_copy(template,false,false);
+                gt_template_filter(template_filtered,template, params);
+                gt_template_delete(template);
+                template = template_filtered;
+                gt_template_recalculate_counters(template);
+            }
+            gt_output_map_bofprint_template(buffered_output, template, map_attributes);
+        }
+        gt_buffered_input_file_close(buffered_input);
+        gt_buffered_output_file_close(buffered_output);
+        gt_template_delete(template);
+    }
+    gt_output_map_attributes_delete(map_attributes);
+    gt_input_generic_parser_attributes_delete(parser_attributes);
+}

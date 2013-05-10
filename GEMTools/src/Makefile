@@ -20,7 +20,7 @@ SRCS=gem_tools.c \
      gt_input_parser.c gt_input_map_parser.c gt_input_sam_parser.c gt_input_fasta_parser.c gt_input_generic_parser.c \
      gt_buffered_output_file.c gt_output_file.c \
      gt_generic_printer.c gt_output_buffer.c gt_output_map.c gt_output_fasta.c \
-     gt_stats.c
+     gt_stats.c gt_gtf.c
 OBJS=$(addprefix $(FOLDER_BUILD)/, $(SRCS:.c=.o))
 GT_LIB=$(FOLDER_LIB)/libgemtools.a
 

@@ -13,6 +13,9 @@ cdef extern from "stdint.h":
     ctypedef int uint64_t
     ctypedef int int64_t
     ctypedef int uint32_t
+    cdef uint64_t UINT64_MAX
+    cdef int64_t INT64_MAX
+    cdef int64_t INT64_MIN
 
 cdef extern from "Python.h":
     ctypedef struct FILE
@@ -295,6 +298,7 @@ cdef extern from "gem_tools.h" nogil:
     gt_status gt_output_map_sprint_alignment(gt_string* string,gt_alignment* alignment,gt_output_map_attributes* attributes)
     gt_status gt_output_map_ofprint_template(gt_output_file* output_file,gt_template* template, gt_output_map_attributes* attributes)
 
+
 cdef extern from "gt_stats.h":
     ctypedef struct gt_maps_profile:
         uint64_t *mismatches
@@ -391,3 +395,16 @@ cdef extern from "gemtools_binding.h" nogil:
     void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map)
     void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_stats* target_best_stats, uint64_t num_threads, bool paired_end)
     void gt_stats_print_stats(FILE* output, gt_stats* stats, bool paired_end)
+    void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t threads, gt_filter_params* params)
+
+    ctypedef struct gt_filter_params:
+        uint64_t max_matches
+        uint64_t min_event_distance
+        uint64_t max_event_distance
+        uint64_t min_levenshtein_distance
+        uint64_t max_levenshtein_distance
+        int64_t max_inss
+        int64_t min_inss
+        bool filter_by_strand
+        bool keep_unique
+        uint64_t min_score

@@ -28,6 +28,7 @@ def gemtools():
             "gtf-junctions": gem.production.Junctions,
             "denovo-junctions": gem.production.JunctionExtraction,
             "stats": gem.production.Stats,
+            "filter": gem.production.Filter,
             "report": gem.production.StatsReport
         }
         instances = {}
