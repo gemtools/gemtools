@@ -157,3 +157,63 @@ Running into problems?
 Please do not hesitate to contact us if you run into any problems or you would
 like to see other features implemented. Please consider using the `GEMTools issue
 tracker <https://github.com/gemtools/gemtools/issues?>`_.
+
+Scoring Scheme
+============== 
+
+The `rna-pipeline` computes scores for each alignment. These scores are
+transformed to the SAM MAPQ field in the resulting SAM file. Here is the basic
+scheme, how the gem scores are calculated. 
+
+Best strata
+-----------
+The score for the best stratum is set as follows:
+
++---------------------------------+-------+-----------+-----------+
+|Match class                      |       | GEM score | SAM score |
++=================================+=======+===========+===========+
+|Unique, no subdominant match     | Best  |65504      |254        |
+|                                 +-------+-----------+-----------+
+|                                 | Worst |64512      |252        |
++---------------------------------+-------+-----------+-----------+
+|Unique, no subdominant match(es) | Best  |32736      |180        |
+|                                 +-------+-----------+-----------+
+|                                 | Worst |31744      |177        |
++---------------------------------+-------+-----------+-----------+
+|Not unique, different score      | Best  |16352      |127        |
+|                                 +-------+-----------+-----------+
+|                                 | Worst |15360      |123        |
++---------------------------------+-------+-----------+-----------+
+|Perfect tie                      | Best  |14304      |119        |
+|                                 +-------+-----------+-----------+
+|                                 | Worst |13312      |114        |
++---------------------------------+-------+-----------+-----------+
+
+
+Next strata
+-----------
+
+If the read contains more than one mapping, the score for the next stratum is
+calculated as:
+
++---------------------------------+-------+-----------+-----------+
+|Match class                      |       | GEM score | SAM score |
++=================================+=======+===========+===========+
+|Unique, no subdominant match     | Best  |8160       |89         |
+|                                 +-------+-----------+-----------+
+|                                 | Worst |5120       |71         |
++---------------------------------+-------+-----------+-----------+
+|Unique, no subdominant match(es) | Best  |12256      |110        |
+|                                 +-------+-----------+-----------+
+|                                 | Worst |9216       |95         |
++---------------------------------+-------+-----------+-----------+
+|Not unique, different score      | Best  |12256      |110        |
+|                                 +-------+-----------+-----------+
+|                                 | Worst |9216       |95         |
++---------------------------------+-------+-----------+-----------+
+|Perfect tie                      | Best  |12256      |110        |
+|                                 +-------+-----------+-----------+
+|                                 | Worst |9216       |95         |
++---------------------------------+-------+-----------+-----------+
+
+
