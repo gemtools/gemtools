@@ -4,7 +4,6 @@
 
 #include "gem_tools.h"
 
-#define is_good_mapq(qual, min) (qual >= 78 && (qual <= 90 || qual >= 119))
 #define get_mapq(score) ((int)floor((sqrt(score)/256.0)*255))
 
 typedef struct {
@@ -19,11 +18,16 @@ typedef struct {
   bool filter_by_strand;
   bool keep_unique;
   uint64_t min_score;
+  bool filter_groups;
+  bool group_1;
+  bool group_2;
+  bool group_3;
+  bool group_4;
 } gt_filter_params;
 
 
 void gt_merge_files_synch(gt_output_file* const output_file, uint64_t threads, const uint64_t num_files,  gt_input_file** files);
-void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map);
+void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map, bool remove_scores);
 void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_stats* target_best_stats, uint64_t num_threads, bool paired_end);
 bool gt_input_file_has_qualities(gt_input_file* file);
 void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired_end);

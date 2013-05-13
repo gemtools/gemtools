@@ -79,7 +79,7 @@ void gt_merge_files_synch(gt_output_file* const output_file, uint64_t threads, c
   }
 }
 
-void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map){
+void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map, bool remove_scores){
     // prepare attributes
 
     gt_output_fasta_attributes* attributes = 0;
@@ -93,9 +93,11 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
             gt_output_fasta_attributes_set_format(attributes, F_FASTA);
         }
     }else{
+
         map_attributes = gt_output_map_attributes_new();
         gt_output_map_attributes_set_print_extra(map_attributes, append_extra);
         gt_output_map_attributes_set_print_casava(map_attributes, !clean_id);
+        gt_output_map_attributes_set_print_scores(map_attributes, !remove_scores);
     }
 
     // generic parser attributes
@@ -256,6 +258,59 @@ void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired
   // }
 }
 
+void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
+
+  register bool is_4 = false;
+  register bool best_printed = false;
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
+    GT_TEMPLATE_REDUCTION(template_dst, alignment_dst);
+    GT_ALIGNMENT_ITERATE(alignment_src,map) {
+	  register const int64_t score = get_mapq(map->score);
+
+	  if(   (params->group_1 && 252 <= score && score <= 254)
+	     ||	(params->group_2 && 177 <= score && score <= 180)
+	     ||	(params->group_3 && 123 <= score && score <= 127)
+	     ||	(params->group_4 && (  (114 <= score && score <= 119)
+			                     ||(95  <= score && score <= 110 && is_4)))
+
+		) { 
+			if (!is_4 && 114 <= score && score <= 119){
+				is_4= true;
+			}
+			if(!best_printed) gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+			if(score > 119){
+				best_printed = true;
+			}
+      }
+    }
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+  is_4 = false;
+  best_printed = false;
+  GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
+	  register const int64_t score = get_mapq(mmap_attr->score);
+
+	  if(   (params->group_1 && 252 <= score && score <= 254)
+	     ||	(params->group_2 && 177 <= score && score <= 180)
+	     ||	(params->group_3 && 123 <= score && score <= 127)
+	     ||	(params->group_4 && (  (114 <= score && score <= 119)
+			                     ||(95  <= score && score <= 110 && is_4)))
+
+		) { 
+			if (!is_4 && 114 <= score && score <= 119){
+				is_4= true;
+			}
+			register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+			if(!best_printed)gt_template_add_mmap(template_dst,mmap_copy,mmap_attr);
+			if(score > 119){
+				best_printed = true;
+			}
+			free(mmap_copy);
+      }
+  }
+
+}
 void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
     /*SE*/
     GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
@@ -266,6 +321,7 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
             register const int64_t total_distance = gt_map_get_global_distance(map);
             register const int64_t lev_distance = gt_map_get_global_levenshtein_distance(map);
             if (params->min_event_distance > total_distance || total_distance > params->max_event_distance) continue;
+            if (params->min_levenshtein_distance > lev_distance || lev_distance > params->max_levenshtein_distance) continue;
             //if (0 > lev_distance || lev_distance > 2) continue;
             // Insert the map
             gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
@@ -336,6 +392,13 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
         register bool is_mapped = false;
         // read
         while( (status = gt_input_generic_parser_get_template(buffered_input,template, parser_attributes)) == GT_STATUS_OK ){
+			if(params->filter_groups){
+                gt_template *template_filtered = gt_template_copy(template,false,false);
+				gt_score_filter(template_filtered, template, params);
+                gt_template_delete(template);
+                template = template_filtered;
+                gt_template_recalculate_counters(template);
+			}
             is_mapped = gt_template_is_mapped(template);
             register const bool is_unique = gt_template_get_not_unique_flag(template);
 

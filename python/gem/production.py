@@ -77,8 +77,10 @@ class Filter(Command):
     def register(self, parser):
         ## required parameters
         parser.add_argument('-i', '--input', dest="input", help='Input map file', required=True)
+        parser.add_argument('--index', dest="index", help='Index to support rescoring', required=True)
+        parser.add_argument('-q', '--quality', dest="quality", help='Quality Offset 33|64', required=True)
         parser.add_argument('-t', '--threads', dest="threads", type=int, default=1, help='Number of threads')
-        parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+        parser.add_argument('-o', '--output', dest="output", help='Output file name.', required=True)
         parser.add_argument('--max-matched', dest="max_matches", type=int, default=0, help="Reduce the maximum number of alignments reported")
         parser.add_argument('--min-strata', dest="min_event_distance", type=int, default=0, help="Minimum number of strata (default 0)")
         parser.add_argument('--max-strata', dest="max_event_distance", type=int, default=None, help="Maximum number of strata (default all)")
@@ -89,14 +91,15 @@ class Filter(Command):
         parser.add_argument('--filter-strand', dest="filter_strand", action="store_true", default=False, help="Filter strand and allow only F-R or R-F")
         parser.add_argument('--keep-unique', dest="keep_unique", action="store_true", default=False, help="Always keep unique mappings as they are")
         parser.add_argument('--min-score', dest="min_score", default=None, help="Filter by score")
+        parser.add_argument('--group', dest="include_groups", nargs="*", choices=["I", "II", "III", "IV"], help="Include only the best mappings for groups I,II, and III and all mappings for IV")
 
     def run(self, args):
         infile = gem.files.open(args.input)
         outfile = None
-        if args.output is not None:
-            outfile = gt.OutputFile(args.output)
-        else:
-            outfile = gt.OutputFile(sys.stdout)
+        name = args.output
+        threads = int(args.threads)
+        outfile = gt.OutputFile("%s.map" % name)
+        #outfile = gt.OutputFile(sys.stdout)
         params = {
             "max_matches": args.max_matches,
             "min_event_distance": args.min_event_distance,
@@ -115,8 +118,32 @@ class Filter(Command):
             params["max_inss"] = args.max_inss
         if args.min_score is not None:
             params["min_score"] = args.min_score
+        if args.include_groups is not None:
+            params["filter_groups"] = True
+            if "I" in args.include_groups:
+                params["group_1"] = True
+            if "II" in args.include_groups:
+                params["group_2"] = True
+            if "III" in args.include_groups:
+                params["group_3"] = True
+            if "IV" in args.include_groups:
+                params["group_4"] = True
+        else:
+            params["filter_groups"] = False
 
-        gt.filter_map(infile, outfile, params, threads=args.threads)
+        scored = gem.score(infile, args.index, quality=args.quality,
+                           threads=threads/2)
+        gt.filter_map(scored, outfile, params, threads=threads)
+        outfile.close()
+        sam = gem.gem2sam(gem.files.open("%s.map" % name), index=args.index,
+                          threads=threads/2,
+                          quality=args.quality,
+                          consensus=gem.extended_splice_consensus,
+                          )
+        gem.sam2bam(sam, output=("%s.bam" % name),
+                           sorted=True,
+                           threads=threads, sort_memory="2G")
+        gem.bamIndex("%s.bam" % name)
 
 
 class StatsReport(Command):

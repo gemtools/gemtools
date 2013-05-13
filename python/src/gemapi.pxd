@@ -392,7 +392,7 @@ cdef extern from "gt_stats.h":
 
 cdef extern from "gemtools_binding.h" nogil:
     void gt_merge_files_synch(gt_output_file* output_file, uint64_t threads, uint64_t num_files, gt_input_file** files)
-    void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map)
+    void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map, bool remove_scores)
     void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_stats* target_best_stats, uint64_t num_threads, bool paired_end)
     void gt_stats_print_stats(FILE* output, gt_stats* stats, bool paired_end)
     void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t threads, gt_filter_params* params)
@@ -408,3 +408,8 @@ cdef extern from "gemtools_binding.h" nogil:
         bool filter_by_strand
         bool keep_unique
         uint64_t min_score
+        bool filter_groups
+        bool group_1
+        bool group_2
+        bool group_3
+        bool group_4
