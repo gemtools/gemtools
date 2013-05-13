@@ -389,13 +389,6 @@ GT_INLINE gt_status gt_output_map_gprint_map_list_g(
   }
   return error_code;
 }
-
-int _cmp_score(const void *a, const void *b) {
-	if(((int64_t*)a) > ((int64_t*)b) ) return -1;
-	if(((int64_t*)a) < ((int64_t*)b) ) return 1;
-	return 0;
-}
-
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,output_map_attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_template_maps_g,gt_template* const template,gt_output_map_attributes* const output_map_attributes);
@@ -410,29 +403,9 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_g(
   } else {
     register const uint64_t num_maps = gt_template_get_num_mmaps(template);
     uint64_t strata = 0, pending_maps = 0, total_maps_printed = 0;
-	int64_t scores[num_maps];
-	register uint64_t i = 0;
-    if (output_map_attributes->print_scores) {
-		GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) {
-			if (map_array_attr!=NULL) {
-				scores[i++] = map_array_attr->score;
-			}else{
-				scores[i++] = GT_MAP_NO_SCORE;
-			}
-		}
-		qsort(scores, num_maps, sizeof(int64_t), _cmp_score);
-	}
-	i = 0;
     while (gt_template_get_next_matching_strata(template,strata,&strata,&pending_maps)) {
       GT_TEMPLATE__ATTR_ITERATE(template,map_array,map_array_attr) {
         if (map_array_attr->distance!=strata) continue;
-        if (output_map_attributes->print_scores) {
-			register int64_t score = map_array_attr == NULL ? GT_MAP_NO_SCORE: map_array_attr->score;
-			if(scores[i] != score){
-				continue;
-			}
-			i++;
-		}
         // Print mmap
         --pending_maps;
         if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
@@ -446,19 +419,16 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps_g(
         if (total_maps_printed>=output_map_attributes->max_printable_maps || total_maps_printed>=num_maps) return error_code;
         if (pending_maps==0) break;
       }
-	  if(i >= num_maps){
-		if (pending_maps>0) {
-			error_code = GT_MOE_INCONSISTENT_COUNTERS;
-			gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
-		}
-		++strata;
-	  }
+      if (pending_maps>0) {
+        error_code = GT_MOE_INCONSISTENT_COUNTERS;
+        gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
+      }
+      ++strata;
     }
     if (gt_expect_false(total_maps_printed!=num_maps)) {
       error_code = GT_MOE_INCONSISTENT_COUNTERS;
       gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
     }
-	free(scores);
   }
   return error_code;
 }
