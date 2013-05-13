@@ -216,4 +216,4 @@ calculated as:
 |                                 | Worst |9216       |95         |
 +---------------------------------+-------+-----------+-----------+
 
-
+In addition, the optional SAM field *XT* is set to *R* for all perfect ties and to *U* for all other alignments.
