@@ -123,7 +123,7 @@ GT_INLINE gt_status gt_input_generic_parser_synch_blocks_va(
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input);
   va_list v_args;
   va_start(v_args,buffered_input);
-  register gt_status error_code = gt_input_generic_parser_synch_blocks_v(input_mutex,attributes,num_inputs,buffered_input,v_args);
+  gt_status error_code = gt_input_generic_parser_synch_blocks_v(input_mutex,attributes,num_inputs,buffered_input,v_args);
   va_end(v_args);
   return error_code;
 }

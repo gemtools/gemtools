@@ -9,49 +9,6 @@
 #include "gt_template_utils.h"
 
 /*
- * Template useful functions
- */
-//GT_INLINE void gt_template_deduce_alignments_tags(gt_template* const template) { // FIXME DELETEME
-//  /*
-//   * Tag Block Conventions::
-//   *  (1) line1: NAME => line1&2: NAME
-//   *      line2: NAME
-//   *  (2) line1: NAME<SEP>SOMETHING_ELSE_1 => line1&2: NAME<SEP>SOMETHING_ELSE_1|NAME<SEP>SOMETHING_ELSE_2
-//   *      line2: NAME<SEP>SOMETHING_ELSE_2
-//   *  (3) line1: NAME<SEP>1 => line1&2: NAME
-//   *      line2: NAME<SEP>2
-//   * Tag Decomposition::
-//   *  (<TAG_BLOCK><SEP>){num_blocks}
-//   *    -> tag.num_blocks == read.num_blocks
-//   *    -> <SEP> := ' ' | '/' | '#' | "|"  // TODO
-//   */
-//  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-//  register uint64_t i;
-//  for (i=0;i<num_blocks;++i) {
-//    register gt_alignment* const alignment = gt_template_get_block(template,i);
-//    gt_sprintf(alignment->tag,"%s/%"PRIu64,gt_string_get_string(template->tag),i+1);
-//  }
-//}
-//GT_INLINE void gt_template_deduce_template_tag(gt_template* const template,gt_alignment* const alignment) {
-//  register uint64_t tag_length = gt_alignment_get_tag_length(alignment);
-//  register gt_string* const tag = alignment->tag;
-//  if (tag_length>2 && *gt_string_char_at(tag,tag_length-2)==SLASH) {
-//    tag_length-=2;
-//  }
-//  if (tag_length>0) {
-//    gt_string_set_nstring(template->tag,gt_string_get_string(tag),tag_length);
-//  }
-//}
-//GT_INLINE void gt_template_dup_tags_to_alignments(gt_template* const template) {
-//  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-//  register uint64_t i;
-//  for (i=0;i<num_blocks;++i) {
-//    register gt_alignment* const alignment = gt_template_get_block(template,i);
-//    gt_string_set_nstring(alignment->tag,gt_string_get_string(template->tag),gt_string_get_length(template->tag));
-//  }
-//}
-
-/*
  * Template Pair Info Setup
  *   PE read => template.GT_ATTR_ID_TAG_PAIR = 0, template.end1.GT_ATTR_ID_TAG_PAIR = 1, template.end2.GT_ATTR_ID_TAG_PAIR = 2
  *   SE read => template.GT_ATTR_ID_TAG_PAIR = X, template.end1.GT_ATTR_ID_TAG_PAIR = X
@@ -60,27 +17,27 @@
  */
 GT_INLINE void gt_template_setup_pair_attributes_to_alignments(gt_template* const template,const bool copy_tags) {
   GT_TEMPLATE_CHECK(template);
-  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  const uint64_t num_blocks = gt_template_get_num_blocks(template);
   int64_t i, p;
   // Setup all alignments' tags + attr
   for (i=0;i<num_blocks;i++) {
-    register gt_alignment* const alignment = gt_template_get_block(template,i);
+    gt_alignment* const alignment = gt_template_get_block(template,i);
     if (copy_tags) gt_string_copy(alignment->tag,template->tag);
-    p = (num_blocks>1) ? i+1 : *((int64_t*)gt_attribute_get(template->attributes,GT_ATTR_ID_TAG_PAIR));
-    gt_attribute_add(alignment->attributes,GT_ATTR_ID_TAG_PAIR,&p,int64_t);
-    if (gt_shash_is_contained(template->attributes,GT_ATTR_ID_TAG_CASAVA)) { // TODO: Why??
-      gt_string* src = gt_shash_get(template->attributes,GT_ATTR_ID_TAG_CASAVA,gt_string);
-      gt_attribute_add_string(alignment->attributes,GT_ATTR_ID_TAG_CASAVA,gt_string_dup(src));
+    p = (num_blocks>1) ? i+1 : *((int64_t*)gt_attributes_get(template->attributes,GT_ATTR_ID_TAG_PAIR));
+    gt_attributes_add(alignment->attributes,GT_ATTR_ID_TAG_PAIR,&p,int64_t);
+    if (gt_attributes_is_contained(template->attributes,GT_ATTR_ID_TAG_CASAVA)) { // TODO: Why??
+      gt_string* src = gt_attributes_get(template->attributes,GT_ATTR_ID_TAG_CASAVA);
+      gt_attributes_add_string(alignment->attributes,GT_ATTR_ID_TAG_CASAVA,gt_string_dup(src));
     }
-    if (gt_shash_is_contained(template->attributes,GT_ATTR_ID_TAG_EXTRA)) { // TODO: Why??
-      gt_string* src = gt_shash_get(template->attributes,GT_ATTR_ID_TAG_EXTRA,gt_string);
-      gt_attribute_add_string(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,gt_string_dup(src));
+    if (gt_attributes_is_contained(template->attributes,GT_ATTR_ID_TAG_EXTRA)) { // TODO: Why??
+      gt_string* src = gt_attributes_get(template->attributes,GT_ATTR_ID_TAG_EXTRA);
+      gt_attributes_add_string(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,gt_string_dup(src));
     }
   }
   // Clear template's pair info
   if (num_blocks > 1) {
     p = 0;
-    gt_attribute_add(template->attributes,GT_ATTR_ID_TAG_PAIR,&p,int64_t);
+    gt_attributes_add(template->attributes,GT_ATTR_ID_TAG_PAIR,&p,int64_t);
   }
 }
 
@@ -94,8 +51,8 @@ GT_INLINE void gt_template_alias_dup_mmap_members(
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_NULL_CHECK(mmap); GT_NULL_CHECK(uniq_mmaps);
   // Resolve mmap
-  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-  register uint64_t i;
+  const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  uint64_t i;
   for (i=0;i<num_blocks;++i) {
     GT_NULL_CHECK(mmap[i]);
     uniq_mmaps[i] = gt_alignment_put_map(gt_map_cmp_fx,gt_template_get_block(template,i),mmap[i],false);
@@ -109,11 +66,11 @@ GT_INLINE gt_map** gt_template_raw_put_mmap(
   GT_NULL_CHECK(mmap);
   GT_NULL_CHECK(mmap_attr);
   // Resolve mmap aliasing/insertion
-  register gt_map** uniq_mmaps = gt_calloc(gt_template_get_num_blocks(template),gt_map*,false);
+  gt_map** uniq_mmaps = gt_calloc(gt_template_get_num_blocks(template),gt_map*,false);
   gt_template_alias_dup_mmap_members(gt_map_cmp_fx,template,mmap,uniq_mmaps);
   // Raw mmap insertion
   gt_template_add_mmap(template,uniq_mmaps,mmap_attr);
-  register gt_map** template_mmap=gt_template_get_mmap(template,gt_template_get_num_mmaps(template)-1,NULL);
+  gt_map** template_mmap=gt_template_get_mmap(template,gt_template_get_num_mmaps(template)-1,NULL);
   gt_free(uniq_mmaps); // Free auxiliary vector
   return template_mmap;
 }
@@ -129,12 +86,12 @@ GT_INLINE gt_map** gt_template_put_mmap(
   gt_map** found_mmap;
   gt_mmap_attributes found_mmap_attr={0,0};
   uint64_t found_mmap_pos=0;
-  register bool is_duplicated = gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp_fx,
+  bool is_duplicated = gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp_fx,
       template,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr));
-  register gt_map** template_mmap;
+  gt_map** template_mmap;
   if (!is_duplicated || replace_duplicated) { // TODO: Chose which to replace (like alignment)
     // Resolve mmap aliasing/insertion
-    register gt_map** uniq_mmaps = gt_calloc(gt_template_get_num_blocks(template),gt_map*,false);
+    gt_map** uniq_mmaps = gt_calloc(gt_template_get_num_blocks(template),gt_map*,false);
     gt_template_alias_dup_mmap_members(gt_map_cmp_fx,template,mmap,uniq_mmaps);
     // Insert mmap
     if (!is_duplicated) { // Add new mmap
@@ -150,7 +107,7 @@ GT_INLINE gt_map** gt_template_put_mmap(
     gt_free(uniq_mmaps); // Free auxiliary vector
   } else {
     // Delete mmap
-    GT_MULTIMAP_ITERATE_BLOCKS(mmap,gt_template_get_num_blocks(template),map,end_pos) {
+    GT_MMAP_ITERATE_ENDS(mmap,gt_template_get_num_blocks(template),map,end_pos) {
       gt_map_delete(map);
     }
     template_mmap=gt_template_get_mmap(template,found_mmap_pos,NULL);
@@ -207,8 +164,8 @@ GT_INLINE bool gt_template_find_mmap_fx(
   GT_TEMPLATE_CONSISTENCY_CHECK(template); GT_NULL_CHECK(mmap);
   GT_NULL_CHECK(found_mmap_pos); GT_NULL_CHECK(found_mmap);
   // Search for the mmap
-  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-  register uint64_t pos = 0;
+  const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  uint64_t pos = 0;
   GT_TEMPLATE_ITERATE_(template,template_mmap) {
     if (gt_mmap_cmp_fx(template_mmap,mmap,num_blocks)==0) {
       *found_mmap_pos = pos;
@@ -238,58 +195,57 @@ GT_INLINE bool gt_template_is_mmap_contained_fx(
       &found_mmap_pos,&found_mmap,NULL);
 }
 
-/* Insert size should be and estimate of the original fragment size that was sequenced.  We can get this from the following:
+/*
+ * Template's Insert Size
  *
- * position of rightmost read + no. bases in rightmost read - position of leftmost read
+ *   Insert size should be and estimate of the original fragment size that was sequenced.
+ *   We can get this from the following:
+ *     position of rightmost read + no. bases in rightmost read - position of leftmost read
  *
- * If the read has been trimmed from the start of the read then we can't get the original size, but this is a relatively
- * rare event.  Trimming from the end of the read does not effect the calculation as the rightmost read will be on the
- * negative strand so trimming x bases from the end of the read will shift the mapped position of the read by x.
+ *   If the read has been trimmed from the start of the read then we can't get the original size, but this is a relatively rare event.
+ *   Trimming from the end of the read does not effect the calculation as the rightmost read will be on the
+ *   negative strand so trimming x bases from the end of the read will shift the mapped position of the read by x.
  *
- * Split mappings require special handling in that we need to consider the number of bases read + the distance between the
- * last block in each mapping as follows:
- *
- * Position of last block of rightmost read + no. bases in rightmost read - (position of last block of leftmost read + no. bases)
- * in all other blocks of leftmost read
+ *   Split mappings require special handling in that we need to consider the number of bases read + the distance between the
+ *   last block in each mapping as follows:
+ *     position of last block of rightmost read + no. bases in rightmost read - (position of last block of leftmost read + no. bases)
+ *   in all other blocks of leftmost read
  */
-GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,uint64_t *gt_error) {
+GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,gt_status* const error_code) {
   // Get last block of each map
   gt_map *block[2]={0,0};
   uint64_t length[2]={0,0};
   int64_t x=0;
-  *gt_error=GT_TEMPLATE_INSERT_SIZE_OK;
-  GT_BEGIN_MAP_BLOCKS_ITERATOR(mmap[0],map_it) {
-    block[0]=map_it;
-    length[0]+=gt_map_get_base_length(block[0]);
-  } GT_END_MAP_BLOCKS_ITERATOR;
-  GT_BEGIN_MAP_BLOCKS_ITERATOR(mmap[1],map_it) {
-    block[1]=map_it;
-    length[1]+=gt_map_get_base_length(block[1]);
-  } GT_END_MAP_BLOCKS_ITERATOR;
-  if (gt_string_equals(block[0]->seq_name,block[1]->seq_name)) {
-    if (block[0]->strand!=block[1]->strand) {
-      if (block[0]->strand==FORWARD) x=1+block[1]->position+length[1]-(block[0]->position+length[0]-gt_map_get_base_length(block[0]));
-      else x=1+block[0]->position+length[0]-(block[1]->position+length[1]-gt_map_get_base_length(block[1]));
+  if (gt_string_equals(mmap[0]->seq_name,mmap[1]->seq_name)) {
+    *error_code=GT_TEMPLATE_INSERT_SIZE_OK;
+    GT_MAP_SEGMENT_ITERATE(mmap[0],map_end1) {
+      block[0]=map_end1;
+      length[0]+=gt_map_get_base_length(map_end1);
+    }
+    GT_MAP_SEGMENT_ITERATE(mmap[1],map_end2) {
+      block[1]=map_end2;
+      length[1]+=gt_map_get_base_length(map_end2);
+    }
+    if (mmap[0]->strand!=mmap[1]->strand) {
+      if (block[0]->strand==FORWARD) {
+        x=1+block[1]->position+length[1]-(block[0]->position+length[0]-gt_map_get_base_length(block[0]));
+      } else {
+        x=1+block[0]->position+length[0]-(block[1]->position+length[1]-gt_map_get_base_length(block[1]));
+      }
     } else {
-      *gt_error=GT_TEMPLATE_INSERT_SIZE_SAME_STRAND;
+      *error_code=GT_TEMPLATE_INSERT_SIZE_SAME_STRAND;
     }
   } else {
-    *gt_error=GT_TEMPLATE_INSERT_SIZE_DIFFERENT_CONTIGS;
+    *error_code=GT_TEMPLATE_INSERT_SIZE_DIFFERENT_CONTIGS;
   }
-  /*  if (gt_map_get_position(mmap[1])>gt_map_get_position(mmap[0])) {
-    return ((int64_t)gt_map_get_position(mmap[1])-(int64_t)(gt_map_get_position(mmap[0])+gt_map_get_length(mmap[0])));
-  } else {
-    return ((int64_t)gt_map_get_position(mmap[0])-(int64_t)(gt_map_get_position(mmap[1])+gt_map_get_length(mmap[1])));
-    } */
   return x;
 }
-
 /*
  * Template's Counters operators
  */
 GT_INLINE bool gt_template_is_mapped(gt_template* const template) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
-  register const bool unique_flag = gt_template_get_not_unique_flag(template);
+  const bool unique_flag = gt_template_get_not_unique_flag(template);
   return unique_flag || gt_template_is_thresholded_mapped(template,UINT64_MAX);
 }
 GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata) {
@@ -299,7 +255,7 @@ GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,con
   } GT_TEMPLATE_END_REDUCTION;
   if (gt_template_get_not_unique_flag(template)) return true;
   if(gt_template_get_num_counters(template) == 0) return false;
-  register gt_vector* vector = gt_template_get_counters_vector(template);
+  gt_vector* vector = gt_template_get_counters_vector(template);
   GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
     if (counter_pos>max_allowed_strata) return false;
     else if (*counter!=0) return true;
@@ -314,9 +270,9 @@ GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
   // Clear previous counters
   gt_vector_clear(gt_template_get_counters_vector(template));
   // Recalculate counters
-  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-  GT_TEMPLATE__ATTR_ITERATE_(template,mmap,mmap_attr) {
-    register uint64_t i, total_distance = 0;
+  const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
+    uint64_t i, total_distance = 0;
     for (i=0;i<num_blocks;++i) {
       total_distance+=gt_map_get_global_distance(mmap[i]);
     }
@@ -378,8 +334,8 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
   // Merge mmaps
   GT_TEMPLATE_CONSISTENCY_CHECK(template_dst);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
-  GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
-    register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
+  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
+    gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
     gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_dst,mmap_copy,mmap_attr,true);
     gt_free(mmap_copy); // Free array handler
   }
@@ -410,12 +366,12 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_v(
     const uint64_t num_src_templates,gt_template* const template_src,va_list v_args) {
   GT_ZERO_CHECK(num_src_templates);
   // Create new template
-  register gt_template* const template_union = gt_template_copy(template_src,false,false);
+  gt_template* const template_union = gt_template_copy(template_src,false,false);
   gt_template_merge_template_mmaps(template_union,template_src);
   // Merge template sources into template_union
-  register uint64_t num_tmp_merged = 1;
+  uint64_t num_tmp_merged = 1;
   while (num_tmp_merged < num_src_templates) {
-    register gt_template* template_target = va_arg(v_args,gt_template*);
+    gt_template* template_target = va_arg(v_args,gt_template*);
     GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_union,template_target);
     GT_TEMPLATE_CONSISTENCY_CHECK(template_target);
     gt_template_merge_template_mmaps(template_union,template_target);
@@ -429,7 +385,7 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_va(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   va_list v_args;
   va_start(v_args,template_src);
-  register gt_template* const template_union =
+  gt_template* const template_union =
       gt_template_union_template_mmaps_v(num_src_templates,template_src,v_args);
   va_end(v_args);
   return template_union;
@@ -438,10 +394,10 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_a(
     gt_template** const templates,const uint64_t num_src_templates) {
   GT_ZERO_CHECK(num_src_templates);
   // Create new template
-  register gt_template* const template_union = gt_template_copy(templates[0],false,false);
+  gt_template* const template_union = gt_template_copy(templates[0],false,false);
   gt_template_merge_template_mmaps(template_union,templates[0]);
   // Merge template sources into template_union
-  register uint64_t i;
+  uint64_t i;
   for (i=1;i<num_src_templates;++i) {
     GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_union,templates[i]);
     GT_TEMPLATE_CONSISTENCY_CHECK(templates[i]);
@@ -456,12 +412,12 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_fx_v(
   GT_NULL_CHECK(gt_mmap_cmp_fx);
   GT_ZERO_CHECK(num_src_templates);
   // Create new template
-  register gt_template* const template_union = gt_template_copy(template_src,false,false);
+  gt_template* const template_union = gt_template_copy(template_src,false,false);
   gt_template_merge_template_mmaps_fx(gt_mmap_cmp_fx,gt_map_cmp_fx,template_union,template_src);
   // Merge template sources into template_union
-  register uint64_t num_tmp_merged = 1;
+  uint64_t num_tmp_merged = 1;
   while (num_tmp_merged < num_src_templates) {
-    register gt_template* template_target = va_arg(v_args,gt_template*);
+    gt_template* template_target = va_arg(v_args,gt_template*);
     GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_union,template_target);
     GT_TEMPLATE_CONSISTENCY_CHECK(template_target);
     gt_template_merge_template_mmaps_fx(gt_mmap_cmp_fx,gt_map_cmp_fx,template_union,template_target);
@@ -477,7 +433,7 @@ GT_INLINE gt_template* gt_template_union_template_mmaps_fx_va(
   GT_TEMPLATE_CONSISTENCY_CHECK(template_src);
   va_list v_args;
   va_start(v_args,template_src);
-  register gt_template* const template_union =
+  gt_template* const template_union =
       gt_template_union_template_mmaps_fx_v(gt_mmap_cmp_fx,gt_map_cmp_fx,num_src_templates,template_src,v_args);
   va_end(v_args);
   return template_union;
@@ -491,9 +447,9 @@ GT_INLINE gt_template* gt_template_subtract_template_mmaps_fx(
   GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_minuend,template_subtrahend);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_minuend,alignment_minuend) {
     GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_subtrahend,alignment_subtrahend) {
-      register gt_alignment* const alignment_difference =
+      gt_alignment* const alignment_difference =
           gt_alignment_subtract_alignment_maps_fx(gt_map_cmp_fx,alignment_minuend,alignment_subtrahend);
-      register gt_template* const template_difference = gt_template_new();
+      gt_template* const template_difference = gt_template_new();
       gt_template_add_block(template_difference,alignment_difference);
       return template_difference;
     } GT_TEMPLATE_END_REDUCTION;
@@ -501,13 +457,13 @@ GT_INLINE gt_template* gt_template_subtract_template_mmaps_fx(
   // Subtract
   GT_TEMPLATE_CONSISTENCY_CHECK(template_minuend);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_subtrahend);
-  register gt_template* const template_difference = gt_template_copy(template_minuend,false,false);
+  gt_template* const template_difference = gt_template_copy(template_minuend,false,false);
   uint64_t found_mmap_pos;
   gt_map** found_mmap;
   gt_mmap_attributes found_mmap_attr;
-  GT_TEMPLATE__ATTR_ITERATE(template_minuend,mmap,mmap_attr) {
+  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_minuend,mmap,mmap_attr) {
     if (!gt_template_find_mmap_fx(gt_mmap_cmp_fx,template_subtrahend,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr)) {
-      register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
+      gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
       gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_difference,mmap_copy,mmap_attr,false);
       gt_free(mmap_copy);
     }
@@ -529,9 +485,9 @@ GT_INLINE gt_template* gt_template_intersect_template_mmaps_fx(
   GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_A,template_B);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_A,alignment_A) {
     GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_B,alignment_B) {
-      register gt_alignment* const alignment_intersection =
+      gt_alignment* const alignment_intersection =
           gt_alignment_intersect_alignment_maps_fx(gt_map_cmp_fx,alignment_A,alignment_B);
-      register gt_template* const template_intersection = gt_template_new();
+      gt_template* const template_intersection = gt_template_new();
       gt_template_add_block(template_intersection,alignment_intersection);
       return template_intersection;
     } GT_TEMPLATE_END_REDUCTION;
@@ -539,13 +495,13 @@ GT_INLINE gt_template* gt_template_intersect_template_mmaps_fx(
   // Intersect
   GT_TEMPLATE_CONSISTENCY_CHECK(template_A);
   GT_TEMPLATE_CONSISTENCY_CHECK(template_B);
-  register gt_template* const template_intersection = gt_template_copy(template_A,false,false);
+  gt_template* const template_intersection = gt_template_copy(template_A,false,false);
   uint64_t found_mmap_pos;
   gt_map** found_mmap;
   gt_mmap_attributes found_mmap_attr;
-  GT_TEMPLATE__ATTR_ITERATE(template_A,mmap,mmap_attr) {
+  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_A,mmap,mmap_attr) {
     if (gt_template_find_mmap_fx(gt_mmap_cmp_fx,template_B,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attr)) {
-      register gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
+      gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
       gt_template_put_mmap(gt_mmap_cmp_fx,gt_map_cmp_fx,template_intersection,mmap_copy,mmap_attr,false);
       gt_free(mmap_copy);
     }
@@ -565,7 +521,7 @@ GT_INLINE gt_template* gt_template_intersect_template_mmaps(
 GT_INLINE void gt_template_recover_mismatches(gt_template* const template,gt_sequence_archive* const sequence_archive) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
-  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+  GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     gt_alignment_recover_mismatches(alignment,sequence_archive);
   }
   if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
@@ -573,7 +529,7 @@ GT_INLINE void gt_template_recover_mismatches(gt_template* const template,gt_seq
 GT_INLINE void gt_template_realign_hamming(gt_template* const template,gt_sequence_archive* const sequence_archive) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
-  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+  GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     gt_alignment_realign_hamming(alignment,sequence_archive);
   }
   if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
@@ -581,7 +537,7 @@ GT_INLINE void gt_template_realign_hamming(gt_template* const template,gt_sequen
 GT_INLINE void gt_template_realign_levenshtein(gt_template* const template,gt_sequence_archive* const sequence_archive) {
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
-  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+  GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     gt_alignment_realign_levenshtein(alignment,sequence_archive);
   }
   if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
@@ -591,7 +547,7 @@ GT_INLINE void gt_template_realign_weighted(
   GT_TEMPLATE_CONSISTENCY_CHECK(template);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
   GT_NULL_CHECK(gt_weigh_fx);
-  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+  GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     gt_alignment_realign_weighted(alignment,sequence_archive,gt_weigh_fx);
   }
   if (gt_template_get_num_blocks(template)>1) gt_template_recalculate_counters(template);
@@ -600,21 +556,338 @@ GT_INLINE void gt_template_realign_weighted(
 /*
  * Template trimming
  */
-GT_INLINE void gt_template_trim(gt_template* const template,uint64_t const left,uint64_t const right,uint64_t const min_length,bool const set_extra){
-  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+GT_INLINE void gt_template_trim(gt_template* const template,uint64_t const left,uint64_t const right,uint64_t const min_length,bool const set_extra) {
+  GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     gt_alignment_trim(alignment,left,right,min_length,set_extra);
   }
   if (set_extra) {
     gt_alignment* first = gt_template_get_block(template,0);
     // Transfer extra attribute
-    gt_string* alignment_extra = gt_shash_get(first->attributes,GT_ATTR_ID_TAG_EXTRA,gt_string);
-    if (gt_shash_is_contained(template->attributes,GT_ATTR_ID_TAG_EXTRA)) {
-      gt_string* old = gt_shash_get(template->attributes,GT_ATTR_ID_TAG_EXTRA,gt_string);
+    gt_string* alignment_extra = gt_attributes_get(first->attributes,GT_ATTR_ID_TAG_EXTRA);
+    if (gt_attributes_is_contained(template->attributes,GT_ATTR_ID_TAG_EXTRA)) {
+      gt_string* old = gt_attributes_get(template->attributes,GT_ATTR_ID_TAG_EXTRA);
       gt_string_copy(old,alignment_extra);
     } else {
-      gt_string* extra = gt_string_new(8+ (2*left) + (2*right));
+      gt_string* const extra = gt_string_new(8 + (2*left) + (2*right));
       gt_string_copy(extra,alignment_extra);
-      gt_shash_insert(template->attributes,GT_ATTR_ID_TAG_EXTRA,extra,gt_string);
+      gt_attributes_add_string(template->attributes,GT_ATTR_ID_TAG_EXTRA,extra);
+    }
+  }
+}
+
+/*
+ * Template/Alignment Placeholder (mmap/map)
+ */
+GT_INLINE gt_map_placeholder* gt_map_placeholder_new() {
+  gt_map_placeholder* const map_placeholder = gt_alloc(gt_map_placeholder);
+  gt_map_placeholder_clear(map_placeholder);
+  return map_placeholder;
+}
+GT_INLINE void gt_map_placeholder_delete(gt_map_placeholder* const map_placeholder) {
+  GT_NULL_CHECK(map_placeholder);
+  gt_free(map_placeholder);
+}
+GT_INLINE void gt_map_placeholder_clear(gt_map_placeholder* const map_placeholder) {
+  GT_NULL_CHECK(map_placeholder);
+  memset(map_placeholder,0,sizeof(map_placeholder));
+}
+
+/*
+ * Compare Template/Alignment Placeholders _> (int (*)(const void *,const void *))
+ * i.e. (Sorting from smaller to bigger, <) := a-b
+ *   cmp(a,b) := -n if (a<b)
+ *                n if (a>b)
+ *                0 if (a==b)
+ */
+#define GT_MAP_PLACEHOLDER_CMP_CHECK_BOUNDARY_CONDITIONS(ph_map_a,ph_map_b) \
+  /* Boundary conditions (Different type, same map, unmapped) */ \
+  if (ph_map_a->type!=ph_map_b->type) return ((int)ph_map_a->type - (int)ph_map_b->type); /* Check different type */ \
+  if (ph_map_a->map==ph_map_b->map) return 0; /* Check same map */ \
+  if (ph_map_a->map==NULL || ph_map_b->map==NULL) return (ph_map_a->map==NULL) ? 1 : -1; /* Check unmapped */
+int gt_map_placeholder_cmp_coordinates(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
+  // NOTE: Doesn't check chromosome
+  // Boundary conditions (same map, unmapped)
+  if (ph_map_a->map==ph_map_b->map) return 0; /* Check same map */ \
+  if (ph_map_a->map==NULL || ph_map_b->map==NULL) return (ph_map_a->map==NULL) ? 1 : -1; /* Check unmapped */
+  // Here, different map with same type and both mapped
+  const int64_t coordinate_a = gt_map_get_global_coordinate(ph_map_a->map);
+  const int64_t coordinate_b = gt_map_get_global_coordinate(ph_map_b->map);
+  return coordinate_a-coordinate_b;
+}
+
+int gt_map_placeholder_cmp_map_distance(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
+  // TODO
+  return 0;
+}
+int gt_map_placeholder_cmp_map_phred_scores(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
+  /*
+   * Compare phred scores ( -10*log(Pr{mapping position is wrong},10) )
+   *   - 0, 255 values are not allowed
+   *   - 1..254 = bad_score..good_score
+   */
+  GT_MAP_PLACEHOLDER_CMP_CHECK_BOUNDARY_CONDITIONS(ph_map_a,ph_map_b);
+  // Here, different map with same type and both mapped
+  const int score_a = ph_map_a->map->phred_score;
+  const int score_b = ph_map_b->map->phred_score;
+  // No scored
+  if (score_a==GT_MAP_NO_PHRED_SCORE || score_b==GT_MAP_NO_PHRED_SCORE) return score_a-score_b;
+  // Regular compare (including case (score_a==0 || score_b==0))
+  return score_b-score_a;
+}
+int gt_map_placeholder_cmp_map_gt_scores_ascending(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
+  GT_MAP_PLACEHOLDER_CMP_CHECK_BOUNDARY_CONDITIONS(ph_map_a,ph_map_b);
+  // Here, different map with same type and both mapped
+  const uint64_t score_a = ph_map_a->map->gt_score;
+  const uint64_t score_b = ph_map_b->map->gt_score;
+  return (score_a<score_b) ? -1 : ( (score_a>score_b) ? 1 : 0);
+}
+int gt_map_placeholder_cmp_map_gt_scores_descending(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
+  GT_MAP_PLACEHOLDER_CMP_CHECK_BOUNDARY_CONDITIONS(ph_map_a,ph_map_b);
+  // Here, different map with same type and both mapped
+  const uint64_t score_a = ph_map_a->map->gt_score;
+  const uint64_t score_b = ph_map_b->map->gt_score;
+  return (score_a<score_b) ? 1 : ( (score_a>score_b) ? -1 : 0);
+}
+
+int gt_map_placeholder_cmp_mmap_phred_scores(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
+  // TODO
+  return 0;
+}
+int gt_map_placeholder_cmp_mmap_gt_scores_ascending(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
+  // TODO
+  return 0;
+}
+int gt_map_placeholder_cmp_mmap_gt_scores_descending(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
+  // TODO
+  return 0;
+}
+
+/*
+ * Template/Alignment Placeholder (mmap/map)
+ *
+ * Fills the placeholder's vector @mmap_placeholder with all the mmaps from template
+ *   - If @include_mate_placeholder is set, inserts a placeholder for the mate
+ *       ({ph.paired_end.paired_end_position==1}). i.e. As for SAM output like operations
+ *   - If @split_segments is set, individual segments are inserted into @mmap_placeholder (taking into account quimeras/segments)
+ *   - If @primary_mmap_end1_pos is not null, sets it to the position in the array of the primary/best mmap(end/1) placeholder
+ *       Sorts w.r.t @gt_ph_cmp_fx sorting. If @gt_ph_cmp_fx is null, then is set to the first one added.
+ *   - If @primary_mmap_end2_pos is not null, sets it to the position in the array of the primary/best mmap(end/2) placeholder
+ *       Sorts w.r.t @gt_ph_cmp_fx sorting. If @gt_ph_cmp_fx is null, then is set to the first one added.
+ *       If @include_mate_placeholder is not set, then @primary_mmap_end1_pos==@primary_mmap_end2_pos
+ *   - If @placeholder_template is not null, then its values are used as defaults (not_passing_QC,PCR_duplicate,...)
+ */
+#define GT_MAP_PLACEHOLDER_SET_BEST_PH(best_mmap_ph,best_mmap_ph_position,mmap_ph,mmap_ph_position) \
+  best_mmap_ph = mmap_ph; \
+  best_mmap_ph_position = mmap_ph_position
+#define GT_MAP_PLACEHOLDER_CMP_BEST_PH(best_mmap_ph,best_mmap_ph_position,mmap_ph,mmap_ph_position) { \
+  if (gt_expect_false(best_mmap_ph_position==UINT64_MAX)) { \
+    GT_MAP_PLACEHOLDER_SET_BEST_PH(best_mmap_ph,best_mmap_ph_position,mmap_ph,mmap_ph_position); \
+  } else if (gt_ph_cmp_fx!=NULL) { \
+    if (gt_ph_cmp_fx(&best_mmap_ph,&mmap_ph)>0) { \
+      GT_MAP_PLACEHOLDER_SET_BEST_PH(best_mmap_ph,best_mmap_ph_position,mmap_ph,mmap_ph_position); \
+    } \
+  } \
+}
+GT_INLINE void gt_map_placeholder_build_from_template_add_pair(
+    gt_template* const template,gt_map* const map_endA,gt_map* const map_endB,gt_string* const read_endA,
+    gt_vector* const mmap_placeholder,const bool split_segments,
+    int (*gt_ph_cmp_fx)(gt_map_placeholder* const,gt_map_placeholder* const),const bool cmp_with_best,
+    gt_map_placeholder* const best_mmap_ph,uint64_t* const best_mmap_ph_position,
+    gt_map_placeholder* const mmap_ph) {
+  uint64_t num_placeholders = gt_vector_get_used(mmap_placeholder);
+  // Note that (map_endA!=NULL) || (map_endB!=NULL) must hold
+  if (map_endA==NULL) {
+    /*
+     * End/1 Unmapped
+     *   MAP => Don't unfold quimeras (never needed)
+     *   SAM => Don't unfold quimeras (Is unmapped, so unfold is not required)
+     */
+    mmap_ph->map = NULL;
+    mmap_ph->paired_end.mate = map_endB; // SAM doen't care of this (as it's unmapped). But MAP does.
+    mmap_ph->hard_trim_left = 0;
+    mmap_ph->hard_trim_right = 0;
+    gt_vector_insert(mmap_placeholder,*mmap_ph,gt_map_placeholder);
+    // Pick primary alignment
+    if (cmp_with_best) GT_MAP_PLACEHOLDER_CMP_BEST_PH(*best_mmap_ph,*best_mmap_ph_position,*mmap_ph,num_placeholders);
+  } else {
+    /*
+     * End/1 Mapped
+     */
+    if (map_endB==NULL) {
+      /*
+       * End/2 Unmapped
+       */
+      GT_MAP_SEGMENT_ITERATOR(map_endA,map_segment_iterator_end1) {
+        mmap_ph->map = gt_map_segment_iterator_get_map(&map_segment_iterator_end1);
+        mmap_ph->paired_end.mate = NULL;
+        mmap_ph->hard_trim_left = (split_segments) ? gt_map_segment_iterator_get_accumulated_offset(&map_segment_iterator_end1) : 0;
+        mmap_ph->hard_trim_right = (split_segments) ? gt_map_segment_iterator_get_remaining_bases(&map_segment_iterator_end1,read_endA) : 0;
+        gt_vector_insert(mmap_placeholder,*mmap_ph,gt_map_placeholder);
+        // Pick primary alignment
+        if (cmp_with_best) GT_MAP_PLACEHOLDER_CMP_BEST_PH(*best_mmap_ph,*best_mmap_ph_position,*mmap_ph,num_placeholders);
+        ++num_placeholders;
+        if (!split_segments) break; // Break if quimeras are not supposed to be unfolded
+      }
+    } else {
+      /*
+       * End/2 Mapped
+       */
+      GT_MAP_SEGMENT_ITERATOR(map_endA,map_segment_iterator_end1) {
+        GT_MAP_SEGMENT_ITERATOR(map_endB,map_segment_iterator_end2) {
+          mmap_ph->map = gt_map_segment_iterator_get_map(&map_segment_iterator_end1);
+          mmap_ph->paired_end.mate = gt_map_segment_iterator_get_map(&map_segment_iterator_end2);
+          mmap_ph->hard_trim_left = (split_segments) ? gt_map_segment_iterator_get_accumulated_offset(&map_segment_iterator_end1) : 0;
+          mmap_ph->hard_trim_right = (split_segments) ? gt_map_segment_iterator_get_remaining_bases(&map_segment_iterator_end1,read_endA) : 0;
+          gt_vector_insert(mmap_placeholder,*mmap_ph,gt_map_placeholder);
+          // Pick primary alignment
+          if (cmp_with_best) GT_MAP_PLACEHOLDER_CMP_BEST_PH(*best_mmap_ph,*best_mmap_ph_position,*mmap_ph,num_placeholders);
+          ++num_placeholders;
+          if (!split_segments) break; // Break if quimeras are not supposed to be unfolded
+        }
+        if (!split_segments) break; // Break if quimeras are not supposed to be unfolded
+      }
+    }
+  }
+}
+GT_INLINE void gt_map_placeholder_build_from_template(
+    gt_template* const template,gt_vector* const mmap_placeholder,
+    const bool include_mate_placeholder,const bool split_segments,
+    int (*gt_ph_cmp_fx)(gt_map_placeholder* const,gt_map_placeholder* const),
+    uint64_t* const primary_mmap_end1_pos,uint64_t* const primary_mmap_end2_pos,
+    gt_map_placeholder* const placeholder_template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_VECTOR_CHECK(mmap_placeholder);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    placeholder_template->single_end.template = template;
+    gt_map_placeholder_build_from_alignment(alignment,mmap_placeholder,split_segments,
+        gt_ph_cmp_fx,primary_mmap_end1_pos,placeholder_template);
+    if (primary_mmap_end1_pos!=NULL && primary_mmap_end2_pos!=NULL) *primary_mmap_end2_pos=*primary_mmap_end1_pos;
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  // Prepare placeholder template
+  gt_map_placeholder mmap_ph;
+  if (placeholder_template!=NULL) {
+    mmap_ph=*placeholder_template;
+  }
+  mmap_ph.paired_end.template = template;
+  const uint64_t num_initial_placeholders = gt_vector_get_used(mmap_placeholder);
+  if (gt_template_get_num_mmaps(template)==0) { // Unmmapped
+    // Include mmaps
+    mmap_ph.type = GT_MMAP_PLACEHOLDER_UNPAIRED;
+    mmap_ph.secondary_alignment = false; // By default, the unpaired is the primary
+    mmap_ph.map = NULL;
+    mmap_ph.paired_end.paired_end_position = 0;
+    mmap_ph.paired_end.mate = NULL;
+    mmap_ph.paired_end.mmap_attributes = NULL;
+    gt_vector_insert(mmap_placeholder,mmap_ph,gt_map_placeholder);
+    if (include_mate_placeholder) {
+      mmap_ph.paired_end.paired_end_position = 1;
+      gt_vector_insert(mmap_placeholder,mmap_ph,gt_map_placeholder);
+    }
+    // Set primary alignment
+    if (primary_mmap_end1_pos!=NULL) {
+      *primary_mmap_end1_pos = num_initial_placeholders;
+    }
+    if (primary_mmap_end2_pos!=NULL) {
+      *primary_mmap_end2_pos = (include_mate_placeholder) ? num_initial_placeholders+1 : num_initial_placeholders;
+    }
+  } else {
+    // Include mmaps
+    mmap_ph.type = GT_MMAP_PLACEHOLDER_PAIRED;
+    mmap_ph.secondary_alignment = true;
+    gt_map_placeholder best_mmap_ph_end1, best_mmap_ph_end2;
+    uint64_t best_mmap_ph_end1_pos = UINT64_MAX, best_mmap_ph_end2_pos = UINT64_MAX;
+    gt_string* read[2] = {gt_template_get_end1(template)->read, gt_template_get_end2(template)->read};
+    GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
+      mmap_ph.paired_end.mmap_attributes = mmap_attr;
+      // End/1
+      mmap_ph.paired_end.paired_end_position = 0;
+      gt_map_placeholder_build_from_template_add_pair(
+          template,mmap[0],mmap[1],read[0],
+          mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
+          &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph);
+      // End/2
+      if (include_mate_placeholder) {
+        mmap_ph.paired_end.paired_end_position = 1;
+        gt_map_placeholder_build_from_template_add_pair(
+            template,mmap[1],mmap[0],read[1],
+            mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end2_pos!=NULL,
+            &best_mmap_ph_end2,&best_mmap_ph_end2_pos,&mmap_ph);
+      }
+    }
+    // Set primary alignment
+    if (primary_mmap_end1_pos!=NULL) {
+      *primary_mmap_end1_pos = best_mmap_ph_end1_pos;
+      gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end1_pos,gt_map_placeholder)->secondary_alignment = false;
+      GT_SWAP(*(gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end1_pos,gt_map_placeholder)),
+              *(gt_vector_get_elm(mmap_placeholder,num_initial_placeholders,gt_map_placeholder)));
+    }
+    if (primary_mmap_end2_pos!=NULL) {
+      if (include_mate_placeholder) {
+        *primary_mmap_end2_pos = best_mmap_ph_end2_pos;
+        gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end2_pos,gt_map_placeholder)->secondary_alignment = false;
+        GT_SWAP(*(gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end2_pos,gt_map_placeholder)),
+                *(gt_vector_get_elm(mmap_placeholder,num_initial_placeholders+1,gt_map_placeholder))); // Courtesy
+      } else {
+        if (primary_mmap_end1_pos!=NULL) *primary_mmap_end2_pos = *primary_mmap_end1_pos;
+      }
+    }
+  }
+}
+/*
+ * Fills the placeholder's vector @mmap_placeholder with all the maps from alignment
+ *   - If @split_segments is set, individual segments are inserted into @mmap_placeholder (taking into account quimeras/segments)
+ *   - If @primary_map_position is not null, sets it to the position in the array of the primary/best alignment placeholder
+ *       Sorts w.r.t @gt_ph_cmp_fx sorting. If @gt_ph_cmp_fx is null, then is set to the first one added.
+ *       If @include_mate_placeholder is not set, then @primary_mmap_end1_pos==@primary_mmap_end2_pos
+ *   - If @placeholder_template is not null, then its values are used as defaults (not_passing_QC,PCR_duplicate,...)
+ */
+GT_INLINE void gt_map_placeholder_build_from_alignment(
+    gt_alignment* const alignment,gt_vector* const mmap_placeholder,const bool split_segments,
+    int (*gt_ph_cmp_fx)(gt_map_placeholder* const,gt_map_placeholder* const),uint64_t* const primary_map_position,
+    gt_map_placeholder* const placeholder_template) {
+  GT_ALIGNMENT_CHECK(alignment);
+  GT_VECTOR_CHECK(mmap_placeholder);
+  // Prepare placeholder template
+  gt_map_placeholder mmap_ph;
+  if (placeholder_template!=NULL) mmap_ph=*placeholder_template;
+  const uint64_t num_maps = gt_alignment_get_num_maps(alignment);
+  const uint64_t num_initial_placeholders = gt_vector_get_used(mmap_placeholder);
+  mmap_ph.type = GT_MAP_PLACEHOLDER;
+  mmap_ph.single_end.alignment = alignment;
+  if (num_maps==0) { // Unmmapped
+    // Include mmaps
+    mmap_ph.secondary_alignment = false; // By default, the unpaired is the primary
+    mmap_ph.map = NULL;
+    gt_vector_insert(mmap_placeholder,mmap_ph,gt_map_placeholder);
+    // Set primary alignment
+    if (primary_map_position!=NULL) *primary_map_position = num_initial_placeholders;
+  } else {
+    uint64_t num_placeholders = num_initial_placeholders;
+    // Include maps
+    mmap_ph.secondary_alignment = true;
+    gt_map_placeholder best_mmap_ph;
+    uint64_t best_mmap_ph_pos = UINT64_MAX;
+    GT_ALIGNMENT_ITERATE(alignment,map) {
+      GT_MAP_SEGMENT_ITERATOR(map,map_segment_iterator) {
+        mmap_ph.map = gt_map_segment_iterator_get_map(&map_segment_iterator);
+        mmap_ph.hard_trim_left = (split_segments) ? gt_map_segment_iterator_get_accumulated_offset(&map_segment_iterator) : 0;
+        mmap_ph.hard_trim_right = (split_segments) ? gt_map_segment_iterator_get_remaining_bases(&map_segment_iterator,alignment->read) : 0;
+        gt_vector_insert(mmap_placeholder,mmap_ph,gt_map_placeholder);
+        // Pick primary alignment
+        if (primary_map_position!=NULL) {
+          GT_MAP_PLACEHOLDER_CMP_BEST_PH(best_mmap_ph,best_mmap_ph_pos,mmap_ph,num_placeholders);
+        }
+        ++num_placeholders;
+        // Break if quimeras are not supposed to be unfolded
+        if (!split_segments) break;
+      }
+    }
+    // Set primary alignment
+    if (primary_map_position!=NULL) {
+      *primary_map_position = best_mmap_ph_pos;
+      gt_vector_get_elm(mmap_placeholder,best_mmap_ph_pos,gt_map_placeholder)->secondary_alignment = false;
+      GT_SWAP(*(gt_vector_get_elm(mmap_placeholder,best_mmap_ph_pos,gt_map_placeholder)),
+              *(gt_vector_get_elm(mmap_placeholder,num_initial_placeholders,gt_map_placeholder))); // Courtesy
     }
   }
 }

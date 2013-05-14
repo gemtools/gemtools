@@ -14,7 +14,8 @@
  * I/O Constants/Values
  */
 #define GT_FM_BULK_COPY_BLOCK_SIZE (1<<30) /* 1GB */
-int gt_fm_oflags[3] = { O_RDONLY|O_NOATIME, O_WRONLY|O_CREAT|O_NOATIME, O_RDWR|O_CREAT|O_NOATIME };
+// FIXME: O_NOATIME not allowed is only read rights are guaranteed
+int gt_fm_oflags[3] = { O_RDONLY, O_WRONLY|O_CREAT|O_NOATIME, O_RDWR|O_CREAT|O_NOATIME };
 
 /*
  * Setup
@@ -54,10 +55,10 @@ GT_INLINE void gt_fm_set_mode(gt_fm* const fm,const gt_fm_mode mode) {
  */
 GT_INLINE void gt_fm_bulk_read_fd(const int fd,void* const dst,const uint64_t size) {
   GT_NULL_CHECK(dst);
-  register uint64_t bytes_written = 0;
+  uint64_t bytes_written = 0;
   while (bytes_written < size) {
-    register const uint64_t bytes_pending = size-bytes_written;
-    register const uint64_t chunk_size = (bytes_pending<GT_FM_BULK_COPY_BLOCK_SIZE) ? bytes_pending : GT_FM_BULK_COPY_BLOCK_SIZE;
+    const uint64_t bytes_pending = size-bytes_written;
+    const uint64_t chunk_size = (bytes_pending<GT_FM_BULK_COPY_BLOCK_SIZE) ? bytes_pending : GT_FM_BULK_COPY_BLOCK_SIZE;
     // Copy chunk
     gt_cond_fatal_error__perror(read(fd,dst+bytes_written,chunk_size)!=chunk_size,FILE_READ_FD);
     bytes_written += chunk_size;

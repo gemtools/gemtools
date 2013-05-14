@@ -52,9 +52,9 @@ const bool gt_iupac_code[256] =
  */
 GT_INLINE bool gt_dna_string_is_dna_string(gt_dna_string* const dna_string) {
   GT_STRING_CHECK(dna_string);
-  register const uint64_t length = dna_string->length;
-  register const char* const buffer = dna_string->buffer;
-  register uint64_t i;
+  const uint64_t length = dna_string->length;
+  const char* const buffer = dna_string->buffer;
+  uint64_t i;
   for (i=0;i<length;++i) {
     if (gt_expect_false(!gt_is_dna(buffer[i]))) return false;
   }
@@ -71,7 +71,7 @@ GT_INLINE void gt_dna_string_set_char_at(gt_dna_string* const dna_string,const u
 
 GT_INLINE void gt_dna_string_set_string(gt_dna_string* const dna_string,char* const dna_string_src) {
   GT_NULL_CHECK(dna_string);
-  register const uint64_t length = strlen(dna_string_src);
+  const uint64_t length = strlen(dna_string_src);
   gt_string_set_nstring(dna_string,dna_string_src,length);
 }
 
@@ -80,7 +80,7 @@ GT_INLINE void gt_dna_string_set_nstring(gt_dna_string* const dna_string,char* c
   GT_NULL_CHECK(dna_string_src);
   if (gt_expect_true(dna_string->allocated>0)) {
     gt_string_resize(dna_string,length+1);
-    register uint64_t i;
+    uint64_t i;
     for (i=0;i<length;++i) {
       dna_string->buffer[i] = gt_get_dna_normalized(dna_string_src[i]);
     }
@@ -93,12 +93,12 @@ GT_INLINE void gt_dna_string_set_nstring(gt_dna_string* const dna_string,char* c
 
 GT_INLINE void gt_dna_string_reverse_complement(gt_dna_string* const dna_string) {
   GT_STRING_CHECK(dna_string);
-  register const uint64_t length = dna_string->length;
-  register const uint64_t middle = length/2;
-  register char* const buffer = dna_string->buffer;
-  register uint64_t i;
+  const uint64_t length = dna_string->length;
+  const uint64_t middle = length/2;
+  char* const buffer = dna_string->buffer;
+  uint64_t i;
   for (i=0;i<middle;++i) {
-    register const char aux = buffer[i];
+    const char aux = buffer[i];
     buffer[i] = gt_get_complement(buffer[length-i-1]);
     buffer[length-i-1] = gt_get_complement(aux);
   }
@@ -109,11 +109,11 @@ GT_INLINE void gt_dna_string_reverse_complement(gt_dna_string* const dna_string)
 GT_INLINE void gt_dna_string_reverse_complement_copy(gt_dna_string* const dna_string_dst,gt_dna_string* const dna_string_src) {
   GT_STRING_CHECK(dna_string_dst);
   GT_STRING_CHECK(dna_string_src);
-  register const uint64_t length = dna_string_src->length;
+  const uint64_t length = dna_string_src->length;
   gt_string_resize(dna_string_dst,length+1);
-  register char* const buffer_src = dna_string_src->buffer;
-  register char* const buffer_dst = dna_string_dst->buffer;
-  register uint64_t i;
+  char* const buffer_src = dna_string_src->buffer;
+  char* const buffer_dst = dna_string_dst->buffer;
+  uint64_t i;
   for (i=0;i<length;++i) {
     buffer_dst[i] = gt_get_complement(buffer_src[length-1-i]);
   }

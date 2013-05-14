@@ -97,7 +97,7 @@ GT_INLINE gt_status gt_vbprintf(gt_output_buffer* const output_buffer,const char
   GT_OUTPUT_BUFFER_CHECK(output_buffer);
   GT_NULL_CHECK(template); GT_NULL_CHECK(v_args);
   // Calculate buffer size required to dump template{v_args}
-  register int64_t mem_required = gt_calculate_memory_required_v(template,v_args);
+  int64_t mem_required = gt_calculate_memory_required_v(template,v_args);
   return gt_vbprintf_(output_buffer,mem_required,template,v_args);
 }
 GT_INLINE gt_status gt_bprintf(gt_output_buffer* const output_buffer,const char *template,...) {
@@ -105,7 +105,7 @@ GT_INLINE gt_status gt_bprintf(gt_output_buffer* const output_buffer,const char 
   GT_NULL_CHECK(template);
   va_list v_args;
   va_start(v_args,template);
-  register const gt_status chars_printed = gt_vbprintf(output_buffer,template,v_args);
+  const gt_status chars_printed = gt_vbprintf(output_buffer,template,v_args);
   va_end(v_args);
   return chars_printed;
 }
@@ -116,7 +116,7 @@ GT_INLINE gt_status gt_vbprintf_(
   GT_NULL_CHECK(template); GT_NULL_CHECK(v_args);
   // Calculate buffer size required to dump template{v_args}
   gt_vector_reserve_additional(output_buffer->buffer,expected_mem_usage);
-  register const gt_status chars_printed=vsprintf(gt_vector_get_free_elm(output_buffer->buffer,char),template,v_args);
+  const gt_status chars_printed=vsprintf(gt_vector_get_free_elm(output_buffer->buffer,char),template,v_args);
   if (gt_expect_true(chars_printed>=0)) {
     gt_vector_add_used(output_buffer->buffer,chars_printed);
   }
@@ -128,7 +128,7 @@ GT_INLINE gt_status gt_bprintf_(
   GT_NULL_CHECK(template);
   va_list v_args;
   va_start(v_args,template);
-  register const gt_status chars_printed = gt_vbprintf_(output_buffer,expected_mem_usage,template,v_args);
+  const gt_status chars_printed = gt_vbprintf_(output_buffer,expected_mem_usage,template,v_args);
   va_end(v_args);
   return chars_printed;
 }

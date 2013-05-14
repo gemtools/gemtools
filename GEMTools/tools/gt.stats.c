@@ -75,7 +75,7 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
    * Print Quality Scores vs Errors/Misms
    */
   if (parameters.mismatch_quality) {
-    register const gt_maps_profile* const maps_profile = stats->maps_profile;
+    const gt_maps_profile* const maps_profile = stats->maps_profile;
     if (maps_profile->total_mismatches > 0) {
       fprintf(stderr,"[MISMATCH.QUALITY]\n");
       gt_stats_print_qualities_error_distribution(
@@ -91,7 +91,7 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
    * Print Mismatch transition table
    */
   if (parameters.mismatch_transitions) {
-    register const gt_maps_profile* const maps_profile = stats->maps_profile;
+    const gt_maps_profile* const maps_profile = stats->maps_profile;
     if (maps_profile->total_mismatches > 0) {
       fprintf(stderr,"[MISMATCH.TRANSITIONS]\n");
       fprintf(stderr,"MismsTransitions\n");
@@ -112,11 +112,11 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
 }
 void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
   // #mapped, %mapped
-  register const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
+  const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
   fprintf(stderr,"%" PRIu64 ",",stats->num_mapped);
   fprintf(stderr,"%2.3f,",num_templates?100.0*(float)stats->num_mapped/(float)num_templates:0.0);
   // #unmapped, %unmapped
-  register const uint64_t unmapped = num_templates-stats->num_mapped;
+  const uint64_t unmapped = num_templates-stats->num_mapped;
   fprintf(stderr,"%" PRIu64 ",",unmapped);
   fprintf(stderr,"%2.3f,",num_templates?100.0*(float)unmapped/(float)num_templates:0.0);
   // MMap(maps/alg)
@@ -126,7 +126,7 @@ void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const
   // Bases.trimmed(%)
   fprintf(stderr,"%2.3f,",GT_GET_PERCENTAGE(stats->maps_profile->total_bases_trimmed,stats->maps_profile->total_bases));
   // #Uniq-0, %Uniq-0
-  register const uint64_t all_uniq = stats->uniq[GT_STATS_UNIQ_RANGE_0]+
+  const uint64_t all_uniq = stats->uniq[GT_STATS_UNIQ_RANGE_0]+
       stats->uniq[GT_STATS_UNIQ_RANGE_1]+stats->uniq[GT_STATS_UNIQ_RANGE_2]+
       stats->uniq[GT_STATS_UNIQ_RANGE_3]+stats->uniq[GT_STATS_UNIQ_RANGE_10]+
       stats->uniq[GT_STATS_UNIQ_RANGE_50]+stats->uniq[GT_STATS_UNIQ_RANGE_100]+
@@ -157,7 +157,7 @@ void gt_stats_parallel_generate_stats() {
   gt_sequence_archive* sequence_archive = NULL;
   if (stats_analysis.indel_profile) {
     sequence_archive = gt_sequence_archive_new(GT_CDNA_ARCHIVE);
-    register gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
+    gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
     fprintf(stderr,"Loading reference file ...");
     if (gt_input_multifasta_parser_get_archive(reference_file,sequence_archive)!=GT_IFP_OK) {
       fprintf(stderr,"\n");

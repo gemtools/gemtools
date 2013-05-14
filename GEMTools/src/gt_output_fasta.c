@@ -47,10 +47,10 @@ GT_INLINE void gt_output_fasta_attributes_set_format(gt_output_fasta_attributes*
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS is_fasta,tag,attributes,output_attributes
 GT_INLINE gt_status gt_output_fasta_gprint_tag(gt_generic_printer* const gprinter,
-    bool const is_fasta,gt_string* const tag,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes) {
+    bool const is_fasta,gt_string* const tag,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
-  GT_HASH_CHECK(attributes);
+  GT_ATTRIBUTES_CHECK(attributes);
   // Print begin character
   if (is_fasta) {
     gt_gprintf(gprinter,">"PRIgts,PRIgts_content(tag));
@@ -58,14 +58,14 @@ GT_INLINE gt_status gt_output_fasta_gprint_tag(gt_generic_printer* const gprinte
     gt_gprintf(gprinter,"@"PRIgts,PRIgts_content(tag));
   }
   // Check if we have CASAVA attributes
-  if (gt_output_fasta_attributes_is_print_casava(output_attributes) && gt_shash_is_contained(attributes,GT_ATTR_ID_TAG_CASAVA)) {
-    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_shash_get(attributes,GT_ATTR_ID_TAG_CASAVA,gt_string))); // Print CASAVA
-  } else if (gt_shash_is_contained(attributes,GT_ATTR_ID_TAG_PAIR)) { // Append /1 /2 if paired
-    int64_t p = *gt_shash_get(attributes,GT_ATTR_ID_TAG_PAIR,int64_t);
+  if (gt_output_fasta_attributes_is_print_casava(output_attributes) && gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_CASAVA)) {
+    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_attributes_get(attributes,GT_ATTR_ID_TAG_CASAVA))); // Print CASAVA
+  } else if (gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_PAIR)) { // Append /1 /2 if paired
+    int64_t p = *((int64_t*)gt_attributes_get(attributes,GT_ATTR_ID_TAG_PAIR));
     if (p > 0) gt_gprintf(gprinter,"/%d",p);
   }
-  if (gt_output_fasta_attributes_is_print_extra(output_attributes) && gt_shash_is_contained(attributes,GT_ATTR_ID_TAG_EXTRA)) {
-    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_shash_get(attributes,GT_ATTR_ID_TAG_EXTRA,gt_string))); // Print additional tag info
+  if (gt_output_fasta_attributes_is_print_extra(output_attributes) && gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_EXTRA)) {
+    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_attributes_get(attributes,GT_ATTR_ID_TAG_EXTRA))); // Print additional tag info
   }
   gt_gprintf(gprinter,"\n");
   return 0;
@@ -74,13 +74,13 @@ GT_INLINE gt_status gt_output_fasta_gprint_tag(gt_generic_printer* const gprinte
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,attributes,output_attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_fasta,print_fasta,
-    gt_string* const tag,gt_string* const read,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes);
+    gt_string* const tag,gt_string* const read,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes);
 GT_INLINE gt_status gt_output_fasta_gprint_fasta(gt_generic_printer* const gprinter,
-    gt_string* const tag,gt_string* const read,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes) {
+    gt_string* const tag,gt_string* const read,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
   GT_STRING_CHECK(read);
-  GT_HASH_CHECK(attributes);
+  GT_ATTRIBUTES_CHECK(attributes);
   gt_output_fasta_gprint_tag(gprinter,true,tag,attributes,output_attributes);
   gt_gprintf(gprinter,PRIgts"\n",PRIgts_content(read));
   // TODO attributes
@@ -90,9 +90,9 @@ GT_INLINE gt_status gt_output_fasta_gprint_fasta(gt_generic_printer* const gprin
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities,attributes,output_attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_fasta,print_fastq,
-    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes);
+    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes);
 GT_INLINE gt_status gt_output_fasta_gprint_fastq(gt_generic_printer* const gprinter,
-    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes) {
+    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
   GT_STRING_CHECK(read);
@@ -102,8 +102,8 @@ GT_INLINE gt_status gt_output_fasta_gprint_fastq(gt_generic_printer* const gprin
   if (!gt_string_is_null(qualities)) {
     gt_gprintf(gprinter,"+\n"PRIgts"\n",PRIgts_content(qualities));
   } else { // Print dummy qualities
-    register const uint64_t read_length = gt_string_get_length(read);
-    register uint64_t i;
+    const uint64_t read_length = gt_string_get_length(read);
+    uint64_t i;
     for (i=0;i<read_length;++i) gt_gprintf(gprinter,"X");
     gt_gprintf(gprinter,"\n");
   }
@@ -165,8 +165,8 @@ GT_INLINE gt_status gt_output_fasta_gprint_template(gt_generic_printer* const gp
    gt_template* const template,gt_output_fasta_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
-  register gt_status error_code;
-  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+  gt_status error_code;
+  GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     error_code=gt_output_fasta_gprint_alignment(gprinter,alignment, output_attributes);
     if (error_code) return error_code;
   }
@@ -181,7 +181,7 @@ GT_INLINE gt_status gt_output_fasta_gprint_sequence_archive(gt_generic_printer* 
     gt_sequence_archive* const sequence_archive,const uint64_t column_width,gt_output_fasta_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   // Dump the content of the reference file (using Iterators)
-  register gt_segmented_sequence* seq;
+  gt_segmented_sequence* seq;
   gt_sequence_archive_iterator seq_arch_it;
   gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
   while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
@@ -190,7 +190,7 @@ GT_INLINE gt_status gt_output_fasta_gprint_sequence_archive(gt_generic_printer* 
 	  // Print Sequences
     gt_segmented_sequence_iterator sequence_iterator;
     gt_segmented_sequence_new_iterator(seq,0,GT_ST_FORWARD,&sequence_iterator);
-    register uint64_t chars_written = 0;
+    uint64_t chars_written = 0;
     if (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
       while (!gt_segmented_sequence_iterator_eos(&sequence_iterator)) {
         gt_gprintf(gprinter,"%c",gt_segmented_sequence_iterator_next(&sequence_iterator));

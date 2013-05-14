@@ -47,10 +47,10 @@ void gt_map_2_fastq() {
   gt_status error_code;
   while ((error_code=gt_input_map_parser_get_template(buffered_input,template))) {
     if (error_code==GT_BMI_FAIL) continue;
-    register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-    register uint64_t i;
+    const uint64_t num_blocks = gt_template_get_num_blocks(template);
+    uint64_t i;
     for (i=0;i<num_blocks;++i) {
-      register gt_alignment* alignment = gt_template_get_block(template,i);
+      gt_alignment* alignment = gt_template_get_block(template,i);
       printf("@%s\n%s\n+\n%s\n",gt_template_get_tag(template),
           gt_alignment_get_read(alignment),gt_alignment_get_qualities(alignment));
     }
@@ -64,13 +64,13 @@ void gt_map_2_fastq() {
  * Displays Template's content
  */
 void gt_example_display_template(gt_template* template) {
-  register const uint64_t template_num_blocks = gt_template_get_num_blocks(template);
+  const uint64_t template_num_blocks = gt_template_get_num_blocks(template);
   printf(">> %s  => Is %s (contains %"PRIu64" blocks)\n",
       gt_template_get_tag(template),
       (template_num_blocks==1)?"Single-end":(template_num_blocks==2?"Paired-end":"Weird"),
       template_num_blocks);
   GT_TEMPLATE_ITERATE(template,map_array) {
-    GT_MULTIMAP_ITERATE(map_array,map,end_position) {
+    GT_MMAP_ITERATE(map_array,map,end_position) {
       gt_alignment* alignment = gt_template_get_block(template,end_position);
       // As maps can contain more than one block (due to split maps) we iterate over all of them
       printf("\t BEGIN_MAPS_BLOCK [TotalDistance=%"PRIu64"] { ", gt_map_get_global_distance(map));
@@ -188,7 +188,7 @@ void gt_load_reference__dump_it() {
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
   // Load reference
-  register gt_sequence_archive* sequence_archive = gt_sequence_archive_new(GT_CDNA_ARCHIVE);
+  gt_sequence_archive* sequence_archive = gt_sequence_archive_new(GT_CDNA_ARCHIVE);
   if (gt_input_multifasta_parser_get_archive(input_file,sequence_archive)!=GT_IFP_OK) {
     gt_error_msg("Fatal error parsing reference\n");
   }
@@ -199,7 +199,7 @@ void gt_load_reference__dump_it() {
   }
   gt_sequence_archive_iterator seq_arch_it;
   gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
-  register gt_segmented_sequence* seq;
+  gt_segmented_sequence* seq;
   while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
     fprintf(stderr,"SEQUENCE '%s' [length=%lu]\n",seq->seq_name->buffer,seq->sequence_total_length);
   }
@@ -211,7 +211,7 @@ void gt_load_reference__dump_it() {
 //  gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
 //  while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
 //    fprintf(stderr,">%s\n",seq->seq_name->buffer);
-//    register uint64_t i;
+//    uint64_t i;
 //    for (i=0; i<seq->sequence_total_length; ++i) {
 //      fprintf(stderr,"%c",gt_segmented_sequence_get_char_at(seq,i));
 //    }

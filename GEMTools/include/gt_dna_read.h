@@ -10,12 +10,13 @@
 #define GT_DNA_READ_H_
 
 #include "gt_essentials.h"
+#include "gt_attributes.h"
 
 typedef struct {
   gt_string* tag;
   gt_string* read;
   gt_string* qualities;
-  gt_shash* attributes;
+  gt_attributes* attributes;
 } gt_dna_read;
 
 typedef enum { GT_QUALS_OFFSET_33, GT_QUALS_OFFSET_64 } gt_qualities_offset_t;

@@ -13,7 +13,7 @@
  */
 #define GT_STATS_GET_PERCENTAGE_ERROR(percentage,one_per_cent) (uint64_t)((double)percentage*one_per_cent)
 #define GT_STATS_VECTOR_ADD(VECTOR_A,VECTOR_B,RANGE) { \
-  register uint64_t iii; \
+  uint64_t iii; \
   for (iii=0;iii<RANGE;++iii) {VECTOR_A[iii] += VECTOR_B[iii];} \
 }
 
@@ -238,7 +238,7 @@ GT_INLINE void gt_splitmaps_profile_merge(
  * Calculate Distributions
  */
 GT_INLINE void gt_stats_get_misms(uint64_t* const misms_array,const uint64_t misms_num,const uint64_t read_length) {
-  register const double one_per_cent = read_length/100.0;
+  const double one_per_cent = read_length/100.0;
   if (misms_num==0) {
     misms_array[GT_STATS_MISMS_RANGE_0]++;
   } else if (misms_num<=GT_STATS_GET_PERCENTAGE_ERROR(1,one_per_cent)) {
@@ -460,7 +460,7 @@ GT_INLINE void gt_stats_delete(gt_stats* const stats) {
  * STATS Merge
  */
 GT_INLINE void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_size) {
-  register uint64_t i;
+  uint64_t i;
   for (i=1;i<stats_array_size;++i) {
     // Length
     stats[0]->min_length = GT_MIN(stats[0]->min_length,stats[i]->min_length);
@@ -500,22 +500,22 @@ GT_INLINE void gt_stats_make_indel_profile(
 GT_INLINE void gt_stats_make_maps_error_profile(
     gt_maps_profile *maps_error_profile,gt_template* const template,
     const uint64_t alignment_total_length,gt_map** const mmap) {
-  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  const uint64_t num_blocks = gt_template_get_num_blocks(template);
   uint64_t total_mismatches=0;
   uint64_t total_levenshtein=0;
   uint64_t total_ins_length=0, total_del_length=0;
   uint64_t total_errors_events=0;
   uint64_t total_bases=0, total_bases_trimmed=0, total_bases_not_matching=0;
   // Iterate all MMAPS
-  GT_MULTIMAP_ITERATE_BLOCKS(mmap,num_blocks,map,end_pos) {
-    register gt_alignment* const alignment = gt_template_get_block(template,end_pos);
-    register gt_string* const read = alignment->read;
-    register gt_string* const quals = alignment->qualities;
-    register const bool has_qualities = gt_alignment_has_qualities(alignment);
-    register char quality_misms = 0;
-    GT_MAP_ITERATE(map,map_block) {
-      total_bases += gt_map_get_base_length(map);
-      GT_MISMS_ITERATE(map_block,misms) {
+  GT_MMAP_ITERATE_ENDS(mmap,num_blocks,map,end_pos) { // Iterate over ends (/1,/2)
+    gt_alignment* const alignment = gt_template_get_block(template,end_pos);
+    gt_string* const read = alignment->read;
+    gt_string* const quals = alignment->qualities;
+    const bool has_qualities = gt_alignment_has_qualities(alignment);
+    char quality_misms = 0;
+    GT_MAP_ITERATE(map,map_block) { // Iterate over splits (map blocks)
+      total_bases += gt_map_get_base_length(map_block);
+      GT_MISMS_ITERATE(map_block,misms) { // Iterate over mismatches/indels
         ++total_errors_events;
         // Records position of misms/indel
         if (misms->position < GT_STATS_LARGE_READ_POS_RANGE) {
@@ -533,12 +533,12 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             ++total_bases_not_matching;
             // Record transition
             gt_check(misms->base==gt_string_get_string(read)[misms->position],MISMS_TRANSITION);
-            register uint64_t idx = 0;
+            uint64_t idx = 0;
             idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
             idx *= GT_STATS_MISMS_BASE_RANGE;
             idx += gt_cdna_encode[(uint8_t)misms->base];
             maps_error_profile->misms_transition[idx]++;
-            if (misms->position>0 && misms->position<gt_map_get_base_length(map)-1) { // 1-context
+            if (misms->position>0 && misms->position<gt_map_get_base_length(map_block)-1) { // 1-context
               idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-1]];
               idx *= GT_STATS_MISMS_BASE_RANGE;
               idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
@@ -606,13 +606,13 @@ GT_INLINE void gt_stats_make_mmaps_profile(
     const uint64_t alignment_total_length,gt_stats_analysis* const stats_analysis) {
   // Check not null maps
   if (gt_template_get_num_mmaps(template)==0) return;
-  register const uint64_t num_blocks_template = gt_template_get_num_blocks(template);
-  register const uint64_t paired_map = (num_blocks_template==2);
+  const uint64_t num_blocks_template = gt_template_get_num_blocks(template);
+  const uint64_t paired_map = (num_blocks_template==2);
   // Iterate over all/best maps
-  register gt_maps_profile* const maps_error_profile = stats->maps_profile;
-  register gt_splitmaps_profile* const splitmaps_profile = stats->splitmaps_profile;
-  register bool has_splitsmaps = false;
-  register bool only_splitsmaps = true;
+  gt_maps_profile* const maps_error_profile = stats->maps_profile;
+  gt_splitmaps_profile* const splitmaps_profile = stats->splitmaps_profile;
+  bool has_splitsmaps = false;
+  bool only_splitsmaps = true;
   GT_TEMPLATE_ITERATE(template,mmap) {
     /*
      * Insert Size Distribution
@@ -646,8 +646,8 @@ GT_INLINE void gt_stats_make_mmaps_profile(
     if (stats_analysis->split_map_stats) {
       // SM block stats
       bool has_sm[2] = {true, true};
-      GT_MULTIMAP_ITERATE(mmap,map,end_pos) {
-        register const uint64_t num_blocks = gt_map_get_num_blocks(map);
+      GT_MMAP_ITERATE(mmap,map,end_pos) {
+        const uint64_t num_blocks = gt_map_get_num_blocks(map);
         // Calculate total_junctions & total_splitmaps
         if (num_blocks > 1) {
           has_splitsmaps = true;
@@ -661,7 +661,7 @@ GT_INLINE void gt_stats_make_mmaps_profile(
           if (gt_map_has_next_block(map_block)) {
             splitmaps_profile->total_junctions++;
             gt_stats_get_juntions_length_distribution(splitmaps_profile->length_junctions,gt_map_get_junction_size(map_block));
-            register const uint64_t juntion_position = gt_map_get_base_length(map_block);
+            const uint64_t juntion_position = gt_map_get_base_length(map_block);
             if (juntion_position < GT_STATS_SHORT_READ_POS_RANGE) splitmaps_profile->junction_position[juntion_position]++;
           }
         }
@@ -699,17 +699,17 @@ GT_INLINE void gt_stats_make_mmaps_profile(
 GT_INLINE void gt_stats_calculate_template_stats(
     gt_stats* const stats,gt_template* const template,gt_sequence_archive* seq_archive,gt_stats_analysis* const stats_analysis) {
   // Basic stats
-  register const uint64_t num_blocks = gt_template_get_num_blocks(template);
-  register uint64_t num_maps = gt_template_get_num_mmaps(template);
+  const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  uint64_t num_maps = gt_template_get_num_mmaps(template);
   if (stats_analysis->best_map && num_maps>0) num_maps = 1; // NumMaps correction
-  register const bool is_mapped = (num_maps>0 || gt_template_is_mapped(template));
+  const bool is_mapped = (num_maps>0 || gt_template_is_mapped(template));
   /*
    * Length STATS
    */
-  register uint64_t alignment_total_length = 0;
-  GT_TEMPLATE_ALIGNMENT_ITERATE(template,alignment) {
+  uint64_t alignment_total_length = 0;
+  GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     // Read length stats
-    register uint64_t read_length =
+    uint64_t read_length =
         (gt_alignment_get_read_length(alignment)==0 && gt_alignment_get_num_maps(alignment)>0) ?
          gt_map_get_base_length(gt_alignment_get_map(alignment,0)) : gt_alignment_get_read_length(alignment);
     alignment_total_length += read_length;
@@ -753,7 +753,7 @@ GT_INLINE void gt_stats_calculate_template_stats(
  * STATS Report Output Printers
  */
 GT_INLINE uint64_t gt_stats_sum_misms_pos(uint64_t* const pos_error,uint64_t const begin,uint64_t const end) {
-  register uint64_t i, accum = 0;
+  uint64_t i, accum = 0;
   for (i=begin;i<end;++i) {
     accum += pos_error[i];
   }
@@ -788,7 +788,7 @@ GT_INLINE void gt_stats_print_uniq_distribution(FILE* stream,uint64_t* const uni
   fprintf(stream,"  -->        [3] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(GT_STATS_UNIQ_RANGE_3));
   fprintf(stream,"  -->     (3,10] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(GT_STATS_UNIQ_RANGE_10));
   fprintf(stream,"  -->    (10,50] \t=> "GT_STATS_PRINT_UNIQ_FORMAT,GT_STATS_PRINT_UNIQ(GT_STATS_UNIQ_RANGE_50));
-  register const uint64_t accum = uniq[GT_STATS_UNIQ_RANGE_100]+uniq[GT_STATS_UNIQ_RANGE_500]+uniq[GT_STATS_UNIQ_RANGE_BEHOND];
+  const uint64_t accum = uniq[GT_STATS_UNIQ_RANGE_100]+uniq[GT_STATS_UNIQ_RANGE_500]+uniq[GT_STATS_UNIQ_RANGE_BEHOND];
   fprintf(stream,"  -->   (50,inf) \t=> "GT_STATS_PRINT_UNIQ_FORMAT,accum,100.0*(float)(accum)/(float)num_alignments);
 }
 GT_INLINE void gt_stats_print_inss_distribution(FILE* stream,uint64_t* const inss,const uint64_t num_maps) {
@@ -818,7 +818,7 @@ GT_INLINE void gt_stats_print_inss_fg_distribution(FILE* stream,uint64_t* const 
 #define GT_STATS_PRINT_INSS_FG(RANGE) inss[RANGE],100.0*(float)inss[RANGE]/(float)num_maps
   if(!num_maps) return;
   fprintf(stream,"InsS.ranges\n");
-  register int64_t current_bucket, current_inf=GT_STATS_INSS_FG_MIN;
+  int64_t current_bucket, current_inf=GT_STATS_INSS_FG_MIN;
   for (current_bucket=0;current_bucket<GT_STATS_INSS_FG_RANGE;++current_bucket) {
     if (current_inf==GT_STATS_INSS_FG_MIN) {
       fprintf(stream,"  -->   (-inf,%5ld) \t=> "GT_STATS_PRINT_INSS_FG_FORMAT,
@@ -841,7 +841,7 @@ GT_INLINE void gt_stats_print_error_event_distribution(FILE* stream,uint64_t* co
   fprintf(stream,"  -->         [0]%% \t=> "GT_STATS_PRINT_MISMS_FORMAT,GT_STATS_PRINT_MISMS(GT_STATS_MISMS_RANGE_0));
   fprintf(stream,"  -->         [1]%% \t=> "GT_STATS_PRINT_MISMS_FORMAT,GT_STATS_PRINT_MISMS(GT_STATS_MISMS_RANGE_1));
   fprintf(stream,"  -->         [2]%% \t=> "GT_STATS_PRINT_MISMS_FORMAT,GT_STATS_PRINT_MISMS(GT_STATS_MISMS_RANGE_2));
-  register const uint64_t misms_accum = error[GT_STATS_MISMS_RANGE_3]+error[GT_STATS_MISMS_RANGE_4]+
+  const uint64_t misms_accum = error[GT_STATS_MISMS_RANGE_3]+error[GT_STATS_MISMS_RANGE_4]+
       error[GT_STATS_MISMS_RANGE_5]+error[GT_STATS_MISMS_RANGE_6]+error[GT_STATS_MISMS_RANGE_7]+
       error[GT_STATS_MISMS_RANGE_8]+error[GT_STATS_MISMS_RANGE_9]+error[GT_STATS_MISMS_RANGE_10];
   fprintf(stream,"  -->      (2,10]%% \t=> "GT_STATS_PRINT_MISMS_FORMAT,GT_STATS_PRINT_MISMS_VAL(misms_accum));
@@ -851,13 +851,13 @@ GT_INLINE void gt_stats_print_error_event_distribution(FILE* stream,uint64_t* co
 }
 GT_INLINE void gt_stats_print_read_event_positions(
     FILE* stream,uint64_t* const pos_error,uint64_t const num_errors,uint64_t const max_length) {
-  register const uint64_t max_length_stats = GT_MIN(max_length,GT_STATS_LARGE_READ_POS_RANGE);
-  register const uint64_t ten_per_cent = max_length_stats/10;
-  register uint64_t i, centinel, error_sum;
+  const uint64_t max_length_stats = GT_MIN(max_length,GT_STATS_LARGE_READ_POS_RANGE);
+  const uint64_t ten_per_cent = max_length_stats/10;
+  uint64_t i, centinel, error_sum;
   if(!num_errors) return;
   fprintf(stream,"Error.position [0,%" PRIu64 "]nt\n",max_length_stats);
   for (i=0,centinel=0;i<100;i+=10,centinel+=ten_per_cent) {
-    register const uint64_t top = (i==90)?max_length_stats:centinel+ten_per_cent;
+    const uint64_t top = (i==90)?max_length_stats:centinel+ten_per_cent;
     error_sum = gt_stats_sum_misms_pos(pos_error,centinel,top);
     fprintf(stream,"  -->   [%3" PRIu64 " - %3" PRIu64 ")nt \t=> %1.3f%%\n",
         centinel,top,100.0*(float)error_sum/(float)num_errors);
@@ -883,20 +883,20 @@ GT_INLINE void gt_stats_print_length_junctions_distribution(FILE* stream,uint64_
   fprintf(stream,"  -->   (50000,inf) \t=> "GT_STATS_PRINT_LENGTH_JUNCTION_FORMAT,GT_STATS_PRINT_LENGTH_JUNCTION(GT_STATS_LEN_JUNCTION_BEHOND));
 }
 GT_INLINE void gt_stats_print_junction_position_distribution(FILE* stream,uint64_t* const junction_position,uint64_t const total_junctions,uint64_t const max_length) {
-  register const uint64_t max_length_stats = GT_MIN(max_length,GT_STATS_SHORT_READ_POS_RANGE);
-  register const uint64_t ten_per_cent = max_length_stats/10;
-  register uint64_t i, centinel;
+  const uint64_t max_length_stats = GT_MIN(max_length,GT_STATS_SHORT_READ_POS_RANGE);
+  const uint64_t ten_per_cent = max_length_stats/10;
+  uint64_t i, centinel;
   if(!total_junctions) return;
   fprintf(stream,"Juntion.position [0,%" PRIu64 "]nt\n",max_length_stats);
   for (i=0,centinel=0;i<100;i+=10,centinel+=ten_per_cent) {
-    register const uint64_t top = (i==90)?max_length_stats:centinel+ten_per_cent;
-    register const uint64_t num_junctions = gt_stats_sum_misms_pos(junction_position,centinel,top);
+    const uint64_t top = (i==90)?max_length_stats:centinel+ten_per_cent;
+    const uint64_t num_junctions = gt_stats_sum_misms_pos(junction_position,centinel,top);
     fprintf(stream,"  -->   [%3" PRIu64 " - %3" PRIu64")nt \t=> %1.3f%%\n",centinel,top,100.0*(float)num_junctions/(float)total_junctions);
   }
 }
 GT_INLINE void gt_stats_print_qualities_error_distribution(FILE* stream,uint64_t* const qualities_error,uint64_t const total_error) {
-  register uint64_t i;
-  register uint64_t j, qual;
+  uint64_t i;
+  uint64_t j, qual;
   if(!total_error) return;
   // Print Header
   fprintf(stream,"    ");
@@ -912,7 +912,7 @@ GT_INLINE void gt_stats_print_qualities_error_distribution(FILE* stream,uint64_t
   }
 }
 GT_INLINE void gt_stats_print_misms_transition_table(FILE* stream,uint64_t* const misms_trans,uint64_t const total_misms) {
-  register uint64_t i, pos=0;
+  uint64_t i, pos=0;
   if(!total_misms) return;
   // Print Header
   fprintf(stream,"    [  A  ][  C  ][  G  ][  T  ][  N  ]\n");
@@ -948,12 +948,12 @@ GT_INLINE void gt_stats_print_misms_transition_table_1context(FILE* stream,uint6
   // Print Header
   fprintf(stream,"      [  A  ][  C  ][  G  ][  T  ][  N  ]\n");
   char bases[] = {'A','C','G','T','N'};
-  register uint64_t a,b,c;
+  uint64_t a,b,c;
   for (b=0;b<4;++b) {
     for (a=0;a<4;++a) {
       for (c=0;c<4;++c) {
         fprintf(stream,"[%c%c%c] ",bases[a],bases[b],bases[c]);
-        register uint64_t i;
+        uint64_t i;
         for (i=0;i<GT_STATS_MISMS_BASE_RANGE;++i) {
           fprintf(stream,"[%5.2f]",100.0*(double)misms_trans[GT_STATS_GET_IXD_TRANSITION_1_CONTEXT(a,b,c,i)]/(double)total_misms);
         }
@@ -964,7 +964,7 @@ GT_INLINE void gt_stats_print_misms_transition_table_1context(FILE* stream,uint6
 }
 
 GT_INLINE void gt_stats_print_split_maps_stats(FILE* stream,gt_stats* const stats,const bool paired_end) {
-  register gt_splitmaps_profile* const splitmap_stats = stats->splitmaps_profile;
+  gt_splitmaps_profile* const splitmap_stats = stats->splitmaps_profile;
   if (splitmap_stats->total_splitmaps==0) {
     fprintf(stream,"SM.Total \t 0\n");
   } else {
@@ -988,9 +988,9 @@ GT_INLINE void gt_stats_print_split_maps_stats(FILE* stream,gt_stats* const stat
   }
 }
 GT_INLINE void gt_stats_print_maps_stats(FILE* stream, gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
-  register const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
+  const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
   // Total bases (aligned/trimmed/unaligned)
-  register const gt_maps_profile* const maps_profile = stats->maps_profile;
+  const gt_maps_profile* const maps_profile = stats->maps_profile;
   fprintf(stream,"  --> Total.Bases %" PRIu64 " (%2.3f per map) \n",
       maps_profile->total_bases,GT_DIV_F(maps_profile->total_bases,stats->num_maps));
   fprintf(stream,"    --> Bases.Matching %" PRIu64 " (%2.3f) \n",
@@ -1029,7 +1029,7 @@ GT_INLINE void gt_stats_print_maps_stats(FILE* stream, gt_stats* const stats,con
   gt_stats_print_read_event_positions(stream,stats->maps_profile->error_position,stats->maps_profile->total_errors_events,stats->max_length);
 }
 GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
-  register const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
+  const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
   // For the case of zero input lines
   if(stats->min_length>stats->max_length) stats->min_length=0;
   if(stats->mapped_min_length>stats->mapped_max_length) stats->mapped_min_length=0;

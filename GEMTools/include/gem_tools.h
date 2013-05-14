@@ -35,7 +35,7 @@
 #include "gt_misms.h"
 #include "gt_map.h"
 #include "gt_dna_read.h"
-#include "gt_data_attributes.h"
+#include "gt_attributes.h"
 #include "gt_alignment.h"
 #include "gt_alignment_utils.h"
 #include "gt_template.h"

@@ -11,8 +11,11 @@
 
 #include "gt_essentials.h"
 #include "gt_dna_string.h"
-#include "gt_template.h"
-#include "gt_sam_data_attributes.h"
+#include "gt_dna_read.h"
+#include "gt_alignment_utils.h"
+#include "gt_template_utils.h"
+#include "gt_sam_attributes.h"
+#include "gt_map_score.h"
 #include "gt_output_buffer.h"
 #include "gt_buffered_output_file.h"
 #include "gt_generic_printer.h"
@@ -25,57 +28,71 @@
 /*
  * SAM Output attributes
  */
+typedef enum { GT_SAM, GT_BAM } gt_output_sam_format_t;
 typedef struct {
+  /* Format */
+  gt_output_sam_format_t format; // TODO
+  /* Read/Qualities */
+  bool always_output_read__qualities; // TODO
+  gt_qualities_offset_t qualities_offset; // TODO
   /* Maps */
-  bool flag_best_as_primary; // Flags the Map/MMap with more phredQuality as primary
-  uint64_t max_printable_maps; // Maximum number of maps printed
-  bool print_unpaired_maps;
-  bool compact_format; // Compact map representation in SAM via XA field
+  uint64_t max_printable_maps; // Maximum number of maps printed // TODO
+  bool compact_format; // Compact map representation in SAM via XA field // TODO
   /* CIGAR/Mismatch string */
-  bool print_misms;
-  /* Optional fields */
-  bool print_casava; // If available print CASAVA tag as extra field
-  gt_vector* sam_attributes; // Optional fields stored as sam_attributes
+  bool print_mismatches; // TODO
+  /* SAM Optional Fields */
+  bool print_optional_fields; // TODO
+  gt_sam_attributes* sam_attributes; // Optional fields stored as sam_attributes
+  gt_sam_attribute_func_params* attribute_func_params; // Parameters provided to generate functional attributes
 } gt_output_sam_attributes;
-#define GT_OUTPUT_SAM_ATTR_DEFAULT() { \
-  /* Maps */ \
-  .flag_best_as_primary = true, \
-  .max_printable_maps = UINT64_MAX, \
-  .print_unpaired_maps = false, \
-  .compact_format = false, \
-  /* Mismatch/CIGAR string */ \
-  .print_misms = false, \
-  /* Optional fields */ \
-  .print_casava = true, \
-  .sam_attributes = NULL \
-}
+/*
+ * BAM record
+ */
+typedef struct {
+  int32_t block_size;  // Length of the remainder of the alignment record
+  int32_t refID; // Reference sequence ID, 1 <= refID < n ref; -1 for a read without a mapping position.
+  int32_t pos; // pos 0-based leftmost coordinate (= POS  1)
+  uint32_t bin_mq_nl; // bin<<16|MAPQ<<8|l read name;
+                      //   bin is computed by the reg2bin() function in Section 4.3;
+                      //   l read name is the length of read name below (= length(QNAME) + 1).
+  uint32_t flag_mq_nl; // FLAG<<16|n cigar op; n cigar op is the number of operations in CIGAR.
+  int32_t l_seq; // Length of SEQ
+  int32_t next_refID; // Ref-ID of the next segment (1 <= mate refID < n_ref)
+  int32_t next_pos; // 0-based leftmost pos of the next segment (= PNEXT - 1)
+  int32_t tlen; // Template length (= TLEN)
+  gt_string* read_name; // Read name, NULL terminated (QNAME plus a tailing `\0')
+  uint32_t* cigar; // op_len<<4|op. `MIDNSHP=X'!`012345678'
+  uint8_t* seq; // 4-bit encoded read: `=ACMGRSVTWYHKDBN'! [0; 15];
+                //   Other characters mapped to `N';
+                //   High nybble first (1st base in the highest 4-bit of the 1st byte)
+  char* qual; // Phred base quality (a sequence of 0xFF if absent)
+  gt_string* optional_fields; // Optional Fields String. List of auxiliary data (until the end of the alignment block)
+} gt_bam_record;
+
 /* Setup */
 GT_INLINE gt_output_sam_attributes* gt_output_sam_attributes_new();
 GT_INLINE void gt_output_sam_attributes_delete(gt_output_sam_attributes* const attributes);
-GT_INLINE void gt_output_sam_attributes_reset_defaults(gt_output_sam_attributes* const attributes);
+GT_INLINE void gt_output_sam_attributes_clear(gt_output_sam_attributes* const attributes);
+/* Format */
+GT_INLINE void gt_output_sam_attributes_set_format(gt_output_sam_attributes* const attributes,gt_output_sam_format_t const format);
+/* Read/Qualities */
+GT_INLINE void gt_output_sam_attributes_dump_read__qualities_once(gt_output_sam_attributes* const attributes);
+GT_INLINE void gt_output_sam_attributes_always_dump_read__qualities(gt_output_sam_attributes* const attributes);
 /* Maps */
-GT_INLINE void gt_output_sam_attributes_flag_best_as_primary_on(gt_output_sam_attributes* const attributes);
-GT_INLINE void gt_output_sam_attributes_flag_best_as_primary_off(gt_output_sam_attributes* const attributes);
-GT_INLINE uint64_t gt_output_sam_attributes_get_max_printable_maps(gt_output_sam_attributes* const attributes);
 GT_INLINE void gt_output_sam_attributes_set_max_printable_maps(gt_output_sam_attributes* const attributes,const uint64_t max_printable_maps);
-GT_INLINE void gt_output_sam_attributes_print_unpaired_maps_on(gt_output_sam_attributes* const attributes);
-GT_INLINE void gt_output_sam_attributes_print_unpaired_maps_off(gt_output_sam_attributes* const attributes);
-GT_INLINE void gt_output_sam_attributes_compact_format_on(gt_output_sam_attributes* const attributes);
-GT_INLINE void gt_output_sam_attributes_compact_format_off(gt_output_sam_attributes* const attributes);
+GT_INLINE void gt_output_sam_attributes_set_compact_format(gt_output_sam_attributes* const attributes,const bool compact_format);
 /* CIGAR/Mismatch string */
-GT_INLINE void gt_output_sam_attributes_print_mismatches_on(gt_output_sam_attributes* const attributes);
-GT_INLINE void gt_output_sam_attributes_print_mismatches_off(gt_output_sam_attributes* const attributes);
-/* Optional fields */
-GT_INLINE void gt_output_sam_attributes_print_casava_on(gt_output_sam_attributes* const attributes);
-GT_INLINE void gt_output_sam_attributes_print_casava_off(gt_output_sam_attributes* const attributes);
-GT_INLINE void gt_output_sam_attributes_set_sam_attributes(gt_output_sam_attributes* const attributes,gt_vector* const sam_attributes);
+GT_INLINE void gt_output_sam_attributes_set_print_mismatches(gt_output_sam_attributes* const attributes,const bool print_mismatches);
+/* SAM Optional Fields */
+GT_INLINE void gt_output_sam_attributes_set_print_optional_fields(gt_output_sam_attributes* const attributes,const bool print_optional_fields);
+GT_INLINE void gt_output_sam_attributes_set_reference_sequence_archive(gt_output_sam_attributes* const attributes,gt_sequence_archive* const reference_sequence_archive);
+GT_INLINE gt_sam_attributes* gt_output_sam_attributes_get_sam_attributes(gt_output_sam_attributes* const attributes);
 
 /*
  * SAM Headers
  */
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_headers_sh,gt_sam_headers* const sam_headers);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_headers_sa,gt_sequence_archive* const sequence_archive);
-
 /*
  * SAM QNAME (Tag)
  */
@@ -105,7 +122,7 @@ GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_qname,gt_string* const tag);
  *     the first nor the last segment. If both 0x40 and 0x80 are unset, the index of the segment
  *     in the template is unknown. This may happen for a non-linear template or the index is
  *     lost in data processing.
- * - Bit 0x100 marks the alignment not to be used in certain analyses when the tools in use
+ * - Bit 0x100 marks the alignment not to be used in certain analysis when the tools in use
  *     are aware of this bit.
  * - If 0x1 is unset, no assumptions can be made about 0x2, 0x8, 0x20, 0x40 and 0x80.
 */
@@ -131,76 +148,56 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_pe_map(
 /*
  * SAM CIGAR
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_cigar,gt_map* const map,gt_output_sam_attributes* const attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_cigar,gt_map* const map_segment,gt_output_sam_attributes* const attributes);
 /*
  * SAM CORE fields
  *   (QNAME,FLAG,RNAME,POS,MAPQ,CIGAR,RNEXT,PNEXT,TLEN,SEQ,QUAL). No EOL is printed
- *   @read and @qualities must be already RC in case of mapping on the reverse strand
+ *   Don't handle quimeras (just print one record out of the first map segment)
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_se,
-    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_map* const map,
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_core_fields_se,
+    gt_string* const tag,gt_string* const read,gt_string* const qualities,
+    gt_map* const map,const uint64_t position,const uint8_t phred_score,
+    const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
     const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_pe,
-    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_map* const map,gt_map* const mate,
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_core_fields_pe,
+    gt_string* const tag,gt_string* const read,gt_string* const qualities,
+    gt_map* const map,const uint64_t position,const uint8_t phred_score,
+    gt_map* const mate,const uint64_t mate_position,const uint64_t template_length,
+    const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
     const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_core_fields_se,
+    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_map* const map_segment,
+    const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
+    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    gt_output_sam_attributes* const attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_core_fields_pe,
+    gt_string* const tag,gt_string* const read,gt_string* const qualities,
+    gt_map* const map_segment,gt_map* const mate_segment,gt_mmap_attributes* const mmap_attributes,
+    const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    gt_output_sam_attributes* const output_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_placeholder,
+    gt_string* const tag,gt_string* const read,gt_string* const qualities,
+    gt_map_placeholder* const map_placeholder,gt_output_sam_attributes* const output_attributes);
 /*
  * SAM Optional fields
- *   - SAM Attributes is a gt_vector of gt_sam_attribute (gt_data_attributes.h)
- *   - SAM Attributes are stored inside general attributes under GT_ATTR_ID_SAM_FLAGS
- *       Thus, they can be found in a template, an alignment and/or a map
- *   - SAM Attributes (gt_data_attributes.h) can be either a value(int,double,string)
- *       or a function of {template,alignment,map} returning a value(int,double,string)
+ *   - SAM Attributes is a shash of gt_sam_attribute (gt_sam_data_attributes.h)
+ *   - SAM Attributes (gt_sam_data_attributes.h) can be either a value(int,double,string)
+ *       or a function -> f(gt_sam_attribute_func_params* params) returning a value(int,double,string)
  *   - gt_output_sam_print_optional_fields_values() prints all the values contained in @sam_attributes
  *     gt_output_sam_print_optional_fields() prints all attributes.
- *       Those relying on a function, are generating calling that function with @template,@alignment,@map
- *       as arguments (can be NULL, so the attribute function must be ready for that)
+ *       Those relying on a function, are generating calling that function with @gt_sam_attribute_func_params
+ *       as argument (some fields can be NULL, so the attribute function must be ready to deal with that)
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_optional_fields_values,gt_vector* sam_attributes,gt_output_sam_attributes* const attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_optional_fields,
-    gt_template* const template,gt_alignment* const alignment,gt_map** const map,
-    gt_vector* sam_attributes,gt_output_sam_attributes* const attributes);
-/*
- * SAM Record (Full SAM record printers)
- *   - @read and @qualities are NOT reverse-complemented (just printed)
- *   - @tag, @read and @qualities are used to print the SAM field
- *       (@template,@alignment can be null and are only used as to generate the opt-fields, if any)
- */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_sam_pe_record,
-    gt_string* const tag,gt_string* const read_end1,gt_string* const read_end2,
-    gt_string* const qualities_end1,gt_string* const qualities_end2,
-    gt_template* const template,gt_alignment* const alignment_end1,gt_alignment* const alignment_end2,
-    gt_map* const map_end1,gt_map* const map_end2,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
-    gt_vector* sam_attributes,gt_output_sam_attributes* const output_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_sam_se_record,
-    gt_string* const tag,gt_string* const read,gt_string* const qualities,
-    gt_template* const template,gt_alignment* const alignment,gt_map* const map,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
-    gt_vector* const sam_attributes,gt_output_sam_attributes* const output_attributes);
-
-/*
- * SAM High-level MMAp/Map Printers
- *   - Provides flexibility to print maps individually
- */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_mmap,
-    gt_template* const template,gt_map* const map_end1,gt_map* const map_end2,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
-    gt_vector* const sam_attributes,gt_output_sam_attributes* const output_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map,
-    gt_alignment* const alignment,gt_map* const map,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
-    gt_vector* sam_attributes,gt_output_sam_attributes* const output_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_optional_fields_values,gt_sam_attributes* const sam_attributes,gt_output_sam_attributes* const output_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_optional_fields,gt_sam_attributes* const sam_attributes,gt_output_sam_attributes* const output_attributes);
 /*
  * SAM High-level Template/Alignment Printers
- *   - Optional fields are generated from the first list of SAM Attributes found in the following order:
- *       1.- @attributes->sam_attributes
- *       2.- template->attributes{GT_ATTR_ID_SAM_FLAGS}
- *       3.- alignment->attributes{GT_ATTR_ID_SAM_FLAGS}
- *       4.- map->attributes{GT_ATTR_ID_SAM_FLAGS}
- *     If multiple SAM-Attributes lists are contained within these levels, only the first found one is output
- *     (completely preventing lower levels of attributes to be output)
+ *   - Optional fields are generated from the first SAM-Attributes object found in the following order:
+ *       1.- map->attributes{GT_ATTR_ID_SAM_FLAGS} / mmap_attributes->attributes{GT_ATTR_ID_SAM_FLAGS}
+ *       2.- @output_attributes->sam_attributes
  */
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_alignment,gt_alignment* const alignment,gt_output_sam_attributes* const output_attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_template,gt_template* const template,gt_output_sam_attributes* const output_attributes);

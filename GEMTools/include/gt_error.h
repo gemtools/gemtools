@@ -23,7 +23,7 @@ typedef int32_t gt_status;
 
 // Base-name of the sources
 #define GT_ERROR_BASENAME(S) \
-  ({ register const char* const slash=strrchr((S),'/'); \
+  ({ const char* const slash=strrchr((S),'/'); \
      slash ? slash + 1 : (S); })
 
 // Gem-tools error/output ELD-streams
@@ -84,7 +84,7 @@ void gt_perror();
 #define gt_report_error_begin_block(gt_label,gt_error_name,args...) \
   do { \
     if (!mute_error_stream) { \
-      register FILE* const error_stream=gt_error_get_stream(); \
+      FILE* const error_stream=gt_error_get_stream(); \
       fprintf(error_stream,gt_label" (%s:%d,%s)\n "GT_ERROR_##gt_error_name"\n", \
         GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
       fflush(error_stream); \
@@ -92,7 +92,7 @@ void gt_perror();
 #define gt_report_begin_block(gt_label,stream,gt_report_msg,args...) \
   do { \
     if (!mute_report_stream) { \
-      register FILE* const gt_stream=gt_##stream##_get_stream(); \
+      FILE* const gt_stream=gt_##stream##_get_stream(); \
       fprintf(gt_stream,gt_label" (%s:%d,%s)\n "gt_report_msg"\n", \
         GT_ERROR_BASENAME(__FILE__),__LINE__,__func__, ##args); \
       fflush(gt_stream); \
@@ -100,14 +100,14 @@ void gt_perror();
 #define gt_report_raw_begin_block(gt_label,stream,gt_report_msg,args...) \
   do { \
     if (!mute_report_stream) { \
-      register FILE* const gt_stream=gt_##stream##_get_stream(); \
+      FILE* const gt_stream=gt_##stream##_get_stream(); \
       fprintf(gt_stream,gt_label":: "gt_report_msg"\n",##args); \
       fflush(gt_stream); \
     }
 #define gt_report__timestamp_begin_block(gt_label,stream,gt_report_msg,args...) \
   do { \
     if (!mute_report_stream) { \
-      register FILE* const gt_stream=gt_##stream##_get_stream(); \
+      FILE* const gt_stream=gt_##stream##_get_stream(); \
       gt_tfprintf(gt_stream,gt_label":: "gt_report_msg"\n",##args); \
       fflush(gt_stream); \
     }
@@ -228,7 +228,7 @@ void gt_perror();
 #define gt_slog(gt_log_msg,args...) \
   do { \
     if (!mute_report_stream) { \
-      register FILE* const gt_stream=gt_log_get_stream(); \
+      FILE* const gt_stream=gt_log_get_stream(); \
       fprintf(gt_stream,gt_log_msg,##args); \
       fflush(gt_stream); \
     } \
@@ -326,8 +326,10 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_ALIGNMENT_READ_QUAL_LENGTH "Read and quality length differs"
 #define GT_ERROR_ALIGNMENT_MAPS_NOT_PARSED "Alignment's maps not parsed yet"
 #define GT_ERROR_ALIGNMENT_INCONSISTENT_COUNTERS "Alignment inconsistency. Maps inconsistent with counters values"
-#define GT_ERROR_TEMPLATE_MAPS_NOT_PARSED "Template's maps not parsed yet"
-#define GT_ERROR_TEMPLATE_ZERO_BLOCKS "Zero alignment blocks (num_blocks_template>0)"
+#define GT_ERROR_TEMPLATE_ZERO_BLOCKS "Zero alignment blocks (num_blocks_template==0)"
+#define GT_ERROR_TEMPLATE_TOO_MANY_BLOCKS "Template contains already two ends"
+#define GT_ERROR_TEMPLATE_BLOCKS_EXCESS "Template blocks exceeds two ends"
+#define GT_ERROR_TEMPLATE_MMAP_NULL "Template mmap is null (all maps are null)"
 #define GT_ERROR_TEMPLATE_INCONSISTENT_MMAPS_ALIGNMENT "Template inconsistency. Multimaps' members must be contained by single alignments"
 #define GT_ERROR_TEMPLATE_INCONSISTENT_MMAPS_ATTRB_RELATION "Template inconsistency. Incorrect number of mmaps and mmaps' attributes"
 #define GT_ERROR_TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION "Template inconsistency. Incorrect number of matches' elements (check num_blocks_template)"
@@ -343,6 +345,8 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_SEQ_ARCHIVE_NOT_FOUND "Sequence '%s' not found in reference archive"
 #define GT_ERROR_SEQ_ARCHIVE_POS_OUT_OF_RANGE "Requested position '%"PRIu64"' out of sequence boundaries"
 #define GT_ERROR_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE "Requested sequence string [%"PRIu64",%"PRIu64") out of sequence '%s' boundaries"
+#define GT_ERROR_GEMIDX_SEQ_ARCHIVE_NOT_FOUND "GEMIdx. Sequence '%s' not found in reference archive"
+#define GT_ERROR_GEMIDX_INTERVAL_NOT_FOUND "GEMIdx. Interval relative to sequence '%s' not found in reference archive"
 
 /*
  * Parsing FASTQ File format errors
@@ -365,8 +369,6 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_PARSE_MAP_MISMS_ALREADY_PARSED "Parsing MAP error(%s:%"PRIu64"). Mismatch string already parsed or null lazy-parsing handler"
 #define GT_ERROR_PARSE_MAP_NOT_IMPLEMENTED "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Feature not implemented yet (sorry)"
 #define GT_ERROR_PARSE_MAP_PREMATURE_EOL "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Premature End-of-line found"
-#define GT_ERROR_PARSE_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Wrong number of blocks"
-#define GT_ERROR_PARSE_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Bad character found"
 // IMP (Input MAP Parser). Parsing Read Errors
 #define GT_ERROR_PARSE_MAP_READ_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing read, bad character found"
 // IMP (Input MAP Parser). Parsing Qualities Errors
@@ -376,9 +378,9 @@ gt_status gt_tprintf(const char* format,...);
 // IMP (Input MAP Parser). Parsing Counters Errors
 #define GT_ERROR_PARSE_MAP_COUNTERS_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing counters, bad character found"
 // IMP (Input MAP Parser). Parsing Maps Errors
-#define GT_ERROR_PARSE_MAP_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, wrong number of blocks"
-#define GT_ERROR_PARSE_MAP_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, bad character found"
-#define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad character found"
+#define GT_ERROR_PARSE_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, wrong number of blocks"
+#define GT_ERROR_PARSE_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, bad character found"
+#define GT_ERROR_PARSE_MAP_INCONSISTENT_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, blocks' length doen't match the read length"
 #define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_NUM_ACCEPTORS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad number of acceptors"
 #define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_NUM_DONORS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad number of donors"
 // IMP (Input MAP Parser). Parsing Mismatch String Errors
@@ -414,8 +416,8 @@ gt_status gt_tprintf(const char* format,...);
 /*
  * General purpose checkers
  */
-#define GT_NULL_CHECK(object) gt_fatal_check(object==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
-#define GT_ZERO_CHECK(object) gt_fatal_check(object==0,NOT_ZERO,((char*)GT_QUOTE(object)))
+#define GT_NULL_CHECK(object) gt_fatal_check((object)==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
+#define GT_ZERO_CHECK(object) gt_fatal_check((object)==0,NOT_ZERO,((char*)GT_QUOTE(object)))
 
 
 #endif /* GT_ERROR_H_ */

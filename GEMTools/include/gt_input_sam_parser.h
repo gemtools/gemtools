@@ -22,7 +22,7 @@
 #include "gt_input_parser.h"
 #include "gt_input_fasta_parser.h"
 
-#include "gt_sam_data_attributes.h"
+#include "gt_sam_attributes.h"
 
 // Codes gt_status
 #define GT_ISP_OK   GT_STATUS_OK

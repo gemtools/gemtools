@@ -89,7 +89,7 @@ GT_INLINE bool gt_alignment_find_map_fx(
   GT_ALIGNMENT_CHECK(alignment); GT_MAP_CHECK(map);
   GT_NULL_CHECK(found_map_pos); GT_NULL_CHECK(found_map);
   // Search for the map
-  register uint64_t pos = 0;
+  uint64_t pos = 0;
   GT_ALIGNMENT_ITERATE(alignment,map_it) {
     if (gt_map_cmp_fx(map_it,map)==0) {
       *found_map_pos = pos;
@@ -120,13 +120,13 @@ GT_INLINE bool gt_alignment_is_map_contained_fx(
  */
 GT_INLINE bool gt_alignment_is_mapped(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
-  register const bool unique_flag = gt_alignment_get_not_unique_flag(alignment);
+  const bool unique_flag = gt_alignment_get_not_unique_flag(alignment);
   return unique_flag || gt_alignment_is_thresholded_mapped(alignment,UINT64_MAX);
 }
 GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,const int64_t max_allowed_strata) {
   GT_ALIGNMENT_CHECK(alignment);
   if (gt_alignment_get_not_unique_flag(alignment)) return true;
-  register gt_vector* vector = gt_alignment_get_counters_vector(alignment);
+  gt_vector* vector = gt_alignment_get_counters_vector(alignment);
   if(gt_alignment_get_num_counters(alignment) == 0) return false;
   GT_VECTOR_ITERATE(vector,counter,counter_pos,uint64_t) {
     if (counter_pos>max_allowed_strata) return false;
@@ -140,7 +140,7 @@ GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) 
   // Recalculate counters
   gt_alignment_map_iterator map_iterator;
   gt_alignment_new_map_iterator(alignment,&map_iterator);
-  register gt_map* map;
+  gt_map* map;
   while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
     gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
   }
@@ -178,21 +178,21 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
     gt_alignment_dictionary_element* alg_dicc_elem = NULL;
     gt_ihash_element* ihash_element_b = NULL;
     gt_ihash_element* ihash_element_e = NULL;
-    register const uint64_t vector_position = gt_vector_get_used(alignment_dst->maps);
-    register const uint64_t begin_position = gt_map_get_position(map_src)-gt_map_get_left_trim_length(map_src);
-    register const uint64_t end_position = gt_map_get_position(map_src)+gt_map_get_length(map_src);
+    const uint64_t vector_position = gt_vector_get_used(alignment_dst->maps);
+    const uint64_t begin_position = gt_map_get_position(map_src)-gt_map_get_left_trim_length(map_src);
+    const uint64_t end_position = gt_map_get_position(map_src)+gt_map_get_length(map_src);
     // Try add
     if (gt_alignment_dictionary_try_add(alignment_dst->alg_dictionary,map_src,
           begin_position,end_position,&alg_dicc_elem,&ihash_element_b,&ihash_element_e,vector_position)) {
       // (1) Ok, is new. We add it !
-      register gt_map* const map_src_cp = gt_map_copy(map_src);
+      gt_map* const map_src_cp = gt_map_copy(map_src);
       gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
       gt_alignment_add_map(alignment_dst,map_src_cp);
     } else {
       // (2) One occurrence (could be a duplicate). Solve conflict
       uint64_t found_vector_position = 0;
       gt_map* map_found = NULL;
-      register bool found_candidate = false;
+      bool found_candidate = false;
       if (ihash_element_b!=NULL) { // Check begin IDX ihash
         found_vector_position = *((uint64_t*)ihash_element_b->element);
         map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
@@ -208,7 +208,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
         }
       }
       if (found_candidate) { // Is the same map !!
-        register gt_map* const map_src_cp = gt_map_copy(map_src);
+        gt_map* const map_src_cp = gt_map_copy(map_src);
         // Remove old map
         gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
         gt_map_delete(map_found);
@@ -222,7 +222,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
         // (3) iHash won't solve the conflict. Resort to standard search
         if (gt_expect_false(gt_alignment_find_map_fx(gt_map_cmp,alignment_dst,map_src,&found_vector_position,&map_found))) {
           if (gt_expect_true(gt_map_less_than(map_src,map_found))) {
-            register gt_map* const map_src_cp = gt_map_copy(map_src);
+            gt_map* const map_src_cp = gt_map_copy(map_src);
             // Remove old map
             gt_alignment_dec_counter(alignment_dst,gt_map_get_global_distance(map_found));
             gt_map_delete(map_found);
@@ -235,7 +235,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
           }
         } else {
           // Add new map
-          register gt_map* const map_src_cp = gt_map_copy(map_src);
+          gt_map* const map_src_cp = gt_map_copy(map_src);
           gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
           gt_alignment_add_map(alignment_dst,map_src_cp);
           // Record position at IDX iHash
@@ -253,7 +253,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_dst);
   GT_ALIGNMENT_CHECK(alignment_src);
   GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
-    register gt_map* const map_src_cp = gt_map_copy(map_src);
+    gt_map* const map_src_cp = gt_map_copy(map_src);
     gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,true);
   }
   gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst),gt_alignment_get_mcs(alignment_src)));
@@ -281,13 +281,13 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_v(
     const uint64_t num_src_alignments,gt_alignment* const alignment_src,va_list v_args) {
   GT_ZERO_CHECK(num_src_alignments);
   // Create new alignment
-  register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false);
+  gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false);
   alignment_union->alg_dictionary = gt_alignment_dictionary_new(alignment_union);
   gt_alignment_merge_alignment_maps(alignment_union,alignment_src);
   // Merge alignment sources into alignment_union
-  register uint64_t num_alg_merged = 1;
+  uint64_t num_alg_merged = 1;
   while (num_alg_merged < num_src_alignments) {
-    register gt_alignment* alignment_target = va_arg(v_args,gt_alignment*);
+    gt_alignment* alignment_target = va_arg(v_args,gt_alignment*);
     GT_ALIGNMENT_CHECK(alignment_target);
     gt_alignment_merge_alignment_maps(alignment_union,alignment_target);
     ++num_alg_merged;
@@ -303,7 +303,7 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_va(
   GT_ALIGNMENT_CHECK(alignment_src);
   va_list v_args;
   va_start(v_args,alignment_src);
-  register gt_alignment* const alignment_dst =
+  gt_alignment* const alignment_dst =
       gt_alignment_union_alignment_maps_v(num_src_alignments,alignment_src,v_args);
   va_end(v_args);
   return alignment_dst;
@@ -314,12 +314,12 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_v(
   GT_NULL_CHECK(gt_map_cmp_fx);
   GT_ZERO_CHECK(num_src_alignments);
   // Create new alignment
-  register gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false);
+  gt_alignment* const alignment_union = gt_alignment_copy(alignment_src,false);
   gt_alignment_merge_alignment_maps_fx(gt_map_cmp_fx,alignment_union,alignment_src);
   // Merge alignment sources into alignment_union
-  register uint64_t num_alg_merged = 1;
+  uint64_t num_alg_merged = 1;
   while (num_alg_merged < num_src_alignments) {
-    register gt_alignment* alignment_target = va_arg(v_args,gt_alignment*);
+    gt_alignment* alignment_target = va_arg(v_args,gt_alignment*);
     GT_ALIGNMENT_CHECK(alignment_target);
     gt_alignment_merge_alignment_maps_fx(gt_map_cmp_fx,alignment_union,alignment_target);
     ++num_alg_merged;
@@ -334,7 +334,7 @@ GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_fx_va(
   GT_ALIGNMENT_CHECK(alignment_src);
   va_list v_args;
   va_start(v_args,alignment_src);
-  register gt_alignment* const alignment_dst =
+  gt_alignment* const alignment_dst =
       gt_alignment_union_alignment_maps_fx_v(gt_map_cmp_fx,num_src_alignments,alignment_src,v_args);
   va_end(v_args);
   return alignment_dst;
@@ -346,11 +346,11 @@ GT_INLINE gt_alignment* gt_alignment_subtract_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_minuend);
   GT_ALIGNMENT_CHECK(alignment_subtrahend);
   // Create new alignment
-  register gt_alignment* const alignment_difference = gt_alignment_copy(alignment_minuend,false);
+  gt_alignment* const alignment_difference = gt_alignment_copy(alignment_minuend,false);
   // Copy not common maps
   GT_ALIGNMENT_ITERATE(alignment_minuend,map_minuend) {
     if (!gt_alignment_is_map_contained_fx(gt_map_cmp_fx,alignment_subtrahend,map_minuend)) { // TODO Improvement: Scheduled for v2.0
-      register gt_map* const map_cp = gt_map_copy(map_minuend);
+      gt_map* const map_cp = gt_map_copy(map_minuend);
       gt_alignment_put_map(gt_map_cmp_fx,alignment_difference,map_cp,false);
     }
   }
@@ -369,11 +369,11 @@ GT_INLINE gt_alignment* gt_alignment_intersect_alignment_maps_fx(
   GT_ALIGNMENT_CHECK(alignment_src_A);
   GT_ALIGNMENT_CHECK(alignment_src_B);
   // Create new alignment
-  register gt_alignment* const alignment_intersection = gt_alignment_copy(alignment_src_A,false);
+  gt_alignment* const alignment_intersection = gt_alignment_copy(alignment_src_A,false);
   // Copy common maps
   GT_ALIGNMENT_ITERATE(alignment_src_A,map_A) {
     if (gt_alignment_is_map_contained_fx(gt_map_cmp_fx,alignment_src_B,map_A)) { // TODO Improvement: Scheduled for v2.0
-      register gt_map* const map_cp = gt_map_copy(map_A);
+      gt_map* const map_cp = gt_map_copy(map_A);
       gt_alignment_put_map(gt_map_cmp_fx,alignment_intersection,map_cp,false);
     }
   }
@@ -434,22 +434,22 @@ GT_INLINE void gt_alignment_trim(gt_alignment* const alignment,uint64_t const le
   if (read_length - left - right < min_length) return;
 
   // trim the read
-  register uint64_t trimmed_length = read_length - (left + right);
-  register char* trimmed_read = strndup(read + left,trimmed_length);
+  uint64_t trimmed_length = read_length - (left + right);
+  char* trimmed_read = strndup(read + left,trimmed_length);
   gt_alignment_set_read(alignment,trimmed_read,trimmed_length);
 
   // get trimmed parts
-  register char* left_read = 0;
-  register char* right_read = 0;
+  char* left_read = 0;
+  char* right_read = 0;
   if (left > 0) left_read = strndup(read,left);
   else left_read = "";
 
   if (right > 0) right_read = strndup(read + read_length - right,right);
   else right_read = "";
 
-  register char* trimmed_qual = 0;
-  register char* left_qual = 0;
-  register char* right_qual = 0;
+  char* trimmed_qual = 0;
+  char* left_qual = 0;
+  char* right_qual = 0;
   // trim qualities
   char* qual = gt_alignment_get_qualities(alignment);
   if (qual != NULL) {
@@ -470,11 +470,11 @@ GT_INLINE void gt_alignment_trim(gt_alignment* const alignment,uint64_t const le
     } else {
       gt_sprintf_append(extra," B T %s %s    ",left_read,right_read);
     }
-    if (gt_shash_is_contained(alignment->attributes,GT_ATTR_ID_TAG_EXTRA)) {
-      gt_string* old = gt_shash_get(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,gt_string);
+    if (gt_attributes_is_contained(alignment->attributes,GT_ATTR_ID_TAG_EXTRA)) {
+      gt_string* old = gt_attributes_get(alignment->attributes,GT_ATTR_ID_TAG_EXTRA);
       gt_string_delete(old);
     }
-    gt_shash_insert(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,extra,gt_string);
+    gt_attributes_add_string(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,extra);
   }
 
   // gt_free(left_read);

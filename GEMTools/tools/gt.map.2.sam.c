@@ -50,12 +50,12 @@ gt_stats_args parameters = {
 };
 
 gt_sequence_archive* gt_filter_open_sequence_archive(const bool load_sequences) {
-  register gt_sequence_archive* sequence_archive = gt_sequence_archive_new();
+  gt_sequence_archive* sequence_archive = gt_sequence_archive_new();
   gt_log("Loading reference file ...");
   if (parameters.name_gem_index_file!=NULL) { // Load GEM-IDX
     gt_gemIdx_load_archive(parameters.name_gem_index_file,sequence_archive,load_sequences);
   } else {
-    register gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
+    gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
     if (gt_input_multifasta_parser_get_archive(reference_file,sequence_archive)!=GT_IFP_OK) {
       gt_fatal_error_msg("Error parsing reference file '%s'\n",parameters.name_reference_file);
     }
@@ -123,15 +123,19 @@ void usage() {
                //   "           --mmap-input\n"
                   "           --paired-end|p\n"
                   "         [Headers]\n"
-                  "           --sorting 'unknown'|'unsorted'|'queryname'|'coordinate'\n"
-                  "           --read-group  \n"
-                  "           --program  \n"
+                  "           --headers [FILE] (Only {@RG,@PG,@CO} lines)\n"
+               // "           --sorting 'unknown'|'unsorted'|'queryname'|'coordinate'\n"
                   "           --comment <string>"
                   "         [Alignments]\n"
+                  "           -q|--quality-format 'offset-33'|'offset-64'  (default='offset-33')"
                   "           --compact|c\n"
-                  "           --score-alignments|s"
+      // TODO: Bufff   "           --score-alignments|s"
                   "         [Optional Fields]\n"
-                  "           -- "
+                  "           --RG \n" // TODO: Bufff RG:Z:0 NH:i:16 XT:A:U
+                  "           --NH \n"
+                  "           --NM \n"
+                  "           --XT \n"
+                  "           --md \n"
                   "         [Misc]\n"
                   "           --threads|t\n"
                   "           --verbose|v\n"

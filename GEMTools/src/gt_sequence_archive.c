@@ -68,20 +68,19 @@ GT_INLINE void gt_sequence_archive_delete(gt_sequence_archive* const seq_archive
 /*
  * SequenceARCHIVE handler
  */
-/* GT_CDNA_ARCHIVE */
 GT_INLINE void gt_sequence_archive_add_segmented_sequence(gt_sequence_archive* const seq_archive,gt_segmented_sequence* const sequence) {
-  GT_SEQUENCE_CDNA_ARCHIVE_CHECK(seq_archive);
+  GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
   GT_SEGMENTED_SEQ_CHECK(sequence);
   gt_shash_insert(seq_archive->sequences,gt_string_get_string(sequence->seq_name),sequence,gt_segmented_sequence);
 }
 GT_INLINE void gt_sequence_archive_remove_segmented_sequence(gt_sequence_archive* const seq_archive,char* const seq_id) {
-  GT_SEQUENCE_CDNA_ARCHIVE_CHECK(seq_archive);
+  GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
   gt_segmented_sequence* seg_seq = gt_sequence_archive_get_segmented_sequence(seq_archive,seq_id);
   if (seg_seq != NULL) gt_segmented_sequence_delete(seg_seq);
   gt_shash_remove(seq_archive->sequences,seq_id,false);
 }
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_get_segmented_sequence(gt_sequence_archive* const seq_archive,char* const seq_id) {
-  GT_SEQUENCE_CDNA_ARCHIVE_CHECK(seq_archive);
+  GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
   return gt_shash_get(seq_archive->sequences,seq_id,gt_segmented_sequence);
 }
 /* GT_BED_ARCHIVE */
@@ -131,7 +130,11 @@ GT_INLINE gt_status gt_sequence_archive_get_sequence_string(
     if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,position,length,string))) return error_code;
     break;
   case GT_BED_ARCHIVE:
-    if ((error_code=gt_sequence_archive_get_bed_sequence_string(seq_archive,seq_id,position,length,string)) < 0) return error_code;
+    if ((error_code=gt_gemIdx_get_bed_sequence_string(seq_archive,seq_id,position,length,string)) < 0) {
+      if (error_code==GT_GEMIDX_SEQ_NOT_FOUND) gt_error(GEMIDX_SEQ_ARCHIVE_NOT_FOUND,seq_id);
+      if (error_code==GT_GEMIDX_INTERVAL_NOT_FOUND) gt_error(GEMIDX_INTERVAL_NOT_FOUND,seq_id);
+      return -1;
+    }
     break;
   default:
     gt_fatal_error(NOT_IMPLEMENTED);
@@ -173,7 +176,7 @@ GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
   switch (seq_archive->sequence_archive_type) {
   case GT_CDNA_ARCHIVE:
     // Get the actual chunk
-    //  register gt_status error_code; /* Error checking & reporting version */
+    //  gt_status error_code; /* Error checking & reporting version */
     //  if ((error_code=gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string))) {
     //    gt_error(SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE,init_position,init_position+total_length,seq_id);
     //    return GT_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE;
@@ -181,8 +184,11 @@ GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
     gt_segmented_sequence_get_sequence(seg_seq,init_position,total_length,string);
     break;
   case GT_BED_ARCHIVE:
-    if ((error_code=gt_sequence_archive_get_bed_sequence_string(
-        seq_archive,seq_id,init_position,total_length,string)) < 0) return error_code;
+    if ((error_code=gt_gemIdx_get_bed_sequence_string(seq_archive,seq_id,init_position,total_length,string)) < 0) {
+      if (error_code==GT_GEMIDX_SEQ_NOT_FOUND) gt_error(GEMIDX_SEQ_ARCHIVE_NOT_FOUND,seq_id);
+      if (error_code==GT_GEMIDX_INTERVAL_NOT_FOUND) gt_error(GEMIDX_INTERVAL_NOT_FOUND,seq_id);
+      return -1;
+    }
     break;
   default:
     gt_fatal_error(NOT_IMPLEMENTED);
@@ -209,11 +215,11 @@ int gt_sequence_archive_karyotypic_sort_fx(char *a,char *b) {
   /*
    * Karyotypic order: 1, 2, ..., 10, 11, ..., 20, 21, 22, X, Y with M either leading or trailing these contigs
    */
-  register const uint64_t alen = strlen(a);
-  register const uint64_t alast = alen>1 ? alen-1 : 0;
-  register const uint64_t blen = strlen(b);
-  register const uint64_t blast = blen>1 ? blen-1 : 0;
-  register const int str_cmp_ab = gt_strcmp(a,b);
+  const uint64_t alen = strlen(a);
+  const uint64_t alast = alen>1 ? alen-1 : 0;
+  const uint64_t blen = strlen(b);
+  const uint64_t blast = blen>1 ? blen-1 : 0;
+  const int str_cmp_ab = gt_strcmp(a,b);
   if (str_cmp_ab==0) return 0;
   // Chromosome M
   if (strncmp(a,"chrM",4)==0 || a[alast]=='M' || a[alast]=='m') return INT16_MAX;
@@ -261,7 +267,7 @@ GT_INLINE bool gt_sequence_archive_iterator_eos(gt_sequence_archive_iterator* co
 GT_INLINE gt_segmented_sequence* gt_sequence_archive_iterator_next(gt_sequence_archive_iterator* const seq_archive_iterator) {
   GT_SEQUENCE_ARCHIVE_ITERATOR_CHECK(seq_archive_iterator);
   if (seq_archive_iterator->shash_it) {
-    register gt_segmented_sequence* elm =  seq_archive_iterator->shash_it->element;
+    gt_segmented_sequence* elm =  seq_archive_iterator->shash_it->element;
     seq_archive_iterator->shash_it = seq_archive_iterator->shash_it->hh.next;
     return elm;
   } else {

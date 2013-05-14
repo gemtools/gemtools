@@ -18,8 +18,8 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
   va_list v_args_cpy;
   va_copy(v_args_cpy,v_args);
   // Calculate memory required to print the template{v_args}
-  register uint64_t mem_required = 0, precision=0;
-  register const char* centinel;
+  uint64_t mem_required = 0, precision=0;
+  const char* centinel;
   for (centinel=template;*centinel!=EOS;++centinel,precision=0) {
     if (*centinel==FORMAT) {
       ++centinel;
@@ -38,7 +38,7 @@ GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v
       // Check format
       switch (*centinel) {
         case 's': { // String requires fetching the argument length // FIXME: %.*s
-          register char* const string = va_arg(v_args_cpy,char*);
+          char* const string = va_arg(v_args_cpy,char*);
           mem_required += (precision>0) ? precision : strlen(string);
           break;
         }

@@ -210,7 +210,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		}
 		// And for paired alignments
 		bool flg=false;
-		GT_TEMPLATE__ATTR_ITERATE_(template,maps,maps_attr) {
+		GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,maps,maps_attr) {
 			if(maps_attr->distance<=max_dist[2]) {
 				if(gt_map_get_num_blocks(maps[0])>1 || gt_map_get_num_blocks(maps[1])>1) nsplit[2]++;
 				else flg=true;

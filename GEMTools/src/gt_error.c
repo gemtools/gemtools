@@ -70,7 +70,7 @@ inline void gt_print_stack_trace() {}
  * Error Signal Handler
  */
 void gt_error_signal_handler(int signal) {
-  register FILE* const error_stream=gt_error_get_stream();
+  FILE* const error_stream=gt_error_get_stream();
   fprintf(error_stream,"> System.Error::Signal raised (no=%d)\n",signal);
   fflush(error_stream);
   gt_print_stack_trace();
@@ -89,7 +89,7 @@ void gt_handle_error_signals() {
  * Print ErrNo
  */
 void gt_perror() {
-  register FILE* const error_stream=gt_error_get_stream();
+  FILE* const error_stream=gt_error_get_stream();
   fprintf(error_stream,"> System.Error::%s (errno=%d)\n",strerror(errno),errno);
   fflush(error_stream);
 }
@@ -102,7 +102,7 @@ char* gt_label_months[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep"
  * Time Printed Formated functions
  */
 gt_status gt_vtfprintf(FILE* stream,const char* format,va_list v_args) {
-  register gt_status chars_printed = 0; // Base printed chars
+  gt_status chars_printed = 0; // Base printed chars
   // Get Current Time
   time_t current_time=time(0);
   struct tm local_time;
@@ -132,7 +132,7 @@ gt_status gt_tfprintf(FILE* stream,const char* format,...) {
   GT_NULL_CHECK(format);
   va_list v_args;
   va_start(v_args,format);
-  register const gt_status chars_printed = gt_vtfprintf(stream,format,v_args);
+  const gt_status chars_printed = gt_vtfprintf(stream,format,v_args);
   va_end(v_args);
   return chars_printed;
 }
@@ -144,7 +144,7 @@ gt_status gt_tprintf(const char* format,...) {
   GT_NULL_CHECK(format);
   va_list v_args;
   va_start(v_args,format);
-  register const gt_status chars_printed = gt_vtfprintf(stdout,format,v_args);
+  const gt_status chars_printed = gt_vtfprintf(stdout,format,v_args);
   va_end(v_args);
   return chars_printed;
 }

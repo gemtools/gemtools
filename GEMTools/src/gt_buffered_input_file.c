@@ -46,7 +46,7 @@ GT_INLINE bool gt_buffered_input_file_eob(gt_buffered_input_file* const buffered
 GT_INLINE gt_status gt_buffered_input_file_get_block(
     gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
-  register gt_input_file* const input_file = buffered_input_file->input_file;
+  gt_input_file* const input_file = buffered_input_file->input_file;
   // Read lines
   if (input_file->eof) return GT_BMI_EOF;
   gt_input_file_lock(input_file);
@@ -67,12 +67,12 @@ GT_INLINE gt_status gt_buffered_input_file_get_block(
 GT_INLINE gt_status gt_buffered_input_file_add_lines_to_block(
     gt_buffered_input_file* const buffered_input_file,const uint64_t num_lines) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
-  register gt_input_file* const input_file = buffered_input_file->input_file;
+  gt_input_file* const input_file = buffered_input_file->input_file;
   // Read lines
   if (input_file->eof) return GT_BMI_EOF;
-  register const uint64_t current_position =
+  const uint64_t current_position =
       buffered_input_file->cursor - gt_vector_get_mem(buffered_input_file->block_buffer,char);
-  register const uint64_t lines_added =
+  const uint64_t lines_added =
       gt_input_file_get_lines(input_file,buffered_input_file->block_buffer,
           gt_expect_true(num_lines)?num_lines:GT_BMI_NUM_LINES);
   buffered_input_file->lines_in_buffer += lines_added;

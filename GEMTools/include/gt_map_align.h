@@ -13,8 +13,6 @@
 #include "gt_map.h"
 #include "gt_sequence_archive.h"
 
-#include "gt_output_map.h"  // FIXME: ERASEME DEBUG
-
 /*
  * Error Codes
  */

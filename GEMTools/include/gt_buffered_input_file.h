@@ -21,7 +21,6 @@
 // PE (Parsing Errors)
 // TODO
 
-
 typedef struct {
   /* Input file */
   gt_input_file* input_file;

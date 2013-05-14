@@ -10,8 +10,8 @@
 #define GT_INPUT_FILE_H_
 
 #include "gt_essentials.h"
-#include "gt_data_attributes.h"
-#include "gt_sam_data_attributes.h"
+#include "gt_attributes.h"
+#include "gt_sam_attributes.h"
 
 #include <zlib.h>
 #include <bzlib.h>

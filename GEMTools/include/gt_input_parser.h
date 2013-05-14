@@ -11,7 +11,7 @@
 #define GT_INPUT_PARSER_H_
 
 #include "gt_essentials.h"
-#include "gt_data_attributes.h"
+#include "gt_attributes.h"
 
 // Attributes ID
 #define GT_ATTR_ID_TAG_PAIR "pair"     // (int64_t)
@@ -26,7 +26,7 @@
 /*
  * Generic tag parser
  */
-GT_INLINE gt_status gt_input_parse_tag(char** const text_line,gt_string* const tag,gt_shash* const attributes);
+GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* const tag,gt_attributes* const attributes);
 GT_INLINE uint64_t gt_input_parse_tag_chomp_pairend_info(gt_string* const tag);
 
 /*
@@ -45,7 +45,7 @@ GT_INLINE uint64_t gt_input_parse_tag_chomp_pairend_info(gt_string* const tag);
     GT_NEXT_CHAR(text_line); \
   }
 #define GT_PARSE_SIGNED_NUMBER_BLOCK(text_line,number) { \
-  register bool is_negative; \
+  bool is_negative; \
   switch ((**text_line)) { \
     case PLUS: is_negative = false; break; \
     case MINUS: is_negative = true; break; \

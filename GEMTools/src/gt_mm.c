@@ -78,8 +78,8 @@ GT_INLINE void gt_mm_set_tmp_folder(char* const tmp_folder_path) {
  *   usually malloc/calloc using a BuddySystem (Helper functions)
  */
 GT_INLINE void* gt_malloc_(uint64_t const num_elements,const uint64_t size_element,const bool init_mem,const int init_value) {
-  register const uint64_t total_memory = num_elements*size_element;
-  register void* const allocated_mem = (gt_expect_false(init_mem && init_value==0)) ?
+  const uint64_t total_memory = num_elements*size_element;
+  void* const allocated_mem = (gt_expect_false(init_mem && init_value==0)) ?
       calloc(num_elements,size_element) : malloc(total_memory);
   gt_cond_fatal_error(!allocated_mem,MEM_ALLOC_INFO,total_memory);
   if (gt_expect_false(init_mem && init_value!=0)) memset(allocated_mem,init_value,total_memory);
@@ -87,8 +87,8 @@ GT_INLINE void* gt_malloc_(uint64_t const num_elements,const uint64_t size_eleme
   return allocated_mem;
 }
 GT_INLINE void* gt_malloc_nothrow(uint64_t const num_elements,const uint64_t size_element,const bool init_mem,const int init_value) {
-  register const uint64_t total_memory = num_elements*size_element;
-  register void* const allocated_mem = (gt_expect_false(init_mem && init_value==0)) ?
+  const uint64_t total_memory = num_elements*size_element;
+  void* const allocated_mem = (gt_expect_false(init_mem && init_value==0)) ?
       calloc(num_elements,size_element) : malloc(total_memory);
   if (!allocated_mem) return NULL;
   if (gt_expect_false(init_mem && init_value!=0)) memset(allocated_mem,init_value,total_memory);
@@ -107,7 +107,7 @@ GT_INLINE gt_mm* gt_mm_bulk_malloc(const uint64_t num_bytes,const bool init_mem)
   GT_ZERO_CHECK(num_bytes);
   void* memory = gt_malloc_nothrow(num_bytes,1,init_mem,0);
   if (gt_expect_true(memory!=NULL)) { // Fits in HEAP
-    register gt_mm* const mm = gt_alloc(gt_mm);
+    gt_mm* const mm = gt_alloc(gt_mm);
     mm->memory = memory;
     mm->mem_type = GT_MM_HEAP;
     mm->mode = GT_MM_READ_WRITE;
@@ -123,7 +123,7 @@ GT_INLINE gt_mm* gt_mm_bulk_malloc(const uint64_t num_bytes,const bool init_mem)
 GT_INLINE gt_mm* gt_mm_bulk_mmalloc(const uint64_t num_bytes,const bool use_huge_pages) {
   GT_ZERO_CHECK(num_bytes);
   // Allocate handler
-  register gt_mm* const mm = gt_alloc(gt_mm);
+  gt_mm* const mm = gt_alloc(gt_mm);
   /*
    * MMap memory (anonymous)
    *   - MAP_PRIVATE => Fits in RAM+SWAP
@@ -136,7 +136,7 @@ GT_INLINE gt_mm* gt_mm_bulk_mmalloc(const uint64_t num_bytes,const bool use_huge
    *       to consume all the free RAM and swap on the system, eventually
    *       triggering the OOM killer (Linux) or causing a SIGSEGV.
    */
-  register int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE;
+  int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE;
   if (use_huge_pages) flags |= MAP_HUGETLB;
   mm->memory = mmap(0,num_bytes,PROT_READ|PROT_WRITE,flags,-1,0);
   gt_cond_fatal_error__perror(mm->memory==MAP_FAILED,MEM_ALLOC_MMAP_FAIL,num_bytes);
@@ -153,7 +153,7 @@ GT_INLINE gt_mm* gt_mm_bulk_mmalloc(const uint64_t num_bytes,const bool use_huge
 GT_INLINE gt_mm* gt_mm_bulk_mmap_file(char* const file_name,const gt_mm_mode mode,const bool populate_page_tables) {
   GT_NULL_CHECK(file_name);
   // Allocate handler
-  register gt_mm* const mm = gt_alloc(gt_mm);
+  gt_mm* const mm = gt_alloc(gt_mm);
   // Retrieve input file info
   struct stat stat_info;
   gt_cond_fatal_error__perror(stat(file_name,&stat_info)==-1,FILE_STAT,file_name);
@@ -186,7 +186,7 @@ GT_INLINE gt_mm* gt_mm_bulk_mmap_file(char* const file_name,const gt_mm_mode mod
 GT_INLINE gt_mm* gt_mm_bulk_mmalloc_temp(const uint64_t num_bytes) {
   GT_ZERO_CHECK(num_bytes);
   // Allocate handler
-  register gt_mm* const mm = gt_alloc(gt_mm);
+  gt_mm* const mm = gt_alloc(gt_mm);
   // TemporalMemory (backed by a file)
   mm->file_name = gt_calloc(strlen(gt_mm_get_tmp_folder())+22,char,true);
   sprintf(mm->file_name,"%sgt_mmalloc_temp_XXXXXX",gt_mm_get_tmp_folder());
@@ -222,7 +222,7 @@ GT_INLINE gt_mm* gt_mm_bulk_mmalloc_temp(const uint64_t num_bytes) {
 GT_INLINE void gt_mm_realloc(gt_mm* const mm,const uint64_t num_bytes) {
   GT_MM_CHECK(mm);
   gt_fatal_error(NOT_IMPLEMENTED); // TODO
-//  register const uint64_t current_cursor_pos = gt_mm_get_current_position(mm);
+//  const uint64_t current_cursor_pos = gt_mm_get_current_position(mm);
 //  if (mm->mem_type==GT_MM_HEAP) { // Heap BulkMemory
 //    if (num_bytes > mm->allocated) {
 //      mm->memory = realloc(mm->memory);
@@ -258,7 +258,7 @@ GT_INLINE void gt_mm_free(gt_mm* const mm) {
 GT_INLINE gt_mm* gt_mm_bulk_load_file(char* const file_name,const uint64_t num_threads) {
   GT_NULL_CHECK(file_name);
   // Allocate handler
-  register gt_mm* const mm = gt_alloc(gt_mm);
+  gt_mm* const mm = gt_alloc(gt_mm);
   // Retrieve input file info
   struct stat stat_info;
   gt_cond_fatal_error__perror(stat(file_name,&stat_info)==-1,FILE_STAT,file_name);
@@ -284,7 +284,7 @@ GT_INLINE gt_mm* gt_mm_bulk_mload_file(char* const file_name,const uint64_t num_
   struct stat stat_info;
   gt_cond_fatal_error__perror(stat(file_name,&stat_info)==-1,FILE_STAT,file_name);
   // Allocate memory to dump the content of the file
-  register gt_mm* const mm = gt_mm_bulk_mmalloc(stat_info.st_size,false);
+  gt_mm* const mm = gt_mm_bulk_mmalloc(stat_info.st_size,false);
   // Read the file and dump it into memory
   if (num_threads>1 && (stat_info.st_size > num_threads*8)) {
     gt_fm_bulk_read_file_parallel(file_name,mm->memory,0,0,num_threads);
@@ -432,28 +432,28 @@ GT_INLINE void gt_mm_skip_align_mempage(gt_mm* const mm) {
 GT_INLINE uint64_t gt_mm_read_uint64(gt_mm* const mm) {
   GT_MM_CHECK(mm);
   GT_MM_CHECK_SEGMENT(mm);
-  register const uint64_t data = *((uint64_t*)mm->cursor);
+  const uint64_t data = *((uint64_t*)mm->cursor);
   mm->cursor += 8;
   return data;
 }
 GT_INLINE uint32_t gt_mm_read_uint32(gt_mm* const mm) {
   GT_MM_CHECK(mm);
   GT_MM_CHECK_SEGMENT(mm);
-  register const uint32_t data = *((uint32_t*)mm->cursor);
+  const uint32_t data = *((uint32_t*)mm->cursor);
   mm->cursor += 4;
   return data;
 }
 GT_INLINE uint16_t gt_mm_read_uint16(gt_mm* const mm) {
   GT_MM_CHECK(mm);
   GT_MM_CHECK_SEGMENT(mm);
-  register const uint16_t data = *((uint16_t*)mm->cursor);
+  const uint16_t data = *((uint16_t*)mm->cursor);
   mm->cursor += 2;
   return data;
 }
 GT_INLINE uint8_t gt_mm_read_uint8(gt_mm* const mm) {
   GT_MM_CHECK(mm);
   GT_MM_CHECK_SEGMENT(mm);
-  register const uint8_t data = *((uint8_t*)mm->cursor);
+  const uint8_t data = *((uint8_t*)mm->cursor);
   mm->cursor += 1;
   return data;
 }
@@ -475,7 +475,7 @@ GT_INLINE void gt_mm_copy_mem_parallel(
   GT_MM_CHECK(mm);
   GT_MM_CHECK_SEGMENT(mm);
   // Calculate size of each chunk
-  register const uint64_t chunk_size = num_bytes/num_threads; // num_bytes > num_threads
+  const uint64_t chunk_size = num_bytes/num_threads; // num_bytes > num_threads
   #pragma omp parallel num_threads(num_threads)
   {
     // Calculate offsets

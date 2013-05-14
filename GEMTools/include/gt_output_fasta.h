@@ -21,7 +21,7 @@
 #include "gt_output_buffer.h"
 #include "gt_buffered_output_file.h"
 #include "gt_generic_printer.h"
-#include "gt_data_attributes.h"
+#include "gt_attributes.h"
 
 /*
  * Output attributes
@@ -46,9 +46,9 @@ GT_INLINE void gt_output_fasta_attributes_set_format(gt_output_fasta_attributes*
 /*
  * FASTA building block printers
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_tag,const bool is_fasta,gt_string* const tag,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_fasta,gt_string* const tag,gt_string* const read,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_fastq,gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_shash* const attributes,gt_output_fasta_attributes* const output_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_tag,const bool is_fasta,gt_string* const tag,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_fasta,gt_string* const tag,gt_string* const read,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_fasta,print_fastq,gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes);
 
 /*
  * FASTA High-level Printers

@@ -12,15 +12,17 @@ include ../Makefile.mk
 
 SRCS=gem_tools.c \
      gt_commons.c gt_error.c gt_mm.c gt_fm.c gt_profiler.c \
-     gt_ihash.c gt_shash.c gt_vector.c gt_string.c gt_data_attributes.c \
-     gt_dna_string.c gt_dna_read.c gt_compact_dna_string.c \
+     gt_ihash.c gt_shash.c gt_vector.c gt_string.c \
+     gt_attributes.c gt_dna_string.c gt_dna_read.c gt_compact_dna_string.c \
      gt_template.c gt_alignment.c gt_map.c gt_misms.c \
      gt_template_utils.c gt_alignment_utils.c gt_counters_utils.c \
-     gt_sequence_archive.c gt_segmented_sequence.c gt_map_align.c gt_sam_data_attributes.c \
+     gt_map_metrics.c gt_map_align.c gt_map_score.c \
+     gt_sequence_archive.c gt_segmented_sequence.c \
      gt_input_file.c gt_buffered_input_file.c \
-     gt_input_parser.c gt_input_map_parser.c gt_input_sam_parser.c gt_input_fasta_parser.c gt_input_generic_parser.c \
+     gt_input_parser.c gt_input_map_parser.c gt_input_fasta_parser.c gt_input_generic_parser.c \
+     gt_input_sam_parser.c gt_sam_attributes.c \
      gt_buffered_output_file.c gt_output_file.c \
-     gt_generic_printer.c gt_output_buffer.c gt_output_map.c gt_output_fasta.c \
+     gt_generic_printer.c gt_output_buffer.c gt_output_map.c gt_output_fasta.c gt_output_sam.c \
      gt_stats.c gt_gemIdx_loader.c
 OBJS=$(addprefix $(FOLDER_BUILD)/, $(SRCS:.c=.o))
 GT_LIB=$(FOLDER_LIB)/libgemtools.a

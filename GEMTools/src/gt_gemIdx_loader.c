@@ -59,10 +59,10 @@ GT_INLINE void gt_gemIdx_load_archive(
   gem_loc_t* const seq_info = gt_mm_read_mem(mm,num_intervals*sizeof(gem_loc_t));
   char* const tags = gt_mm_read_mem(mm,tags_cumulative_length);
   // Add sequences to the sequence archive
-  gt_segmented_sequence* seg_seq;
+  gt_segmented_sequence* seg_seq = NULL;
   uint64_t i, last_offset=UINT64_MAX, seq_length;
   for (i=0;i<num_intervals;++i) {
-    //gt_debug("#%lu :: %s offset=%lu [bot,top]=[%lu,%lu]",i,
+    // gt_debug("#%lu :: %s offset=%ld [bot,top]=[%lu,%lu]",i,
     //    tags+seq_info[i].tag_offset-1,seq_info[i].sequence_offset,seq_info[i].bot,seq_info[i].top);
     if (seq_info[i].tag_offset <= 0) continue; // Skip negative strand sequences
     if (seq_info[i].tag_offset!=last_offset) { // New sequence
@@ -127,26 +127,28 @@ GT_INLINE void gt_gemIdx_load_archive(
 /*
  * Retrieve sequences from GEMindex
  */
-GT_INLINE int64_t gt_sequence_archive_get_bed_sequence_string(
+GT_INLINE int64_t gt_gemIdx_get_bed_sequence_string(
   gt_sequence_archive* const sequence_archive,char* const seq_id,
   const uint64_t position,const uint64_t length,gt_string* const string) {
   GT_SEQUENCE_BED_ARCHIVE_CHECK(sequence_archive);
   // Locate BED position
+  const int64_t seq_position = position; // Guarantee signed arithmetic
   gt_vector* const intervals_vector = gt_sequence_archive_get_bed_intervals_vector(sequence_archive,seq_id);
-  if (intervals_vector==NULL) return -1;
+  if (intervals_vector==NULL) return GT_GEMIDX_SEQ_NOT_FOUND;
   gem_loc_t* const intervals = gt_vector_get_mem(intervals_vector,gem_loc_t);
   uint64_t inf = 0, sup = gt_vector_get_used(intervals_vector)-1;
   while (sup != inf) {
     const uint64_t mid = (sup+inf)/2;
-    if (position > intervals[mid].top) {
+    if (seq_position > intervals[mid].sequence_offset+(intervals[mid].top-intervals[mid].bot)) {
       inf = mid+1;
     } else {
       sup = mid;
     }
   }
-  if (intervals[sup].bot > position || position > intervals[sup].top) return -1;
+  if (seq_position < intervals[sup].sequence_offset ||
+      seq_position >= intervals[sup].sequence_offset+(intervals[sup].top-intervals[sup].bot)) return GT_GEMIDX_INTERVAL_NOT_FOUND;
   // Get BED position
-  const uint64_t bed_position = intervals[sup].sequence_offset + (position-intervals[sup].bot);
+  const uint64_t bed_position = intervals[sup].bot + (seq_position-intervals[sup].sequence_offset);
   // Clean string
   gt_string_clear(string);
   // Decode sequence string

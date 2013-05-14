@@ -19,7 +19,7 @@ GT_INLINE gt_dna_read* gt_dna_read_new(void) {
   read->tag = gt_string_new(GT_DNA_READ_TAG_INITIAL_LENGTH);
   read->read = gt_string_new(GT_DNA_READ_INITIAL_LENGTH);
   read->qualities = gt_string_new(GT_DNA_READ_INITIAL_LENGTH);
-  read->attributes = gt_shash_new();
+  read->attributes = gt_attributes_new();
   return read;
 }
 GT_INLINE void gt_dna_read_clear(gt_dna_read* read) {
@@ -27,14 +27,14 @@ GT_INLINE void gt_dna_read_clear(gt_dna_read* read) {
   gt_string_clear(read->tag);
   gt_string_clear(read->read);
   gt_string_clear(read->qualities);
-  gt_shash_clear(read->attributes,true);
+  gt_attributes_clear(read->attributes);
 }
 GT_INLINE void gt_dna_read_delete(gt_dna_read* read) {
   GT_DNA_READ_CHECK(read);
   gt_string_delete(read->tag);
   gt_string_delete(read->read);
   gt_string_delete(read->qualities);
-  gt_shash_delete(read->attributes,true);
+  gt_attributes_delete(read->attributes);
 }
 
 /*
@@ -86,7 +86,7 @@ GT_INLINE char* gt_dna_read_get_qualities(gt_dna_read* const read) {
  * Handlers
  */
 GT_INLINE gt_status gt_dna_read_deduce_qualities_offset(gt_dna_read* const read,gt_qualities_offset_t* qualities_offset_type) {
-  register uint8_t min = UINT8_MAX;
+  uint8_t min = UINT8_MAX;
   GT_STRING_ITERATE(read->qualities,string,pos) {
     if (string[pos]<min) min = string[pos];
   }

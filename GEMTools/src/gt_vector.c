@@ -70,7 +70,7 @@ GT_INLINE void gt_vector_copy(gt_vector* vector_to,gt_vector* vector_from) {
 }
 GT_INLINE gt_vector* gt_vector_dup(gt_vector* vector) {
   GT_VECTOR_CHECK(vector);
-  register gt_vector* const vector_cpy = gt_vector_new(vector->used,vector->element_size);
+  gt_vector* const vector_cpy = gt_vector_new(vector->used,vector->element_size);
   gt_vector_set_used(vector_cpy,vector->used);
   memcpy(vector_cpy->memory,vector->memory,vector->used*vector->element_size);
   return vector_cpy;

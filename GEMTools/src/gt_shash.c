@@ -60,6 +60,11 @@ GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element) {
   gt_shash_clear(shash,free_element);
   gt_free(shash);
 }
+GT_INLINE void gt_shash_destroy(gt_shash* const shash) {
+  GT_HASH_CHECK(shash);
+  gt_shash_clear(shash,true);
+  gt_free(shash);
+}
 
 /*
  * Basic (Type-unsafe) Accessors
@@ -76,10 +81,10 @@ GT_INLINE char* gt_shash_insert_primitive(
   GT_HASH_CHECK(shash);
   GT_ZERO_CHECK(element_size);
   GT_NULL_CHECK(key); GT_NULL_CHECK(element);
-  register gt_shash_element *shash_element = gt_shash_get_shash_element(shash,key);
+  gt_shash_element *shash_element = gt_shash_get_shash_element(shash,key);
   if (gt_expect_true(shash_element==NULL)) {
     shash_element = gt_alloc(gt_shash_element);
-    register const uint64_t key_length = strlen(key);
+    const uint64_t key_length = strlen(key);
     shash_element->key = gt_strndup(key,key_length);
     shash_element->element = element;
     HASH_ADD_KEYPTR(hh,shash->shash_head,shash_element->key,key_length,shash_element);
@@ -99,10 +104,10 @@ GT_INLINE char* gt_shash_insert_object(
   GT_HASH_CHECK(shash);
   GT_NULL_CHECK(key); GT_NULL_CHECK(object);
   GT_NULL_CHECK(element_dup_fx); GT_NULL_CHECK(element_free_fx);
-  register gt_shash_element *shash_element = gt_shash_get_shash_element(shash,key);
+  gt_shash_element *shash_element = gt_shash_get_shash_element(shash,key);
   if (gt_expect_true(shash_element==NULL)) {
     shash_element = gt_alloc(gt_shash_element);
-    register const uint64_t key_length = strlen(key);
+    const uint64_t key_length = strlen(key);
     shash_element->key = gt_strndup(key,key_length);
     shash_element->element = object;
     HASH_ADD_KEYPTR(hh,shash->shash_head,shash_element->key,key_length,shash_element);
@@ -156,7 +161,7 @@ GT_INLINE uint64_t gt_shash_get_num_elements(gt_shash* const shash) {
  * Miscellaneous
  */
 GT_INLINE gt_shash* gt_shash_dup(gt_shash* const shash) {
-  register gt_shash* const shash_cp =  gt_shash_new();
+  gt_shash* const shash_cp =  gt_shash_new();
   gt_shash_copy(shash_cp,shash);
   return shash_cp;
 }
@@ -166,7 +171,7 @@ GT_INLINE void gt_shash_copy(gt_shash* const shash_dst,gt_shash* const shash_src
     switch (shash_sh_element->element_type) {
       case GT_HASH_TYPE_REGULAR: {
         // Copy element
-        register void* const shash_element_cp = gt_malloc_(1,shash_sh_element->element_size,false,0);
+        void* const shash_element_cp = gt_malloc_(1,shash_sh_element->element_size,false,0);
         memcpy(shash_element_cp,shash_element,shash_sh_element->element_size);
         gt_shash_insert_primitive(shash_dst,skey,shash_element_cp,shash_sh_element->element_size);
         break;

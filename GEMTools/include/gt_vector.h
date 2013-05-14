@@ -58,9 +58,13 @@ typedef struct {
 //    ..code..
 //  }
 #define GT_VECTOR_ITERATE(vector,element,counter,type) \
-  register uint64_t counter; \
-  register type* element = gt_vector_get_mem(vector,type); \
+  uint64_t counter; \
+  type* element = gt_vector_get_mem(vector,type); \
   for (counter=0;counter<gt_vector_get_used(vector);++element,++counter)
+#define GT_VECTOR_ITERATE_OFFSET(vector,element,counter,offset,type) \
+  uint64_t counter; \
+  type* element = gt_vector_get_elm(vector,offset,type); \
+  for (counter=offset;counter<gt_vector_get_used(vector);++element,++counter)
 // Add element to the vector (at the end)
 #define gt_vector_insert(vector,element,type) { \
   gt_vector_reserve_additional(vector,1); \

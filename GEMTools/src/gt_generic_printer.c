@@ -47,7 +47,7 @@ GT_INLINE void gt_generic_new_buffered_output_file_printer(gt_generic_printer* c
 GT_INLINE gt_status gt_vgprintf(gt_generic_printer* const generic_printer,const char *template,va_list v_args) {
   GT_GENERIC_PRINTER_CHECK(generic_printer);
   GT_NULL_CHECK(template);
-  register gt_status chars_printed = 0;
+  gt_status chars_printed = 0;
   switch (generic_printer->printer_type) {
     case GT_FILE_PRINTER:
       GT_NULL_CHECK(generic_printer->file);
@@ -85,7 +85,7 @@ GT_INLINE gt_status gt_gprintf(gt_generic_printer* const generic_printer,const c
   GT_NULL_CHECK(template);
   va_list v_args;
   va_start(v_args,template);
-  register const gt_status chars_printed = gt_vgprintf(generic_printer,template,v_args);
+  const gt_status chars_printed = gt_vgprintf(generic_printer,template,v_args);
   va_end(v_args);
   return chars_printed;
 }

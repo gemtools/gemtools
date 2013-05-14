@@ -172,7 +172,7 @@ GT_INLINE uint64_t gt_input_file_next_id(gt_input_file* const input_file) {
 GT_INLINE size_t gt_input_file_dump_to_buffer(gt_input_file* const input_file,gt_vector* const buffer_dst) { // FIXME: If mmap file, internal buffer is just pointers to mem
   GT_INPUT_FILE_CHECK(input_file);
   // Copy internal file buffer to buffer_dst
-  register const uint64_t chunk_size = input_file->buffer_pos-input_file->buffer_begin;
+  const uint64_t chunk_size = input_file->buffer_pos-input_file->buffer_begin;
   if (gt_expect_false(chunk_size==0)) return 0;
   gt_vector_reserve_additional(buffer_dst,chunk_size);
   memcpy(gt_vector_get_mem(buffer_dst,uint8_t)+gt_vector_get_used(buffer_dst),
@@ -241,9 +241,9 @@ GT_INLINE size_t gt_input_file_next_record(
   GT_INPUT_FILE_CHECK_BUFFER__DUMP(input_file,buffer_dst);
   if (input_file->eof) return GT_INPUT_FILE_EOF;
   // Read line
-  register uint64_t const begin_line_pos_at_file = input_file->buffer_pos;
-  register uint64_t const begin_line_pos_at_buffer = gt_vector_get_used(buffer_dst);
-  register uint64_t current_pfield = 0, length_first_field = 0;
+  uint64_t const begin_line_pos_at_file = input_file->buffer_pos;
+  uint64_t const begin_line_pos_at_buffer = gt_vector_get_used(buffer_dst);
+  uint64_t current_pfield = 0, length_first_field = 0;
   while (gt_expect_true(!input_file->eof &&
       GT_INPUT_FILE_CURRENT_CHAR(input_file)!=EOL &&
       GT_INPUT_FILE_CURRENT_CHAR(input_file)!=DOS_EOL)) {
@@ -270,7 +270,7 @@ GT_INLINE size_t gt_input_file_next_record(
   GT_INPUT_FILE_HANDLE_EOL(input_file,buffer_dst);
   // Set first field (from the input_file_buffer or the buffer_dst)
   if (first_field) {
-    register char* first_field_begin;
+    char* first_field_begin;
     if (input_file->buffer_pos <= begin_line_pos_at_file) {
       gt_input_file_dump_to_buffer(input_file,buffer_dst); // Forced to dump to buffer
       first_field_begin = gt_vector_get_elm(buffer_dst,begin_line_pos_at_buffer,char);
@@ -291,16 +291,16 @@ GT_INLINE bool gt_input_file_next_record_cmp_first_field(gt_input_file* const in
   GT_STRING_CHECK(first_field);
   if (gt_expect_false(input_file->eof || input_file->buffer_pos >= input_file->buffer_size)) return true;
   // Read line
-  register char* const tag_begin = (char*)(input_file->file_buffer+input_file->buffer_pos);
-  register uint64_t buffer_centinel = input_file->buffer_pos;
+  char* const tag_begin = (char*)(input_file->file_buffer+input_file->buffer_pos);
+  uint64_t buffer_centinel = input_file->buffer_pos;
   while (gt_expect_true(!input_file->eof &&
       GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)!=EOL &&
       GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)!=DOS_EOL)) {
     if (gt_expect_false(
         (GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)==SPACE ||
          GT_INPUT_FILE_TEST_CURRENT_CHAR(input_file,buffer_centinel)==TAB) )) {
-      register char* const tag_end = (char*)(input_file->file_buffer+buffer_centinel);
-      register uint64_t tag_lenth = tag_end-tag_begin;
+      char* const tag_end = (char*)(input_file->file_buffer+buffer_centinel);
+      uint64_t tag_lenth = tag_end-tag_begin;
       if (tag_lenth>2 && tag_begin[tag_lenth-2]==SLASH) tag_lenth-=2;
       if (first_field->length != tag_lenth) return false;
       return gt_strneq(first_field->buffer,tag_begin,tag_lenth);
@@ -354,7 +354,7 @@ GT_INLINE uint64_t gt_input_file_add_lines(
   GT_INPUT_FILE_CHECK(input_file);
   GT_VECTOR_CHECK(buffer_dst);
   // Read lines
-  register uint64_t lines_read = 0;
+  uint64_t lines_read = 0;
   while (lines_read<num_lines && gt_input_file_next_line(input_file,buffer_dst)) {
     ++lines_read;
   }

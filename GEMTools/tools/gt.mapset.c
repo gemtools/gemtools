@@ -38,12 +38,12 @@ gt_stats_args parameters = {
 uint64_t current_read_length;
 
 int64_t gt_mapset_map_cmp(gt_map* const map_1,gt_map* const map_2) {
-  register const uint64_t eq_threshold = (parameters.eq_threshold <= 1.0) ?
+  const uint64_t eq_threshold = (parameters.eq_threshold <= 1.0) ?
       parameters.eq_threshold*current_read_length: parameters.eq_threshold;
   return parameters.strict ? gt_map_cmp(map_1,map_2) : gt_map_range_cmp(map_1,map_2,eq_threshold);
 }
 int64_t gt_mapset_mmap_cmp(gt_map** const map_1,gt_map** const map_2,const uint64_t num_maps) {
-  register const uint64_t eq_threshold = (parameters.eq_threshold <= 1.0) ?
+  const uint64_t eq_threshold = (parameters.eq_threshold <= 1.0) ?
       parameters.eq_threshold*current_read_length: parameters.eq_threshold;
   return parameters.strict ? gt_mmap_cmp(map_1,map_2,num_maps) : gt_mmap_range_cmp(map_1,map_2,num_maps,eq_threshold);
 }
@@ -53,7 +53,7 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
     gt_buffered_output_file* const buffered_output,gt_template* const template_master,gt_template* const template_slave,
     const gt_operation operation) {
   // Read master
-  register gt_status error_code_master, error_code_slave;
+  gt_status error_code_master, error_code_slave;
   gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
   gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
   if ((error_code_master=gt_input_generic_parser_get_template(
@@ -100,7 +100,7 @@ GT_INLINE gt_status gt_mapset_read_template_sync(
 GT_INLINE gt_status gt_mapset_read_template_get_commom_map(
     gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
     gt_template* const template_master,gt_template* const template_slave) {
-  register gt_status error_code_master, error_code_slave;
+  gt_status error_code_master, error_code_slave;
   gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(parameters.paired_end);
   // Read master
   if ((error_code_master=gt_input_generic_parser_get_template(
@@ -153,7 +153,7 @@ void gt_mapset_perform_set_operations() {
     // Record current read length
     current_read_length = gt_template_get_total_length(template_1);
     // Apply operation
-    register gt_template *ptemplate;
+    gt_template *ptemplate;
     switch (parameters.operation) {
       case GT_MAP_SET_UNION:
         ptemplate=gt_template_union_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
@@ -213,38 +213,43 @@ void gt_mapset_perform_cmp_operations() {
         // Print Master's TAG+Counters+Maps
         gt_output_map_bofprint_tag(buffered_output,template_1->tag,template_1->attributes,output_map_attributes);
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_1)); // Master's Counters
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_1),
+            template_1->attributes,output_map_attributes); // Master's Counters
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_2)); // Slave's Counters
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_2),
+            template_1->attributes,output_map_attributes); // Slave's Counters
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_1,output_map_attributes); // Master's Maps
+        gt_output_map_bofprint_template_maps(buffered_output,template_1,output_map_attributes); // Master's Maps
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_2,output_map_attributes); // Slave's Maps
+        gt_output_map_bofprint_template_maps(buffered_output,template_2,output_map_attributes); // Slave's Maps
         gt_bofprintf(buffered_output,"\n");
         break;
       case GT_MAP_SET_COMPARE: {
         // Perform simple cmp operations
-        register gt_template *template_master_minus_slave=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
-        register gt_template *template_slave_minus_master=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_2,template_1);
-        register gt_template *template_intersection=gt_template_intersect_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
+        gt_template *template_master_minus_slave=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
+        gt_template *template_slave_minus_master=gt_template_subtract_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_2,template_1);
+        gt_template *template_intersection=gt_template_intersect_template_mmaps_fx(gt_mapset_mmap_cmp,gt_mapset_map_cmp,template_1,template_2);
         /*
          * Print results :: (TAG (Master-Slave){COUNTER MAPS} (Slave-Master){COUNTER MAPS} (Intersection){COUNTER MAPS})
          */
         gt_output_map_bofprint_tag(buffered_output,template_1->tag,template_1->attributes,output_map_attributes);
         // Counters
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_master_minus_slave)); // (Master-Slave){COUNTER}
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_master_minus_slave),
+            template_master_minus_slave->attributes,output_map_attributes); // (Master-Slave){COUNTER}
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_slave_minus_master)); // (Slave-Master){COUNTER}
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_slave_minus_master),
+            template_slave_minus_master->attributes,output_map_attributes); // (Slave-Master){COUNTER}
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_intersection)); // (Intersection){COUNTER}
+        gt_output_map_bofprint_counters(buffered_output,gt_template_get_counters_vector(template_intersection),
+            template_intersection->attributes,output_map_attributes); // (Intersection){COUNTER}
         // Maps
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_master_minus_slave,output_map_attributes); // (Master-Slave){COUNTER}
+        gt_output_map_bofprint_template_maps(buffered_output,template_master_minus_slave,output_map_attributes); // (Master-Slave){COUNTER}
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_slave_minus_master,output_map_attributes); // (Slave-Master){COUNTER}
+        gt_output_map_bofprint_template_maps(buffered_output,template_slave_minus_master,output_map_attributes); // (Slave-Master){COUNTER}
         gt_bofprintf(buffered_output,"\t");
-        gt_output_map_bofprint_template_maps_g(buffered_output,template_intersection,output_map_attributes); // (Intersection){COUNTER}
+        gt_output_map_bofprint_template_maps(buffered_output,template_intersection,output_map_attributes); // (Intersection){COUNTER}
         gt_bofprintf(buffered_output,"\n");
         // Delete templates
         gt_template_delete(template_master_minus_slave);
