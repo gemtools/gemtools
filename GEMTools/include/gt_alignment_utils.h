@@ -57,6 +57,8 @@ GT_INLINE bool gt_alignment_get_next_matching_strata(
     gt_alignment* const alignment,const uint64_t begin_strata,
     uint64_t* const next_matching_strata,uint64_t* const num_maps);
 
+GT_INLINE void gt_alignment_sort_by_distance__score(gt_alignment* const alignment);
+
 /*
  * Alignment's Maps set-operators
  */
