@@ -394,6 +394,8 @@ GT_INLINE void gt_template_sort_by_distance__score(gt_template* const template) 
     GT_SWAP(*gt_vector_get_elm(template->mmaps_attributes,src_position+1,gt_mmap_attributes),
         *gt_vector_get_elm(template->mmaps_attributes,dst_position+1,gt_mmap_attributes));
   }
+  // Free
+  gt_vector_delete(mmap_ph);
 }
 
 /*
