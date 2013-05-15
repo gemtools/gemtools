@@ -259,7 +259,6 @@ void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired
 }
 
 void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
-
   register bool is_4 = false;
   register bool best_printed = false;
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
@@ -311,6 +310,7 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
   }
 
 }
+
 void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
     /*SE*/
     GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
@@ -392,6 +392,7 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
         register bool is_mapped = false;
         // read
         while( (status = gt_input_generic_parser_get_template(buffered_input,template, parser_attributes)) == GT_STATUS_OK ){
+            gt_template_sort_by_distance__score(template);
 			if(params->filter_groups){
                 gt_template *template_filtered = gt_template_copy(template,false,false);
 				gt_score_filter(template_filtered, template, params);

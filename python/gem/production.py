@@ -77,10 +77,10 @@ class Filter(Command):
     def register(self, parser):
         ## required parameters
         parser.add_argument('-i', '--input', dest="input", help='Input map file', required=True)
-        parser.add_argument('--index', dest="index", help='Index to support rescoring', required=True)
-        parser.add_argument('-q', '--quality', dest="quality", help='Quality Offset 33|64', required=True)
+        parser.add_argument('--index', dest="index", help='Index to support rescoring')
+        parser.add_argument('-q', '--quality', dest="quality", help='Quality Offset 33|64')
         parser.add_argument('-t', '--threads', dest="threads", type=int, default=1, help='Number of threads')
-        parser.add_argument('-o', '--output', dest="output", help='Output file name.', required=True)
+        parser.add_argument('-o', '--output', dest="output", help='Output file name.')
         parser.add_argument('--max-matched', dest="max_matches", type=int, default=0, help="Reduce the maximum number of alignments reported")
         parser.add_argument('--min-strata', dest="min_event_distance", type=int, default=0, help="Minimum number of strata (default 0)")
         parser.add_argument('--max-strata', dest="max_event_distance", type=int, default=None, help="Maximum number of strata (default all)")
@@ -95,11 +95,15 @@ class Filter(Command):
 
     def run(self, args):
         infile = gem.files.open(args.input)
-        outfile = None
         name = args.output
         threads = int(args.threads)
-        outfile = gt.OutputFile("%s.map" % name)
-        #outfile = gt.OutputFile(sys.stdout)
+
+        outfile = None
+        if name is None:
+            outfile = gt.OutputFile(sys.stdout)
+        else:
+            outfile = gt.OutputFile("%s.map" % name)
+
         params = {
             "max_matches": args.max_matches,
             "min_event_distance": args.min_event_distance,
@@ -131,19 +135,26 @@ class Filter(Command):
         else:
             params["filter_groups"] = False
 
-        scored = gem.score(infile, args.index, quality=args.quality,
-                           threads=threads/2)
+        scored = infile
+        if args.index is not None:
+            if args.quality is None:
+                print "No quality offset specified !"
+                sys.exit(1)
+            scored = gem.score(infile, args.index, quality=args.quality,
+                               threads=threads/2)
+
         gt.filter_map(scored, outfile, params, threads=threads)
         outfile.close()
-        sam = gem.gem2sam(gem.files.open("%s.map" % name), index=args.index,
-                          threads=threads/2,
-                          quality=args.quality,
-                          consensus=gem.extended_splice_consensus,
-                          )
-        gem.sam2bam(sam, output=("%s.bam" % name),
-                           sorted=True,
-                           threads=threads, sort_memory="2G")
-        gem.bamIndex("%s.bam" % name)
+        if name is not None:
+            sam = gem.gem2sam(gem.files.open("%s.map" % name), index=args.index,
+                              threads=threads/2,
+                              quality=args.quality,
+                              consensus=gem.extended_splice_consensus,
+                              )
+            gem.sam2bam(sam, output=("%s.bam" % name),
+                               sorted=True,
+                               threads=threads, sort_memory="2G")
+            gem.bamIndex("%s.bam" % name)
 
 
 class StatsReport(Command):

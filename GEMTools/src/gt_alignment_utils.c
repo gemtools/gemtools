@@ -169,14 +169,15 @@ GT_INLINE bool gt_alignment_get_next_matching_strata(
  *                n if (a>b)
  *                0 if (a==b)
  */
-int gt_alignment_cmp_distance__score(gt_map* const map_a,gt_map* const map_b) {
+int gt_alignment_cmp_distance__score(gt_map** const map_a,gt_map** const map_b) {
   // Sort by distance
-  const int64_t distance_a = gt_map_get_distance(map_a);
-  const int64_t distance_b = gt_map_get_distance(map_b);
+  const int64_t distance_a = gt_map_get_global_distance(*map_a);
+  const int64_t distance_b = gt_map_get_global_distance(*map_b);
+
   if (distance_a != distance_b) return distance_a-distance_b;
   // Sort by score (here we cannot do the trick as gt_score fills the whole uint64_t range)
-  const uint64_t score_a = map_a->score;
-  const uint64_t score_b = map_b->score;
+  const uint64_t score_a = (*map_a)->score;
+  const uint64_t score_b = (*map_b)->score;
   return (score_a > score_b) ? -1 : (score_a < score_b ? 1 : 0);
 }
 GT_INLINE void gt_alignment_sort_by_distance__score(gt_alignment* const alignment) {

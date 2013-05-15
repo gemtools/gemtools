@@ -1348,7 +1348,7 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
     with nogil:
         gt_filter_stream(input_file, output_file, use_threads, &p)
     gt_input_file_close(input_file)
-    output.close()
+    # output.close()
 
 
 cpdef filter_map(input, OutputFile output, params, uint64_t threads=1):
