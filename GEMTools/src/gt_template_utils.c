@@ -302,6 +302,62 @@ GT_INLINE bool gt_template_get_next_matching_strata(
 }
 
 /*
+ * Sort maps by score _> (int (*)(const void *,const void *))
+ * i.e. (Sorting from smaller to bigger, <) := a-b
+ *   cmp(a,b) := -n if (a<b)
+ *                n if (a>b)
+ *                0 if (a==b)
+ */
+typedef struct {
+  gt_mmap_attributes* attributes;
+  uint64_t init_position;
+} gt_mmap_placeholder;
+//int gt_mmap_placeholder_cmp_distance__score(gt_mmap_placeholder* const ph_a,gt_mmap_placeholder* const ph_b) {
+//  // Sort by distance
+//  const int64_t distance_a = ph_a->attributes->distance;
+//  const int64_t distance_b = ph_b->attributes->distance;
+//  if (distance_a != distance_b) return distance_a-distance_b;
+//  // Sort by score (here we cannot do the trick as gt_score fills the whole uint64_t range)
+//  const uint64_t score_a = ph_a->attributes->gt_score;
+//  const uint64_t score_b = ph_b->attributes->gt_score;
+//  return (score_a > score_b) ? -1 : (score_a < score_b ? 1 : 0);
+//}
+//GT_INLINE void gt_template_sort_by_distance__score(gt_template* const template) {
+//  GT_TEMPLATE_CHECK(template);
+//  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+//    return gt_alignment_sort_by_distance__score(alignment);
+//  } GT_TEMPLATE_END_REDUCTION;
+//  // Create a vector of mmaps placeholders
+//  const uint64_t num_mmap = gt_template_get_num_mmaps(template);
+//  gt_vector* mmap_ph = gt_vector_new(num_mmap,sizeof(gt_mmap_placeholder));
+//  gt_vector_set_used(mmap_ph,num_mmap);
+//  // Fill mmaps placeholders
+//  uint64_t position = 0;
+//  gt_mmap_placeholder *ph = gt_vector_get_mem(mmap_ph,gt_mmap_placeholder);
+//  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attribute) {
+//    ph->attributes = mmap_attribute;
+//    ph->init_position = position;
+//    ++position;
+//  }
+//  // Sort
+//  qsort(gt_vector_get_mem(mmap_ph,gt_mmap_placeholder),num_mmap,sizeof(gt_mmap_placeholder),
+//      (int (*)(const void *,const void *))gt_mmap_placeholder_cmp_distance__score);
+//  // Restore sorting at both vectors (mmaps,mmaps_attributes)
+//  GT_VECTOR_ITERATE(mmap_ph,ph_element,ph_pos,gt_mmap_placeholder) {
+//    // mmap
+//    const uint64_t src_position = 2*ph_element->init_position;
+//    const uint64_t dst_position = 2*ph_pos;
+//    GT_SWAP(*gt_vector_get_elm(template->mmaps,src_position,gt_map*),*gt_vector_get_elm(template->mmaps,dst_position,gt_map*));
+//    GT_SWAP(*gt_vector_get_elm(template->mmaps,src_position+1,gt_map*),*gt_vector_get_elm(template->mmaps,dst_position+1,gt_map*));
+//    // mmap_attribute
+//    GT_SWAP(*gt_vector_get_elm(template->mmaps_attributes,src_position+1,gt_mmap_attributes),
+//        *gt_vector_get_elm(template->mmaps_attributes,dst_position+1,gt_mmap_attributes));
+//  }
+//  // Free
+//  gt_vector_delete(mmap_ph);
+//}
+
+/*
  * Template Set operators
  */
 GT_INLINE void gt_template_merge_template_mmaps(gt_template* const template_dst,gt_template* const template_src) {

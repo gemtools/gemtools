@@ -37,7 +37,7 @@ def teminate_processes():
     processes.
     """
     for p in _process_registry:
-        if p.is_alive():
+        if p.is_alive() and p._popen is not None:
             p.terminate()
 
 

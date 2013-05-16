@@ -1318,3 +1318,36 @@ cpdef __calculate_stats_process(Stats all_stats, Stats best_stats, source, uint6
         gt_stats_fill(input, target_all, target_best, threads, paired)
 
 
+
+cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None):
+    cdef gt_output_file* output_file = output.output_file
+    cdef gt_input_file* input_file = (<InputFile> source)._open()
+    cdef uint64_t use_threads = threads
+    if params is None:
+        params = {}
+
+    cdef gt_filter_params p
+    p.max_matches = params.get("max_matches", 0)
+    p.min_event_distance = params.get("min_event_distance", 0)
+    p.max_event_distance = params.get("max_event_distance", UINT64_MAX)
+    p.min_levenshtein_distance = params.get("min_levenshtein_distance", 0)
+    p.max_levenshtein_distance = params.get("max_levenshtein_distance", UINT64_MAX)
+    p.max_inss = params.get("max_inss", INT64_MAX)
+    p.min_inss = params.get("min_inss", INT64_MIN);
+    p.filter_by_strand = params.get("filter_strand", False)
+    p.keep_unique = params.get("keep_unique", False)
+    p.min_score = params.get("min_score", 0)
+
+    with nogil:
+        gt_filter_stream(input_file, output_file, use_threads, &p)
+    gt_input_file_close(input_file)
+
+
+cpdef filter_map(input, OutputFile output, params, uint64_t threads=1):
+    import gem.utils
+    process = multiprocessing.Process(target=__write_filter, args=(input, output, threads, params))
+    gem.utils.register_process(process)
+    process.start()
+    process.join()
+    return process
+

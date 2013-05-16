@@ -163,6 +163,29 @@ GT_INLINE bool gt_alignment_get_next_matching_strata(
 }
 
 /*
+ * Sort maps by score _> (int (*)(const void *,const void *))
+ * i.e. (Sorting from smaller to bigger, <) := a-b
+ *   cmp(a,b) := -n if (a<b)
+ *                n if (a>b)
+ *                0 if (a==b)
+ */
+int gt_alignment_cmp_distance__score(gt_map* const map_a,gt_map* const map_b) {
+  // Sort by distance
+  const int64_t distance_a = gt_map_get_distance(map_a);
+  const int64_t distance_b = gt_map_get_distance(map_b);
+  if (distance_a != distance_b) return distance_a-distance_b;
+  // Sort by score (here we cannot do the trick as gt_score fills the whole uint64_t range)
+  const uint64_t score_a = map_a->gt_score;
+  const uint64_t score_b = map_b->gt_score;
+  return (score_a > score_b) ? -1 : (score_a < score_b ? 1 : 0);
+}
+GT_INLINE void gt_alignment_sort_by_distance__score(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  qsort(gt_vector_get_mem(alignment->maps,gt_map*),gt_vector_get_used(alignment->maps),
+      sizeof(gt_map*),(int (*)(const void *,const void *))gt_alignment_cmp_distance__score);
+}
+
+/*
  * Alignment' Maps set-operators
  */
 GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {

@@ -7,6 +7,7 @@
  */
 
 #include "gt_input_parser.h"
+#include "gt_input_fasta_parser.h"
 
 // Count number of ':' in field + 1
 GT_INLINE uint64_t gt_input_count_casava_fields(const char* const field, uint64_t length){
@@ -25,6 +26,7 @@ GT_INLINE uint64_t gt_input_count_casava_fields(const char* const field, uint64_
  */
 GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* const tag,gt_attributes* const attributes){
   // Delimit the tag
+  register uint64_t i = 0;
   const char* const tag_begin = *text_line;
   // Read until first SPACE or TAB
   GT_READ_UNTIL(text_line,**text_line==TAB || **text_line==SPACE);
@@ -44,6 +46,10 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
     }
     gt_string_append_eos(tag);
   }
+
+  register bool casava_found = false;
+  gt_string* extra_string = NULL;
+
   // Check for additional attributes
   if (gt_expect_true(**text_line==SPACE)) {
     GT_NEXT_CHAR(text_line);
@@ -57,18 +63,21 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
       } else if (gt_expect_true(attr_begin[0]=='2' || attr_begin[0]=='3')) {
         pair = GT_PAIR_PE_2;
       }
-      gt_string* casava_string = gt_string_new(attr_length);
-      gt_string_set_nstring_static(casava_string,attr_begin,attr_length);
-      // Continue to next only if its not a tab
-      if(!gt_expect_false((**text_line)==TAB) && !GT_IS_EOL(text_line)) {
-        GT_NEXT_CHAR(text_line);
-      }
-      attr_begin = *text_line;
-      gt_attributes_add_string(attributes,GT_ATTR_ID_TAG_CASAVA,casava_string);
-    }
+		  if(pair == GT_PAIR_PE_1 || pair == GT_PAIR_PE_2){
+				gt_string* casava_string = gt_string_new(attr_length);
+				gt_string_set_nstring_static(casava_string,attr_begin,attr_length);
+			  // Continue to next only if its not a tab
+				if(!gt_expect_false((**text_line)==TAB) && !GT_IS_EOL(text_line)) {
+					GT_NEXT_CHAR(text_line);
+				}
+				attr_begin = *text_line;
+				gt_attributes_add_string(attributes,GT_ATTR_ID_TAG_CASAVA,casava_string);
+				casava_found = true;
+			}
+		}
     GT_READ_UNTIL(text_line, **text_line==TAB);
     attr_length = *text_line-attr_begin;
-    gt_string* extra_string = gt_string_new(attr_length);
+    extra_string = gt_string_new(attr_length+1);
     gt_string_set_nstring_static(extra_string,attr_begin,attr_length);
     // Continue to next only if its not a tab
     if (!gt_expect_false((**text_line)==TAB) && ! GT_IS_EOL(text_line)) {
@@ -76,6 +85,37 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
     }
     attr_begin += attr_length;
     gt_attributes_add_string(attributes,GT_ATTR_ID_TAG_EXTRA,extra_string);
+  }
+  // GT-41 add additional check to see if
+  // any extra attributes end in /1 /2 /3 and no pair found yet
+  // if thats the case, this takes over, /1/2/3 is cut away
+  // and the tag is reset to the original tag but spaces are replaced
+  // with _
+  if(!casava_found && extra_string != NULL && pair == GT_PAIR_SE){
+	register uint64_t tag_pair = gt_input_fasta_tag_chomp_end_info(extra_string);
+    if(tag_pair == 0 || tag_pair == 1){
+      if (tag_pair == 0) {
+        pair = GT_PAIR_PE_1;
+      }else {
+        pair = GT_PAIR_PE_2;
+      }	 
+	  // cut away the eos of the tag
+  	//gt_string_set_length(tag, tag_len-eos_appended);
+	  // append _
+	  gt_string_append_char(tag, '_');
+	  // append extra 
+	  gt_string_append_gt_string(tag, extra_string);
+	  // replace all spaces
+	  register uint64_t tag_len = gt_string_get_length(tag);
+	  for(i=0; i<tag_len; i++){
+		  if(tag->buffer[i] == ' '){
+			  tag->buffer[i] = '_';
+		  }
+	  }
+		gt_string_append_eos(tag);
+	  // clear extra
+	  gt_string_clear(extra_string);
+    }
   }
   gt_attributes_add(attributes,GT_ATTR_ID_TAG_PAIR,&pair,int64_t);
   // Skip separator

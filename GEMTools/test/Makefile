@@ -13,7 +13,7 @@ FOLDER_TEST_BUILD=./build
 FOLDER_TEST_SCRIPT=./script
 FOLDER_TEST_REPORTS=./reports
 
-GT_UTESTS=gt_utest_commons gt_utest_core_structures gt_utest_parsers
+GT_UTESTS=gt_utest_commons gt_utest_core_structures gt_utest_parsers gt_utest_gtf
 GT_ITESTS=gt_itest_map_parser
 
 GT_UTESTS_FLAGS=$(ARCH_FLAGS) $(DEBUG_FLAGS)

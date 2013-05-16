@@ -137,6 +137,44 @@ START_TEST(gt_test_casava_tag_parsing)
 }
 END_TEST
 
+START_TEST(gt_test_casava_tag_parsing_extended)
+{
+	char* input[1];
+
+	// basic
+	input[0] = "mytag X:Y:18:ATCACG/1";
+	gt_string_set_string(expected, "mytag_X:Y:18:ATCACG");
+	gt_string_set_string(expected_casava, "");
+	register char* tag_begin = *input;
+	int pair = 0;
+
+	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
+	fail_unless(*gt_shash_get(attributes, GT_TAG_PAIR, int64_t) == 1, "Pair information not parsed, should be 1");
+	
+	gt_string_clear(tag);
+	gt_string_clear(expected_casava);
+	gt_string_clear(expected_extra);
+	pair = 0;
+
+	input[0] = "@SRR384920.1 HWI-ST382_0049:1:1:1217:1879/1";
+	gt_string_set_string(expected, "@SRR384920.1_HWI-ST382_0049:1:1:1217:1879");
+	gt_string_set_string(expected_casava, "");
+	tag_begin = *input;
+	pair = 0;
+
+	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
+	fail_unless(*gt_shash_get(attributes, GT_TAG_PAIR, int64_t) == 1, "Pair information not parsed, should be 1");
+	
+	
+	
+	gt_string_clear(tag);
+	gt_string_clear(expected_casava);
+	gt_string_clear(expected_extra);
+}
+END_TEST
+
 
 START_TEST(gt_test_tag_parsing_generic_parser_single_paired)
 {
@@ -338,6 +376,7 @@ Suite *gt_input_tag_parser_suite(void) {
   tcase_add_checked_fixture(tc_tag_string_parser,gt_input_tag_parser_setup,gt_input_tag_parser_teardown);
   tcase_add_test(tc_tag_string_parser,gt_test_basic_tag_parsing);
   tcase_add_test(tc_tag_string_parser,gt_test_casava_tag_parsing);
+  tcase_add_test(tc_tag_string_parser,gt_test_casava_tag_parsing_extended);
   tcase_add_test(tc_tag_string_parser,gt_test_tag_parsing_generic_parser_single_paired);
   tcase_add_test(tc_tag_string_parser,gt_test_tag_parsing_generic_parser_single_paired_casava_additional);
   tcase_add_test(tc_tag_string_parser,gt_test_tag_parsing_generic_parser_single_paired_map_output);

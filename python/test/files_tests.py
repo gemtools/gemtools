@@ -24,19 +24,19 @@ def test_fastq_filter_unmapped():
 def test_fastq_trim_right():
     reads = files.open(testfiles["reads_1.fastq"])
     sum_length = sum(r.length for r in filter.trim(reads, 0, 20))
-    assert sum_length == 560000, sum_length
+    assert sum_length == 550000, sum_length
 
 
 def test_fastq_trim_left():
     reads = files.open(testfiles["reads_1.fastq"])
     sum_length = sum(r.length for r in filter.trim(reads, 20, 0))
-    assert sum_length == 560000, sum_length
+    assert sum_length == 550000, sum_length
 
 
 def test_fastq_trim_both():
     reads = files.open(testfiles["reads_1.fastq"])
     sum_length = sum(r.length for r in filter.trim(reads, 10, 10))
-    assert sum_length == 560000, sum_length
+    assert sum_length == 550000, sum_length
 
 
 def test_fastq_filtering():
@@ -44,7 +44,7 @@ def test_fastq_filtering():
     num_reads = sum(1 for r in reads.clone())
     sum_length = sum(r.length for r in reads.clone())
     assert num_reads == 10000, num_reads
-    assert sum_length == 760000, sum_length
+    assert sum_length == 750000, sum_length
 
 
 def test_iterating_fastq():

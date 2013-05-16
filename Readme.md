@@ -20,6 +20,11 @@ with the library code. Note that the GEM binaries are distributed under the
 [*GEM Non commercial binary license*](http://algorithms.cnag.cat/wiki/GEM:Non_commercial_binary_license)
 while the GEM-Tools is licensed under GPL.
 
+Contact
+-------
+If you have any questions or you run into problems, feel free to join the 
+gemtools mailing list at gemtools@googlegroups.com
+
 Installation
 ==================
 The GEM-Tools library is distributed in three different flavors. You can get a
@@ -202,6 +207,12 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 
 Change log
 =====================
+	1.6.1
+    - GEMTools SAM conversion doesnow include the header again
+    - Pair detection fixed for reads with space in the id and not casava
+    - Pipeline -o paramter does create the output folder now automatically
+    - samtools sorter max memory is now properly set for the non-threads version
+    - Added option to create sam-compact format in the pipeline
 
     1.6
 	- Parallel file conversion for pipeline

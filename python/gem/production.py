@@ -70,6 +70,55 @@ class Stats(Command):
         of.close()
 
 
+class Filter(Command):
+    title = "Filter .map files"
+    description = """Filter .map files"""
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-i', '--input', dest="input", help='Input map file', required=True)
+        parser.add_argument('-t', '--threads', dest="threads", type=int, default=1, help='Number of threads')
+        parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
+        parser.add_argument('--max-matched', dest="max_matches", type=int, default=0, help="Reduce the maximum number of alignments reported")
+        parser.add_argument('--min-strata', dest="min_event_distance", type=int, default=0, help="Minimum number of strata (default 0)")
+        parser.add_argument('--max-strata', dest="max_event_distance", type=int, default=None, help="Maximum number of strata (default all)")
+        parser.add_argument('--min-levenshtein-error', dest="min_levenshtein_distance", type=int, default=0, help="Minimum levenshtein distance (default 0)")
+        parser.add_argument('--max-levenshtein-error', dest="max_levenshtein_distance", type=int, default=None, help="Maximum levenshtein distance (default all)")
+        parser.add_argument('--max-insert-size', dest="max_inss", type=int, default=None, help="Maximum insert size for paired reads")
+        parser.add_argument('--min-insert-size', dest="min_inss", type=int, default=None, help="Minimum insert size for paired reads")
+        parser.add_argument('--filter-strand', dest="filter_strand", action="store_true", default=False, help="Filter strand and allow only F-R or R-F")
+        parser.add_argument('--keep-unique', dest="keep_unique", action="store_true", default=False, help="Always keep unique mappings as they are")
+        parser.add_argument('--min-score', dest="min_score", default=None, help="Filter by score")
+
+    def run(self, args):
+        infile = gem.files.open(args.input)
+        outfile = None
+        if args.output is not None:
+            outfile = gt.OutputFile(args.output)
+        else:
+            outfile = gt.OutputFile(sys.stdout)
+        params = {
+            "max_matches": args.max_matches,
+            "min_event_distance": args.min_event_distance,
+            "min_levenshtein_distance": args.min_levenshtein_distance,
+            "filter_strand": args.filter_strand,
+            "keep_unique": args.keep_unique,
+        }
+
+        if args.max_event_distance is not None:
+            params["max_event_distance"] = args.max_event_distance
+        if args.max_levenshtein_distance is not None:
+            params["max_levenshtein_distance"] = args.max_levenshtein_distance
+        if args.min_inss is not None:
+            params["min_inss"] = args.min_inss
+        if args.max_inss is not None:
+            params["max_inss"] = args.max_inss
+        if args.min_score is not None:
+            params["min_score"] = args.min_score
+
+        gt.filter_map(infile, outfile, params, threads=args.threads)
+
+
 class StatsReport(Command):
     title = "Create a stats report from a .json stats file"
     description = """Takes a .json stats file and create a HTML report including

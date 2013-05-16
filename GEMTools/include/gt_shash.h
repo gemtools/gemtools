@@ -9,7 +9,7 @@
 #ifndef GT_SHASH_H_
 #define GT_SHASH_H_
 
-#include "gt_commons.h"
+#include "gt_hash.h"
 #include "uthash.h"
 
 /*
