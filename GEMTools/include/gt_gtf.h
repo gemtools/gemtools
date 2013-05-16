@@ -24,6 +24,7 @@ typedef struct {
 	uint64_t end;
 	gt_gtf_strand strand;
 	gt_string* type;
+	gt_string* gene_id;
 } gt_gtf_entry;
 
 typedef struct {
@@ -35,6 +36,7 @@ typedef struct {
 	gt_shash* types; // maps from the type name to the gt_string type ref	
 }gt_gtf;
 
+GT_INLINE bool gt_gtf_search_exact(gt_gtf* gtf, char* const  ref, const uint64_t start, const uint64_t end, char* const type, const gt_gtf_strand strand);
 
 GT_INLINE gt_gtf_entry* gt_gtf_entry_new(const uint64_t start, const uint64_t end, const gt_gtf_strand strand, gt_string* type);
 GT_INLINE void gt_gtf_entry_delete(gt_gtf_entry* const entry);
@@ -47,7 +49,7 @@ GT_INLINE void gt_gtf_delete(gt_gtf* const gtf);
 
 GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf);
 
-GT_INLINE gt_gtf_ref* gt_gtf_get_ref(gt_gtf* gtf, char* const name);
+GT_INLINE gt_gtf_ref* gt_gtf_get_ref(gt_gtf* gtf, char* name);
 
 GT_INLINE gt_gtf* gt_gtf_read(FILE* input);
 

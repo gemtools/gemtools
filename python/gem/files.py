@@ -33,9 +33,9 @@ def open(input, quality=None):
     @type quality: string
     """
     is_string = isinstance(input, basestring)
-    type = _guess_type(input)
     stream = None
     if is_string:
+        type = _guess_type(input)
         if type == "bam":
             stream = open_bam(input)
     else:

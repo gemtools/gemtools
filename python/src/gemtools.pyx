@@ -1344,18 +1344,27 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
     p.group_2 = params.get("group_2", False)
     p.group_3 = params.get("group_3", False)
     p.group_4 = params.get("group_4", False)
-
+    p.close_output = params.get("close_output", True)
+    if "annotation" in params and params["annotation"] is not None:
+        p.annotation = params["annotation"]
+    else:
+        p.annotation = ""
     with nogil:
         gt_filter_stream(input_file, output_file, use_threads, &p)
     gt_input_file_close(input_file)
-    # output.close()
 
 
-cpdef filter_map(input, OutputFile output, params, uint64_t threads=1):
-    import gem.utils
-    process = multiprocessing.Process(target=__write_filter, args=(input, output, threads, params))
-    gem.utils.register_process(process)
-    process.start()
-    process.join()
-    return process
+cpdef filter_map(input, OutputFile output, params, uint64_t threads=1,
+                 background_process=True):
+    if background_process:
+        import gem.utils
+        process = multiprocessing.Process(target=__write_filter, args=(input, output, threads, params))
+        gem.utils.register_process(process)
+        process.start()
+        process.join()
+        return process
+    else:
+        params["close_output"] = False
+        __write_filter(input, output, threads, params)
+        return None
 
