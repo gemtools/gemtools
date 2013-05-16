@@ -1,4 +1,5 @@
 /*
+ * Module to load and manage GTF annotation
  */
 
 #ifndef GT_GTF_H_
@@ -38,7 +39,7 @@ typedef struct {
 GT_INLINE gt_gtf_entry* gt_gtf_entry_new(const uint64_t start, const uint64_t end, const gt_gtf_strand strand, gt_string* type);
 GT_INLINE void gt_gtf_entry_delete(gt_gtf_entry* const entry);
 
-GT_INLINE gt_gtf_ref* gt_gtf_ref_new();
+GT_INLINE gt_gtf_ref* gt_gtf_ref_new(void);
 GT_INLINE void gt_gtf_ref_delete(gt_gtf_ref* const ref);
 
 GT_INLINE gt_gtf* gt_gtf_new();

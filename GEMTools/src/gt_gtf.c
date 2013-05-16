@@ -14,7 +14,7 @@ GT_INLINE void gt_gtf_entry_delete(gt_gtf_entry* const entry){
   free(entry);
 }
 
-GT_INLINE gt_gtf_ref* gt_gtf_ref_new(){
+GT_INLINE gt_gtf_ref* gt_gtf_ref_new(void){
   gt_gtf_ref* ref = malloc(sizeof(gt_gtf_ref));
   ref->entries = gt_vector_new(10000, sizeof(gt_gtf_entry*));
   return ref;
