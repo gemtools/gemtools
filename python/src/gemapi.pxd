@@ -413,3 +413,5 @@ cdef extern from "gemtools_binding.h" nogil:
         bool group_2
         bool group_3
         bool group_4
+        bool close_output
+        char* annotation
