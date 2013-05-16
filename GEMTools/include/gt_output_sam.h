@@ -33,15 +33,15 @@ typedef struct {
   /* Format */
   gt_output_sam_format_t format; // TODO
   /* Read/Qualities */
-  bool always_output_read__qualities; // TODO
-  gt_qualities_offset_t qualities_offset; // TODO
+  bool always_output_read__qualities;
+  gt_qualities_offset_t qualities_offset;
   /* Maps */
-  uint64_t max_printable_maps; // Maximum number of maps printed // TODO
-  bool compact_format; // Compact map representation in SAM via XA field // TODO
+  uint64_t max_printable_maps;
+  bool compact_format; // Compact map representation in SAM via XA field
   /* CIGAR/Mismatch string */
-  bool print_mismatches; // TODO
+  bool print_mismatches;
   /* SAM Optional Fields */
-  bool print_optional_fields; // TODO
+  bool print_optional_fields;
   gt_sam_attributes* sam_attributes; // Optional fields stored as sam_attributes
   gt_sam_attribute_func_params* attribute_func_params; // Parameters provided to generate functional attributes
 } gt_output_sam_attributes;
@@ -163,7 +163,7 @@ GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_core_fields_se,
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_core_fields_pe,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
-    gt_map* const mate,const uint64_t mate_position,const uint64_t template_length,
+    gt_map* const mate,const uint64_t mate_position,const int64_t template_length,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
     const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes);
@@ -193,6 +193,17 @@ GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_placeholder,
  */
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_optional_fields_values,gt_sam_attributes* const sam_attributes,gt_output_sam_attributes* const output_attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_optional_fields,gt_sam_attributes* const sam_attributes,gt_output_sam_attributes* const output_attributes);
+/*
+ * SAM High-level MMap/Map Printers
+ */
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_mmap,
+    gt_template* const template,gt_map* const map_end1,gt_map* const map_end2,gt_mmap_attributes* const mmap_attributes,
+    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    gt_output_sam_attributes* const output_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map,
+    gt_template* const template,gt_alignment* const alignment,gt_map* const map,
+    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    gt_output_sam_attributes* const output_attributes);
 /*
  * SAM High-level Template/Alignment Printers
  *   - Optional fields are generated from the first SAM-Attributes object found in the following order:

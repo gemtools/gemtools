@@ -198,8 +198,8 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src) {
     }
     // Check inss
     if (parameters.min_inss > INT64_MIN || parameters.max_inss < INT64_MAX) {
-      uint64_t gt_err;
-      const int64_t inss = gt_template_get_insert_size(mmap,&gt_err);
+      gt_status error_code;
+      const int64_t inss = gt_template_get_insert_size(mmap,&error_code);
       if (parameters.min_inss > inss || inss > parameters.max_inss) continue;
     }
     // Check strandness
@@ -239,7 +239,7 @@ void gt_filter_hidden_options(FILE* stream,gt_template* const template,gt_sequen
     /*
      * Print insert size
      */
-    uint64_t error_code;
+    gt_status error_code;
     GT_TEMPLATE_ITERATE_(template,mmap) {
       fprintf(stream,"%lu\n",gt_template_get_insert_size(mmap,&error_code));
       if (parameters.best_map) break;
@@ -353,7 +353,8 @@ void gt_filter_read__write() {
     gt_template* template = gt_template_new();
     while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {
-        gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
+        gt_error_msg("Fatal error parsing file '%s', line %"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
+        continue;
       }
 
       // Consider mapped/unmapped

@@ -402,10 +402,14 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_PARSE_SAM_WRONG_NUM_XA "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Wrong number of eXtra mAps (as to pair them)"
 #define GT_ERROR_PARSE_SAM_UNSOLVED_PENDING_MAPS "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Failed to pair maps"
 
-// Output File
+/*
+ * Output File
+ */
 #define GT_ERROR_OUTPUT_FILE_INCONSISTENCY "Output file state inconsistent"
 #define GT_ERROR_OUTPUT_FILE_FAIL_WRITE "Output file. Error writing to to file"
 #define GT_ERROR_BUFFER_SAFETY_DUMP "Output buffer. Could not perform safety dump"
+
+#define GT_ERROR_OUTPUT_SAM_NO_PRIMARY_ALG "Output SAM. No primary alignment specified"
 
 /*
  * Map Alignment

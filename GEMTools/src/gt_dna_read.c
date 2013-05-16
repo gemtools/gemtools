@@ -94,3 +94,12 @@ GT_INLINE gt_status gt_dna_read_deduce_qualities_offset(gt_dna_read* const read,
   if (min >= 33) {*qualities_offset_type=GT_QUALS_OFFSET_33; return GT_STATUS_OK;}
   return GT_STATUS_FAIL;
 }
+GT_INLINE gt_string* gt_qualities_dup__adapt_offset64_to_offset33(gt_string* const qualities) {
+  gt_string* qualities_dst = gt_string_new(gt_string_get_length(qualities)+1);
+  gt_string_set_length(qualities_dst,gt_string_get_length(qualities)+1);
+  char* const qualities_dst_buf = gt_string_get_string(qualities_dst);
+  GT_STRING_ITERATE(qualities,qualities_buf,pos) {
+    qualities_dst_buf[pos] = qualities_buf[pos]-64+33;
+  }
+  return qualities_dst;
+}

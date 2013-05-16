@@ -715,7 +715,7 @@ GT_INLINE void gt_isp_add_mmap(
     attr.distance = gt_map_get_global_distance(map_end[0])+gt_map_get_global_distance(map_end[1]);
     attr.phred_score = GT_MAP_NO_PHRED_SCORE;
     gt_template_inc_counter(template,attr.distance);
-    gt_template_add_mmap_va(template,&attr,map_end[0],map_end[1]);
+    gt_template_add_mmap_ends(template,map_end[0],map_end[1],&attr);
   }
 }
 
@@ -845,7 +845,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
     gt_map* map_end2 = gt_alignment_get_map(alignment_end1,pos_end_it);
     gt_mmap_attributes attr;
     attr.distance = gt_map_get_global_distance(map_end1)+gt_map_get_global_distance(map_end2);
-    gt_template_add_mmap_va(template,&attr,map_end1,map_end2);
+    gt_template_add_mmap_ends(template,map_end1,map_end2,&attr);
     ++pos_end_it;
   }
   // Setup alignment's tag info

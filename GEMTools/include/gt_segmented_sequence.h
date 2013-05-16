@@ -67,7 +67,7 @@ GT_INLINE char* gt_segmented_sequence_get_name(gt_segmented_sequence* const sequ
 
 GT_INLINE char gt_segmented_sequence_get_char_at(gt_segmented_sequence* const sequence,const uint64_t position);
 GT_INLINE void gt_segmented_sequence_set_char_at(gt_segmented_sequence* const sequence,const uint64_t position,const char character);
-GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const sequence,char* const string,const uint64_t length);
+GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const sequence,const char* const string,const uint64_t length);
 
 GT_INLINE gt_status gt_segmented_sequence_get_sequence(
     gt_segmented_sequence* const sequence,const uint64_t position,const uint64_t length,gt_string* const string);

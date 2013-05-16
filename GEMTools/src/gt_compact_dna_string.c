@@ -179,7 +179,7 @@ GT_INLINE uint64_t gt_cdna_string_get_length(gt_compact_dna_string* const cdna_s
   return cdna_string->length;
 }
 
-GT_INLINE void gt_cdna_string_append_string(gt_compact_dna_string* const cdna_string,char* const string,const uint64_t length) {
+GT_INLINE void gt_cdna_string_append_string(gt_compact_dna_string* const cdna_string,const char* const string,const uint64_t length) {
   GT_COMPACT_DNA_STRING_CHECK(cdna_string);
   // Check allocated bitmaps
   const uint64_t total_chars = cdna_string->length+length-1;

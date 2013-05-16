@@ -7,6 +7,7 @@
  */
 
 #include "gt_map_align.h"
+#include "gt_output_map.h"
 
 // Factor to multiply the read length as to allow expansion at realignment
 #define GT_MAP_REALIGN_EXPANSION_FACTOR (0.20)

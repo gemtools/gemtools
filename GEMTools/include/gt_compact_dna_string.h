@@ -87,7 +87,7 @@ GT_INLINE void gt_cdna_string_delete(gt_compact_dna_string* const cdna_string);
 GT_INLINE char gt_cdna_string_get_char_at(gt_compact_dna_string* const cdna_string,const uint64_t pos);
 GT_INLINE void gt_cdna_string_set_char_at(gt_compact_dna_string* const cdna_string,const uint64_t pos,const char character);
 GT_INLINE uint64_t gt_cdna_string_get_length(gt_compact_dna_string* const cdna_string);
-GT_INLINE void gt_cdna_string_append_string(gt_compact_dna_string* const cdna_string,char* const string,const uint64_t length);
+GT_INLINE void gt_cdna_string_append_string(gt_compact_dna_string* const cdna_string,const char* const string,const uint64_t length);
 
 /*
  * Compact DNA String Sequence Iterator

@@ -24,19 +24,19 @@ GT_INLINE gt_status gt_merge_map_read_template_sync(
     if (error_code_master==GT_IMP_EOF) return GT_IMP_EOF;
     if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error synchronizing files");
     // Read master (always guaranteed)
-    if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))==GT_IMP_FAIL) {
+    if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master,NULL))==GT_IMP_FAIL) {
       gt_fatal_error_msg("Fatal error parsing file <<Master>>");
     }
     // Check slave
     if (gt_buffered_input_file_eob(buffered_input_slave)) { // Slave exhausted. Dump master & return EOF
       gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
-      while ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))) {
+      while ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master,NULL))) {
         if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
         gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
       }
     } else {
       // Read slave
-      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_slave,template_slave))==GT_IMP_FAIL) {
+      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_slave,template_slave,NULL))==GT_IMP_FAIL) {
         gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
       }
       // Synch loop
@@ -45,7 +45,7 @@ GT_INLINE gt_status gt_merge_map_read_template_sync(
         gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
         // Fetch next master's template
         if (gt_buffered_input_file_eob(buffered_input_master)) gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
-        if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master))!=GT_IMP_OK) {
+        if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master,NULL))!=GT_IMP_OK) {
           gt_fatal_error_msg("Fatal error parsing file <<Master>>");
         }
       }
@@ -75,12 +75,12 @@ GT_INLINE void gt_merge_synch_map_files_(
   gt_status error_code_master, error_code_slave;
   while (gt_input_map_parser_synch_blocks_a(input_mutex,buffered_input_file,num_files,&map_parser_attr)) {
     // Read master (always guaranteed)
-    if ((error_code_master=gt_input_map_parser_get_template(buffered_input_file[0],template[0]))==GT_IMP_FAIL) {
+    if ((error_code_master=gt_input_map_parser_get_template(buffered_input_file[0],template[0],NULL))==GT_IMP_FAIL) {
       gt_fatal_error_msg("Fatal error parsing file Master::%s",buffered_input_file[0]->input_file->file_name);
     }
     for (i=1;i<num_files;++i) {
       // Read slave
-      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_file[i],template[i]))==GT_IMP_FAIL) {
+      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_file[i],template[i],NULL))==GT_IMP_FAIL) {
         gt_fatal_error_msg("Fatal error parsing file Slave::%s",buffered_input_file[i]->input_file->file_name);
       }
       if (error_code_master!=error_code_slave) {

@@ -29,26 +29,28 @@ typedef struct {
   gt_alignment* alignment_end1;
   gt_alignment* alignment_end2;
   gt_vector* counters; /* (uint64_t) */
-  gt_vector* mmaps; /* (gt_map*) */
-  gt_vector* mmaps_attributes; /* ( (gt_mmap_attributes) ) */
+  gt_vector* mmaps; /* (gt_mmap) */
   gt_attributes* attributes;
 } gt_template;
-
 typedef struct {
   uint64_t distance;
   uint64_t gt_score;
   uint8_t phred_score;
-  gt_attributes* attributes;
+  // gt_attributes* attributes; // Not needed for now
 } gt_mmap_attributes;
+typedef struct {
+  gt_map* mmap[2];
+  gt_mmap_attributes attributes;
+} gt_mmap;
 
 // Iterators
 typedef struct {
   gt_template* template;
-  uint64_t next_pos;
+  uint64_t next_alignment_end;
 } gt_template_alignment_iterator;
 typedef struct {
   gt_template* template;
-  uint64_t next_pos;
+  uint64_t next_mmap_position;
 } gt_template_maps_iterator;
 
 /*
@@ -59,21 +61,13 @@ typedef struct {
   GT_STRING_CHECK(template->tag); \
   GT_VECTOR_CHECK(template->counters); \
   GT_VECTOR_CHECK(template->mmaps); \
-  GT_VECTOR_CHECK(template->mmaps_attributes); \
   GT_ATTRIBUTES_CHECK(template->attributes)
-#define GT_TEMPLATE_CONSISTENCY_CHECK(template) { \
-  GT_TEMPLATE_CHECK(template); \
-  const uint64_t num_blocks = gt_template_get_num_blocks(template); \
-  gt_fatal_check(num_blocks==0,TEMPLATE_ZERO_BLOCKS); \
-  gt_fatal_check(gt_vector_get_used(template->mmaps)%num_blocks!=0,TEMPLATE_INCONSISTENT_NUM_MAPS_RELATION); \
-  gt_fatal_check((gt_vector_get_used(template->mmaps)/num_blocks)!=gt_vector_get_used(template->mmaps_attributes),TEMPLATE_INCONSISTENT_MMAPS_ATTRB_RELATION); \
-}
 #define GT_TEMPLATE_COMMON_CONSISTENCY_ERROR(template_A,template_B) \
   gt_cond_fatal_error(gt_template_get_num_blocks(template_A)!=gt_template_get_num_blocks(template_B),TEMPLATE_INCONSISTENT_NUM_BLOCKS)
-#define GT_MMAP_CHECK(mmap) \
+#define GT_MMAP_ARRAY_CHECK(mmap) \
   gt_cond_fatal_error(mmap[0]==NULL && mmap[1]==NULL,TEMPLATE_MMAP_NULL);
-#define GT_TEMPLATE_CHECK_MMAP_POSITION(template,position) \
-  gt_fatal_check(position>=(gt_vector_get_used(template->mmaps)/2),POSITION_OUT_OF_RANGE);
+#define GT_MMAP_CHECK(mmap) \
+  GT_MMAP_ARRAY_CHECK(mmap->mmap)
 
 /*
  * Reduction to single alignment
@@ -140,29 +134,33 @@ GT_INLINE gt_map** gt_template_get_mmap_primary(gt_template* const template);
 /*
  * Multi-maps handlers (Map's relation)
  */
-GT_INLINE void gt_template_mmap_attr_new(gt_mmap_attributes* const mmap_attr);
-GT_INLINE gt_mmap_attributes* gt_template_get_mmap_attr(gt_template* const template,const uint64_t position);
-GT_INLINE void gt_template_set_mmap_attr(gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr);
-/* */
 GT_INLINE uint64_t gt_template_get_num_mmaps(gt_template* const template);
 GT_INLINE void gt_template_clear_mmaps(gt_template* const template);
-/* */
-GT_INLINE void gt_template_add_mmap(
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
-GT_INLINE gt_map** gt_template_get_mmap(
-    gt_template* const template,const uint64_t position,gt_mmap_attributes* const mmap_attr);
-GT_INLINE void gt_template_set_mmap(
-    gt_template* const template,const uint64_t position,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
-/* */
-GT_INLINE void gt_template_add_mmap_gtvector(
-    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr);
+/* MMap attributes */
+GT_INLINE void gt_template_mmap_attributes_clear(gt_mmap_attributes* const mmap_attributes);
+/* MMap record */
+GT_INLINE gt_mmap* gt_template_get_mmap(gt_template* const template,const uint64_t position);
+GT_INLINE void gt_template_set_mmap(gt_template* const template,const uint64_t position,gt_mmap* const mmap);
+GT_INLINE void gt_template_add_mmap(gt_template* const template,gt_mmap* const mmap);
+/* MMap array */
+GT_INLINE gt_map** gt_template_get_mmap_array(
+    gt_template* const template,const uint64_t position,gt_mmap_attributes** mmap_attributes);
+GT_INLINE void gt_template_set_mmap_array(
+    gt_template* const template,const uint64_t position,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes);
+GT_INLINE void gt_template_add_mmap_array(
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes);
+/* MMap individual ends*/
+GT_INLINE void gt_template_set_mmap_ends(
+    gt_template* const template,const uint64_t position,
+    gt_map* const map_end1,gt_map* const map_end2,gt_mmap_attributes* const mmap_attributes);
+GT_INLINE void gt_template_add_mmap_ends(
+    gt_template* const template,
+    gt_map* const map_end1,gt_map* const map_end2,gt_mmap_attributes* const mmap_attributes);
+/* MMap gt_vector */
 GT_INLINE void gt_template_get_mmap_gtvector(
-    gt_template* const template,const uint64_t position,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr);
-/* */
-GT_INLINE void gt_template_add_mmap_v(
-    gt_template* const template,gt_mmap_attributes* const mmap_attr,va_list v_args);
-GT_INLINE void gt_template_add_mmap_va(
-    gt_template* const template,gt_mmap_attributes* const mmap_attr,...);
+    gt_template* const template,const uint64_t position,gt_vector* const mmap,gt_mmap_attributes* const mmap_attributes);
+GT_INLINE void gt_template_add_mmap_gtvector(
+    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attributes);
 
 /*
  * Miscellaneous
@@ -181,7 +179,7 @@ GT_INLINE uint64_t gt_template_next_alignment_pos(gt_template_alignment_iterator
 GT_INLINE void gt_template_new_mmap_iterator(gt_template* const template,gt_template_maps_iterator* const template_maps_iterator);
 GT_INLINE gt_status gt_template_next_mmap(
     gt_template_maps_iterator* const template_maps_iterator,
-    gt_map*** const mmap_ref,gt_mmap_attributes** const mmap_attr);
+    gt_map*** const mmap,gt_mmap_attributes** const mmap_attributes);
 GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const template_maps_iterator);
 
 /*
@@ -199,24 +197,24 @@ GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const te
  *     .. to access mmap attributes {distance, score, ...}
  *   }
  */
-#define GT_TEMPLATE_ITERATE_(template,map_array) \
-  gt_map** map_array; \
+#define GT_TEMPLATE_ITERATE_(template,mmap) \
+  gt_map** mmap; \
   gt_template_maps_iterator __##template##_maps_iterator; \
   gt_template_new_mmap_iterator(template,&(__##template##_maps_iterator)); \
-  while (gt_template_next_mmap(&(__##template##_maps_iterator),&map_array,NULL))
-#define GT_TEMPLATE_ITERATE(template,map_array) \
-  const uint64_t __##map_array##_num_blocks = gt_template_get_num_blocks(template); \
-  GT_TEMPLATE_ITERATE_(template,map_array)
-#define GT_TEMPLATE_ITERATE_MMAP(template,map_array) GT_TEMPLATE_ITERATE(template,map_array) /* Just an alias */
-#define GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,map_array,map_array_attr) \
-  gt_map** map_array; \
-  gt_mmap_attributes *map_array_attr = NULL; \
+  while (gt_template_next_mmap(&(__##template##_maps_iterator),&mmap,NULL))
+#define GT_TEMPLATE_ITERATE(template,mmap) \
+  const uint64_t __##mmap##_num_blocks = gt_template_get_num_blocks(template); \
+  GT_TEMPLATE_ITERATE_(template,mmap)
+#define GT_TEMPLATE_ITERATE_MMAP(template,mmap) GT_TEMPLATE_ITERATE(template,mmap) /* Just an alias */
+#define GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attribute) \
+  gt_map** mmap; \
+  gt_mmap_attributes *mmap_attribute = NULL; \
   gt_template_maps_iterator __##template##_maps_iterator; \
   gt_template_new_mmap_iterator(template,&(__##template##_maps_iterator)); \
-  while (gt_template_next_mmap(&(__##template##_maps_iterator),&map_array,&map_array_attr))
-#define GT_TEMPLATE_ITERATE_MMAP__ATTR(template,map_array,map_array_attr) \
-  const uint64_t __##map_array##_num_blocks = gt_template_get_num_blocks(template); \
-  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,map_array,map_array_attr)
+  while (gt_template_next_mmap(&(__##template##_maps_iterator),&mmap,&mmap_attribute))
+#define GT_TEMPLATE_ITERATE_MMAP__ATTR(template,mmap,map_array_attr) \
+  const uint64_t __##mmap##_num_blocks = gt_template_get_num_blocks(template); \
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,map_array_attr)
 
 /*
  * Iterate over array of maps (mmap)
@@ -229,20 +227,19 @@ GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const te
  *
  * Used in conjunction with {GT_TEMPLATE_ITERATE,GT_TEMPLATE_ITERATE_MMAP,GT_TEMPLATE_ITERATE_MMAP__ATTR}
  * can iterate over the map ends of a paired template. i.e
- *   GT_TEMPLATE_ITERATE(template,map_array) {
- *     GT_MMAP_ITERATE(mmap_array,map,end_position) {
+ *   GT_TEMPLATE_ITERATE(template,mmap) {
+ *     GT_MMAP_ITERATE(mmap,map,end_position) {
  *       ..code(map,end_position)..
  *     }
  *   }
  */
-#define GT_MMAP_ITERATE_ENDS(mmap_array,num_blocks,map,end_position) \
-  const uint64_t _num_blocks_##mmap_array = num_blocks; \
+#define GT_MMAP_ITERATE_ENDS(mmap,num_blocks,map,end_position) \
+  const uint64_t _num_blocks_##mmap = num_blocks; \
   uint64_t end_position; \
   gt_map* map; \
-  for (end_position=0,map=*mmap_array; \
-       end_position<(_num_blocks_##mmap_array);map=*(mmap_array+(++end_position)))
-#define GT_MMAP_ITERATE(mmap_array,map,end_position) \
-  GT_MMAP_ITERATE_ENDS(mmap_array,__##mmap_array##_num_blocks,map,end_position)
+  for (end_position=0,map=mmap[0];end_position<(_num_blocks_##mmap);map=mmap[++end_position])
+#define GT_MMAP_ITERATE(mmap,map,end_position) \
+  GT_MMAP_ITERATE_ENDS(mmap,__##mmap##_num_blocks,map,end_position)
 
 /*
  * Iterate over the alignment of a template (individual blocks)

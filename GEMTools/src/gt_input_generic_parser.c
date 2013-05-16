@@ -47,7 +47,7 @@ GT_INLINE gt_status gt_input_generic_parser_get_alignment(
   gt_status error_code = GT_IGP_FAIL;
   switch (buffered_input->input_file->file_format) {
     case MAP:
-      return gt_input_map_parser_get_alignment_g(buffered_input,alignment,&attributes->map_parser_attr);
+      return gt_input_map_parser_get_alignment(buffered_input,alignment,&attributes->map_parser_attr);
       break;
     case SAM:
       return gt_input_sam_parser_get_alignment(buffered_input,alignment,&attributes->sam_parser_attr);
@@ -66,7 +66,7 @@ GT_INLINE gt_status gt_input_generic_parser_get_template(
   gt_status error_code = GT_IGP_FAIL;
   switch (buffered_input->input_file->file_format) {
     case MAP:
-      return gt_input_map_parser_get_template_g(buffered_input,template,&attributes->map_parser_attr);
+      return gt_input_map_parser_get_template(buffered_input,template,&attributes->map_parser_attr);
       break;
     case SAM:
       if (gt_input_generic_parser_attributes_is_paired(attributes)) {

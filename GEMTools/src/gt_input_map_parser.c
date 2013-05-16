@@ -743,8 +743,13 @@ GT_INLINE gt_status gt_imp_next_element(const char** const text_line) {
     case GT_MAP_SEP:
       if ( (*(*text_line+1)) == GT_MAP_SEP) { // '::'
         if ( (*(*text_line+2)) == GT_MAP_SEP) { // ':::' (Attributes of the block group)
-          (*text_line)+=3;
-          return GT_IMP_PE_MMAP_ATTRIBUTE_SCORE;
+          if ( (*(*text_line+3)) != GT_MAP_SEP) {
+            (*text_line)+=3;
+            return GT_IMP_PE_MMAP_ATTRIBUTE_SCORE;
+          } else {
+            (*text_line)+=2;
+            return GT_IMP_PE_PENDING_BLOCKS;
+          }
         } else { // '::?'
           (*text_line)+=2;
           return GT_IMP_PE_PENDING_BLOCKS;
@@ -930,7 +935,12 @@ GT_INLINE gt_status gt_imp_parse_map(
     GT_NEXT_CHAR(text_line);
     GT_NEXT_CHAR(text_line);
     *return_map=NULL;
-    return GT_IMP_PE_PENDING_BLOCKS;
+    if (**text_line!=GT_MAP_SEP) {
+      return GT_IMP_PE_PENDING_BLOCKS;
+    } else {
+      GT_NEXT_CHAR(text_line);
+      return GT_IMP_PE_MMAP_ATTRIBUTE_SCORE;
+    }
   } else if (gt_expect_false((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0)) { // Parse Old Split-Maps
     if ((error_code=gt_imp_parse_split_map_v0(text_line,return_map,read_base_length))) return error_code;
   } else {
@@ -1022,7 +1032,7 @@ GT_INLINE gt_status gt_imp_parse_map(
 GT_INLINE gt_status gt_imp_parse_template_maps(
     const char** const text_line,gt_template* const template,gt_map_parser_attr* const map_parser_attr) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK((*text_line));
-  GT_TEMPLATE_CONSISTENCY_CHECK(template);
+  GT_TEMPLATE_CHECK(template);
   // Check null maps
   if ((**text_line)==GT_MAP_NONE) {
     GT_SKIP_LINE(text_line);
@@ -1053,11 +1063,6 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
       // Parse MapBlock
       map_parsed = NULL;
       error_code = gt_imp_parse_map(text_line,&map_parsed,read_length[current_end_position],map_parser_attr);
-      if (map_parsed==NULL) {
-        /* Check blocks & base lengths */
-        if (total_base_length>0 && total_base_length!=read_length[current_end_position]) return GT_IMP_PE_MAP_INCONSISTENT_BLOCKS;
-        GT_IMP_PARSE_TEMPLATE_MAP_NEXT_END(current_end_position);
-      }
       // Check error_code
       switch (error_code) {
         case GT_IMP_PE_PENDING_BLOCKS:
@@ -1069,19 +1074,25 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
           if (map_head!=NULL) gt_map_delete(map_head);
           return error_code;
       }
-      // Check blocks & base lengths
-      if (map_head==NULL) {
-        map_head = map_parsed;
-        last_map_block = map_head;
-      } else {
-        gt_map* const last_added = map_parsed;
-        gt_map_set_next_block(last_map_block,last_added,QUIMERA,0);
-        last_map_block = last_added;
-      }
-      total_base_length += gt_map_get_base_length(last_map_block);
-      if (total_base_length > read_length[current_end_position]) return GT_IMP_PE_MAP_INCONSISTENT_BLOCKS;
-      else if (total_base_length == read_length[current_end_position]) {
+      if (map_parsed==NULL) {
+        // Check blocks & base lengths
+        if (total_base_length>0 && total_base_length!=read_length[current_end_position]) return GT_IMP_PE_MAP_INCONSISTENT_BLOCKS;
         GT_IMP_PARSE_TEMPLATE_MAP_NEXT_END(current_end_position);
+      } else {
+        if (map_head==NULL) {
+          map_head = map_parsed;
+          last_map_block = map_head;
+        } else {
+          gt_map* const last_added = map_parsed;
+          gt_map_set_next_block(last_map_block,last_added,QUIMERA,0);
+          last_map_block = last_added;
+        }
+        // Check blocks & base lengths
+        total_base_length += gt_map_get_base_length(map_parsed);
+        if (total_base_length > read_length[current_end_position]) return GT_IMP_PE_MAP_INCONSISTENT_BLOCKS;
+        else if (total_base_length == read_length[current_end_position]) {
+          GT_IMP_PARSE_TEMPLATE_MAP_NEXT_END(current_end_position);
+        }
       }
     } while (error_code==GT_IMP_PE_PENDING_BLOCKS);
     if (current_end_position<2 && total_base_length != read_length[current_end_position]) return GT_IMP_PE_MAP_INCONSISTENT_BLOCKS;
@@ -1090,10 +1101,11 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
      * Parse attributes (if any) and calculate template attributes
      */
     gt_mmap_attributes mmap_attr;
-    gt_template_mmap_attr_new(&mmap_attr);
+    gt_template_mmap_attributes_clear(&mmap_attr);
     mmap_attr.distance = gt_mmap_get_global_distance(mmap,2);
     if (error_code==GT_IMP_PE_MMAP_ATTRIBUTE_SCORE) {
       if ((error_code=gt_imp_parse_map_score_v1(text_line,&mmap_attr.gt_score))) return error_code;
+      error_code = gt_imp_next_element(text_line);
     } else {
       mmap_attr.gt_score = GT_MAP_NO_GT_SCORE;
     }
@@ -1103,7 +1115,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
      */
     if (mmap[0]!=NULL) gt_alignment_add_map(gt_template_get_end1(template),mmap[0]);
     if (mmap[1]!=NULL) gt_alignment_add_map(gt_template_get_end2(template),mmap[1]);
-    gt_template_add_mmap(template,mmap,&mmap_attr);
+    gt_template_add_mmap_array(template,mmap,&mmap_attr);
     ++num_maps_parsed;
     /*
      * Check error code
@@ -1395,7 +1407,7 @@ GT_INLINE gt_status gt_input_map_parse_map_list(const char* const string,gt_vect
   const char* _string = string; // Placeholder
   // Read maps
   uint64_t num_parsed_maps = 0;
-  gt_map* map;
+  gt_map* map = NULL;
   gt_status error_code=GT_IMP_PE_MAP_PENDING_MAPS;
   while (error_code==GT_IMP_PE_MAP_PENDING_MAPS && num_parsed_maps<map_parser_attr->max_parsed_maps) {
     // Parse map list

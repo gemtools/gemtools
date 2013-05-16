@@ -86,7 +86,7 @@ GT_INLINE void gt_segmented_sequence_set_char_at(gt_segmented_sequence* const se
   // Set character in compact dna string
   gt_cdna_string_set_char_at(gt_segmented_sequence_get_block(sequence,position),pos_in_block,character);
 }
-GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const sequence,char* const string,const uint64_t length) {
+GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const sequence,const char* const string,const uint64_t length) {
   GT_SEGMENTED_SEQ_CHECK(sequence);
   uint64_t block_free_space = GT_SEQ_ARCHIVE_BLOCK_SIZE-(sequence->sequence_total_length%GT_SEQ_ARCHIVE_BLOCK_SIZE);
   uint64_t current_length = sequence->sequence_total_length;
@@ -94,8 +94,7 @@ GT_INLINE void gt_segmented_sequence_append_string(gt_segmented_sequence* const 
   while (chars_written < length) {
     const uint64_t chunk_size = ((length-chars_written)<block_free_space) ?
         length-chars_written : block_free_space;
-    gt_cdna_string_append_string(
-        gt_segmented_sequence_get_block(sequence,current_length),string+chars_written,chunk_size);
+    gt_cdna_string_append_string(gt_segmented_sequence_get_block(sequence,current_length),string+chars_written,chunk_size);
     chars_written += chunk_size;
     current_length += chunk_size;
     block_free_space = GT_SEQ_ARCHIVE_BLOCK_SIZE;

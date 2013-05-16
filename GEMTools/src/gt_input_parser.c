@@ -9,7 +9,7 @@
 #include "gt_input_parser.h"
 
 // Count number of ':' in field + 1
-GT_INLINE uint64_t gt_input_count_casava_fields(char* const field, uint64_t length){
+GT_INLINE uint64_t gt_input_count_casava_fields(const char* const field, uint64_t length){
   uint64_t i = 0;
   uint64_t count = 1;
   for(;i<length;i++){
@@ -25,12 +25,12 @@ GT_INLINE uint64_t gt_input_count_casava_fields(char* const field, uint64_t leng
  */
 GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* const tag,gt_attributes* const attributes){
   // Delimit the tag
-  char* const tag_begin = *text_line;
+  const char* const tag_begin = *text_line;
   // Read until first SPACE or TAB
   GT_READ_UNTIL(text_line,**text_line==TAB || **text_line==SPACE);
   // Tag length
   uint64_t tag_length = *text_line-tag_begin;
-  gt_string_set_nstring(tag,tag_begin,tag_length);
+  gt_string_set_nstring_static(tag,tag_begin,tag_length);
   // Chomp /1/2/3 info (if any)
   int64_t pair = GT_PAIR_SE;
   if (tag_length>2 && *gt_string_char_at(tag,tag_length-2)==SLASH) {
@@ -47,7 +47,7 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
   // Check for additional attributes
   if (gt_expect_true(**text_line==SPACE)) {
     GT_NEXT_CHAR(text_line);
-    char* attr_begin = *text_line;
+    const char* attr_begin = *text_line;
     // Check for Casava 1.8 attributes
     GT_READ_UNTIL(text_line,**text_line==TAB || **text_line==SPACE);
     uint64_t attr_length = *text_line-attr_begin;
@@ -58,7 +58,7 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
         pair = GT_PAIR_PE_2;
       }
       gt_string* casava_string = gt_string_new(attr_length);
-      gt_string_set_nstring(casava_string,attr_begin,attr_length);
+      gt_string_set_nstring_static(casava_string,attr_begin,attr_length);
       // Continue to next only if its not a tab
       if(!gt_expect_false((**text_line)==TAB) && !GT_IS_EOL(text_line)) {
         GT_NEXT_CHAR(text_line);
@@ -69,7 +69,7 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
     GT_READ_UNTIL(text_line, **text_line==TAB);
     attr_length = *text_line-attr_begin;
     gt_string* extra_string = gt_string_new(attr_length);
-    gt_string_set_nstring(extra_string,attr_begin,attr_length);
+    gt_string_set_nstring_static(extra_string,attr_begin,attr_length);
     // Continue to next only if its not a tab
     if (!gt_expect_false((**text_line)==TAB) && ! GT_IS_EOL(text_line)) {
       GT_NEXT_CHAR(text_line);

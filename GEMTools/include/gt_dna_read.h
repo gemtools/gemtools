@@ -64,7 +64,9 @@ GT_INLINE char* gt_dna_read_get_qualities(gt_dna_read* const read);
  */
 GT_INLINE gt_status gt_dna_read_deduce_qualities_offset(gt_dna_read* const read,gt_qualities_offset_t* qualities_offset_type);
 
-GT_INLINE uint64_t gt_dna_read_quality_trim(gt_dna_read* const read,const uint8_t quality_threshold,const uint64_t min_length); // TODO
-GT_INLINE uint64_t gt_dna_read_hard_trim(gt_dna_read* const read,const uint64_t length);
+GT_INLINE gt_string* gt_qualities_dup__adapt_offset64_to_offset33(gt_string* const qualities);
+
+// GT_INLINE uint64_t gt_dna_read_quality_trim(gt_dna_read* const read,const uint8_t quality_threshold,const uint64_t min_length); // TODO
+// GT_INLINE uint64_t gt_dna_read_hard_trim(gt_dna_read* const read,const uint64_t length); // TODO
 
 #endif /* GT_DNA_READ_H_ */

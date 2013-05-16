@@ -151,7 +151,7 @@ GT_INLINE void gt_string_append_eos(gt_string* const string_dst) {
   string_dst->buffer[string_dst->length] = EOS;
 }
 
-GT_INLINE void gt_string_append_string(gt_string* const string_dst,char* const string_src,const uint64_t length) {
+GT_INLINE void gt_string_append_string(gt_string* const string_dst,const char* const string_src,const uint64_t length) {
   GT_STRING_CHECK_NO_STATIC(string_dst);
   GT_NULL_CHECK(string_src);
   const uint64_t final_length = string_dst->length+length;
@@ -172,8 +172,8 @@ GT_INLINE void gt_string_append_gt_string(gt_string* const string_dst,gt_string*
  * Cmp functions
  */
 GT_INLINE bool gt_string_is_null(gt_string* const string) {
-  GT_STRING_CHECK(string);
-  return (gt_expect_true(string->allocated>0)) ? string->buffer[0]==EOS : string->buffer==NULL;
+  return (gt_expect_false(string==NULL) ? true :
+      ((gt_expect_true(string->allocated>0)) ? string->buffer[0]==EOS : string->buffer==NULL) );
 }
 GT_INLINE int64_t gt_string_cmp(gt_string* const string_a,gt_string* const string_b) {
   GT_STRING_CHECK(string_a);

@@ -45,7 +45,7 @@ void gt_map_2_fastq() {
   gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
   gt_template* template = gt_template_new();
   gt_status error_code;
-  while ((error_code=gt_input_map_parser_get_template(buffered_input,template))) {
+  while ((error_code=gt_input_map_parser_get_template(buffered_input,template,NULL))) {
     if (error_code==GT_BMI_FAIL) continue;
     const uint64_t num_blocks = gt_template_get_num_blocks(template);
     uint64_t i;
@@ -113,7 +113,7 @@ void gt_example_map_parsing() {
   gt_template* template = gt_template_new();
   gt_status error_code;
   gt_input_map_parser_attributes_set_skip_model(&map_parser_attributes,true);
-  while ((error_code=gt_input_map_parser_get_template_g(buffered_input,template,&map_parser_attributes))) {
+  while ((error_code=gt_input_map_parser_get_template(buffered_input,template,&map_parser_attributes))) {
     if (error_code!=GT_IMP_OK) {
       gt_error_msg("Parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
       continue;
@@ -285,7 +285,7 @@ void gt_debug_mem_leak_parsing_map() {
   gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
   gt_alignment* alignment = gt_alignment_new();
   gt_status error_code;
-  while ((error_code=gt_input_map_parser_get_alignment(buffered_input,alignment))) {
+  while ((error_code=gt_input_map_parser_get_alignment(buffered_input,alignment,NULL))) {
     if (error_code==GT_BMI_FAIL) continue;
   }
   gt_buffered_input_file_close(buffered_input);

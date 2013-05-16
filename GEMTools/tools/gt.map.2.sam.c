@@ -20,14 +20,17 @@ typedef struct {
   bool mmap_input;
   bool paired_end;
   /* Headers */
-  /* XXX */
+
+  /* SAM format */
   bool compact_format;
   /* Optional Fields */
+
   /* Misc */
   uint64_t num_threads;
   bool verbose;
   /* Control flags */
   bool load_index;
+  bool load_index_sequences;
 } gt_stats_args;
 
 gt_stats_args parameters = {
@@ -39,23 +42,26 @@ gt_stats_args parameters = {
   .mmap_input=false,
   .paired_end=false,
   /* Headers */
-  /* XXX */
+  /* SAM format */
   .compact_format=false,
   /* Optional Fields */
   /* Misc */
   .num_threads=1,
   .verbose=false,
   /* Control flags */
-  .load_index=false
+  .load_index=false,
+  .load_index_sequences=false
 };
 
 gt_sequence_archive* gt_filter_open_sequence_archive(const bool load_sequences) {
-  gt_sequence_archive* sequence_archive = gt_sequence_archive_new();
+  gt_sequence_archive* sequence_archive = NULL;
   gt_log("Loading reference file ...");
   if (parameters.name_gem_index_file!=NULL) { // Load GEM-IDX
+    sequence_archive = gt_sequence_archive_new(GT_BED_ARCHIVE);
     gt_gemIdx_load_archive(parameters.name_gem_index_file,sequence_archive,load_sequences);
   } else {
     gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
+    sequence_archive = gt_sequence_archive_new(GT_CDNA_ARCHIVE);
     if (gt_input_multifasta_parser_get_archive(reference_file,sequence_archive)!=GT_IFP_OK) {
       gt_fatal_error_msg("Error parsing reference file '%s'\n",parameters.name_reference_file);
     }
@@ -67,14 +73,21 @@ gt_sequence_archive* gt_filter_open_sequence_archive(const bool load_sequences) 
 
 void gt_map2sam_read__write() {
   // Open file IN/OUT
-  gt_input_file* input_file = (parameters.name_input_file==NULL) ?
+  gt_input_file* const input_file = (parameters.name_input_file==NULL) ?
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,parameters.mmap_input);
-  gt_output_file* output_file = (parameters.name_output_file==NULL) ?
+  gt_output_file* const output_file = (parameters.name_output_file==NULL) ?
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
+  gt_sam_headers* const sam_headers = gt_sam_header_new(); // SAM headers
 
   // Open reference file
   gt_sequence_archive* sequence_archive = NULL;
-  if (parameters.load_index) sequence_archive = gt_filter_open_sequence_archive();
+  if (parameters.load_index) {
+    sequence_archive = gt_filter_open_sequence_archive(parameters.load_index_sequences);
+    gt_sam_header_set_sequence_archive(sam_headers,sequence_archive);
+  }
+
+  // Print SAM headers
+  gt_output_sam_ofprint_headers_sh(output_file,sam_headers);
 
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
@@ -85,30 +98,32 @@ void gt_map2sam_read__write() {
     gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
 
     // I/O attributes
-    gt_map_parser_attr input_attributes = GT_MAP_PARSER_ATTR_DEFAULT(parameters.paired_end);
-    gt_output_sam_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
+    gt_map_parser_attr* const input_map_attributes = gt_input_map_parser_attributes_new(parameters.paired_end);
+    gt_output_sam_attributes* const output_sam_attributes = gt_output_sam_attributes_new();
+    // TODO more....
 
     gt_template* template = gt_template_new();
-    while ((error_code=gt_input_map_parser_get_template_g(buffered_input,template,&generic_parser_attr))) {
+    while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
       if (error_code!=GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
+        continue;
       }
 
-      // Print template
-      if (gt_output_map_bofprint_template(buffered_output,template,&output_attributes)) {
-        gt_error_msg("Fatal error outputting read '"PRIgts"'(InputLine:%"PRIu64")\n",
-            PRIgts_content(gt_template_get_string_tag(template)),buffered_input->current_line_num-1);
-      }
+      // Print SAM template
+      gt_output_sam_bofprint_template(buffered_output,template,output_sam_attributes);
     }
 
     // Clean
     gt_template_delete(template);
+    gt_input_map_parser_attributes_delete(input_map_attributes);
+    gt_output_sam_attributes_delete(output_sam_attributes);
     gt_buffered_input_file_close(buffered_input);
     gt_buffered_output_file_close(buffered_output);
   }
 
   // Release archive & Clean
   if (sequence_archive) gt_sequence_archive_delete(sequence_archive);
+  gt_sam_header_delete(sam_headers);
   gt_input_file_close(input_file);
   gt_output_file_close(output_file);
 }
@@ -120,26 +135,32 @@ void usage() {
                   "           --output|-o [FILE]\n"
                   "           --reference|-r [FILE] (MultiFASTA/FASTA)\n"
                   "           --gem-index|-I [FILE] (GEM2-Index)\n"
-               //   "           --mmap-input\n"
-                  "           --paired-end|p\n"
+               // "           --mmap-input\n"
+                  "           --paired-end|-p\n"
+                  "           --quality-format|-q 'offset-33'|'offset-64'\n"
                   "         [Headers]\n"
-                  "           --headers [FILE] (Only {@RG,@PG,@CO} lines)\n"
-               // "           --sorting 'unknown'|'unsorted'|'queryname'|'coordinate'\n"
-                  "           --comment <string>"
-                  "         [Alignments]\n"
-                  "           -q|--quality-format 'offset-33'|'offset-64'  (default='offset-33')"
-                  "           --compact|c\n"
-      // TODO: Bufff   "           --score-alignments|s"
+               // "           --comment <string>"
+                  "         [SAM format]\n"
+                  "           --compact|-c\n"
                   "         [Optional Fields]\n"
-                  "           --RG \n" // TODO: Bufff RG:Z:0 NH:i:16 XT:A:U
-                  "           --NH \n"
-                  "           --NM \n"
-                  "           --XT \n"
-                  "           --md \n"
                   "         [Misc]\n"
-                  "           --threads|t\n"
-                  "           --verbose|v\n"
-                  "           --help|h\n");
+                  "           --threads|-t\n"
+                  "           --verbose|-v\n"
+                  "           --help|-h\n");
+  /*
+   * Pending ...
+   *        --score-alignments|s"
+   *
+   *
+   */
+  //                  "           --RG \n" // TODO: Bufff RG:Z:0 NH:i:16 XT:A:U
+  //                  "           --NH \n"
+  //                  "           --NM \n"
+  //                  "           --XT \n"
+  //                  "           --md \n"
+
+  // "           --headers [FILE] (Only {@RG,@PG,@CO} lines)\n"
+  // "           --sorting 'unknown'|'unsorted'|'queryname'|'coordinate'\n"
 }
 
 void parse_arguments(int argc,char** argv) {
@@ -153,7 +174,7 @@ void parse_arguments(int argc,char** argv) {
     { "paired-end", no_argument, 0, 'p' },
     /* Headers */
 
-    /* XXX */
+    /* SAM format */
     { "compact", no_argument, 0, 'c' },
 
     /* Optional Fields */
@@ -174,13 +195,14 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'o':
       parameters.name_output_file = optarg;
-      if (gt_streq(optarg,"null")) parameters.no_output = true;
       break;
     case 'r':
       parameters.name_reference_file = optarg;
+      parameters.load_index = true;
       break;
     case 'I':
       parameters.name_gem_index_file = optarg;
+      parameters.load_index = true;
       break;
     case 1:
       parameters.mmap_input = true;

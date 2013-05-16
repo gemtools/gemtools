@@ -505,14 +505,14 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps(
         if (pending_maps==0) break;
       }
       if (pending_maps>0) {
-        error_code = GT_MOE_INCONSISTENT_COUNTERS;
         gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
+        return GT_MOE_INCONSISTENT_COUNTERS;
       }
       ++strata;
     }
     if (gt_expect_false(total_maps_printed!=num_maps)) {
-      error_code = GT_MOE_INCONSISTENT_COUNTERS;
       gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
+      return GT_MOE_INCONSISTENT_COUNTERS;
     }
   }
   return error_code;

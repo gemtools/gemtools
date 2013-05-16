@@ -24,7 +24,7 @@ GT_INLINE void gt_template_setup_pair_attributes_to_alignments(gt_template* cons
  */
 GT_INLINE gt_map** gt_template_raw_put_mmap(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_template* const template,
-    gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
+    gt_map** const mmap,gt_mmap_attributes* const mmap_attributes);
 GT_INLINE gt_map** gt_template_put_mmap(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),
     gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr,const bool replace_duplicated);
@@ -33,20 +33,20 @@ GT_INLINE gt_map** gt_template_put_mmap(
  * Template's MMaps high-level insertion operators (Update global state: counters, ...)
  */
 GT_INLINE void gt_template_insert_mmap(
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes);
 GT_INLINE void gt_template_insert_mmap_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attr);
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes);
 GT_INLINE void gt_template_insert_mmap_gtvector(
-    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr);
+    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attributes);
 GT_INLINE void gt_template_insert_mmap_gtvector_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
-    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attr);
+    gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attributes);
 
 GT_INLINE bool gt_template_find_mmap_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
     gt_template* const template,gt_map** const mmap,
-    uint64_t* const found_mmap_pos,gt_map*** const found_mmap,gt_mmap_attributes* const found_mmap_attr);
+    uint64_t* const found_mmap_pos,gt_map*** const found_mmap,gt_mmap_attributes** const found_mmap_attributes);
 GT_INLINE bool gt_template_is_mmap_contained(gt_template* const template,gt_map** const mmap);
 GT_INLINE bool gt_template_is_mmap_contained_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
@@ -161,6 +161,8 @@ typedef struct {
 GT_INLINE gt_map_placeholder* gt_map_placeholder_new();
 GT_INLINE void gt_map_placeholder_delete(gt_map_placeholder* const map_placeholder);
 GT_INLINE void gt_map_placeholder_clear(gt_map_placeholder* const map_placeholder);
+GT_INLINE void gt_map_placeholder_set_sam_fields(gt_map_placeholder* const map_placeholder,
+    const bool not_passing_QC,const bool PCR_duplicate,const uint32_t hard_trim_left,const uint32_t hard_trim_right);
 
 /*
  * Template/Alignment Placeholder Compare functions
@@ -177,6 +179,22 @@ int gt_map_placeholder_cmp_mmap_gt_scores_ascending(gt_map_placeholder* const ph
 int gt_map_placeholder_cmp_mmap_gt_scores_descending(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b);
 
 /*
+ * Fills the placeholder's vector @mmap_placeholder with the map/mmap
+ */
+GT_INLINE void gt_map_placeholder_add_map(
+    gt_map* const map,gt_string* const read,
+    gt_vector* const mmap_placeholder,const bool split_segments,
+    int (*gt_ph_cmp_fx)(gt_map_placeholder* const,gt_map_placeholder* const),const bool cmp_with_best,
+    gt_map_placeholder* const best_mmap_ph,uint64_t* const best_mmap_ph_position,
+    gt_map_placeholder* const mmap_ph);
+GT_INLINE void gt_map_placeholder_add_mmap(
+    gt_map* const map_endA,gt_map* const map_endB,gt_string* const read_endA,const uint64_t paired_end_position,
+    gt_vector* const mmap_placeholder,const bool split_segments,
+    int (*gt_ph_cmp_fx)(gt_map_placeholder* const,gt_map_placeholder* const),const bool cmp_with_best,
+    gt_map_placeholder* const best_mmap_ph,uint64_t* const best_mmap_ph_position,
+    gt_map_placeholder* const mmap_ph);
+
+/*
  * Fills the placeholder's vector @mmap_placeholder with all the mmaps from template
  *   - If @include_mate_placeholder is set, inserts a placeholder for the mate
  *       ({ph.paired_end.paired_end_position==1}). i.e. As for SAM output like operations
@@ -190,7 +208,7 @@ int gt_map_placeholder_cmp_mmap_gt_scores_descending(gt_map_placeholder* const p
  */
 GT_INLINE void gt_map_placeholder_build_from_template(
     gt_template* const template,gt_vector* const mmap_placeholder,
-    const bool include_mate_placeholder,const bool split_segments,
+    const bool include_mate_placeholder,const bool split_segments,const uint64_t max_num_maps,
     int (*gt_ph_cmp_fx)(gt_map_placeholder* const,gt_map_placeholder* const),
     uint64_t* const primary_mmap_end1_pos,uint64_t* const primary_mmap_end2_pos,
     gt_map_placeholder* const placeholder_template);
@@ -203,7 +221,7 @@ GT_INLINE void gt_map_placeholder_build_from_template(
  *   - If @placeholder_template is not null, then its values are used as defaults (not_passing_QC,PCR_duplicate,...)
  */
 GT_INLINE void gt_map_placeholder_build_from_alignment(
-    gt_alignment* const alignment,gt_vector* const mmap_placeholder,const bool split_segments,
+    gt_alignment* const alignment,gt_vector* const mmap_placeholder,const bool split_segments,const uint64_t max_num_maps,
     int (*gt_ph_cmp_fx)(gt_map_placeholder* const,gt_map_placeholder* const),uint64_t* const primary_map_position,
     gt_map_placeholder* const placeholder_template);
 

@@ -572,9 +572,9 @@ int main(int argc,char *argv[])
 			gt_template *template=gt_template_new();
 			stats[tid]=as_stats_new(param.paired_read);
 			while(gt_input_map_parser_synch_blocks(buffered_input1,buffered_input2,&mutex)) {
-				error_code=gt_input_map_parser_get_template(buffered_input1,template);
+				error_code=gt_input_map_parser_get_template(buffered_input1,template,NULL);
 				if(error_code!=GT_IMP_OK) {
-					gt_input_map_parser_get_template(buffered_input2,template);
+					gt_input_map_parser_get_template(buffered_input2,template,NULL);
 					gt_error_msg("Error parsing file '%s'\n",param.input_files[0]);
 					continue;
 				}
@@ -583,7 +583,7 @@ int main(int argc,char *argv[])
 					continue;
 				}
 				gt_alignment *alignment2=gt_template_get_block_dyn(template,1);
-				error_code=gt_input_map_parser_get_alignment(buffered_input2,alignment2);
+				error_code=gt_input_map_parser_get_alignment(buffered_input2,alignment2,NULL);
 				if (error_code!=GT_IMP_OK) {
 					gt_error_msg("Error parsing file '%s'\n",param.input_files[1]);
 					continue;
@@ -599,13 +599,13 @@ int main(int argc,char *argv[])
 					mmap[0]=map1;
 					GT_ALIGNMENT_ITERATE(alignment2,map2) {
 						mmap[1]=map2;
-						uint64_t gt_err;
+						gt_status gt_err;
 						int64_t x=gt_template_get_insert_size(mmap,&gt_err);
 						if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param.min_insert && x<=param.max_insert) {
 							attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
 							attr.gt_score=GT_MAP_NO_GT_SCORE;
 							gt_template_inc_counter(template,attr.distance+1);
-							gt_template_add_mmap_va(template,&attr,map1,map2);
+							gt_template_add_mmap_ends(template,map1,map2,&attr);
 						}
 					}
 				}
