@@ -46,6 +46,14 @@ GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map) {
   }
   return length;
 }
+GT_INLINE uint64_t gt_map_get_global_base_length(gt_map* const map) {
+  GT_MAP_CHECK(map);
+  uint64_t base_length = 0;
+  GT_MAP_ITERATE(map,map_it) {
+    base_length += gt_map_get_base_length(map_it);
+  }
+  return base_length;
+}
 // GEM Distance (Number of Mismatches/Insert/Delete/Split operations)
 GT_INLINE uint64_t gt_map_get_distance(gt_map* const map) {
   GT_MAP_CHECK(map);

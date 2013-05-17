@@ -94,6 +94,9 @@ GT_INLINE bool gt_input_map_parser_test_map(
     }
     ++buffer_pos;
   }
+  // Set MAP type {MAP,MAPQ}
+  const bool contains_qualities = (num_tabs==4);
+  const bool null_qualities = (end_f3-begin_f3)==0;
   // Check MAP file
   //   MAP:   TAG\tREAD\tCOUNTERS\tMAPS
   //   MAPQ:  TAG\tREAD\tQUALS\tCOUNTERS\tMAPS
@@ -103,13 +106,11 @@ GT_INLINE bool gt_input_map_parser_test_map(
   if (num_tabs!=3 && num_tabs!=4) {
     gt_cond_error(show_errors,PARSE_MAP_BAD_NUMBER_FIELDS,file_name,line_num,num_tabs);
     return false;
-  } else if (gt_expect_false(num_tabs==4 && (end_f2-begin_f2)!=(end_f3-begin_f3))) {
+  } else if (gt_expect_false(num_tabs==4 && !null_qualities && (end_f2-begin_f2)!=(end_f3-begin_f3))) {
     gt_cond_error(show_errors,PARSE_MAP_BAD_READ_QUAL_LENGTH,
         file_name,line_num,end_f2-begin_f2,end_f3-begin_f3);
     return false;
   }
-  // Set MAP type {MAP,MAPQ}
-  const bool contains_qualities = (num_tabs==4);
   // Check counters format
   const uint64_t begin_counters = (!contains_qualities) ? begin_f3 : begin_f4;
   const uint64_t end_counters = (!contains_qualities) ? end_f3 : end_f4;
@@ -142,7 +143,7 @@ GT_INLINE bool gt_input_map_parser_test_map(
         gt_cond_error(show_errors,PARSE_MAP_BAD_TEMPLATE_SEP,
             file_name,line_num,buffer_pos+1,c,"Not consistent with previous separator");
         return false;
-      } else if (gt_expect_false(contains_qualities && c!=buffer[buffer_pos+f3_f4_diff])) {
+      } else if (gt_expect_false(contains_qualities && !null_qualities && c!=buffer[buffer_pos+f3_f4_diff])) {
         gt_cond_error(show_errors,PARSE_MAP_BAD_TEMPLATE_SEP,
             file_name,line_num,buffer_pos+1,c,"Not synchronized with qualities separator");
         return false;
@@ -1088,7 +1089,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
           last_map_block = last_added;
         }
         // Check blocks & base lengths
-        total_base_length += gt_map_get_base_length(map_parsed);
+        total_base_length += gt_map_get_global_base_length(map_parsed);
         if (total_base_length > read_length[current_end_position]) return GT_IMP_PE_MAP_INCONSISTENT_BLOCKS;
         else if (total_base_length == read_length[current_end_position]) {
           GT_IMP_PARSE_TEMPLATE_MAP_NEXT_END(current_end_position);
@@ -1306,11 +1307,15 @@ GT_INLINE gt_status gt_imp_parse_alignment(
   if (gt_expect_false(error_code!=GT_IMP_PE_EOB)) return error_code;
   // QUALITIES
   if (has_quality_string) {
-    error_code=gt_imp_qualities_block(text_line,alignment->qualities);
-    if (gt_expect_false(gt_string_get_length(alignment->qualities)!=
-                        gt_string_get_length(alignment->read))) return GT_IMP_PE_QUAL_BAD_LENGTH;
-    if (gt_expect_false(error_code==GT_IMP_PE_PENDING_BLOCKS)) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;
-    if (gt_expect_false(error_code!=GT_IMP_PE_EOB)) return error_code;
+    if (gt_expect_false(**text_line==TAB)) {
+      GT_NEXT_CHAR(text_line);
+    } else {
+      error_code=gt_imp_qualities_block(text_line,alignment->qualities);
+      if (gt_expect_false(gt_string_get_length(alignment->qualities)!=
+                          gt_string_get_length(alignment->read))) return GT_IMP_PE_QUAL_BAD_LENGTH;
+      if (gt_expect_false(error_code==GT_IMP_PE_PENDING_BLOCKS)) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;
+      if (gt_expect_false(error_code!=GT_IMP_PE_EOB)) return error_code;
+    }
   }
   // COUNTERS
   gt_vector_clear(gt_alignment_get_counters_vector(alignment));
@@ -1345,19 +1350,23 @@ GT_INLINE gt_status gt_imp_parse_template(
   gt_template_setup_pair_attributes_to_alignments(template,true);
   // QUALITIES
   if (has_map_quality) {
-    uint64_t i;
-    error_code=GT_IMP_PE_PENDING_BLOCKS;
-    for (i=0;i<num_blocks;++i) {
-      if (error_code!=GT_IMP_PE_PENDING_BLOCKS) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;
-      gt_alignment* alignment = gt_template_get_block(template,i);
-      error_code=gt_imp_qualities_block(text_line,alignment->qualities);
-      if (gt_expect_false(gt_string_get_length(alignment->qualities)>0 &&
-          gt_string_get_length(alignment->qualities)!=gt_string_get_length(alignment->read))){
-    	  return GT_IMP_PE_QUAL_BAD_LENGTH;
+    if (gt_expect_false(**text_line==TAB)) {
+      GT_NEXT_CHAR(text_line);
+    } else {
+      uint64_t i;
+      error_code=GT_IMP_PE_PENDING_BLOCKS;
+      for (i=0;i<num_blocks;++i) {
+        if (error_code!=GT_IMP_PE_PENDING_BLOCKS) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;
+        gt_alignment* alignment = gt_template_get_block(template,i);
+        error_code=gt_imp_qualities_block(text_line,alignment->qualities);
+        if (gt_expect_false(gt_string_get_length(alignment->qualities)>0 &&
+            gt_string_get_length(alignment->qualities)!=gt_string_get_length(alignment->read))){
+          return GT_IMP_PE_QUAL_BAD_LENGTH;
+        }
+        if (error_code!=GT_IMP_PE_PENDING_BLOCKS && error_code!=GT_IMP_PE_EOB) return error_code;
       }
-      if (error_code!=GT_IMP_PE_PENDING_BLOCKS && error_code!=GT_IMP_PE_EOB) return error_code;
+      if (error_code!=GT_IMP_PE_EOB) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;
     }
-    if (error_code!=GT_IMP_PE_EOB) return GT_IMP_PE_BAD_NUMBER_OF_BLOCKS;
   }
   // COUNTERS
   gt_vector_clear(gt_template_get_counters_vector(template));
@@ -1480,7 +1489,7 @@ GT_INLINE gt_status gt_imp_get_template(
   }
   // Check file format
   if (gt_input_map_parser_check_map_file_format(buffered_map_input)) {
-    gt_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_map_input->current_line_num);
+    gt_fatal_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_map_input->current_line_num);
     return GT_IMP_FAIL;
   }
   // Prepare the template
