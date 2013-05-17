@@ -9,12 +9,12 @@
 #ifndef GT_OUTPUT_MAP_H_
 #define GT_OUTPUT_MAP_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_template.h"
-#include "gt_output_buffer.h"
-#include "gt_buffered_output_file.h"
+#include "gt_sequence_archive.h"
+
 #include "gt_generic_printer.h"
-#include "gt_input_map_parser.h"
+#include "gt_buffered_output_file.h"
 
 /*
  * Error/state codes (Map Output Error)
@@ -27,72 +27,66 @@
  * Output attributes
  */
 typedef struct {
-  /* TAG */
+  /* Tag */
   bool print_extra; // print extra information stored in attributes
-  bool print_casava; // if available print casava ids, otherwise, appends /1 /2 for paird reads
-  /* COUNTERS */
+  bool print_casava; // if available print casava ids, otherwise, appends /1 /2 for paired reads
+  /* Counters */
   bool compact;
-  /* MAPS */
+  /* Maps */
   bool print_scores; // Print alignment scores
   uint64_t max_printable_maps; // Maximum number of maps printed
 } gt_output_map_attributes;
 #define GT_OUTPUT_MAP_ATTR_DEFAULT() { \
-   /* TAG */ \
+   /* Tag */ \
   .print_extra=true, \
   .print_casava=true, \
-   /* COUNTERS */ \
+   /* Counters */ \
   .compact=false, \
-   /* MAPS */ \
+   /* Maps */ \
   .print_scores=true, \
   .max_printable_maps=GT_ALL \
 }
+#define GT_OUTPUT_MAP_CHECK_ATTRIBUTES(output_map_attributes) \
+  if (output_map_attributes==NULL) { /* Check null output_map_attributes */ \
+    gt_output_map_attributes map_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT(); \
+    output_map_attributes = &map_attributes; \
+  }
 
 GT_INLINE gt_output_map_attributes* gt_output_map_attributes_new();
 GT_INLINE void gt_output_map_attributes_delete(gt_output_map_attributes* const attributes);
 GT_INLINE void gt_output_map_attributes_reset_defaults(gt_output_map_attributes* const attributes);
-
-GT_INLINE bool gt_output_map_attributes_is_print_scores(gt_output_map_attributes* const attributes);
-GT_INLINE void gt_output_map_attributes_set_print_scores(gt_output_map_attributes* const attributes,const bool print_scores);
-
-GT_INLINE bool gt_output_map_attributes_is_print_extra(gt_output_map_attributes* const attributes);
-GT_INLINE void gt_output_map_attributes_set_print_extra(gt_output_map_attributes* const attributes,const bool print_extra);
-
+/* Tag */
 GT_INLINE bool gt_output_map_attributes_is_print_casava(gt_output_map_attributes* const attributes);
 GT_INLINE void gt_output_map_attributes_set_print_casava(gt_output_map_attributes* const attributes,const bool print_casava);
-
+GT_INLINE bool gt_output_map_attributes_is_print_extra(gt_output_map_attributes* const attributes);
+GT_INLINE void gt_output_map_attributes_set_print_extra(gt_output_map_attributes* const attributes,const bool print_extra);
+/* Maps */
+GT_INLINE bool gt_output_map_attributes_is_print_scores(gt_output_map_attributes* const attributes);
+GT_INLINE void gt_output_map_attributes_set_print_scores(gt_output_map_attributes* const attributes,const bool print_scores);
 GT_INLINE uint64_t gt_output_map_attributes_get_max_printable_maps(gt_output_map_attributes* const attributes);
 GT_INLINE void gt_output_map_attributes_set_max_printable_maps(gt_output_map_attributes* const attributes,const uint64_t max_printable_maps);
+
 
 /*
  * TAG building block printers
  */
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_tag,gt_string* const tag,
-    gt_shash* const attributes,gt_output_map_attributes* const output_map_attributes);
+    gt_attributes* const attributes,gt_output_map_attributes* const output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_tag,gt_template* const template);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_tag,gt_alignment* const alignment);
 
 /*
  * MAP building block printers
+ *   - If @gt_output_map_attributes==NULL then defaults are applied
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_string,gt_map* const map);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_block,gt_map* const map);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map,gt_map* const map);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_list,gt_vector* const maps);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_counters,gt_vector* const counters);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_maps,gt_template* const template); // Sorted print by mismatch number
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_maps,gt_alignment* const alignment); // Sorted print by mismatch number
-
-/*
- * General MAP printers (more flexible taking @gt_output_map_attributes)
- */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_string_g,gt_map* const map,gt_output_map_attributes* const output_map_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_counters_g,gt_vector* const counters,
-    gt_shash* const attributes,gt_output_map_attributes* const output_map_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_block_g,gt_map* const map,gt_output_map_attributes* const output_map_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_g,gt_map* const map,gt_output_map_attributes* const output_map_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_list_g,gt_vector* const maps,gt_output_map_attributes* const output_map_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_maps_g,gt_template* const template,gt_output_map_attributes* const output_map_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_maps_g,gt_alignment* const alignment,gt_output_map_attributes* const output_map_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_maps_unsorted,gt_template* const template,gt_output_map_attributes* const output_map_attributes);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_maps_unsorted,gt_alignment* const alignment,gt_output_map_attributes* const output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_string,gt_map* const map,gt_output_map_attributes* output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_counters,gt_vector* const counters,gt_attributes* const attributes,gt_output_map_attributes* output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_block,gt_map* const map,gt_output_map_attributes* output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map,gt_map* const map,gt_output_map_attributes* output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_list,gt_vector* const maps,gt_output_map_attributes* output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_placeholder,gt_vector* const mmap_placeholder,gt_output_map_attributes* output_map_attributes);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_template_maps,gt_template* const template,gt_output_map_attributes* output_map_attributes); // Sorted print by mismatch number
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_alignment_maps,gt_alignment* const alignment,gt_output_map_attributes* output_map_attributes); // Sorted print by mismatch number
 
 /*
  * High-level MAP Printers {Alignment/Template}
@@ -112,6 +106,8 @@ GT_INLINE gt_status gt_output_map_bofprint_alignment(gt_buffered_output_file* co
 
 /*
  * GEM printer
+ *   If the template is paired generates 1 PairedEnd MAP line
+ *   If the template is unpaired generates 2 SingleEnd MAP lines
  */
 GT_INLINE gt_status gt_output_map_gprint_gem_template(gt_generic_printer* const gprinter,gt_template* const template,gt_output_map_attributes* const output_map_attributes);
 GT_INLINE gt_status gt_output_map_fprint_gem_template(FILE* file,gt_template* const template,gt_output_map_attributes* const output_map_attributes);
@@ -124,7 +120,9 @@ GT_INLINE gt_status gt_output_map_bofprint_gem_template(gt_buffered_output_file*
  * Misc. Handy printers
  */
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_mismatch_summary,gt_map* const map);
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_pretty_alignment,gt_map* const map,const bool print_all_blocks,
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_block_pretty,gt_map* const map,
     char* const pattern,const uint64_t pattern_length,char* const sequence,const uint64_t sequence_length);
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_map,print_map_pretty_sa,gt_map* const map,
+    gt_string* const pattern,gt_sequence_archive* const sequence_archive);
 
 #endif /* GT_OUTPUT_MAP_H_ */

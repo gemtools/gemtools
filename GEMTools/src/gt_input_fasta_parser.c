@@ -26,7 +26,7 @@ GT_INLINE bool gt_input_fasta_parser_test_fastq(
     char* const file_name,const uint64_t line_num,char* const buffer,const uint64_t buffer_size,
     gt_fasta_file_format* const fasta_file_format,const bool show_errors) {
   // Get TAG {fastq,fasta}
-  register bool expect_qualities;
+  bool expect_qualities;
   switch (buffer[0]) {
     case GT_IFP_FASTA_TAG_BEGIN:
       expect_qualities=false;
@@ -39,17 +39,17 @@ GT_INLINE bool gt_input_fasta_parser_test_fastq(
       break;
   }
   // Skip TAG
-  register uint64_t buffer_pos=1;
+  uint64_t buffer_pos=1;
   GT_IFP_TEST_FASTA_SKIP_LINE();
   ++buffer_pos;
   // Skip Read
-  register const uint64_t read_start_pos = buffer_pos;
+  const uint64_t read_start_pos = buffer_pos;
   while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) {
     if (gt_expect_false(!gt_is_iupac_code(buffer[buffer_pos]))) return false;
     ++buffer_pos;
   }
   if (buffer_pos==buffer_size) return expect_qualities;
-  register const uint64_t read_length = buffer_pos-read_start_pos;
+  const uint64_t read_length = buffer_pos-read_start_pos;
   ++buffer_pos;
   // Read next character
   switch (buffer[buffer_pos]) {
@@ -60,9 +60,9 @@ GT_INLINE bool gt_input_fasta_parser_test_fastq(
       GT_IFP_TEST_FASTA_SKIP_LINE();
       ++buffer_pos;
       // Read qualities
-      register const uint64_t qual_start_pos = buffer_pos;
+      const uint64_t qual_start_pos = buffer_pos;
       while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
-      register const uint64_t qual_length = buffer_pos-qual_start_pos;
+      const uint64_t qual_length = buffer_pos-qual_start_pos;
       // Check lengths
       if (qual_length!=read_length) return false;
       // Found regular FASTQ !
@@ -92,7 +92,7 @@ GT_INLINE bool gt_input_file_test_fasta(
       (char*)input_file->file_buffer,input_file->buffer_size,fasta_file_format,show_errors));
 }
 GT_INLINE gt_status gt_input_fasta_parser_check_fastq_file_format(gt_buffered_input_file* const buffered_fasta_input) {
-  register gt_input_file* const input_file = buffered_fasta_input->input_file;
+  gt_input_file* const input_file = buffered_fasta_input->input_file;
   if (gt_expect_false(input_file->file_format==FILE_FORMAT_UNKNOWN)) { // Unknown
     gt_fasta_file_format fasta_file_format;
     if (!gt_input_fasta_parser_test_fastq(
@@ -117,7 +117,7 @@ GT_INLINE void gt_input_fasta_parser_prompt_error(
     gt_buffered_input_file* const buffered_fasta_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code) {
   // Display textual error msg
-  register const char* const file_name = buffered_fasta_input->input_file->file_name;
+  const char* const file_name = buffered_fasta_input->input_file->file_name;
   switch (error_code) {
     case 0: /* No error */ break; // TODO
     // case GT_IMP_PE_WRONG_FILE_FORMAT: gt_error(PARSE_MAP_BAD_FILE_FORMAT,file_name,line_num); break;
@@ -177,7 +177,7 @@ GT_INLINE gt_status gt_input_fasta_parser_reload_buffer(gt_buffered_input_file* 
     gt_buffered_output_file_dump(buffered_fasta_input->buffered_output_file);
   }
   // Read new input block
-  register const uint64_t read_lines =
+  const uint64_t read_lines =
       gt_buffered_input_file_get_block(buffered_fasta_input,GT_IFP_NUM_LINES);
   if (gt_expect_false(read_lines==0)) return GT_IFP_EOF;
   // Assign block ID
@@ -192,7 +192,7 @@ GT_INLINE gt_status gt_input_fasta_parser_reload_buffer(gt_buffered_input_file* 
 /*
  * FASTQ/FASTA format. Basic building block for parsing
  */
-GT_INLINE gt_status gt_input_fasta_parse_tag(char** const text_line,gt_string* const tag,gt_shash* const attributes) {
+GT_INLINE gt_status gt_input_fasta_parse_tag(const char** const text_line,gt_string* const tag,gt_attributes* const attributes) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK(*text_line);
   GT_STRING_CHECK(tag);
   // Check begin
@@ -200,7 +200,7 @@ GT_INLINE gt_status gt_input_fasta_parse_tag(char** const text_line,gt_string* c
     return GT_IFP_PE_TAG_BAD_BEGINNING;
   }
   GT_NEXT_CHAR(text_line);
-  gt_input_parse_tag(text_line, tag, attributes);
+  gt_input_parse_tag(text_line,tag,attributes);
   if (GT_IS_EOL(text_line)){
     GT_NEXT_CHAR(text_line);
   }
@@ -211,19 +211,19 @@ GT_INLINE gt_status gt_input_fasta_parse_tag(char** const text_line,gt_string* c
 }
 
 #define GT_INPUT_FASTQ_PARSE_READ_CHARS(read_begin,length) \
-  register char* const read_begin = *text_line; \
+  const char* const read_begin = *text_line; \
   while (!GT_IS_EOL(text_line)) { \
     if (gt_expect_false(!gt_is_dna(**text_line))) return GT_IFP_PE_READ_BAD_CHARACTER; \
     GT_NEXT_CHAR(text_line); \
   } \
-  register const uint64_t length = (*text_line-read_begin)
-GT_INLINE gt_status gt_input_fasta_parse_read_s(char** const text_line,gt_string* const read) {
+  const uint64_t length = (*text_line-read_begin)
+GT_INLINE gt_status gt_input_fasta_parse_read_s(const char** const text_line,gt_string* const read) {
   GT_INPUT_FASTQ_PARSE_READ_CHARS(read_begin,length);
   gt_string_append_string(read,read_begin,length);
   GT_NEXT_CHAR(text_line);
   return 0;
 }
-GT_INLINE gt_status gt_input_fasta_parse_read_sq(char** const text_line,gt_segmented_sequence* const segmented_sequence) {
+GT_INLINE gt_status gt_input_fasta_parse_read_sq(const char** const text_line,gt_segmented_sequence* const segmented_sequence) {
   GT_INPUT_FASTQ_PARSE_READ_CHARS(read_begin,length);
   gt_segmented_sequence_append_string(segmented_sequence,read_begin,length);
   GT_NEXT_CHAR(text_line);
@@ -231,19 +231,19 @@ GT_INLINE gt_status gt_input_fasta_parse_read_sq(char** const text_line,gt_segme
 }
 
 #define GT_INPUT_FASTA_PARSE_QUALITIES_CHARS(quals_begin,length) \
-  register char* const quals_begin = *text_line; \
+  const char* const quals_begin = *text_line; \
   while (!GT_IS_EOL(text_line)) { \
     if (gt_expect_false(!gt_is_valid_quality(**text_line))) return GT_IFP_PE_QUALS_BAD_CHARACTER; \
     GT_NEXT_CHAR(text_line); \
   } \
-  register const uint64_t length = (*text_line-quals_begin)
-GT_INLINE gt_status gt_input_fasta_parse_qualities_s(char** const text_line,gt_string* const read) {
+  const uint64_t length = (*text_line-quals_begin)
+GT_INLINE gt_status gt_input_fasta_parse_qualities_s(const char** const text_line,gt_string* const read) {
   GT_INPUT_FASTA_PARSE_QUALITIES_CHARS(quals_begin,length);
   gt_string_append_string(read,quals_begin,length);
   GT_NEXT_CHAR(text_line);
   return 0;
 }
-GT_INLINE gt_status gt_input_fasta_parse_qualities_sq(char** const text_line,gt_segmented_sequence* const segmented_sequence) {
+GT_INLINE gt_status gt_input_fasta_parse_qualities_sq(const char** const text_line,gt_segmented_sequence* const segmented_sequence) {
   GT_INPUT_FASTA_PARSE_QUALITIES_CHARS(quals_begin,length);
   gt_segmented_sequence_append_string(segmented_sequence,quals_begin,length);
   GT_NEXT_CHAR(text_line);
@@ -255,11 +255,10 @@ GT_INLINE gt_status gt_input_fasta_parse_qualities_sq(char** const text_line,gt_
  * High Level Parsers
  */
 GT_INLINE gt_status gt_ifp_parse_read(
-    char** const text_line,gt_string* const tag,gt_string* const read,
-    const bool has_qualitites,gt_string* const qualities,gt_shash* const attributes) {
+    const char** const text_line,gt_string* const tag,gt_string* const read,
+    const bool has_qualitites,gt_string* const qualities,gt_attributes* const attributes) {
   // Parse TAG
-  register gt_status error_code;
-
+  gt_status error_code;
   if ((error_code=gt_input_fasta_parse_tag(text_line,tag,attributes))) return error_code;
   // Parse READ
   if ((error_code=gt_input_fasta_parse_read_s(text_line,read))) return error_code;
@@ -278,12 +277,12 @@ GT_INLINE gt_status gt_ifp_parse_read(
 
 GT_INLINE gt_status gt_ifp_parse_fasta_fastq_read(
     gt_buffered_input_file* const buffered_fasta_input,
-    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_shash* const attributes) {
+    gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_attributes* const attributes) {
   /*
    * Check input file
    */
-  register gt_input_file* const input_file = buffered_fasta_input->input_file;
-  register gt_status error_code;
+  gt_input_file* const input_file = buffered_fasta_input->input_file;
+  gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
   if (gt_buffered_input_file_eob(buffered_fasta_input)) {
     if ((error_code=gt_input_fasta_parser_reload_buffer(buffered_fasta_input))!=GT_IFP_OK) return error_code;
@@ -293,16 +292,17 @@ GT_INLINE gt_status gt_ifp_parse_fasta_fastq_read(
     gt_error(PARSE_MAP_BAD_FILE_FORMAT,input_file->file_name,buffered_fasta_input->current_line_num);
     return GT_IFP_FAIL;
   }
-  register const gt_file_fasta_format fasta_format = input_file->fasta_type.fasta_format;
+  const gt_file_fasta_format fasta_format = input_file->fasta_type.fasta_format;
   if (fasta_format!=F_FASTA && fasta_format!=F_FASTQ) return GT_IFP_PE_WRONG_FILE_FORMAT;
   /*
    * Parse read
    */
-  register char* const line_start = buffered_fasta_input->cursor;
-  register const uint64_t line_num = buffered_fasta_input->current_line_num;
+  char* const line_start = buffered_fasta_input->cursor;
+  const uint64_t line_num = buffered_fasta_input->current_line_num;
   // Parse read
 
-  if ((error_code=gt_ifp_parse_read(&(buffered_fasta_input->cursor),tag,read,fasta_format==F_FASTQ,qualities,attributes))) {
+  if ((error_code=gt_ifp_parse_read((const char** const)&buffered_fasta_input->cursor,
+      tag,read,fasta_format==F_FASTQ,qualities,attributes))) {
     gt_input_fasta_parser_prompt_error(buffered_fasta_input,line_num,buffered_fasta_input->cursor-line_start,error_code);
     gt_input_fasta_parser_next_record(buffered_fasta_input,line_start);
     return GT_IFP_FAIL;
@@ -341,25 +341,25 @@ GT_INLINE gt_status gt_input_fasta_parser_get_template(
   // Prepare read
   gt_template_clear(template,true);
   // Parse FASTA/FASTQ record (end/1)
-  register gt_status error_code;
-  register gt_alignment* alignment = gt_template_get_block_dyn(template,0);
+  gt_status error_code;
+  gt_alignment* alignment = gt_template_get_block_dyn(template,0);
   if ((error_code=gt_input_fasta_parser_get_alignment(buffered_fasta_input,alignment))!=GT_IFP_OK) {
     return error_code;
   }
   if (paired_read) {
-    register gt_alignment* alignment = gt_template_get_block_dyn(template,1);
+    gt_alignment* alignment = gt_template_get_block_dyn(template,1);
     if (gt_buffered_input_file_eob(buffered_fasta_input)) return GT_IFP_FAIL;
     // Parse FASTA/FASTQ record (end/2)
     if ((error_code=gt_input_fasta_parser_get_alignment(buffered_fasta_input,alignment)) != GT_IFP_OK) {
       return error_code;
     }
-    //
-    gt_attribute_set(template->attributes,GT_TAG_PAIR,
-        gt_shash_get(alignment->attributes, GT_TAG_PAIR, int64_t),int64_t);
+    // Set pair attribute
+    gt_attributes_add(template->attributes,GT_ATTR_ID_TAG_PAIR,
+        gt_attributes_get(alignment->attributes,GT_ATTR_ID_TAG_PAIR),int64_t);
   } else {
     // copy pairing information to tag attributes
     int64_t pair = GT_PAIR_BOTH;
-    gt_attribute_set(template->attributes,GT_TAG_PAIR,&pair,int64_t);
+    gt_attributes_add(template->attributes,GT_ATTR_ID_TAG_PAIR,&pair,int64_t);
   }
   return GT_IFP_OK;
 }
@@ -373,15 +373,15 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
     gt_input_file* const input_multifasta_file,gt_sequence_archive* const sequence_archive) {
   GT_INPUT_FILE_CHECK(input_multifasta_file);
   GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
-  // Clear sequence archive
-  gt_sequence_archive_clear(sequence_archive);
+  // Clear sequence archive (Why? Could be done in an accumulative fashion)
+  // gt_sequence_archive_clear(sequence_archive);
   // Check the file. Reload buffer if needed
   if (input_multifasta_file->eof) return GT_IFP_OK;
   GT_INPUT_FILE_CHECK(input_multifasta_file);
   // Read all sequences
-  register gt_string* const buffer = gt_string_new(200); // TODO: Should be done in terms of dna_string
+  gt_string* const buffer = gt_string_new(200); // TODO: Should be done in terms of dna_string
   while (!input_multifasta_file->eof) {
-    register gt_segmented_sequence* seg_seq = gt_segmented_sequence_new();
+    gt_segmented_sequence* seg_seq = gt_segmented_sequence_new();
     // Parse TAG
     if (GT_INPUT_FILE_CURRENT_CHAR(input_multifasta_file)!=GT_IFP_FASTA_TAG_BEGIN) {
       GT_INPUT_MULTIFASTA_RETURN_ERROR(GT_IFP_PE_TAG_BAD_BEGINNING);
@@ -414,7 +414,7 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
       }
     }
     // Store the parsed sequence
-    gt_sequence_archive_add_sequence(sequence_archive,seg_seq);
+    gt_sequence_archive_add_segmented_sequence(sequence_archive,seg_seq);
   }
   gt_string_delete(buffer);
   return GT_IFP_OK;
@@ -426,9 +426,9 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
 GT_INLINE uint64_t gt_input_fasta_tag_chomp_end_info(gt_string* const tag) {
   GT_STRING_CHECK(tag);
   // Parse the end information {/1,/2}
-  register const uint64_t tag_length = gt_string_get_length(tag);
+  const uint64_t tag_length = gt_string_get_length(tag);
   if (tag_length>2 && *gt_string_char_at(tag,tag_length-2)==SLASH) {
-    register const char tag_end = *gt_string_char_at(tag,tag_length-1);
+    const char tag_end = *gt_string_char_at(tag,tag_length-1);
     if (tag_end=='1') {
       gt_string_set_length(tag,tag_length-2);
       return 0;
@@ -455,7 +455,7 @@ GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_v(
   GT_NULL_CHECK(input_mutex);
   GT_ZERO_CHECK(num_inputs);
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input);
-  register gt_status error_code;
+  gt_status error_code;
   // Check the end_of_block. Reload buffer if needed (synch)
   if (gt_buffered_input_file_eob(buffered_input)) {
     // Dump buffer if BOF it attached to the input, and get new out block (always FIRST)
@@ -469,7 +469,7 @@ GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_v(
         return error_code;
       }
       while ((--num_inputs) > 0) {
-        register gt_buffered_input_file* remaining_buffered_input = va_arg(v_args,gt_buffered_input_file*);
+        gt_buffered_input_file* remaining_buffered_input = va_arg(v_args,gt_buffered_input_file*);
         GT_BUFFERED_INPUT_FILE_CHECK(remaining_buffered_input);
         if ((error_code=gt_input_fasta_parser_reload_buffer(remaining_buffered_input))!=GT_IFP_OK) {
           GT_END_MUTEX_SECTION(*input_mutex);
@@ -486,7 +486,7 @@ GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_va(
   GT_ZERO_CHECK(num_inputs);
   va_list v_args;
   va_start(v_args,buffered_input);
-  register gt_status error_code = gt_input_fasta_parser_synch_blocks_v(input_mutex,num_inputs,buffered_input,v_args);
+  gt_status error_code = gt_input_fasta_parser_synch_blocks_v(input_mutex,num_inputs,buffered_input,v_args);
   va_end(v_args);
   return error_code;
 }
@@ -495,7 +495,7 @@ GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_a(
   GT_NULL_CHECK(input_mutex);
   GT_NULL_CHECK(buffered_input);
   GT_ZERO_CHECK(num_inputs);
-  register gt_status error_code;
+  gt_status error_code;
   // Check the end_of_block. Reload buffer if needed (synch)
   if (gt_buffered_input_file_eob(buffered_input[0])) {
     // Dump buffer if BOF it attached to the input, and get new out block (always FIRST)
@@ -505,7 +505,7 @@ GT_INLINE gt_status gt_input_fasta_parser_synch_blocks_a(
     }
     // Read synch blocks & Reload all the 'buffered_input' files
     GT_BEGIN_MUTEX_SECTION(*input_mutex) {
-      register uint64_t i;
+      uint64_t i;
       for (i=0;i<num_inputs;++i) {
         GT_BUFFERED_INPUT_FILE_CHECK(buffered_input[i]);
         if ((error_code=gt_input_fasta_parser_reload_buffer(buffered_input[i]))!=GT_IFP_OK) {

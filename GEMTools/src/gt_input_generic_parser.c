@@ -12,15 +12,14 @@
  * Setup
  */
 GT_INLINE gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool const paired_reads) {
-  gt_generic_parser_attr* attributes = malloc(sizeof(gt_generic_parser_attr));
-  gt_cond_fatal_error(!attributes,MEM_HANDLER);
+  gt_generic_parser_attr* attributes = gt_alloc(gt_generic_parser_attr);
   gt_input_generic_parser_attributes_reset_defaults(attributes);
   gt_input_generic_parser_attributes_set_paired(attributes,paired_reads);
   return attributes;
 }
 GT_INLINE void gt_input_generic_parser_attributes_delete(gt_generic_parser_attr* const attributes) {
   GT_NULL_CHECK(attributes);
-  free(attributes);
+  gt_free(attributes);
 }
 
 /*
@@ -48,7 +47,7 @@ GT_INLINE gt_status gt_input_generic_parser_get_alignment(
   gt_status error_code = GT_IGP_FAIL;
   switch (buffered_input->input_file->file_format) {
     case MAP:
-      return gt_input_map_parser_get_alignment_g(buffered_input,alignment,&attributes->map_parser_attr);
+      return gt_input_map_parser_get_alignment(buffered_input,alignment,&attributes->map_parser_attr);
       break;
     case SAM:
       return gt_input_sam_parser_get_alignment(buffered_input,alignment,&attributes->sam_parser_attr);
@@ -67,7 +66,7 @@ GT_INLINE gt_status gt_input_generic_parser_get_template(
   gt_status error_code = GT_IGP_FAIL;
   switch (buffered_input->input_file->file_format) {
     case MAP:
-      return gt_input_map_parser_get_template_g(buffered_input,template,&attributes->map_parser_attr);
+      return gt_input_map_parser_get_template(buffered_input,template,&attributes->map_parser_attr);
       break;
     case SAM:
       if (gt_input_generic_parser_attributes_is_paired(attributes)) {
@@ -124,7 +123,7 @@ GT_INLINE gt_status gt_input_generic_parser_synch_blocks_va(
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input);
   va_list v_args;
   va_start(v_args,buffered_input);
-  register gt_status error_code = gt_input_generic_parser_synch_blocks_v(input_mutex,attributes,num_inputs,buffered_input,v_args);
+  gt_status error_code = gt_input_generic_parser_synch_blocks_v(input_mutex,attributes,num_inputs,buffered_input,v_args);
   va_end(v_args);
   return error_code;
 }

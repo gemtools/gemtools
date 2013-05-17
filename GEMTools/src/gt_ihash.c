@@ -7,6 +7,9 @@
  */
 
 #include "gt_hash.h"
+#include "gt_commons.h"
+#include "gt_error.h"
+#include "gt_mm.h"
 
 /*
  * Setup
@@ -15,7 +18,7 @@ GT_INLINE void gt_ihash_free_element(gt_ihash_element *ihash_element) {
   GT_NULL_CHECK(ihash_element);
   switch (ihash_element->element_type) {
     case GT_HASH_TYPE_REGULAR:
-      free(ihash_element->element);
+      gt_free(ihash_element->element);
       break;
     case GT_HASH_TYPE_OBJECT:
       ihash_element->element_setup.element_free_fx(ihash_element->element);
@@ -30,15 +33,14 @@ GT_INLINE void gt_ihash_free_ihash_element(gt_ihash_element *ihash_element,const
   // Free element
   if (free_element) gt_ihash_free_element(ihash_element);
   // Free handler
-  free(ihash_element);
+  gt_free(ihash_element);
 }
 
 /*
  * Constructor
  */
 GT_INLINE gt_ihash* gt_ihash_new(void) {
-  gt_ihash* ihash=malloc(sizeof(gt_ihash));
-  gt_cond_fatal_error(!ihash,MEM_HANDLER);
+  gt_ihash* ihash = gt_alloc(gt_ihash);
   ihash->ihash_head = NULL; // uthash initializer
   return ihash;
 }
@@ -53,7 +55,12 @@ GT_INLINE void gt_ihash_clear(gt_ihash* const ihash,const bool free_element) {
 GT_INLINE void gt_ihash_delete(gt_ihash* const ihash,const bool free_element) {
   GT_HASH_CHECK(ihash);
   gt_ihash_clear(ihash,free_element);
-  free(ihash);
+  gt_free(ihash);
+}
+GT_INLINE void gt_ihash_destroy(gt_ihash* const ihash) {
+  GT_HASH_CHECK(ihash);
+  gt_ihash_clear(ihash,true);
+  gt_free(ihash);
 }
 
 /*
@@ -72,8 +79,7 @@ GT_INLINE void gt_ihash_insert_primitive(
   GT_NULL_CHECK(element);
   gt_ihash_element* ihash_element = gt_ihash_get_ihash_element(ihash,key);
   if (gt_expect_true(ihash_element==NULL)) {
-    ihash_element = malloc(sizeof(gt_ihash_element));
-    gt_cond_fatal_error(!ihash_element,MEM_ALLOC);
+    ihash_element = gt_alloc(gt_ihash_element);
     ihash_element->key = key;
     ihash_element->element = element;
     HASH_ADD_INT(ihash->ihash_head,key,ihash_element);
@@ -93,8 +99,7 @@ GT_INLINE void gt_ihash_insert_object(
   GT_NULL_CHECK(element_dup_fx); GT_NULL_CHECK(element_free_fx);
   gt_ihash_element* ihash_element = gt_ihash_get_ihash_element(ihash,key);
   if (gt_expect_true(ihash_element==NULL)) {
-    ihash_element = malloc(sizeof(gt_ihash_element));
-    gt_cond_fatal_error(!ihash_element,MEM_ALLOC);
+    ihash_element = gt_alloc(gt_ihash_element);
     ihash_element->key = key;
     ihash_element->element = object;
     HASH_ADD_INT(ihash->ihash_head,key,ihash_element);
@@ -109,7 +114,7 @@ GT_INLINE void gt_ihash_insert_object(
 }
 GT_INLINE void* gt_ihash_get_element(gt_ihash* const ihash,const int64_t key) {
   GT_HASH_CHECK(ihash);
-  register gt_ihash_element* const ihash_element = gt_ihash_get_ihash_element(ihash,key);
+  gt_ihash_element* const ihash_element = gt_ihash_get_ihash_element(ihash,key);
   return gt_expect_true(ihash_element!=NULL) ? ihash_element->element : NULL;
 }
 GT_INLINE void gt_ihash_remove(gt_ihash* const ihash,const int64_t key,const bool free_element) {
@@ -137,7 +142,7 @@ GT_INLINE uint64_t gt_ihash_get_num_elements(gt_ihash* const ihash) {
  * Miscellaneous
  */
 GT_INLINE gt_ihash* gt_ihash_dup(gt_ihash* const ihash) {
-  register gt_ihash* const ihash_cp =  gt_ihash_new();
+  gt_ihash* const ihash_cp =  gt_ihash_new();
   gt_ihash_copy(ihash_cp,ihash);
   return ihash_cp;
 }
@@ -147,7 +152,7 @@ GT_INLINE void gt_ihash_copy(gt_ihash* const ihash_dst,gt_ihash* const ihash_src
     switch (ihash_ih_element->element_type) {
       case GT_HASH_TYPE_REGULAR: {
         // Copy element
-        register void* const ihash_element_cp = gt_malloc_(1,ihash_ih_element->element_size,false,0);
+        void* const ihash_element_cp = gt_malloc_(1,ihash_ih_element->element_size,false,0);
         memcpy(ihash_element_cp,ihash_element,ihash_ih_element->element_size);
         gt_ihash_insert_primitive(ihash_dst,ikey,ihash_element_cp,ihash_ih_element->element_size);
         break;

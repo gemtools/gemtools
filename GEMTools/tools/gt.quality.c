@@ -42,17 +42,17 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src) {
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
     GT_TEMPLATE_REDUCTION(template_dst, alignment_dst);
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
-      if (is_good_mapq(get_mapq(map->score))) {
+      if (is_good_mapq(get_mapq(map->gt_score))) {
         gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
       }
     }
   } GT_TEMPLATE_END_REDUCTION__RETURN;
 
   register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
-  GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
-    if (is_good_mapq(get_mapq(mmap_attr->score))) {
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attr) {
+    if (is_good_mapq(get_mapq(mmap_attr->gt_score))) {
       register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-      gt_template_add_mmap(template_dst,mmap_copy,mmap_attr);
+      gt_template_add_mmap_array(template_dst,mmap_copy,mmap_attr);
       free(mmap_copy);
     }
   }

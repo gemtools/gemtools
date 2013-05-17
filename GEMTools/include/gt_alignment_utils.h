@@ -10,7 +10,7 @@
 #ifndef GT_ALIGNMENT_UTILS_H_
 #define GT_ALIGNMENT_UTILS_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_alignment.h"
 #include "gt_counters_utils.h"
 #include "gt_map_align.h"

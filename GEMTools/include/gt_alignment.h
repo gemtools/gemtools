@@ -9,10 +9,12 @@
 #ifndef GT_ALIGNMENT_H_
 #define GT_ALIGNMENT_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
+#include "gt_attributes.h"
+
 #include "gt_map.h"
+
 #include "gt_input_parser.h"
-#include "gt_data_attributes.h"
 
 // Alignment itself
 typedef struct _gt_alignment_dictionary gt_alignment_dictionary; // Forward declaration of gt_alignment_dictionary
@@ -27,8 +29,8 @@ typedef struct {
   gt_vector* counters;
   /* Maps structures */
   gt_vector* maps; /* (gt_map*) */
-  char* maps_txt;
-  gt_shash* attributes;
+  /* Attibutes */
+  gt_attributes* attributes;
   /* Hashed Dictionary */
   gt_alignment_dictionary* alg_dictionary;
 } gt_alignment;
@@ -59,7 +61,7 @@ struct _gt_alignment_dictionary {
   GT_STRING_CHECK(alignment->qualities); \
   GT_VECTOR_CHECK(alignment->counters); \
   GT_VECTOR_CHECK(alignment->maps); \
-  GT_HASH_CHECK(alignment->attributes)
+  GT_ATTRIBUTES_CHECK(alignment->attributes)
 #define GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary) \
   GT_NULL_CHECK(alignment_dictionary); \
   GT_HASH_CHECK(alignment_dictionary->maps_dictionary)
@@ -107,14 +109,16 @@ GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint
  * Attribute accessors
  */
 // Predefined attributes
-#define GT_ATTR_MAX_COMPLETE_STRATA "MCS"
-#define GT_ATTR_NOT_UNIQUE "NOT-UNIQUE"
+#define GT_ATTR_ID_MAX_COMPLETE_STRATA "MCS"
+#define GT_ATTR_ID_NOT_UNIQUE "NOT-UNIQUE"
 
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,uint64_t max_complete_strata);
 GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique);
 GT_INLINE bool gt_alignment_get_not_unique_flag(gt_alignment* const alignment);
 GT_INLINE int64_t gt_alignment_get_pair(gt_alignment* const alignment);
+GT_INLINE void gt_alignment_set_map_primary(gt_alignment* const alignment,gt_map* const map);
+GT_INLINE gt_map* gt_alignment_get_map_primary(gt_alignment* const alignment);
 
 /*
  * Maps Handlers
@@ -146,7 +150,7 @@ GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const al
 #define GT_ALIGNMENT_ITERATE(alignment,map) \
   /* Alignment. Iterate over all maps */ \
   gt_alignment_map_iterator __##map##_iterator; \
-  register gt_map* map; \
+  gt_map* map; \
   gt_alignment_new_map_iterator(alignment,&(__##map##_iterator)); \
   while ((map=gt_alignment_next_map(&(__##map##_iterator))))
 

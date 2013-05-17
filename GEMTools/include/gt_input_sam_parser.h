@@ -22,6 +22,8 @@
 #include "gt_input_parser.h"
 #include "gt_input_fasta_parser.h"
 
+#include "gt_sam_attributes.h"
+
 // Codes gt_status
 #define GT_ISP_OK   GT_STATUS_OK
 #define GT_ISP_FAIL GT_STATUS_FAIL
@@ -46,33 +48,18 @@
  * SAM file format constants
  */
 #define GT_SAM_HEADER_BEGIN '@'
-// SAM FLAGS
-#define GT_SAM_FLAG_MULTIPLE_SEGMENTS 0x1
-#define GT_SAM_FLAG_PROPERLY_ALIGNED 0x2
-#define GT_SAM_FLAG_UNMAPPED 0x4
-#define GT_SAM_FLAG_NEXT_UNMAPPED 0x8
-#define GT_SAM_FLAG_REVERSE_COMPLEMENT 0x10
-#define GT_SAM_FLAG_NEXT_REVERSE_COMPLEMENT 0x20
-#define GT_SAM_FLAG_FIRST_SEGMENT 0x40
-#define GT_SAM_FLAG_LAST_SEGMENT 0x80
-#define GT_SAM_FLAG_SECONDARY_ALIGNMENT 0x100
-#define GT_SAM_FLAG_NOT_PASSING_QC 0x200
-#define GT_SAM_FLAG_PCR_OR_OPTICAL_DUPLICATE 0x400
-
-/*
- * SAM alignment/template attribute
- */
-#define GT_ATTR_SAM_FLAGS "SAM_FLAGS"
 
 typedef struct {
+  bool parse_optional_fields; // TODO
   bool sam_soap_style;
 } gt_sam_parser_attr;
-
 #define GT_SAM_PARSER_ATTR_DEFAULT { .sam_soap_style=false }
-GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attr* const sam_parser_attr);
-GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attr* const sam_parser_attr);
 
-GT_INLINE gt_sam_parser_attr* gt_sam_parser_attr_new(bool const sam_soap_style);
+GT_INLINE gt_sam_parser_attr* gt_sam_parser_attr_new(const bool sam_soap_style);
+
+GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attr* const attributes);
+GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attr* const attributes);
+
 /*
  * SAM File basics
  */
@@ -87,8 +74,8 @@ GT_INLINE void gt_input_sam_parser_next_record(gt_buffered_input_file* const buf
  * High Level Parsers
  */
 GT_INLINE gt_status gt_input_sam_parser_get_template(
-    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_sam_parser_attr* const sam_parser_attr);
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_sam_parser_attr* const attributes);
 GT_INLINE gt_status gt_input_sam_parser_get_alignment(
-    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_sam_parser_attr* const sam_parser_attr);
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_sam_parser_attr* const attributes);
 
 #endif /* GT_INPUT_SAM_PARSER_H_ */

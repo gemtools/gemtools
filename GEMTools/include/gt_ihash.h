@@ -35,6 +35,7 @@ typedef struct {
 GT_INLINE gt_ihash* gt_ihash_new(void);
 GT_INLINE void gt_ihash_clear(gt_ihash* const ihash,const bool free_element);
 GT_INLINE void gt_ihash_delete(gt_ihash* const ihash,const bool free_element);
+GT_INLINE void gt_ihash_destroy(gt_ihash* const ihash);
 
 /*
  * Basic (Type-unsafe) Accessors
@@ -69,8 +70,8 @@ GT_INLINE void gt_ihash_copy(gt_ihash* const ihash_dst,gt_ihash* const ihash_src
 #define GT_IHASH_BEGIN_ITERATE(ihash,it_ikey,it_element,type) { \
   gt_ihash_element *ihash_##ih_element, *ihash_##tmp; \
   HASH_ITER(hh,ihash->ihash_head,ihash_##ih_element,ihash_##tmp) { \
-    register type* const it_element = (type*)(ihash_##ih_element->element); \
-    register int64_t const it_ikey = ihash_##ih_element->key;
+    type* const it_element = (type*)(ihash_##ih_element->element); \
+    int64_t const it_ikey = ihash_##ih_element->key;
 #define GT_IHASH_END_ITERATE }}
 
 #endif /* GT_IHASH_H_ */

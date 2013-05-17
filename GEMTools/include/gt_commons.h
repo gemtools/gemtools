@@ -10,9 +10,16 @@
 #define GT_COMMONS_H_
 
 /*
+ * VERSION
+ */
+#define GT_VERSION "1.6"
+#define GT_GIT_URL "https://github.com/gemtools/gemtools"
+
+/*
  * SETUP
  */
-#define _GNU_SOURCE 1
+#define _GNU_SOURCE
+#define __USE_GNU
 
 /*
  * GENERAL HEADERS
@@ -40,6 +47,7 @@
 #include <errno.h>
 #include <err.h>
 #include <assert.h>
+#include <signal.h>
 
 #include <pthread.h>
 
@@ -50,13 +58,7 @@
 // Data constants
 #define UINT64_ZEROS 0x0000000000000000ul
 #define UINT64_ONES  0xFFFFFFFFFFFFFFFFul
-
-// Internally to Gem-tools error codes are returned as gt_status
-typedef int32_t gt_status;
-
-// Codes gt_status
-#define GT_STATUS_OK 1
-#define GT_STATUS_FAIL -1
+#define UINT64_ONE   0x0000000000000001ul
 
 // Special characters
 #define EOS '\0'
@@ -76,7 +78,7 @@ typedef int32_t gt_status;
 #define COLON ':'
 #define HASH '#'
 
-// Buffer sizes
+// Buffer sizes // FIXME
 #define GT_BUFFER_SIZE_1K   ((1<<10)-64)
 #define GT_BUFFER_SIZE_2K   ((1<<11)-64)
 #define GT_BUFFER_SIZE_4K   ((1<<12)-64)
@@ -134,30 +136,12 @@ typedef int32_t gt_status;
 /*
  * Helper functions (OPERATIVE)
  */
-#define gt_cfree(handler) if (handler!=NULL) free(handler);
+#define gt_cfree(handler) if (handler!=NULL) gt_free(handler);
 #define GT_MIN(a,b) ((a)<=(b)?(a):(b))
 #define GT_MAX(a,b) ((a)>=(b)?(a):(b))
 #define GT_ABS(a) ((a)>=0?(a):-(a))
 #define GT_SWAP(a,b) do {typeof(a) aux = a; a = b; b = aux; } while (0)
-
-/*
- * String/Buffer functions
- */
-GT_INLINE void gt_strncpy(char* const buffer_dst,char* const buffer_src,const uint64_t length);
-GT_INLINE char* gt_strndup(char* const buffer,const uint64_t length);
-GT_INLINE int gt_strcmp(char* const buffer_a,char* const buffer_b);
-GT_INLINE bool gt_streq(char* const buffer_a,char* const buffer_b);
-GT_INLINE int gt_strncmp(char* const buffer_a,char* const buffer_b,const uint64_t length);
-GT_INLINE bool gt_strneq(char* const buffer_a,char* const buffer_b,const uint64_t length);
-
-/*
- * Memory usage helper functions
- */
-#define gt_malloc(num_elements,type) gt_malloc_(num_elements,sizeof(type),false,0)
-#define gt_malloc_int64() gt_malloc(1,uint64_t)
-#define gt_calloc(num_elements,type) gt_malloc_(num_elements,sizeof(type),true,0)
-
-GT_INLINE void* gt_malloc_(uint64_t const num_elements,const uint64_t size_element,const bool init_mem,const int init_value);
+#define GT_BETWEEN(number,a,b) ((a)<=(number) && (number)<=(b))
 
 /*
  * Print's template helpers
@@ -185,12 +169,15 @@ GT_INLINE uint64_t gt_calculate_memory_required_va(const char *template,...);
   gt_cond_fatal_error(pthread_cond_wait(&(cv),&(mutex)),SYS_COND_VAR);
 
 /*
- * GEM-Tools basic includes
+ * Random number generator
  */
-#include "gt_error.h"
-#include "gt_string.h"
-#include "gt_vector.h"
-#include "gt_hash.h"
+#define gt_srand() srand(time(0))
+// pseudo-random numbers in [min, max]
+#define gt_rand(min,max)   ( min + ( rand()%(max-min+1) ) )
+#define gt_rand_f(min,max) ( min + ((double)rand()/(double)(RAND_MAX+1)) * (max-min+1) )
+GT_INLINE uint64_t gt_rand_IID(const uint64_t min,const uint64_t max);
+// pseudo-random numbers in [0, 1)
+#define gt_drand() (double)rand()/(double)(RAND_MAX+1)
 
 /*
  * Common constants
@@ -198,5 +185,32 @@ GT_INLINE uint64_t gt_calculate_memory_required_va(const char *template,...);
 #define GT_STREAM_FILE_NAME "<<STREAM>>"
 #define GT_ALL UINT64_MAX
 #define GT_NO_STRATA ((int64_t)(-1))
+
+/*
+ * Common data processing/formating
+ */
+#define GT_GET_PERCENTAGE(AMOUNT,TOTAL) ((TOTAL)?100.0*(float)(AMOUNT)/(float)(TOTAL):0.0)
+#define GT_DIV(NUMERATOR,DENOMINATOR) ((DENOMINATOR)?(NUMERATOR)/(DENOMINATOR):(0))
+#define GT_DIV_F(NUMERATOR,DENOMINATOR) ((DENOMINATOR)?(float)(NUMERATOR)/(float)(DENOMINATOR):(0))
+
+/*
+ * Target dependent functions
+ */
+// Popcount macros
+#ifdef __SSE4_2__
+  #include <nmmintrin.h>
+  #define GT_POPCOUNT_64 _mm_popcnt_u64
+  #define GT_POPCOUNT_32 _mm_popcnt_u32
+#else
+  #define GT_POPCOUNT_64 __builtin_popcountll
+  #define GT_POPCOUNT_32 __builtin_popcount
+#endif
+// Prefetch macros
+#ifdef __SSE__
+  #include <xmmintrin.h>
+  #define GT_PREFETCH(ADDR) _mm_prefetch(ADDR,_MM_HINT_NTA)
+#else
+  #define GT_PREFETCH(ADDR) __builtin_prefetch(ADDR,0,0)
+#endif
 
 #endif /* GT_COMMONS_H_ */

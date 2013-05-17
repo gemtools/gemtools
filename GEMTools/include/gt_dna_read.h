@@ -9,13 +9,14 @@
 #ifndef GT_DNA_READ_H_
 #define GT_DNA_READ_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
+#include "gt_attributes.h"
 
 typedef struct {
   gt_string* tag;
   gt_string* read;
   gt_string* qualities;
-  gt_shash* attributes;
+  gt_attributes* attributes;
 } gt_dna_read;
 
 typedef enum { GT_QUALS_OFFSET_33, GT_QUALS_OFFSET_64 } gt_qualities_offset_t;
@@ -63,7 +64,9 @@ GT_INLINE char* gt_dna_read_get_qualities(gt_dna_read* const read);
  */
 GT_INLINE gt_status gt_dna_read_deduce_qualities_offset(gt_dna_read* const read,gt_qualities_offset_t* qualities_offset_type);
 
-GT_INLINE uint64_t gt_dna_read_quality_trim(gt_dna_read* const read,const uint8_t quality_threshold,const uint64_t min_length); // TODO
-GT_INLINE uint64_t gt_dna_read_hard_trim(gt_dna_read* const read,const uint64_t length);
+GT_INLINE gt_string* gt_qualities_dup__adapt_offset64_to_offset33(gt_string* const qualities);
+
+// GT_INLINE uint64_t gt_dna_read_quality_trim(gt_dna_read* const read,const uint8_t quality_threshold,const uint64_t min_length); // TODO
+// GT_INLINE uint64_t gt_dna_read_hard_trim(gt_dna_read* const read,const uint64_t length); // TODO
 
 #endif /* GT_DNA_READ_H_ */

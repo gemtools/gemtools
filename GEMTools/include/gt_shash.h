@@ -9,7 +9,7 @@
 #ifndef GT_SHASH_H_
 #define GT_SHASH_H_
 
-#include "gt_commons.h"
+#include "gt_hash.h"
 #include "uthash.h"
 
 /*
@@ -35,6 +35,7 @@ typedef struct {
 GT_INLINE gt_shash* gt_shash_new(void);
 GT_INLINE void gt_shash_clear(gt_shash* const shash,const bool free_element);
 GT_INLINE void gt_shash_delete(gt_shash* const shash,const bool free_element);
+GT_INLINE void gt_shash_destroy(gt_shash* const shash);
 
 /*
  * Basic (Type-unsafe) Accessors
@@ -70,18 +71,18 @@ GT_INLINE void gt_shash_copy(gt_shash* const shash_dst,gt_shash* const shash_src
 #define GT_SHASH_BEGIN_ITERATE(shash,it_skey,it_element,type) { \
   gt_shash_element *shash_##sh_element, *shash_##tmp; \
   HASH_ITER(hh,shash->shash_head,shash_##sh_element,shash_##tmp) { \
-    register type* const it_element = (type*)(shash_##sh_element->element); \
-    register char* const it_skey = shash_##sh_element->key;
+    type* const it_element = (type*)(shash_##sh_element->element); \
+    char* const it_skey = shash_##sh_element->key;
 
 #define GT_SHASH_BEGIN_ELEMENT_ITERATE(shash,it_element,type) { \
   gt_shash_element *shash_##sh_element, *shash_##tmp; \
   HASH_ITER(hh,shash->shash_head,shash_##sh_element,shash_##tmp) { \
-    register type* const it_element = (type*)(shash_##sh_element->element);
+    type* const it_element = (type*)(shash_##sh_element->element);
 
 #define GT_SHASH_BEGIN_KEY_ITERATE(shash,it_skey,type) { \
   gt_shash_element *shash_##sh_element, *shash_##tmp; \
   HASH_ITER(hh,shash->shash_head,shash_##sh_element,shash_##tmp) { \
-    register char* const it_skey = shash_##sh_element->key;
+    char* const it_skey = shash_##sh_element->key;
 
 #define GT_SHASH_END_ITERATE }}
 

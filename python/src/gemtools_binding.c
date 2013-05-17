@@ -149,7 +149,7 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
     {
       register uint64_t i = 0;
       register uint64_t c = 0;
-      register uint32_t last_id = 0;
+      register uint64_t last_id = 0;
       gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);
       gt_buffered_input_file** buffered_input = malloc(1 * sizeof(gt_buffered_input_file*));
       gt_buffered_input_file* current_input = 0;
@@ -264,7 +264,7 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
     GT_TEMPLATE_REDUCTION(template_dst, alignment_dst);
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
-      register const int64_t score = get_mapq(map->score);
+      const int64_t score = get_mapq(map->gt_score);
 
       if(   (params->group_1 && 252 <= score && score <= 254)
           ||	(params->group_2 && 177 <= score && score <= 180)
@@ -287,8 +287,8 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
   register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
   is_4 = false;
   best_printed = false;
-  GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
-    register const int64_t score = get_mapq(mmap_attr->score);
+  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
+    register const int64_t score = get_mapq(mmap_attr->gt_score);
 
     if(   (params->group_1 && 252 <= score && score <= 254)
         ||	(params->group_2 && 177 <= score && score <= 180)
@@ -301,7 +301,7 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
         is_4= true;
       }
       register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-      if(!best_printed)gt_template_add_mmap(template_dst,mmap_copy,mmap_attr);
+      if(!best_printed) gt_template_add_mmap(template_dst,mmap_copy);
       if(score > 119){
         best_printed = true;
       }
@@ -312,17 +312,19 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
 }
 
 void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params, gt_gtf* gtf) {
-  
-  gt_vector* target = gt_vector_new(10, sizeof(char*));
-  gt_gtf_search_template(gtf, target, template_src);
+  printf("Doing the annotaiton filtering ...");
+  gt_gtf_hits* hits = gt_gtf_hits_new();
+  gt_gtf_search_template_for_exons(gtf, hits, template_src);
 
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
-    GT_TEMPLATE_REDUCTION(template_src, alignment_dst);
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
     }
   } GT_TEMPLATE_END_REDUCTION__RETURN;
 
-  GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
+  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
+    GT_MMAP_ITERATE(mmap, map, end_position){
+      printf("Annotation mapped :) \n");
+    }
   }
 
 }
@@ -350,7 +352,7 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
    * PE
    */
   register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
-  GT_TEMPLATE__ATTR_ITERATE(template_src,mmap,mmap_attr) {
+  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
     if(params->min_score > 0){
 
     }
@@ -396,7 +398,7 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
   }
   gt_gtf* gtf;
 
-  if(params->annotation != NULL){
+  if(params->annotation != NULL && strlen(params->annotation) > 0){
     FILE* of = fopen(params->annotation, "r");
     if(of == NULL){
       printf("ERROR opening annotation !\n");
