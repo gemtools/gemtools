@@ -358,9 +358,9 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_reverse(gt_generic_prin
         gt_gprintf(gprinter,"%"PRIu64"D",gt_misms_get_size(misms));
         break;
       case DEL: // SAM Insertion
+        centinel-=gt_misms_get_size(misms);
         GT_OUTPUT_SAM_CIGAR_REVERSE_MATCH();
         gt_gprintf(gprinter,"%"PRIu64"I",gt_misms_get_size(misms));
-        centinel-=gt_misms_get_size(misms);
         break;
       default:
         gt_error(SELECTION_NOT_VALID);
@@ -369,7 +369,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_reverse(gt_generic_prin
     }
     --misms_n;
   }
-  if (centinel >= 0) gt_gprintf(gprinter,"%"PRIu64"M",centinel+1);
+  if (centinel >= 0) gt_gprintf(gprinter,"%"PRIu64"M",centinel);
   return 0;
 }
 GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_forward(gt_generic_printer* const gprinter,gt_map* const map,gt_output_sam_attributes* const attributes) {
@@ -755,7 +755,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_vector_pe_compact_xa_li
   GT_VECTOR_CHECK(map_placeholder);
   GT_NULL_CHECK(attributes);
   if (attributes->max_printable_maps == 0) return 0;
-  if (gt_vector_get_used(map_placeholder) > 1) {
+  if (gt_vector_get_used(map_placeholder) > 2) {
     gt_gprintf(gprinter,"\tXA:Z:");
     GT_VECTOR_ITERATE(map_placeholder,map_ph,map_placeholder_position,gt_map_placeholder) {
       // Filter PH

@@ -380,7 +380,7 @@ gt_status gt_tprintf(const char* format,...);
 // IMP (Input MAP Parser). Parsing Maps Errors
 #define GT_ERROR_PARSE_MAP_BAD_NUMBER_OF_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, wrong number of blocks"
 #define GT_ERROR_PARSE_MAP_BAD_CHARACTER "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, bad character found"
-#define GT_ERROR_PARSE_MAP_INCONSISTENT_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, blocks' length doen't match the read length"
+#define GT_ERROR_PARSE_MAP_INCONSISTENT_BLOCKS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing maps, block(s) length doesn't match the read length"
 #define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_NUM_ACCEPTORS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad number of acceptors"
 #define GT_ERROR_PARSE_MAP_SPLIT_MAP_BAD_NUM_DONORS "Parsing MAP error(%s:%"PRIu64":%"PRIu64"). Parsing split-map, bad number of donors"
 // IMP (Input MAP Parser). Parsing Mismatch String Errors

@@ -19,6 +19,7 @@
 GT_INLINE uint64_t gt_map_get_length(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_segment_length(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_global_base_length(gt_map* const map);
 // GEM Distance (Number of Mismatches/Insert/Delete/Split operations)
 GT_INLINE uint64_t gt_map_get_distance(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_segment_distance(gt_map* const map);
