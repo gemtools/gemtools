@@ -243,12 +243,12 @@ GT_INLINE gt_gtf* gt_gtf_read(FILE* input){
  * walk back after the initial binary search to find the first element that overlaps with
  * the initially found element in binary search
  */
-GT_INLINE uint64_t gt_gtf_bin_search_first(const gt_vector* const entries, uint64_t binary_search_result){
+GT_INLINE uint64_t gt_gtf_bin_search_first(gt_vector* const entries, uint64_t binary_search_result){
   if(binary_search_result == 0){
     return 0;
   }
-  register gt_gtf_entry* binary_search_element =  *gt_vector_get_elm(entries, binary_search_result, gt_gtf_entry*);
-  register gt_gtf_entry* previous_element =  *gt_vector_get_elm(entries, binary_search_result-1, gt_gtf_entry*);
+  gt_gtf_entry* binary_search_element =  *gt_vector_get_elm(entries, binary_search_result, gt_gtf_entry*);
+  gt_gtf_entry* previous_element =  *gt_vector_get_elm(entries, binary_search_result-1, gt_gtf_entry*);
   while(previous_element->end >= binary_search_element->start){
     binary_search_result = binary_search_result - 1;
     if(binary_search_result == 0){
@@ -261,7 +261,7 @@ GT_INLINE uint64_t gt_gtf_bin_search_first(const gt_vector* const entries, uint6
 /*
  * Binary search for start position
  */
-GT_INLINE uint64_t gt_gtf_bin_search(const gt_vector* const entries, const uint64_t t){
+GT_INLINE uint64_t gt_gtf_bin_search(gt_vector* const entries, const uint64_t t){
   uint64_t used = gt_vector_get_used(entries);
   uint64_t l = 0;
   uint64_t h = used - 1;
@@ -293,7 +293,7 @@ GT_INLINE void gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, 
   }
 
   const gt_gtf_ref* const source_ref = gt_gtf_get_ref(gtf, ref);
-  const gt_vector* const entries = source_ref->entries;
+  gt_vector* const entries = source_ref->entries;
   const uint64_t len = gt_vector_get_used(entries);
 
   gt_gtf_entry* e;
