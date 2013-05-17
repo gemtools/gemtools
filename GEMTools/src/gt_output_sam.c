@@ -72,6 +72,9 @@ GT_INLINE void gt_output_sam_attributes_always_dump_read__qualities(gt_output_sa
   GT_NULL_CHECK(attributes);
   attributes->always_output_read__qualities = true;
 }
+GT_INLINE void gt_output_sam_attributes_set_qualities_offset(gt_output_sam_attributes* const attributes,gt_qualities_offset_t const qualities_offset) {
+  attributes->qualities_offset = GT_QUALS_OFFSET_33;
+}
 /* Maps */
 GT_INLINE void gt_output_sam_attributes_set_max_printable_maps(gt_output_sam_attributes* const attributes,const uint64_t max_printable_maps) {
   GT_NULL_CHECK(attributes);
@@ -605,7 +608,9 @@ GT_INLINE gt_status gt_output_sam_gprint_map_core_fields_se(gt_generic_printer* 
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
   return gt_output_sam_gprint_core_fields_se(gprinter,tag,read,qualities,
-      map_segment,gt_map_get_global_coordinate(map_segment),gt_map_get_phred_score(map_segment),
+      map_segment,
+      (map_segment!=NULL) ? gt_map_get_global_coordinate(map_segment) : 0,
+      (map_segment!=NULL) ? gt_map_get_phred_score(map_segment) : GT_MAP_NO_PHRED_SCORE,
       hard_left_trim_read,hard_right_trim_read,secondary_alignment,not_passing_QC,PCR_duplicate,attributes);
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
@@ -625,10 +630,13 @@ GT_INLINE gt_status gt_output_sam_gprint_map_core_fields_pe(gt_generic_printer* 
     gt_output_sam_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
-  const int64_t observed_template_size = gt_map_get_observed_template_size(map_segment,mate_segment);
   return gt_output_sam_gprint_core_fields_pe(gprinter,tag,read,qualities,
-      map_segment,gt_map_get_global_coordinate(map_segment),gt_map_get_phred_score(map_segment),
-      mate_segment,gt_map_get_global_coordinate(mate_segment),observed_template_size,
+      map_segment,
+      (map_segment!=NULL) ? gt_map_get_global_coordinate(map_segment) : 0,
+      (map_segment!=NULL) ? gt_map_get_phred_score(map_segment) : GT_MAP_NO_PHRED_SCORE,
+      mate_segment,
+      (mate_segment!=NULL) ? gt_map_get_global_coordinate(mate_segment) : 0,
+      (map_segment!=NULL && mate_segment!=NULL) ? gt_map_get_observed_template_size(map_segment,mate_segment) : 0,
       hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,attributes);
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
@@ -785,9 +793,8 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_se_compact(gt_generic_p
   gt_cond_error(primary_position>=gt_vector_get_used(map_placeholder_vector),OUTPUT_SAM_NO_PRIMARY_ALG);
   gt_map_placeholder* const primary_map_ph = gt_vector_get_elm(map_placeholder_vector,primary_position,gt_map_placeholder);
   gt_map* const primary_map = primary_map_ph->map;
-  gt_cond_error(primary_map==NULL,OUTPUT_SAM_NO_PRIMARY_ALG);
   // Print primary MAP
-  if (gt_map_get_strand(primary_map)==FORWARD) {
+  if (primary_map==NULL || gt_map_get_strand(primary_map)==FORWARD) {
     error_code |= gt_output_sam_gprint_map_placeholder(gprinter,tag,read_f,qualities_f,primary_map_ph,attributes);
   } else {
     if (gt_expect_false(read_rc==NULL)) { // Check RC
@@ -829,9 +836,8 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_pe_compact(gt_generic_p
   gt_cond_error(primary_position>=gt_vector_get_used(map_placeholder_vector),OUTPUT_SAM_NO_PRIMARY_ALG);
   gt_map_placeholder* const primary_map_ph = gt_vector_get_elm(map_placeholder_vector,primary_position,gt_map_placeholder);
   gt_map* const primary_map = primary_map_ph->map;
-  gt_cond_error(primary_map==NULL,OUTPUT_SAM_NO_PRIMARY_ALG);
   // Print primary MAP
-  if (gt_map_get_strand(primary_map)==FORWARD) {
+  if (primary_map==NULL || gt_map_get_strand(primary_map)==FORWARD) {
     error_code |= gt_output_sam_gprint_map_placeholder(gprinter,tag,read_f,qualities_f,primary_map_ph,attributes);
   } else {
     if (gt_expect_false(read_rc==NULL)) { // Check RC
@@ -869,7 +875,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_vector_se(gt_generic_pr
   GT_VECTOR_ITERATE(map_placeholder_vector,map_ph,map_ph_it,gt_map_placeholder) {
     if (map_ph->type!=GT_MAP_PLACEHOLDER) continue;
     // Print MAP
-    if (gt_map_get_strand(map_ph->map)==FORWARD) {
+    if (map_ph->map==NULL || gt_map_get_strand(map_ph->map)==FORWARD) {
       error_code |= gt_output_sam_gprint_map_placeholder(gprinter,tag,read_f,qualities_f,map_ph,attributes);
     } else {
       if (gt_expect_false(read_rc==NULL && read_f!=NULL)) { // Check RC
@@ -917,7 +923,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_vector_pe(gt_generic_pr
     if (map_ph->type==GT_MAP_PLACEHOLDER) continue;
     // Print MAP
     if (map_ph->paired_end.paired_end_position==0) {
-      if (gt_map_get_strand(map_ph->map)==FORWARD) {
+      if (map_ph->map==NULL || gt_map_get_strand(map_ph->map)==FORWARD) {
         error_code |= gt_output_sam_gprint_map_placeholder(gprinter,tag,read_f_end1,qualities_f_end1,map_ph,attributes);
       } else {
         if (gt_expect_false(read_rc_end1==NULL)) { // Check RC
@@ -927,7 +933,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_vector_pe(gt_generic_pr
         error_code |= gt_output_sam_gprint_map_placeholder(gprinter,tag,read_rc_end1,qualities_r_end1,map_ph,attributes);
       }
     } else {
-      if (gt_map_get_strand(map_ph->map)==FORWARD) {
+      if (map_ph->map==NULL || gt_map_get_strand(map_ph->map)==FORWARD) {
         error_code |= gt_output_sam_gprint_map_placeholder(gprinter,tag,read_f_end2,qualities_f_end2,map_ph,attributes);
       } else {
         if (gt_expect_false(read_rc_end2==NULL)) { // Check RC
@@ -938,7 +944,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_vector_pe(gt_generic_pr
       }
     }
     // Print Optional Fields
-    gt_sam_attributes* const sam_attributes = gt_attributes_get_sam_attributes(map_ph->map->attributes); // Fetch sam attributes
+    gt_sam_attributes* const sam_attributes = (map_ph->map!=NULL) ? gt_attributes_get_sam_attributes(map_ph->map->attributes) : NULL; // Fetch sam attributes
     gt_sam_attributes* const current_sam_attributes = (sam_attributes!=NULL) ? sam_attributes : attributes->sam_attributes;
     gt_sam_attribute_func_params_set_alignment_info(attributes->attribute_func_params,map_ph); // Set func params for OF
     gt_output_sam_gprint_optional_fields(gprinter,current_sam_attributes,attributes);
@@ -1016,8 +1022,8 @@ GT_INLINE gt_status gt_output_sam_gprint_template_map_placeholder_vector(gt_gene
   } else {
     // Print all placeholders
     error_code|=gt_output_sam_gprint_map_placeholder_vector_pe(gprinter,
-        template->tag,alignment_end1->read,alignment_end1->qualities,
-        alignment_end2->read,alignment_end2->qualities,map_placeholder_vector,attributes);
+        template->tag,alignment_end1->read,alignment_end2->read,
+        alignment_end1->qualities,alignment_end2->qualities,map_placeholder_vector,attributes);
   }
   if (attributes->qualities_offset == GT_QUALS_OFFSET_64) {
     gt_string_delete(qualities_end1); gt_string_delete(qualities_end2);
@@ -1108,28 +1114,19 @@ GT_INLINE gt_status gt_output_sam_gprint_map(gt_generic_printer* const gprinter,
  *       1.- map->attributes{GT_ATTR_ID_SAM_FLAGS} / mmap_attributes->attributes{GT_ATTR_ID_SAM_FLAGS}
  *       2.- @output_attributes->sam_attributes
  */
-#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,attributes
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_alignment,gt_alignment* const alignment,gt_output_sam_attributes* const attributes);
-GT_INLINE gt_status gt_output_sam_gprint_alignment(gt_generic_printer* const gprinter,gt_alignment* const alignment,gt_output_sam_attributes* const output_attributes) {
+GT_INLINE gt_status gt_output_sam_gprint_alignment_(gt_generic_printer* const gprinter,
+    gt_alignment* const alignment,gt_map_placeholder* const ph,gt_output_sam_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_ALIGNMENT_CHECK(alignment);
   GT_NULL_CHECK(output_attributes);
   gt_status error_code;
-  // Get passingQC and PCRDuplicate flags
-  bool passing_QC = true, PCR_duplicate = false, *aux;
-  aux = gt_attributes_get(alignment->attributes,GT_ATTR_ID_SAM_PASSING_QC);
-  if (aux!=NULL) passing_QC = *aux;
-  aux = gt_attributes_get(alignment->attributes,GT_ATTR_ID_SAM_PCR_DUPLICATE);
-  if (aux!=NULL) PCR_duplicate = *aux;
   // Create ph-vector with all maps
   const uint64_t num_maps = gt_alignment_get_num_maps(alignment);
   uint64_t primary_position;
-  gt_map_placeholder ph;
   gt_vector* const map_placeholder = gt_vector_new(num_maps,sizeof(gt_map_placeholder));
-  gt_map_placeholder_set_sam_fields(&ph,!passing_QC,PCR_duplicate,0,0);
   gt_map_placeholder_build_from_alignment(alignment,map_placeholder,true,output_attributes->max_printable_maps,
-      gt_map_placeholder_cmp_map_phred_scores,&primary_position,&ph);
+      gt_map_placeholder_cmp_map_phred_scores,&primary_position,ph);
+  gt_attributes_add(output_attributes->attribute_func_params->attributes,GT_ATTR_ID_SAM_TAG_NH,&gt_vector_get_used(map_placeholder),uint64_t); // TAG_NH
   // Print maps !!
   error_code = gt_output_sam_gprint_alignment_map_placeholder_vector(gprinter,
       alignment,map_placeholder,primary_position,output_attributes);
@@ -1138,30 +1135,50 @@ GT_INLINE gt_status gt_output_sam_gprint_alignment(gt_generic_printer* const gpr
   return error_code;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,attributes
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_alignment,gt_alignment* const alignment,gt_output_sam_attributes* const attributes);
+GT_INLINE gt_status gt_output_sam_gprint_alignment(gt_generic_printer* const gprinter,gt_alignment* const alignment,gt_output_sam_attributes* const output_attributes) {
+  GT_GENERIC_PRINTER_CHECK(gprinter);
+  GT_ALIGNMENT_CHECK(alignment);
+  GT_NULL_CHECK(output_attributes);
+  // Get passingQC and PCRDuplicate flags
+  bool passing_QC = true, PCR_duplicate = false, *aux;
+  aux = gt_attributes_get(alignment->attributes,GT_ATTR_ID_SAM_PASSING_QC);
+  if (aux!=NULL) passing_QC = *aux;
+  aux = gt_attributes_get(alignment->attributes,GT_ATTR_ID_SAM_PCR_DUPLICATE);
+  if (aux!=NULL) PCR_duplicate = *aux;
+  // Fill Ph template
+  gt_map_placeholder ph;
+  gt_map_placeholder_set_sam_fields(&ph,!passing_QC,PCR_duplicate,0,0);
+  return gt_output_sam_gprint_alignment_(gprinter,alignment,&ph,output_attributes);
+}
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS template,attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_template,gt_template* const template,gt_output_sam_attributes* const attributes);
 GT_INLINE gt_status gt_output_sam_gprint_template(gt_generic_printer* const gprinter,gt_template* const template,gt_output_sam_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(output_attributes);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-    return gt_output_sam_gprint_alignment(gprinter,alignment,output_attributes);
-  } GT_TEMPLATE_END_REDUCTION;
-  gt_status error_code;
   // Get passingQC and PCRDuplicate flags
   bool passing_QC = true, PCR_duplicate = false, *aux;
   aux = gt_attributes_get(template->attributes,GT_ATTR_ID_SAM_PASSING_QC);
   if (aux!=NULL) passing_QC = *aux;
   aux = gt_attributes_get(template->attributes,GT_ATTR_ID_SAM_PCR_DUPLICATE);
   if (aux!=NULL) PCR_duplicate = *aux;
+  gt_map_placeholder ph;
+  gt_map_placeholder_set_sam_fields(&ph,!passing_QC,PCR_duplicate,0,0);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    ph.single_end.template = template;
+    return gt_output_sam_gprint_alignment_(gprinter,alignment,&ph,output_attributes);
+  } GT_TEMPLATE_END_REDUCTION;
+  gt_status error_code;
   // Create ph-vector with all mmaps
   const uint64_t num_maps = gt_template_get_num_mmaps(template);
   uint64_t primary_position_end1, primary_position_end2;
-  gt_map_placeholder ph;
   gt_vector* const map_placeholder = gt_vector_new(num_maps,sizeof(gt_map_placeholder));
-  gt_map_placeholder_set_sam_fields(&ph,!passing_QC,PCR_duplicate,0,0);
   gt_map_placeholder_build_from_template(template,map_placeholder,true,true,output_attributes->max_printable_maps,
       gt_map_placeholder_cmp_map_phred_scores,&primary_position_end1,&primary_position_end2,&ph);
+  gt_attributes_add(output_attributes->attribute_func_params->attributes,GT_ATTR_ID_SAM_TAG_NH,&gt_vector_get_used(map_placeholder),uint64_t); // TAG_NH
   // Print maps !!
   error_code = gt_output_sam_gprint_template_map_placeholder_vector(gprinter,template,
       map_placeholder,primary_position_end1,primary_position_end2,output_attributes);

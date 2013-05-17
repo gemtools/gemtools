@@ -346,7 +346,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_NM(gt_sam_attribute_func_params* f
   gt_map* const map = func_params->alignment_info->map;
   if (map == NULL) return -1; // Don't print NM field
   // Get edit distance ( levenshtein distance )
-  const int32_t edit_distance = gt_map_get_global_levenshtein_distance(map);
+  const int32_t edit_distance = gt_map_get_segment_levenshtein_distance(map);
   // Excluding clipping
   const int32_t edit_distance_no_clipping = edit_distance - gt_map_get_left_trim_length(map) - gt_map_get_right_trim_length(map);
   // Set ivalue
@@ -378,8 +378,9 @@ GT_INLINE void gt_sam_attributes_add_tag_RG(gt_sam_attributes* const sam_attribu
  */
 typedef enum { GT_XT_UNIQUE, GT_XT_REPEAT, GT_XT_UNMAPPED, GT_XT_MATE_SW } gt_sam_xt_value;
 GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* func_params) {
-  const char* const xt_char_value = gt_attributes_get(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT);
-  if (xt_char_value==NULL) {
+  char* xt_char_value_attr = gt_attributes_get(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT);
+  char xt_char_value;
+  if (xt_char_value_attr==NULL) {
     gt_sam_xt_value xt_value;
     if (func_params->alignment_info->map==NULL) { // Unmapped
       xt_value = GT_XT_UNMAPPED;
@@ -402,7 +403,6 @@ GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* f
       }
     }
     // Set proper value to return
-    char xt_char_value;
     switch (xt_value) {
       case GT_XT_UNIQUE:   xt_char_value = 'U'; break;
       case GT_XT_REPEAT:   xt_char_value = 'R'; break;
@@ -411,16 +411,17 @@ GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* f
       default: return -1; break;
     }
     // Save as Functional Internal Data (let's save computations)
+    xt_char_value_attr = &xt_char_value;
     gt_attributes_add(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT,&xt_char_value,char);
   }
   // Return value
   gt_string_clear(func_params->return_s);
-  gt_string_append_char(func_params->return_s,*xt_char_value);
+  gt_string_append_char(func_params->return_s,*xt_char_value_attr);
   gt_string_append_eos(func_params->return_s);
   return 0;
 }
 GT_INLINE void gt_sam_attributes_add_tag_XT(gt_sam_attributes* const sam_attributes) {
-  gt_sam_attributes_add_ifunc(sam_attributes,"XT",'A',gt_sam_attribute_generate_XT);
+  gt_sam_attributes_add_sfunc(sam_attributes,"XT",'A',gt_sam_attribute_generate_XT);
 }
 //  cs  Z  Casava TAG (if any)
 GT_INLINE gt_status gt_sam_attribute_generate_cs(gt_sam_attribute_func_params* func_params) {

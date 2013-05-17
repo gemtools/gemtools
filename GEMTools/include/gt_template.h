@@ -57,7 +57,7 @@ typedef struct {
  * Checkers & Errors
  */
 #define GT_TEMPLATE_CHECK(template) \
-  gt_fatal_check(template==NULL,NULL_HANDLER); \
+  GT_NULL_CHECK(template); \
   GT_STRING_CHECK(template->tag); \
   GT_VECTOR_CHECK(template->counters); \
   GT_VECTOR_CHECK(template->mmaps); \

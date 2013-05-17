@@ -45,11 +45,13 @@ typedef struct {
  */
 #define GT_SEQUENCE_ARCHIVE_CHECK(seq_archive) \
     GT_NULL_CHECK(seq_archive); \
-    GT_HASH_CHECK(seq_archive->sequences); \
-    if (seq_archive->sequence_archive_type == GT_BED_ARCHIVE) { \
-      GT_NULL_CHECK(seq_archive->bed); \
-      GT_HASH_CHECK(seq_archive->bed_intervals); \
-    }
+    GT_HASH_CHECK(seq_archive->sequences)
+/*
+ *  if (seq_archive->sequence_archive_type == GT_BED_ARCHIVE) { \
+ *    GT_NULL_CHECK(seq_archive->bed); \
+ *    GT_HASH_CHECK(seq_archive->bed_intervals); \
+ *  }
+ */
 #define GT_SEQUENCE_CDNA_ARCHIVE_CHECK(seq_archive) \
     GT_NULL_CHECK(seq_archive); \
     GT_HASH_CHECK(seq_archive->sequences); \

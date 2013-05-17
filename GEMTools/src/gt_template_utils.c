@@ -804,8 +804,8 @@ GT_INLINE void gt_map_placeholder_build_from_template(
         &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/1
     if (include_mate_placeholder) {
       gt_map_placeholder_add_mmap(NULL,NULL,read[0],1,
-          mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
-          &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/2
+          mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end2_pos!=NULL,
+          &best_mmap_ph_end2,&best_mmap_ph_end2_pos,&mmap_ph); // End/2
     }
   } else {
     // Include mmaps
