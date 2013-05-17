@@ -1327,7 +1327,7 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
     cdef uint64_t use_threads = threads
     if params is None:
         params = {}
-
+    
     cdef gt_filter_params p
     p.max_matches = params.get("max_matches", 0)
     p.min_event_distance = params.get("min_event_distance", 0)
@@ -1349,9 +1349,12 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
         p.annotation = params["annotation"]
     else:
         p.annotation = ""
+    print "Calling filter params"
     with nogil:
         gt_filter_stream(input_file, output_file, use_threads, &p)
+    print "Closing input..."
     gt_input_file_close(input_file)
+    print "__write_filter done!"
 
 
 cpdef filter_map(input, OutputFile output, params, uint64_t threads=1,

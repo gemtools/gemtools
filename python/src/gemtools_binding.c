@@ -385,6 +385,8 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
 }
 
 void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t threads, gt_filter_params* params){
+  gt_handle_error_signals();
+
   // prepare attributes
   gt_output_map_attributes* map_attributes = gt_output_map_attributes_new();
   gt_output_map_attributes_set_print_extra(map_attributes, true);
@@ -392,72 +394,75 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
 
   // generic parser attributes
   gt_generic_parser_attr* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
+  printf("Done \n");
 
-  if(params->max_matches > 0){
-    parser_attributes->map_parser_attr.max_parsed_maps = params->max_matches;
-  }
-  gt_gtf* gtf;
+//
+//  if(params->max_matches > 0){
+//    parser_attributes->map_parser_attr.max_parsed_maps = params->max_matches;
+//  }
+//  gt_gtf* gtf = NULL;
 
-  if(params->annotation != NULL && strlen(params->annotation) > 0){
-    FILE* of = fopen(params->annotation, "r");
-    if(of == NULL){
-      printf("ERROR opening annotation !\n");
-      return;
-    }
-    printf("Read annotation \n");
-    gtf = gt_gtf_read(of);
-    fclose(of);
-  }
-  pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-  // main loop, cat
-  #pragma omp parallel num_threads(threads)
-  {
-    gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input);
-    gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);
-    gt_buffered_input_file_attach_buffered_output(buffered_input, buffered_output);
-    gt_template* template = gt_template_new();
-    gt_status status = 0;
-    register bool is_mapped = false;
-    
-
-    while( (status = gt_input_generic_parser_get_template(buffered_input,template, parser_attributes)) == GT_STATUS_OK ){
-      gt_template_sort_by_distance__score(template);
-      if(gtf != NULL){
-        gt_template *template_filtered = gt_template_copy(template,false,false);
-        gt_annotation_filter(template_filtered, template, params, gtf);
-        gt_template_delete(template);
-        template = template_filtered;
-        gt_template_recalculate_counters(template);
-      }
-
-
-      if(params->filter_groups){
-        gt_template *template_filtered = gt_template_copy(template,false,false);
-        gt_score_filter(template_filtered, template, params);
-        gt_template_delete(template);
-        template = template_filtered;
-        gt_template_recalculate_counters(template);
-      }
-      is_mapped = gt_template_is_mapped(template);
-      register const bool is_unique = gt_template_get_not_unique_flag(template);
-
-      if(is_mapped && (!is_unique || !params->keep_unique )){
-        gt_template *template_filtered = gt_template_copy(template,false,false);
-        gt_template_filter(template_filtered,template, params);
-        gt_template_delete(template);
-        template = template_filtered;
-        gt_template_recalculate_counters(template);
-      }
-      gt_output_map_bofprint_template(buffered_output, template, map_attributes);
-    }
-    gt_buffered_input_file_close(buffered_input);
-    gt_buffered_output_file_close(buffered_output);
-    gt_template_delete(template);
-  }
-  gt_output_map_attributes_delete(map_attributes);
-  gt_input_generic_parser_attributes_delete(parser_attributes);
-  if(params->close_output){
-    gt_output_file_close(output);
-  }
+//  if(params->annotation != NULL && strlen(params->annotation) > 0){
+//    FILE* of = fopen(params->annotation, "r");
+//    if(of == NULL){
+//      printf("ERROR opening annotation !\n");
+//      return;
+//    }
+//    printf("Read annotation \n");
+//    gtf = gt_gtf_read(of);
+//    fclose(of);
+//    return;
+//  }
+//  pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
+//
+//  // main loop, cat
+//  #pragma omp parallel num_threads(threads)
+//  {
+//    gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input);
+//    gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);
+//    gt_buffered_input_file_attach_buffered_output(buffered_input, buffered_output);
+//    gt_template* template = gt_template_new();
+//    gt_status status = 0;
+//    register bool is_mapped = false;
+//
+//
+//    while( (status = gt_input_generic_parser_get_template(buffered_input,template, parser_attributes)) == GT_STATUS_OK ){
+//      gt_template_sort_by_distance__score(template);
+//      if(gtf != NULL){
+//        gt_template *template_filtered = gt_template_copy(template,false,false);
+//        gt_annotation_filter(template_filtered, template, params, gtf);
+//        gt_template_delete(template);
+//        template = template_filtered;
+//        gt_template_recalculate_counters(template);
+//      }
+//
+//
+//      if(params->filter_groups){
+//        gt_template *template_filtered = gt_template_copy(template,false,false);
+//        gt_score_filter(template_filtered, template, params);
+//        gt_template_delete(template);
+//        template = template_filtered;
+//        gt_template_recalculate_counters(template);
+//      }
+//      is_mapped = gt_template_is_mapped(template);
+//      register const bool is_unique = gt_template_get_not_unique_flag(template);
+//
+//      if(is_mapped && (!is_unique || !params->keep_unique )){
+//        gt_template *template_filtered = gt_template_copy(template,false,false);
+//        gt_template_filter(template_filtered,template, params);
+//        gt_template_delete(template);
+//        template = template_filtered;
+//        gt_template_recalculate_counters(template);
+//      }
+//      gt_output_map_bofprint_template(buffered_output, template, map_attributes);
+//    }
+//    gt_buffered_input_file_close(buffered_input);
+//    gt_buffered_output_file_close(buffered_output);
+//    gt_template_delete(template);
+//  }
+//  gt_output_map_attributes_delete(map_attributes);
+//  gt_input_generic_parser_attributes_delete(parser_attributes);
+//  if(params->close_output){
+//    gt_output_file_close(output);
+//  }
 }

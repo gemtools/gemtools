@@ -201,8 +201,7 @@ class Filter(Command):
             "min_event_distance": args.min_event_distance,
             "min_levenshtein_distance": args.min_levenshtein_distance,
             "filter_strand": args.filter_strand,
-            "keep_unique": args.keep_unique,
-            "annotation": args.annotation,
+            "keep_unique": args.keep_unique,            
         }
 
         if args.max_event_distance is not None:
@@ -227,15 +226,23 @@ class Filter(Command):
                 params["group_4"] = True
         else:
             params["filter_groups"] = False
+            
+        if args.annotation is not None:
+            params["annotation"] = args.annotation
 
         scored = infile
         if args.rescore:
             scored = gem.score(infile, args.index, quality=args.quality,
                                threads=threads)
-
+        
+        print "Start filtering ...."
         gt.filter_map(scored, outfile, params, threads=threads,
                       background_process=False)
-        outfile.close()
+        print "Filtering finished ..."
+        if name is not None:
+            outfile.close()
+        print "Out file close"
+        
         if args.create_bam:
             map_file = gem.files.open("%s.map" % name, quality=args.quality)
             sam = gem.gem2sam(map_file,
