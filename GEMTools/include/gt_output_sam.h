@@ -78,6 +78,7 @@ GT_INLINE void gt_output_sam_attributes_set_format(gt_output_sam_attributes* con
 /* Read/Qualities */
 GT_INLINE void gt_output_sam_attributes_dump_read__qualities_once(gt_output_sam_attributes* const attributes);
 GT_INLINE void gt_output_sam_attributes_always_dump_read__qualities(gt_output_sam_attributes* const attributes);
+GT_INLINE void gt_output_sam_attributes_set_qualities_offset(gt_output_sam_attributes* const attributes,gt_qualities_offset_t const qualities_offset);
 /* Maps */
 GT_INLINE void gt_output_sam_attributes_set_max_printable_maps(gt_output_sam_attributes* const attributes,const uint64_t max_printable_maps);
 GT_INLINE void gt_output_sam_attributes_set_compact_format(gt_output_sam_attributes* const attributes,const bool compact_format);

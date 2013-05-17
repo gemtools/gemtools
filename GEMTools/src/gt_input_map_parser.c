@@ -1189,7 +1189,7 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(const char** const text_line,gt_
         gt_map_set_next_block(last_map_block,last_added,QUIMERA,0);
         last_map_block = last_added;
       }
-      total_base_length += gt_map_get_base_length(last_map_block);
+      total_base_length += gt_map_get_global_base_length(last_map_block);
       if (total_base_length > alignment_base_length) return GT_IMP_PE_MAP_INCONSISTENT_BLOCKS;
     } while (error_code==GT_IMP_PE_PENDING_BLOCKS);
     if (total_base_length != alignment_base_length) return GT_IMP_PE_MAP_INCONSISTENT_BLOCKS;

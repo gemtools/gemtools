@@ -388,6 +388,9 @@ void parse_arguments(int argc,char** argv) {
 }
 
 int main(int argc,char** argv) {
+  // GT error handler
+  gt_handle_error_signals();
+
   // Parsing command-line options
   parse_arguments(argc,argv);
 
