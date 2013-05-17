@@ -927,6 +927,7 @@ GT_INLINE gt_status gt_imp_parse_map(
   // Check null map (Orphan/unpaired/errors/oddities/...)
   gt_status error_code;
   if (**text_line==GT_MAP_NEXT) { // Pending (Null map)
+    GT_NEXT_CHAR(text_line);
     *return_map=NULL;
     return GT_IMP_PE_MAP_PENDING_MAPS;
   } else if (GT_IS_EOL(text_line)) { // Pending (Null map)

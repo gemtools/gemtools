@@ -420,8 +420,8 @@ gt_status gt_tprintf(const char* format,...);
 /*
  * General purpose checkers
  */
-//#define GT_NULL_CHECK(object) gt_fatal_check((object)==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
-#define GT_NULL_CHECK(object) if ((object)==NULL) {printf("%d\n",*(int*)object);} /* FIXME */
+#define GT_NULL_CHECK(object) gt_fatal_check((object)==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
+//#define GT_NULL_CHECK(object) if ((object)==NULL) {printf("%d\n",*(int*)object);} /* FIXME */
 #define GT_ZERO_CHECK(object) gt_fatal_check((object)==0,NOT_ZERO,((char*)GT_QUOTE(object)))
 
 

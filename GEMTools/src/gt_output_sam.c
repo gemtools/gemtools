@@ -572,7 +572,7 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* cons
   // (8) Print PNEXT
   // (9) Print TLEN
   if (mate!=NULL) {
-    if (!gt_string_equals(map->seq_name,mate->seq_name)) {
+    if (map!=NULL && !gt_string_equals(map->seq_name,mate->seq_name)) {
       gt_gprintf(gprinter,"\t"PRIgts"\t%"PRIu64"\t%"PRId64,PRIgts_content(mate->seq_name),mate_position,template_length);
     } else {
       gt_gprintf(gprinter,"\t=\t%"PRIu64"\t%"PRId64,mate_position,template_length);
@@ -806,7 +806,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_se_compact(gt_generic_p
   // Print XA:Z field
   gt_output_sam_gprint_map_placeholder_vector_se_compact_xa_list(gprinter,map_placeholder_vector,primary_position,attributes);
   // Print Optional Fields
-  gt_sam_attributes* const sam_attributes = gt_attributes_get_sam_attributes(primary_map->attributes); // Fetch sam attributes
+  gt_sam_attributes* const sam_attributes = (primary_map!=NULL) ? gt_attributes_get_sam_attributes(primary_map->attributes) : NULL; // Fetch sam attributes
   gt_sam_attributes* const current_sam_attributes = (sam_attributes!=NULL) ? sam_attributes : attributes->sam_attributes;
   gt_sam_attribute_func_params_set_alignment_info(attributes->attribute_func_params,primary_map_ph); // Set func params for OF
   gt_output_sam_gprint_optional_fields(gprinter,current_sam_attributes,attributes);
@@ -849,7 +849,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_pe_compact(gt_generic_p
   // Print XA:Z field
   gt_output_sam_gprint_map_placeholder_vector_pe_compact_xa_list(gprinter,map_placeholder_vector,primary_position,end_position,attributes);
   // Print Optional Fields
-  gt_sam_attributes* const sam_attributes = gt_attributes_get_sam_attributes(primary_map->attributes); // Fetch sam attributes
+  gt_sam_attributes* const sam_attributes = (primary_map!=NULL) ? gt_attributes_get_sam_attributes(primary_map->attributes) : NULL; // Fetch sam attributes
   gt_sam_attributes* const current_sam_attributes = (sam_attributes!=NULL) ? sam_attributes : attributes->sam_attributes;
   gt_sam_attribute_func_params_set_alignment_info(attributes->attribute_func_params,primary_map_ph); // Set func params for OF
   gt_output_sam_gprint_optional_fields(gprinter,current_sam_attributes,attributes);
@@ -885,7 +885,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_vector_se(gt_generic_pr
       error_code |= gt_output_sam_gprint_map_placeholder(gprinter,tag,read_rc,qualities_r,map_ph,attributes);
     }
     // Print Optional Fields
-    gt_sam_attributes* const sam_attributes = gt_attributes_get_sam_attributes(map_ph->map->attributes); // Fetch sam attributes
+    gt_sam_attributes* const sam_attributes = (map_ph->map!=NULL) ? gt_attributes_get_sam_attributes(map_ph->map->attributes) : NULL; // Fetch sam attributes
     gt_sam_attributes* const current_sam_attributes = (sam_attributes!=NULL) ? sam_attributes : attributes->sam_attributes;
     gt_sam_attribute_func_params_set_alignment_info(attributes->attribute_func_params,map_ph); // Set func params for OF
     gt_output_sam_gprint_optional_fields(gprinter,current_sam_attributes,attributes);
