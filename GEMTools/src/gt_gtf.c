@@ -337,18 +337,23 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
 
   // process single alignments
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
-    gt_shash* gene_counts = gt_shash_new();
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
       // iterate the map blocks
+      uint64_t num_map_blocks = 0;
+      bool multiple_genes = false;
       gt_string* alignment_gene_id = NULL;
       float overlap = 0;
       GT_MAP_ITERATE(map, map_it) {
         gt_vector_clear(search_hits);
+        num_map_blocks++;
+
         uint64_t start = gt_map_get_begin_mapping_position(map_it);
         uint64_t end   = gt_map_get_end_mapping_position(map_it);
         char* const ref = gt_map_get_seq_name(map_it);
         // search for this block
         gt_gtf_search(gtf, search_hits, ref, start, end);
+        float local_overlap = 0;
+
         // get all the exons with same gene id
         GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
           const gt_gtf_entry* const entry = *element;
@@ -356,38 +361,53 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
           if(entry->gene_id != NULL && gt_string_equals(exon_type, entry->type)){
             if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
               // calculate the overlap
-              uint64_t read_length = end - start;
+              float read_length = end - start;
               uint64_t tran_length = entry->end - entry->start;
               uint64_t s = entry->start < start ? start - entry->start : 0;
               uint64_t e = entry->end > end ? entry->end - end : 0;
-              overlap = overlap + ((tran_length - s - e) / (float) read_length);
+              float over = ((tran_length - s - e) / read_length);
+              if(over > local_overlap){
+                local_overlap = over;
+              }
               alignment_gene_id = entry->gene_id;
+            }else{
+              if(alignment_gene_id != NULL){
+                multiple_genes = true;
+              }
             }
           }
-        } 
+        }
+        overlap += local_overlap;
       }
       // add a hit if we found a good gene_id
-      if(alignment_gene_id != NULL){
+      if(alignment_gene_id != NULL && !multiple_genes){
         gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
-        gt_vector_insert(hits->scores, overlap, float);
+        gt_vector_insert(hits->scores, (overlap / num_map_blocks), float);
+      }else{
+        gt_vector_insert(hits->ids, NULL, gt_string*);
+        gt_vector_insert(hits->scores, 0, float);
       }
     }
-    gt_shash_delete(gene_counts, false);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
 
 
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
+    gt_string* alignment_gene_id = NULL;
+    float overlap = 0;
+    uint64_t num_map_blocks = 0;
+    bool multiple_genes = false;
     GT_MMAP_ITERATE(mmap, map, end_position){
-      gt_string* alignment_gene_id = NULL;
-      float overlap = 0;
-
       GT_MAP_ITERATE(map, map_it){
         gt_vector_clear(search_hits);
+        num_map_blocks++;
+
         uint64_t start = gt_map_get_begin_mapping_position(map_it);
         uint64_t end   = gt_map_get_end_mapping_position(map_it);
         char* const ref = gt_map_get_seq_name(map_it);
         // search for this block
         gt_gtf_search(gtf, search_hits, ref, start, end);
+        float local_overlap = 0;
+
         // get all the exons with same gene id
         GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
           const gt_gtf_entry* const entry = *element;
@@ -395,22 +415,32 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
           if(entry->gene_id != NULL && gt_string_equals(exon_type, entry->type)){
             if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
               // calculate the overlap
-              uint64_t read_length = end - start;
+              float read_length = end - start;
               uint64_t tran_length = entry->end - entry->start;
               uint64_t s = entry->start < start ? start - entry->start : 0;
               uint64_t e = entry->end > end ? entry->end - end : 0;
-              overlap = overlap + ((tran_length - s - e) / (float) read_length);
+              float over = ((tran_length - s - e) / read_length);
+              if(over > local_overlap){
+                local_overlap = over;
+              }
               alignment_gene_id = entry->gene_id;
+            }else{
+              if(alignment_gene_id != NULL){
+                multiple_genes = true;
+              }
             }
           }
-        } 
+        }
+        overlap += local_overlap;
       }
-
-      // add a hit if we found a good gene_id
-      if(alignment_gene_id != NULL){
-        gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
-        gt_vector_insert(hits->scores, overlap, float);
-      }
+    }
+    // add a hit if we found a good gene_id
+    if(alignment_gene_id != NULL && !multiple_genes){
+      gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
+      gt_vector_insert(hits->scores, (overlap / num_map_blocks), float);
+    }else{
+      gt_vector_insert(hits->ids, NULL, gt_string*);
+      gt_vector_insert(hits->scores, 0, float);
     }
   }
   gt_vector_delete(search_hits);

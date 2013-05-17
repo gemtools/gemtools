@@ -235,13 +235,13 @@ class Filter(Command):
             scored = gem.score(infile, args.index, quality=args.quality,
                                threads=threads)
         
-        print "Start filtering ...."
+        
         gt.filter_map(scored, outfile, params, threads=threads,
                       background_process=False)
-        print "Filtering finished ..."
+        
         if name is not None:
             outfile.close()
-        print "Out file close"
+        
         
         if args.create_bam:
             map_file = gem.files.open("%s.map" % name, quality=args.quality)

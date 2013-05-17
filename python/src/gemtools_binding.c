@@ -312,9 +312,10 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
 }
 
 void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params, gt_gtf* gtf) {
-  printf("Doing the annotaiton filtering ...");
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
   gt_gtf_hits* hits = gt_gtf_hits_new();
   gt_gtf_search_template_for_exons(gtf, hits, template_src);
+  uint64_t i = 0;
 
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
@@ -322,9 +323,12 @@ void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, g
   } GT_TEMPLATE_END_REDUCTION__RETURN;
 
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
-    GT_MMAP_ITERATE(mmap, map, end_position){
-      printf("Annotation mapped :) \n");
-    }
+    printf("Annotation mapped : %s -> %f \n", gt_string_get_string(*gt_vector_get_elm(hits->ids, i, gt_string*)), *gt_vector_get_elm(hits->scores, i, float));
+    i++;
+    register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+    gt_template_insert_mmap(template_dst,mmap_copy,mmap_attr);
+    free(mmap_copy);
+
   }
 
 }
@@ -394,75 +398,71 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
 
   // generic parser attributes
   gt_generic_parser_attr* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
-  printf("Done \n");
+  if(params->max_matches > 0){
+    parser_attributes->map_parser_attr.max_parsed_maps = params->max_matches;
+  }
+  gt_gtf* gtf = NULL;
 
-//
-//  if(params->max_matches > 0){
-//    parser_attributes->map_parser_attr.max_parsed_maps = params->max_matches;
-//  }
-//  gt_gtf* gtf = NULL;
+  if(params->annotation != NULL && strlen(params->annotation) > 0){
+    FILE* of = fopen(params->annotation, "r");
+    if(of == NULL){
+      printf("ERROR opening annotation !\n");
+      return;
+    }
+    printf("Read annotation \n");
+    gtf = gt_gtf_read(of);
+    fclose(of);
+  }
+  pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-//  if(params->annotation != NULL && strlen(params->annotation) > 0){
-//    FILE* of = fopen(params->annotation, "r");
-//    if(of == NULL){
-//      printf("ERROR opening annotation !\n");
-//      return;
-//    }
-//    printf("Read annotation \n");
-//    gtf = gt_gtf_read(of);
-//    fclose(of);
-//    return;
-//  }
-//  pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
-//
-//  // main loop, cat
-//  #pragma omp parallel num_threads(threads)
-//  {
-//    gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input);
-//    gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);
-//    gt_buffered_input_file_attach_buffered_output(buffered_input, buffered_output);
-//    gt_template* template = gt_template_new();
-//    gt_status status = 0;
-//    register bool is_mapped = false;
-//
-//
-//    while( (status = gt_input_generic_parser_get_template(buffered_input,template, parser_attributes)) == GT_STATUS_OK ){
-//      gt_template_sort_by_distance__score(template);
-//      if(gtf != NULL){
-//        gt_template *template_filtered = gt_template_copy(template,false,false);
-//        gt_annotation_filter(template_filtered, template, params, gtf);
-//        gt_template_delete(template);
-//        template = template_filtered;
-//        gt_template_recalculate_counters(template);
-//      }
-//
-//
-//      if(params->filter_groups){
-//        gt_template *template_filtered = gt_template_copy(template,false,false);
-//        gt_score_filter(template_filtered, template, params);
-//        gt_template_delete(template);
-//        template = template_filtered;
-//        gt_template_recalculate_counters(template);
-//      }
-//      is_mapped = gt_template_is_mapped(template);
-//      register const bool is_unique = gt_template_get_not_unique_flag(template);
-//
-//      if(is_mapped && (!is_unique || !params->keep_unique )){
-//        gt_template *template_filtered = gt_template_copy(template,false,false);
-//        gt_template_filter(template_filtered,template, params);
-//        gt_template_delete(template);
-//        template = template_filtered;
-//        gt_template_recalculate_counters(template);
-//      }
-//      gt_output_map_bofprint_template(buffered_output, template, map_attributes);
-//    }
-//    gt_buffered_input_file_close(buffered_input);
-//    gt_buffered_output_file_close(buffered_output);
-//    gt_template_delete(template);
-//  }
-//  gt_output_map_attributes_delete(map_attributes);
-//  gt_input_generic_parser_attributes_delete(parser_attributes);
-//  if(params->close_output){
-//    gt_output_file_close(output);
-//  }
+  // main loop, cat
+  #pragma omp parallel num_threads(threads)
+  {
+    gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input);
+    gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);
+    gt_buffered_input_file_attach_buffered_output(buffered_input, buffered_output);
+    gt_template* template = gt_template_new();
+    gt_status status = 0;
+    register bool is_mapped = false;
+
+
+    while( (status = gt_input_generic_parser_get_template(buffered_input,template, parser_attributes)) == GT_STATUS_OK ){
+      gt_template_sort_by_distance__score(template);
+      if(gtf != NULL){
+        gt_template *template_filtered = gt_template_copy(template,false,false);
+        gt_annotation_filter(template_filtered, template, params, gtf);
+        gt_template_delete(template);
+        template = template_filtered;
+        gt_template_recalculate_counters(template);
+      }
+
+
+      if(params->filter_groups){
+        gt_template *template_filtered = gt_template_copy(template,false,false);
+        gt_score_filter(template_filtered, template, params);
+        gt_template_delete(template);
+        template = template_filtered;
+        gt_template_recalculate_counters(template);
+      }
+      is_mapped = gt_template_is_mapped(template);
+      register const bool is_unique = gt_template_get_not_unique_flag(template);
+
+      if(is_mapped && (!is_unique || !params->keep_unique )){
+        gt_template *template_filtered = gt_template_copy(template,false,false);
+        gt_template_filter(template_filtered,template, params);
+        gt_template_delete(template);
+        template = template_filtered;
+        gt_template_recalculate_counters(template);
+      }
+      gt_output_map_bofprint_template(buffered_output, template, map_attributes);
+    }
+    gt_buffered_input_file_close(buffered_input);
+    gt_buffered_output_file_close(buffered_output);
+    gt_template_delete(template);
+  }
+  gt_output_map_attributes_delete(map_attributes);
+  gt_input_generic_parser_attributes_delete(parser_attributes);
+  if(params->close_output){
+    gt_output_file_close(output);
+  }
 }

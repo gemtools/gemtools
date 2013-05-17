@@ -41,8 +41,6 @@ GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr*
   attributes->src_text = NULL;
   attributes->skip_based_model=false;
   attributes->remove_duplicates=false;
-  GT_MAP_PARSER_CHECK_ATTRIBUTES_MAP_BLOCKS(attributes);
-  gt_vector_clear(attributes->map_blocks);
 }
 GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attr* const attributes) {
   GT_NULL_CHECK(attributes);
@@ -1228,7 +1226,6 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(const char** const text_line,gt_
 GT_INLINE gt_status gt_imp_map_blocks(const char** const text_line,gt_map** const map,gt_map_parser_attr* const map_parser_attr) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK((*text_line));
   GT_NULL_CHECK(map);
-  GT_MAP_PARSER_CHECK_ATTRIBUTES_MAP_BLOCKS(map_parser_attr);
   // Check null maps
   if ((**text_line)==GT_MAP_NONE) {
     GT_NEXT_CHAR(text_line);
