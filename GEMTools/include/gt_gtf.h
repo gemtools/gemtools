@@ -52,6 +52,7 @@ typedef struct {
   gt_vector* ids; // contains an entry for each map or map pair with the hit target id (gene_id)
   gt_vector* types; // contains an entry for each map or map pair with the hit target gene_type
   gt_vector* scores; // contains an entry for each map or map pair with the hit target score
+  gt_vector* exonic; // contains an entry for each map or map pair with boolean indicating that an exon was covered
 
 }gt_gtf_hits;
 

@@ -322,13 +322,14 @@ void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, g
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
       gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
       if(gene_id != NULL){
-        printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s\n",
+        printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s Exonic:%d\n",
             gt_string_get_string(gene_id),
             *gt_vector_get_elm(hits->scores, i, float),
             gt_map_get_segment_distance(map),
             gt_map_get_global_levenshtein_distance(map),
             gt_map_get_score(map),
-            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*))
+            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+            *gt_vector_get_elm(hits->exonic, i, bool)
             );
       }else{
         printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d\n",
@@ -347,13 +348,14 @@ void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, g
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
     gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
     if(gene_id != NULL){
-      printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s\n",
+      printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s Exonic:%d\n",
           gt_string_get_string(gene_id),
           *gt_vector_get_elm(hits->scores, i, float),
           mmap_attr->distance,
           gt_mmap_get_global_levenshtein_distance(mmap, num_blocks),
           get_mapq(mmap_attr->gt_score),
-          gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*))
+          gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+          *gt_vector_get_elm(hits->exonic, i, bool)
           );
     }else{
       printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d\n",

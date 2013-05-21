@@ -48,18 +48,21 @@ GT_INLINE gt_gtf_hits* gt_gtf_hits_new(void){
   hits->ids = gt_vector_new(16, sizeof(gt_string*));
   hits->types = gt_vector_new(16, sizeof(gt_string*));
   hits->scores = gt_vector_new(16, sizeof(float));
+  hits->exonic = gt_vector_new(16, sizeof(bool));
   return hits;
 }
 GT_INLINE void gt_gtf_hits_delete(gt_gtf_hits* const hits){
   gt_vector_delete(hits->ids);
   gt_vector_delete(hits->scores);
   gt_vector_delete(hits->types);
+  gt_vector_delete(hits->exonic);
   free(hits);
 }
 GT_INLINE void gt_gtf_hits_clear(gt_gtf_hits* const hits){
   gt_vector_clear(hits->ids);
   gt_vector_clear(hits->scores);
   gt_vector_clear(hits->types);
+  gt_vector_clear(hits->exonic);
 }
 
 
@@ -241,16 +244,16 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf){
  * and if all equal by their type
  */
 GT_INLINE int gt_gtf_cmp_entries(const gt_gtf_entry** a, const gt_gtf_entry** b){
-  uint64_t s_1 = (*a)->start;
-  uint64_t s_2 = (*b)->start;
-  if(s_1 < s_2){
+  uint64_t e_1 = (*a)->end;
+  uint64_t e_2 = (*b)->end;
+  if(e_1 < e_2){
     return -1;
-  }else if (s_1 > s_2){
+  }else if (e_1 > e_2){
     return 1;
   }else{
-    uint64_t e_1 = (*a)->end;
-    uint64_t e_2 = (*b)->end;
-    if(e_1 < e_2){
+    uint64_t s_1 = (*a)->start;
+    uint64_t s_2 = (*b)->start;
+    if(s_1 < s_2){
       return -1;
     }else if (e_1 > e_2){
       return 1;
@@ -274,6 +277,19 @@ GT_INLINE gt_gtf* gt_gtf_read(FILE* input){
         sizeof(gt_gtf_entry**),
         (int (*)(const void *,const void *))gt_gtf_cmp_entries);
   } GT_SHASH_END_ITERATE
+
+
+//  GT_SHASH_BEGIN_ELEMENT_ITERATE(gtf->refs,shash_element,gt_gtf_ref) {
+//    GT_VECTOR_ITERATE(shash_element->entries, element, counter, gt_gtf_entry*){
+//      const gt_gtf_entry* const entry = *element;
+//      printf("%d: %s %s %d %d\n",counter, gt_string_get_string(entry->type),gt_string_get_string(entry->gene_id), entry->start, entry->end);
+//    }
+//
+//  } GT_SHASH_END_ITERATE
+
+
+
+
   return gtf;
 }
 
@@ -284,25 +300,26 @@ GT_INLINE gt_gtf* gt_gtf_read(FILE* input){
  * walk back after the initial binary search to find the first element that overlaps with
  * the initially found element in binary search
  */
-GT_INLINE uint64_t gt_gtf_bin_search_first(gt_vector* const entries, uint64_t binary_search_result){
+GT_INLINE uint64_t gt_gtf_bin_search_first(gt_vector* const entries, uint64_t binary_search_result, uint64_t start, uint64_t end){
   if(binary_search_result == 0){
     return 0;
   }
   gt_gtf_entry* binary_search_element =  *gt_vector_get_elm(entries, binary_search_result, gt_gtf_entry*);
   gt_gtf_entry* previous_element =  *gt_vector_get_elm(entries, binary_search_result-1, gt_gtf_entry*);
-  while(previous_element->end >= binary_search_element->start){
+  while(previous_element->end >= start){
     binary_search_result = binary_search_result - 1;
     if(binary_search_result == 0){
       return 0;
     }
     previous_element =  *gt_vector_get_elm(entries, binary_search_result, gt_gtf_entry*);
   }
+  printf("Search result %d for %d-%d\n", binary_search_result+1, start, end);
   return binary_search_result+1;
 }
 /*
  * Binary search for start position
  */
-GT_INLINE uint64_t gt_gtf_bin_search(gt_vector* const entries, const uint64_t t){
+GT_INLINE uint64_t gt_gtf_bin_search(gt_vector* const entries, const uint64_t t, const uint64_t end){
   uint64_t used = gt_vector_get_used(entries);
   uint64_t l = 0;
   uint64_t h = used - 1;
@@ -319,10 +336,11 @@ GT_INLINE uint64_t gt_gtf_bin_search(gt_vector* const entries, const uint64_t t)
     }
   }
   e = *gt_vector_get_elm(entries, l, gt_gtf_entry*);
+
   if (h == l){
-    return gt_gtf_bin_search_first(entries, l);
+    return gt_gtf_bin_search_first(entries, l, t, end);
   }else{
-    return gt_gtf_bin_search_first(entries, m);
+    return gt_gtf_bin_search_first(entries, m, t, end);
   }
 }
 
@@ -343,12 +361,16 @@ GT_INLINE void gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, 
   gt_string* last_type = NULL;
   // search for all hits and filter out duplicates
   // duplicate search is based on the order of the hits
-  uint64_t hit = gt_gtf_bin_search(entries, start);
+
+  uint64_t hit = gt_gtf_bin_search(entries, start, end);
+  printf("Search for  %d-%d :: %d\n", start , end, hit);
   for(; hit<len; hit++){
     e =  *gt_vector_get_elm(entries, hit, gt_gtf_entry*);
-    if(e->start > end){
+    if(e->end < start){
       break;
     }
+    printf("\t(%s %s %d %d) (%d-%d)\n",gt_string_get_string(e->type),gt_string_get_string(e->gene_id), e->start, e->end, start, end);
+
     // overlap with the annotation
     if(e->start <= end && e->end >= start){
       // check for duplicates
@@ -371,6 +393,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
 
   // paired end alignments
   gt_string* const exon_type = gt_gtf_get_type(gtf, "exon");
+  gt_string* const gene_type = gt_gtf_get_type(gtf, "gene");
   // stores hits
   gt_vector* const search_hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
   // clear the hits
@@ -384,6 +407,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
       bool multiple_genes = false;
       gt_string* alignment_gene_id = NULL;
       gt_string* alignment_gene_type = NULL;
+      bool exon_found = false;
       float overlap = 0;
       GT_MAP_ITERATE(map, map_it) {
         gt_vector_clear(search_hits);
@@ -401,6 +425,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
           const gt_gtf_entry* const entry = *element;
           // check that the enry has a gene_id and is an exon
           if(entry->gene_id != NULL && gt_string_equals(exon_type, entry->type)){
+            exon_found = true;
             if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
               // calculate the overlap
               float read_length = end - start;
@@ -420,17 +445,46 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
             }
           }
         }
+        if(!exon_found){
+          // search for gene overlaps to mark intronic regions
+          GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
+            const gt_gtf_entry* const entry = *element;
+            // check that the enry has a gene_id and is an exon
+            if(entry->gene_id != NULL && gt_string_equals(gene_type, entry->type)){
+              if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
+                // calculate the overlap
+                float read_length = end - start;
+                uint64_t tran_length = entry->end - entry->start;
+                uint64_t s = entry->start < start ? start - entry->start : 0;
+                uint64_t e = entry->end > end ? entry->end - end : 0;
+                float over = ((tran_length - s - e) / read_length);
+                if(over > local_overlap){
+                  local_overlap = over;
+                }
+                alignment_gene_id = entry->gene_id;
+                alignment_gene_type = entry->gene_type;
+              }else{
+                if(alignment_gene_id != NULL){
+                  multiple_genes = true;
+                }
+              }
+            }
+          }
+        }
         overlap += local_overlap;
       }
+
       // add a hit if we found a good gene_id
       if(alignment_gene_id != NULL && !multiple_genes){
         gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
         gt_vector_insert(hits->types, alignment_gene_type, gt_string*);
         gt_vector_insert(hits->scores, (overlap / num_map_blocks), float);
+        gt_vector_insert(hits->exonic, exon_found, bool);
       }else{
         gt_vector_insert(hits->ids, NULL, gt_string*);
         gt_vector_insert(hits->types, NULL, gt_string*);
         gt_vector_insert(hits->scores, 0, float);
+        gt_vector_insert(hits->exonic, false, bool);
       }
     }
   } GT_TEMPLATE_END_REDUCTION__RETURN;
@@ -442,6 +496,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
     float overlap = 0;
     uint64_t num_map_blocks = 0;
     bool multiple_genes = false;
+    bool exon_found = false;
     GT_MMAP_ITERATE(mmap, map, end_position){
       GT_MAP_ITERATE(map, map_it){
         gt_vector_clear(search_hits);
@@ -453,12 +508,13 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
         // search for this block
         gt_gtf_search(gtf, search_hits, ref, start, end);
         float local_overlap = 0;
-
         // get all the exons with same gene id
         GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
           const gt_gtf_entry* const entry = *element;
+          printf("\tSearch hit : %s %d-%d\n", gt_string_get_string(entry->type), entry->start, entry->end);
           // check that the enry has a gene_id and is an exon
           if(entry->gene_id != NULL && gt_string_equals(exon_type, entry->type)){
+            exon_found = true;
             if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
               // calculate the overlap
               float read_length = end - start;
@@ -478,6 +534,37 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
             }
           }
         }
+        if(!exon_found && gt_vector_get_used(search_hits) > 0){
+          printf("No exon found ... checking for gene annotation %d %d-%d\n", gt_vector_get_used(search_hits), start, end);
+          GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
+            const gt_gtf_entry* const entry = *element;
+            printf("TYPE: %s :: %s :: %d-%d\n", gt_string_get_string(entry->type), gt_string_get_string(entry->gene_id), entry->start, entry->end);
+            // check that the enry has a gene_id and is an exon
+            if(entry->gene_id != NULL && gt_string_equals(gene_type, entry->type)){
+              if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
+                printf("Found gene ....\n\n");
+                // calculate the overlap
+                float read_length = end - start;
+                uint64_t tran_length = entry->end - entry->start;
+                uint64_t s = entry->start < start ? start - entry->start : 0;
+                uint64_t e = entry->end > end ? entry->end - end : 0;
+                float over = ((tran_length - s - e) / read_length);
+                if(over > local_overlap){
+                  local_overlap = over;
+                }
+                alignment_gene_id = entry->gene_id;
+                alignment_gene_type = entry->gene_type;
+              }else{
+                if(alignment_gene_id != NULL){
+                  multiple_genes = true;
+                }
+              }
+            }
+          }
+        }
+
+
+
         overlap += local_overlap;
       }
     }
@@ -486,10 +573,12 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
       gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
       gt_vector_insert(hits->types, alignment_gene_type, gt_string*);
       gt_vector_insert(hits->scores, (overlap / num_map_blocks), float);
+      gt_vector_insert(hits->exonic, exon_found, bool);
     }else{
       gt_vector_insert(hits->ids, NULL, gt_string*);
       gt_vector_insert(hits->types, NULL, gt_string*);
       gt_vector_insert(hits->scores, 0, float);
+      gt_vector_insert(hits->exonic, false, bool);
     }
   }
   gt_vector_delete(search_hits);
