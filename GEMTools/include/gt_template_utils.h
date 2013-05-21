@@ -18,6 +18,7 @@
  * Template basic tools
  */
 GT_INLINE void gt_template_setup_pair_attributes_to_alignments(gt_template* const template,const bool copy_tags);
+GT_INLINE uint64_t gt_template_get_read_proportion(gt_template* const template,const float proportion);
 
 /*
  * Template's MMaps high-level insertion (basic building block)
@@ -125,7 +126,7 @@ GT_INLINE void gt_template_realign_weighted(
 /*
  * Template trimming
  */
-GT_INLINE void gt_template_trim(gt_template* const template, uint64_t const left, uint64_t const right, uint64_t const min_length, bool const set_extra);
+GT_INLINE void gt_template_trim(gt_template* const template,const uint64_t left,const uint64_t right,const uint64_t min_length,const bool set_extra);
 
 /*
  * Template/Alignment Placeholder (mmap/map)

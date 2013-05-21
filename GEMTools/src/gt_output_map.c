@@ -585,9 +585,9 @@ GT_INLINE gt_status gt_output_map_gprint_template(
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS alignment,output_map_attributes
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment,gt_alignment* const alignment, gt_output_map_attributes*  const output_map_attributes);
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_map,print_alignment,gt_alignment* const alignment,gt_output_map_attributes* const output_map_attributes);
 GT_INLINE gt_status gt_output_map_gprint_alignment(
-    gt_generic_printer* const gprinter,gt_alignment* const alignment, gt_output_map_attributes* const output_map_attributes) {
+    gt_generic_printer* const gprinter,gt_alignment* const alignment,gt_output_map_attributes* const output_map_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_ALIGNMENT_CHECK(alignment);
   GT_NULL_CHECK(output_map_attributes);

@@ -135,22 +135,6 @@ gt_status gt_input_file_close(gt_input_file* const input_file) {
 }
 
 /*
- * Advanced I/O
- */
-gt_input_file* gt_input_file_segmented_file_open(
-    char* const file_name,const bool mmap_file,
-    const uint64_t segment_number,const uint64_t total_segments) {
-  // TODO
-  return NULL;
-}
-gt_input_file* gt_input_file_reads_segmented_file_open(
-    char* const file_name,const bool mmap_file,
-    const uint64_t num_init_line,const uint64_t num_end_line) {
-  // TODO
-  return NULL;
-}
-
-/*
  * Accessors (Mutex,ID,...) functions
  */
 GT_INLINE void gt_input_file_lock(gt_input_file* const input_file) {

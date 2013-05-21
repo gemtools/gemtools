@@ -9,6 +9,16 @@
 #include "gt_alignment_utils.h"
 
 /*
+ * Alignment basic tools
+ */
+GT_INLINE uint64_t gt_alignment_get_read_proportion(gt_alignment* const alignment,const float proportion) {
+  GT_ALIGNMENT_CHECK(alignment);
+  if (proportion<=0.0) return 0;
+  if (proportion>=1.0) return (uint64_t)proportion;
+  return (uint64_t)(proportion*(float)gt_string_get_length(alignment->read));
+}
+
+/*
  * Alignment high-level insert (Update global state: counters, ...)
  */
 GT_INLINE gt_map* gt_alignment_put_map(
@@ -72,14 +82,6 @@ GT_INLINE void gt_alignment_insert_map_fx_gt_vector(
   GT_VECTOR_ITERATE(map_vector,map_it,map_pos,gt_map*) {
     gt_alignment_insert_map_fx(gt_map_cmp_fx,alignment,*map_it);
   }
-}
-
-GT_INLINE void gt_alignment_remove_map(gt_alignment* const alignment,gt_map* const map) {
-  // TODO: Scheduled for v2.0
-}
-GT_INLINE void gt_alignment_remove_map_fx(
-      int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map) {
-  // TODO: Scheduled for v2.0
 }
 
 GT_INLINE bool gt_alignment_find_map_fx(
@@ -280,24 +282,6 @@ GT_INLINE void gt_alignment_merge_alignment_maps_fx(
     gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,true);
   }
   gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst),gt_alignment_get_mcs(alignment_src)));
-}
-
-GT_INLINE void gt_alignment_remove_alignment_maps(gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {
-  GT_ALIGNMENT_CHECK(alignment_dst);
-  GT_ALIGNMENT_CHECK(alignment_src);
-  GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
-    gt_alignment_remove_map(alignment_dst,map_src); // TODO: Scheduled for v2.0
-  }
-}
-GT_INLINE void gt_alignment_remove_alignment_maps_fx(
-    int64_t (*gt_map_cmp)(gt_map*,gt_map*),
-    gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {
-  GT_NULL_CHECK(gt_map_cmp);
-  GT_ALIGNMENT_CHECK(alignment_dst);
-  GT_ALIGNMENT_CHECK(alignment_src);
-  GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
-    gt_alignment_remove_map_fx(gt_map_cmp,alignment_dst,map_src); // TODO: Scheduled for v2.0
-  }
 }
 
 GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_v(

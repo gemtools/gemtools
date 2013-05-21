@@ -105,7 +105,7 @@ void gt_map2sam_read__write() {
     gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
 
     // I/O attributes
-    gt_map_parser_attr* const input_map_attributes = gt_input_map_parser_attributes_new(parameters.paired_end);
+    gt_map_parser_attributes* const input_map_attributes = gt_input_map_parser_attributes_new(parameters.paired_end);
     gt_output_sam_attributes* const output_sam_attributes = gt_output_sam_attributes_new();
     // Set out attributes
     gt_output_sam_attributes_set_compact_format(output_sam_attributes,parameters.compact_format);

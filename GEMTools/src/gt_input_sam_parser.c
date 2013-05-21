@@ -28,8 +28,8 @@ typedef struct {
 
 #define GT_SAM_INIT_PENDING { .map_seq_name.allocated=0, .next_seq_name.allocated=0 }
 
-GT_INLINE gt_sam_parser_attr* gt_sam_parser_attr_new(bool const sam_soap_style) { // FIXME
-  gt_sam_parser_attr* attr = gt_alloc(gt_sam_parser_attr);
+GT_INLINE gt_sam_parser_attributes* gt_sam_parser_attributes_new(bool const sam_soap_style) { // FIXME
+  gt_sam_parser_attributes* attr = gt_alloc(gt_sam_parser_attributes);
   attr->sam_soap_style = sam_soap_style;
   return attr;
 }
@@ -882,7 +882,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
  * High Level Parsers
  */
 GT_INLINE gt_status gt_input_sam_parser_get_template(
-    gt_buffered_input_file* const buffered_sam_input,gt_template* const template,gt_sam_parser_attr* const sam_parser_attr) {
+    gt_buffered_input_file* const buffered_sam_input,gt_template* const template,gt_sam_parser_attributes* const sam_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(sam_parser_attr);
@@ -918,7 +918,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_template(
 }
 
 GT_INLINE gt_status gt_input_sam_parser_get_alignment(
-    gt_buffered_input_file* const buffered_sam_input,gt_alignment* const alignment,gt_sam_parser_attr* const sam_parser_attr) {
+    gt_buffered_input_file* const buffered_sam_input,gt_alignment* const alignment,gt_sam_parser_attributes* const sam_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_ALIGNMENT_CHECK(alignment);
   gt_status error_code;
@@ -950,11 +950,15 @@ GT_INLINE gt_status gt_input_sam_parser_get_alignment(
 /*
  * SAM alignment/template attribute
  */
-
-GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attr* const sam_parser_attr) {
-  sam_parser_attr->sam_soap_style = false;
+GT_INLINE gt_sam_parser_attributes* gt_input_sam_parser_attributes_new() {
+  gt_sam_parser_attributes* attributes = gt_alloc(gt_sam_parser_attributes);
+  gt_input_sam_parser_attributes_reset_defaults(attributes);
+  return attributes;
 }
-GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attr* const sam_parser_attr) {
-  sam_parser_attr->sam_soap_style = true;
+GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attributes* const attributes) {
+  attributes->sam_soap_style = false;
+}
+GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attributes* const attributes) {
+  attributes->sam_soap_style = true;
 }
 

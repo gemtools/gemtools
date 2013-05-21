@@ -22,16 +22,16 @@ typedef struct {
 } gt_quality_args;
 
 gt_quality_args params = {
-    /* I/O */
-    .name_input_file=NULL,
-    .name_output_file=NULL,
-    .mmap_input=false,
-    .paired_end=false,
-    /* Output */
-    .count_alignments=false,
-    /* Misc */
-    .num_threads=1,
-    .verbose=false,
+  /* I/O */
+  .name_input_file=NULL,
+  .name_output_file=NULL,
+  .mmap_input=false,
+  .paired_end=false,
+  /* Output */
+  .count_alignments=false,
+  /* Misc */
+  .num_threads=1,
+  .verbose=false,
 };
 
 /*
@@ -78,8 +78,8 @@ void gt_get_by_score() {
 
     gt_status error_code;
     gt_template *template = gt_template_new();
-    gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(params.paired_end);
-    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&generic_parser_attr))) {
+    gt_generic_parser_attributes* generic_parser_attr = gt_input_generic_parser_attributes_new(params.paired_end);
+    while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file '%s'\n",params.name_input_file);
       }

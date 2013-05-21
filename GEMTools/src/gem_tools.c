@@ -13,7 +13,7 @@
  */
 GT_INLINE gt_status gt_merge_map_read_template_sync(
     pthread_mutex_t* const input_mutex,gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
-    gt_map_parser_attr* const map_parser_attr,gt_template* const template_master,gt_template* const template_slave,
+    gt_map_parser_attributes* const map_parser_attr,gt_template* const template_master,gt_template* const template_slave,
     gt_buffered_output_file* buffered_output) {
   gt_status error_code_master, error_code_slave;
   gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
@@ -70,7 +70,7 @@ GT_INLINE void gt_merge_synch_map_files_(
     template[i] = gt_template_new(); // Allocate template
   }
   // Merge loop
-  gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
+  gt_map_parser_attributes map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
   gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
   gt_status error_code_master, error_code_slave;
   while (gt_input_map_parser_synch_blocks_a(input_mutex,buffered_input_file,num_files,&map_parser_attr)) {
@@ -191,7 +191,7 @@ GT_INLINE void gt_merge_unsynch_map_files(
   gt_template *template_master = gt_template_new();
   gt_template *template_slave = gt_template_new();
 
-  gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
+  gt_map_parser_attributes map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
   gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
 
   while (gt_merge_map_read_template_sync(input_mutex,buffered_input_master,buffered_input_slave,

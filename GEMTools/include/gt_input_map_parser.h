@@ -106,7 +106,7 @@
 #define GT_MAP_SKIP_NEGATIVE '-'
 #define GT_MAP_SKIP_SPLICE '*'
 
-typedef enum {MISMATCH_STRING_GEMv0, MISMATCH_STRING_GEMv1} gt_misms_string_t; // Mismatch string format (lazy parsing)
+typedef enum {MISMATCH_STRING_GEMv0, MISMATCH_STRING_GEMv1} gt_misms_string_t; // Mismatch string format
 
 /*
  * Map Parser Attributes
@@ -120,9 +120,7 @@ typedef struct {
   bool remove_duplicates; // Instead of strictly parse the record, tries to merge duplicates (sort of cleanup in case of bugs ...)
   /* Auxiliary Buffers */
   gt_string* src_text; // Source text line parsed (parsing from file)
-  /* Internal Buffer */
-  gt_vector* map_blocks;
-} gt_map_parser_attr;
+} gt_map_parser_attributes;
 #define GT_MAP_PARSER_ATTR_DEFAULT(_force_read_paired) { \
   /* PE/SE */ \
   .force_read_paired=_force_read_paired,  \
@@ -132,30 +130,25 @@ typedef struct {
   .remove_duplicates=false, \
   /* Auxiliary Buffers */ \
   .src_text=NULL, \
-  /* Internal Buffer */ \
-  .map_blocks=NULL \
 }
 #define GT_MAP_PARSER_CHECK_ATTRIBUTES(attributes) \
-  if (attributes!=NULL) { /* Check null map_parser_attr */ \
-    gt_map_parser_attr _##attributes = GT_MAP_PARSER_ATTR_DEFAULT(false); \
-    attributes = &(_##attributes); \
+  gt_map_parser_attributes __##attributes; \
+  if (attributes==NULL) { /* Check null map_parser_attr */ \
+    gt_input_map_parser_attributes_reset_defaults(&__##attributes); \
+    attributes = &__##attributes; \
   }
 #define GT_MAP_PARSER_MAP_BLOCKS_INITIAL_ELEMENTS 20
-#define GT_MAP_PARSER_CHECK_ATTRIBUTES_MAP_BLOCKS(attributes) \
-  if (attributes->map_blocks==NULL) { \
-    attributes->map_blocks = gt_vector_new(GT_MAP_PARSER_MAP_BLOCKS_INITIAL_ELEMENTS,sizeof(gt_map*)); \
-  }
 
-GT_INLINE gt_map_parser_attr* gt_input_map_parser_attributes_new(const bool force_read_paired);
-GT_INLINE void gt_input_map_parser_attributes_delete(gt_map_parser_attr* const attributes);
+GT_INLINE gt_map_parser_attributes* gt_input_map_parser_attributes_new(const bool force_read_paired);
+GT_INLINE void gt_input_map_parser_attributes_delete(gt_map_parser_attributes* const attributes);
 
-GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr* const attributes);
-GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attr* const attributes);
-GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attr* const attributes,const bool force_read_paired);
-GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attr* const attributes,const uint64_t max_parsed_maps);
-GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attr* const attributes,gt_string* const src_text);
-GT_INLINE void gt_input_map_parser_attributes_set_skip_model(gt_map_parser_attr* const attributes,const bool skip_based_model);
-GT_INLINE void gt_input_map_parser_attributes_set_duplicates_removal(gt_map_parser_attr* const attributes,const bool remove_duplicates);
+GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attributes* const attributes);
+GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attributes* const attributes);
+GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attributes* const attributes,const bool force_read_paired);
+GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attributes* const attributes,const uint64_t max_parsed_maps);
+GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attributes* const attributes,gt_string* const src_text);
+GT_INLINE void gt_input_map_parser_attributes_set_skip_model(gt_map_parser_attributes* const attributes,const bool skip_based_model);
+GT_INLINE void gt_input_map_parser_attributes_set_duplicates_removal(gt_map_parser_attributes* const attributes,const bool remove_duplicates);
 
 /*
  * MAP File basics
@@ -173,8 +166,8 @@ GT_INLINE gt_status gt_input_map_parser_reload_buffer(
  * MAP string parsers
  */
 GT_INLINE gt_status gt_input_map_parse_counters(const char* const string,gt_vector* const counters,gt_attributes* attributes);
-GT_INLINE gt_status gt_input_map_parse_map(const char* const string,gt_map** const map,gt_map_parser_attr* map_parser_attr);
-GT_INLINE gt_status gt_input_map_parse_map_list(const char* const string,gt_vector* const maps,gt_map_parser_attr* map_parser_attr);
+GT_INLINE gt_status gt_input_map_parse_map(const char* const string,gt_map** const map,gt_map_parser_attributes* map_parser_attr);
+GT_INLINE gt_status gt_input_map_parse_map_list(const char* const string,gt_vector* const maps,gt_map_parser_attributes* map_parser_attr);
 GT_INLINE gt_status gt_input_map_parse_alignment(const char* const string,gt_alignment* const alignment);
 GT_INLINE gt_status gt_input_map_parse_template(const char* const string,gt_template* const template);
 
@@ -186,9 +179,9 @@ GT_INLINE gt_status gt_input_map_parse_template(const char* const string,gt_temp
  *   - Template/Alignment transparent memory management
  */
 GT_INLINE gt_status gt_input_map_parser_get_template(
-    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_map_parser_attr* map_parser_attr);
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_map_parser_attributes* map_parser_attr);
 GT_INLINE gt_status gt_input_map_parser_get_alignment(
-    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_map_parser_attr* map_parser_attr);
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_map_parser_attributes* map_parser_attr);
 
 /*
  * Synch read of blocks
@@ -196,16 +189,16 @@ GT_INLINE gt_status gt_input_map_parser_get_alignment(
 GT_INLINE gt_status gt_input_map_parser_synch_blocks(
     gt_buffered_input_file* const buffered_input1,gt_buffered_input_file* const buffered_input2,pthread_mutex_t* const input_mutex);
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
-    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    pthread_mutex_t* const input_mutex,gt_map_parser_attributes* const map_parser_attr,
     uint64_t num_inputs,gt_buffered_input_file* const buffered_input,va_list v_args);
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
-    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    pthread_mutex_t* const input_mutex,gt_map_parser_attributes* const map_parser_attr,
     const uint64_t num_inputs,gt_buffered_input_file* const buffered_input,...);
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_a(
     pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_input,
-    const uint64_t num_inputs,gt_map_parser_attr* const map_parser_attr);
+    const uint64_t num_inputs,gt_map_parser_attributes* const map_parser_attr);
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
-    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    pthread_mutex_t* const input_mutex,gt_map_parser_attributes* const map_parser_attr,
     gt_buffered_input_file* const buffered_map_input_master,gt_buffered_input_file* const buffered_map_input_slave); // Used to merge files in parallel
 
 #endif /* GT_INPUT_MAP_PARSER_H_ */

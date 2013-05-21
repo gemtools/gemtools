@@ -12,7 +12,7 @@ typedef struct {
   char *output_file;
   char *dist_file;
   bool mmap_input;
-  gt_generic_parser_attr parser_attr;
+  gt_generic_parser_attributes* parser_attr;
   bool paired_read;
   bool variable_read_length;
   bool ignore_id;
