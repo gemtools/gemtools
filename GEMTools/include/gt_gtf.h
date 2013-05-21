@@ -23,6 +23,7 @@ typedef struct {
 	gt_strand strand; // the strand
 	gt_string* type; // the type, i.e. exon, gene
 	gt_string* gene_id; // the gene id if it exists
+	gt_string* gene_type; // the gene id if it exists
 } gt_gtf_entry;
 
 /**
@@ -41,6 +42,7 @@ typedef struct {
 	gt_shash* refs; // maps from the ref name to the ref char* -> gt_gtf_ref*
 	gt_shash* types; // maps from the type name to the gt_string type ref char* -> gt_string*
 	gt_shash* gene_ids; // maps from char* to gt_string* for gene_ids char* -> gt_string*
+	gt_shash* gene_types; // maps from char* to gt_string* for gene_types char* -> gt_string*
 }gt_gtf;
 
 /**
@@ -48,6 +50,7 @@ typedef struct {
  */
 typedef struct {
   gt_vector* ids; // contains an entry for each map or map pair with the hit target id (gene_id)
+  gt_vector* types; // contains an entry for each map or map pair with the hit target gene_type
   gt_vector* scores; // contains an entry for each map or map pair with the hit target score
 
 }gt_gtf_hits;
@@ -100,6 +103,12 @@ GT_INLINE bool gt_gtf_contains_type(const gt_gtf* const gtf, char* const name);
  */
 GT_INLINE gt_string* gt_gtf_get_gene_id(const gt_gtf* const gtf, char* const name);
 GT_INLINE bool gt_gtf_contains_gene_id(const gt_gtf* const gtf, char* const name);
+
+/**
+ * Access available gene_types
+ */
+GT_INLINE gt_string* gt_gtf_get_gene_type(const gt_gtf* const gtf, char* const name);
+GT_INLINE bool gt_gtf_contains_gene_type(const gt_gtf* const gtf, char* const name);
 
 /**
  * Search

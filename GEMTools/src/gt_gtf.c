@@ -32,29 +32,34 @@ GT_INLINE gt_gtf* gt_gtf_new(void){
   gtf->refs = gt_shash_new();
   gtf->types = gt_shash_new();
   gtf->gene_ids = gt_shash_new();
+  gtf->gene_types = gt_shash_new();
   return gtf;
 }
 GT_INLINE void gt_gtf_delete(gt_gtf* const gtf){
   gt_shash_delete(gtf->refs, true);
   gt_shash_delete(gtf->types, true);
   gt_shash_delete(gtf->gene_ids, true);
+  gt_shash_delete(gtf->gene_types, true);
   free(gtf);
 }
 
 GT_INLINE gt_gtf_hits* gt_gtf_hits_new(void){
   gt_gtf_hits* hits = malloc(sizeof(gt_gtf_hits));
   hits->ids = gt_vector_new(16, sizeof(gt_string*));
+  hits->types = gt_vector_new(16, sizeof(gt_string*));
   hits->scores = gt_vector_new(16, sizeof(float));
   return hits;
 }
 GT_INLINE void gt_gtf_hits_delete(gt_gtf_hits* const hits){
   gt_vector_delete(hits->ids);
   gt_vector_delete(hits->scores);
+  gt_vector_delete(hits->types);
   free(hits);
 }
 GT_INLINE void gt_gtf_hits_clear(gt_gtf_hits* const hits){
   gt_vector_clear(hits->ids);
   gt_vector_clear(hits->scores);
+  gt_vector_clear(hits->types);
 }
 
 
@@ -94,6 +99,19 @@ GT_INLINE bool gt_gtf_contains_gene_id(const gt_gtf* const gtf, char* const name
 	return gt_shash_is_contained(gtf->gene_ids, name);
 }
 
+GT_INLINE gt_string* gt_gtf_get_gene_type(const gt_gtf* const gtf, char* const name){
+  if(!gt_gtf_contains_gene_type(gtf, name)){
+    const uint64_t len = strlen(name);
+    gt_string* const gene_type = gt_string_new(len + 1);
+    gt_string_set_nstring(gene_type, name, len);
+    gt_shash_insert(gtf->gene_types, name, gene_type, gt_string*);
+  }
+  return gt_shash_get(gtf->gene_types, name, gt_string);
+}
+GT_INLINE bool gt_gtf_contains_gene_type(const gt_gtf* const gtf, char* const name){
+	return gt_shash_is_contained(gtf->gene_types, name);
+}
+
 /**
  * Parse a single GTF line
  */
@@ -105,6 +123,7 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf){
   char* ref;
   char* type;
   char* gene_id;
+  char* gene_type;
   uint64_t start = 0;
   uint64_t end = 0;
   gt_strand strand = UNKNOWN;
@@ -162,11 +181,15 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf){
   // additional fields
   // search for gene_id
   register bool gid = false;
+  register bool gene_t = false;
   while((pch = strtok(NULL, " ")) != NULL){
     if(strcmp("gene_id", pch) == 0){
       gid = true;
+    }else if(strcmp("gene_type", pch) == 0){
+      gene_t = true;
     }else{
       if(gid){
+        gid = false;
         gene_id = pch;
         register uint64_t l = strlen(gene_id);
         register uint64_t off = 1;
@@ -177,6 +200,19 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf){
         if(gene_id[0] == '"'){
           gene_id++;
           gene_id[l-(off+1)] = '\0';
+        }
+      }else if(gene_t){
+        gene_t = false;
+        gene_type = pch;
+        register uint64_t l = strlen(gene_type);
+        register uint64_t off = 1;
+        if(gene_type[l-off] == ';'){
+          gene_type[l-off] = '\0';
+          off = 2;
+        }
+        if(gene_type[0] == '"'){
+          gene_type++;
+          gene_type[l-(off+1)] = '\0';
         }
         break;
       }
@@ -189,6 +225,11 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf){
     // get the gene_id or create it
     gt_string* gids= gt_gtf_get_gene_id(gtf, gene_id);
     e->gene_id = gids;
+  }
+  if(gene_type != NULL){
+    // get the gene_id or create it
+    gt_string* gt= gt_gtf_get_gene_type(gtf, gene_type);
+    e->gene_type = gt;
   }
   // get the ref or create it
   gt_gtf_ref* gtref = gt_gtf_get_ref(gtf, ref);
@@ -342,6 +383,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
       uint64_t num_map_blocks = 0;
       bool multiple_genes = false;
       gt_string* alignment_gene_id = NULL;
+      gt_string* alignment_gene_type = NULL;
       float overlap = 0;
       GT_MAP_ITERATE(map, map_it) {
         gt_vector_clear(search_hits);
@@ -370,6 +412,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
                 local_overlap = over;
               }
               alignment_gene_id = entry->gene_id;
+              alignment_gene_type = entry->gene_type;
             }else{
               if(alignment_gene_id != NULL){
                 multiple_genes = true;
@@ -382,9 +425,11 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
       // add a hit if we found a good gene_id
       if(alignment_gene_id != NULL && !multiple_genes){
         gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
+        gt_vector_insert(hits->types, alignment_gene_type, gt_string*);
         gt_vector_insert(hits->scores, (overlap / num_map_blocks), float);
       }else{
         gt_vector_insert(hits->ids, NULL, gt_string*);
+        gt_vector_insert(hits->types, NULL, gt_string*);
         gt_vector_insert(hits->scores, 0, float);
       }
     }
@@ -393,6 +438,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
 
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
     gt_string* alignment_gene_id = NULL;
+    gt_string* alignment_gene_type = NULL;
     float overlap = 0;
     uint64_t num_map_blocks = 0;
     bool multiple_genes = false;
@@ -424,6 +470,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
                 local_overlap = over;
               }
               alignment_gene_id = entry->gene_id;
+              alignment_gene_type = entry->gene_type;
             }else{
               if(alignment_gene_id != NULL){
                 multiple_genes = true;
@@ -437,9 +484,11 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
     // add a hit if we found a good gene_id
     if(alignment_gene_id != NULL && !multiple_genes){
       gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
+      gt_vector_insert(hits->types, alignment_gene_type, gt_string*);
       gt_vector_insert(hits->scores, (overlap / num_map_blocks), float);
     }else{
       gt_vector_insert(hits->ids, NULL, gt_string*);
+      gt_vector_insert(hits->types, NULL, gt_string*);
       gt_vector_insert(hits->scores, 0, float);
     }
   }

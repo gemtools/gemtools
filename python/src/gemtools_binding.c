@@ -316,21 +316,60 @@ void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, g
   gt_gtf_hits* hits = gt_gtf_hits_new();
   gt_gtf_search_template_for_exons(gtf, hits, template_src);
   uint64_t i = 0;
+  printf("Filter %s :: %d\n", gt_template_get_tag(template_src), gt_template_get_num_mmaps(template_src));
 
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+      if(gene_id != NULL){
+        printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s\n",
+            gt_string_get_string(gene_id),
+            *gt_vector_get_elm(hits->scores, i, float),
+            gt_map_get_segment_distance(map),
+            gt_map_get_global_levenshtein_distance(map),
+            gt_map_get_score(map),
+            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*))
+            );
+      }else{
+        printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d\n",
+            "NULL",
+            *gt_vector_get_elm(hits->scores, i, float),
+            gt_map_get_segment_distance(map),
+            gt_map_get_global_levenshtein_distance(map),
+            gt_map_get_score(map)
+            );
+      }
+      i++;
+      gt_alignment_insert_map(alignment_src,gt_map_copy(map));
     }
   } GT_TEMPLATE_END_REDUCTION__RETURN;
 
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
-    printf("Annotation mapped : %s -> %f \n", gt_string_get_string(*gt_vector_get_elm(hits->ids, i, gt_string*)), *gt_vector_get_elm(hits->scores, i, float));
+    gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+    if(gene_id != NULL){
+      printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s\n",
+          gt_string_get_string(gene_id),
+          *gt_vector_get_elm(hits->scores, i, float),
+          mmap_attr->distance,
+          gt_mmap_get_global_levenshtein_distance(mmap, num_blocks),
+          get_mapq(mmap_attr->gt_score),
+          gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*))
+          );
+    }else{
+      printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d\n",
+          "NULL",
+          *gt_vector_get_elm(hits->scores, i, float),
+          mmap_attr->distance,
+          gt_mmap_get_global_levenshtein_distance(mmap, num_blocks),
+          get_mapq(mmap_attr->gt_score)
+          );
+    }
     i++;
     register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
     gt_template_insert_mmap(template_dst,mmap_copy,mmap_attr);
     free(mmap_copy);
-
   }
-
+  gt_gtf_hits_delete(hits);
 }
 
 void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
