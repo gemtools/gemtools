@@ -46,10 +46,11 @@ typedef struct {
   .print_scores=true, \
   .max_printable_maps=GT_ALL \
 }
-#define GT_OUTPUT_MAP_CHECK_ATTRIBUTES(output_map_attributes) \
-  if (output_map_attributes==NULL) { /* Check null output_map_attributes */ \
-    gt_output_map_attributes map_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT(); \
-    output_map_attributes = &map_attributes; \
+#define GT_OUTPUT_MAP_CHECK_ATTRIBUTES(attributes) \
+  gt_output_map_attributes __##attributes; \
+  if (attributes==NULL) { /* Check null output_map_attributes */ \
+    gt_output_map_attributes_reset_defaults(&__##attributes); \
+    attributes = &__##attributes; \
   }
 
 GT_INLINE gt_output_map_attributes* gt_output_map_attributes_new();

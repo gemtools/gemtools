@@ -335,7 +335,7 @@ GT_INLINE int gt_strcmp(const char* const buffer_a,const char* const buffer_b) {
   GT_NULL_CHECK(buffer_a); GT_NULL_CHECK(buffer_b);
   return strcmp(buffer_a,buffer_b);
 }
-GT_INLINE bool gt_streq(const char* const buffer_a,const char* const buffer_b) { // TODO: Add safe mem str_cmp
+GT_INLINE bool gt_streq(const char* const buffer_a,const char* const buffer_b) {
   GT_NULL_CHECK(buffer_a); GT_NULL_CHECK(buffer_b);
   return strcmp(buffer_a,buffer_b)==0;
 }

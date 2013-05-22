@@ -24,17 +24,17 @@
 /*
  * Map Parser Attributes
  */
-GT_INLINE gt_map_parser_attr* gt_input_map_parser_attributes_new(const bool force_read_paired) {
-  gt_map_parser_attr* attributes = gt_alloc(gt_map_parser_attr);
+GT_INLINE gt_map_parser_attributes* gt_input_map_parser_attributes_new(const bool force_read_paired) {
+  gt_map_parser_attributes* attributes = gt_alloc(gt_map_parser_attributes);
   gt_input_map_parser_attributes_reset_defaults(attributes);
   gt_input_map_parser_attributes_set_paired(attributes,force_read_paired);
   return attributes;
 }
-GT_INLINE void gt_input_map_parser_attributes_delete(gt_map_parser_attr* const attributes) {
+GT_INLINE void gt_input_map_parser_attributes_delete(gt_map_parser_attributes* const attributes) {
   GT_NULL_CHECK(attributes);
   gt_free(attributes);
 }
-GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr* const attributes) {
+GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attributes* const attributes) {
   GT_NULL_CHECK(attributes);
   attributes->max_parsed_maps = GT_ALL;
   attributes->force_read_paired = false;
@@ -42,27 +42,27 @@ GT_INLINE void gt_input_map_parser_attributes_reset_defaults(gt_map_parser_attr*
   attributes->skip_based_model=false;
   attributes->remove_duplicates=false;
 }
-GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attr* const attributes) {
+GT_INLINE bool gt_input_map_parser_attributes_is_paired(gt_map_parser_attributes* const attributes) {
   GT_NULL_CHECK(attributes);
   return attributes->force_read_paired;
 }
-GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attr* const attributes,const bool force_read_paired) {
+GT_INLINE void gt_input_map_parser_attributes_set_paired(gt_map_parser_attributes* const attributes,const bool force_read_paired) {
   GT_NULL_CHECK(attributes);
   attributes->force_read_paired = force_read_paired;
 }
-GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attr* const attributes,const uint64_t max_parsed_maps) {
+GT_INLINE void gt_input_map_parser_attributes_set_max_parsed_maps(gt_map_parser_attributes* const attributes,const uint64_t max_parsed_maps) {
   GT_NULL_CHECK(attributes);
   attributes->max_parsed_maps = max_parsed_maps;
 }
-GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attr* const attributes,gt_string* const src_text) {
+GT_INLINE void gt_input_map_parser_attributes_set_src_text(gt_map_parser_attributes* const attributes,gt_string* const src_text) {
   GT_NULL_CHECK(attributes);
   attributes->src_text = src_text;
 }
-GT_INLINE void gt_input_map_parser_attributes_set_skip_model(gt_map_parser_attr* const attributes,const bool skip_based_model) {
+GT_INLINE void gt_input_map_parser_attributes_set_skip_model(gt_map_parser_attributes* const attributes,const bool skip_based_model) {
   GT_NULL_CHECK(attributes);
   attributes->skip_based_model = skip_based_model;
 }
-GT_INLINE void gt_input_map_parser_attributes_set_duplicates_removal(gt_map_parser_attr* const attributes,const bool remove_duplicates) {
+GT_INLINE void gt_input_map_parser_attributes_set_duplicates_removal(gt_map_parser_attributes* const attributes,const bool remove_duplicates) {
   GT_NULL_CHECK(attributes);
   attributes->remove_duplicates = remove_duplicates;
 }
@@ -481,7 +481,7 @@ GT_INLINE gt_status gt_imp_parse_strand(const char** const text_line,gt_strand* 
   }
   return 0;
 }
-GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(const char** const text_line,gt_map* map,gt_map_parser_attr* const map_parser_attr) {
+GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(const char** const text_line,gt_map* map,gt_map_parser_attributes* const map_parser_attr) {
   GT_NULL_CHECK(text_line);
   GT_MAP_CHECK(map);
   /*
@@ -587,7 +587,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v0(const char** const text_line
   return 0;
 }
 
-GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(const char** const text_line,gt_map* map,gt_map_parser_attr* const map_parser_attr) {
+GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(const char** const text_line,gt_map* map,gt_map_parser_attributes* const map_parser_attr) {
   GT_NULL_CHECK(text_line);
   GT_MAP_CHECK(map);
   /*
@@ -905,7 +905,7 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(const char** const text_line,gt_ma
 }
 GT_INLINE gt_status gt_imp_parse_map(
     const char** const text_line,gt_map** const return_map,
-    const uint64_t read_base_length,gt_map_parser_attr* const map_parser_attr) {
+    const uint64_t read_base_length,gt_map_parser_attributes* const map_parser_attr) {
   /*
    * ReturnValues = {
    *                 GT_IMP_PE_PENDING_BLOCKS, GT_IMP_PE_MAP_PENDING_MAPS, GT_IMP_PE_EOB,
@@ -925,6 +925,7 @@ GT_INLINE gt_status gt_imp_parse_map(
   // Check null map (Orphan/unpaired/errors/oddities/...)
   gt_status error_code;
   if (**text_line==GT_MAP_NEXT) { // Pending (Null map)
+    GT_NEXT_CHAR(text_line);
     *return_map=NULL;
     return GT_IMP_PE_MAP_PENDING_MAPS;
   } else if (GT_IS_EOL(text_line)) { // Pending (Null map)
@@ -1029,7 +1030,7 @@ GT_INLINE gt_status gt_imp_parse_map(
       break; \
   }
 GT_INLINE gt_status gt_imp_parse_template_maps(
-    const char** const text_line,gt_template* const template,gt_map_parser_attr* const map_parser_attr) {
+    const char** const text_line,gt_template* const template,gt_map_parser_attributes* const map_parser_attr) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK((*text_line));
   GT_TEMPLATE_CHECK(template);
   // Check null maps
@@ -1135,7 +1136,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
   }
   return 0;
 }
-GT_INLINE gt_status gt_imp_parse_alignment_maps(const char** const text_line,gt_alignment* alignment,gt_map_parser_attr* const map_parser_attr) {
+GT_INLINE gt_status gt_imp_parse_alignment_maps(const char** const text_line,gt_alignment* alignment,gt_map_parser_attributes* const map_parser_attr) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK((*text_line));
   GT_ALIGNMENT_CHECK(alignment);
   // Check null maps
@@ -1223,7 +1224,7 @@ GT_INLINE gt_status gt_imp_parse_alignment_maps(const char** const text_line,gt_
   }
   return 0;
 }
-GT_INLINE gt_status gt_imp_map_blocks(const char** const text_line,gt_map** const map,gt_map_parser_attr* const map_parser_attr) {
+GT_INLINE gt_status gt_imp_map_blocks(const char** const text_line,gt_map** const map,gt_map_parser_attributes* const map_parser_attr) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK((*text_line));
   GT_NULL_CHECK(map);
   // Check null maps
@@ -1292,7 +1293,7 @@ GT_INLINE gt_status gt_imp_map_blocks(const char** const text_line,gt_map** cons
 }
 GT_INLINE gt_status gt_imp_parse_alignment(
     const char** const text_line,gt_alignment* alignment,
-    const bool has_quality_string,gt_map_parser_attr* const map_parser_attr) {
+    const bool has_quality_string,gt_map_parser_attributes* const map_parser_attr) {
   GT_NULL_CHECK(text_line);
   GT_ALIGNMENT_CHECK(alignment);
   gt_status error_code;
@@ -1326,7 +1327,7 @@ GT_INLINE gt_status gt_imp_parse_alignment(
 }
 GT_INLINE gt_status gt_imp_parse_template(
     const char** const text_line,gt_template* const template,
-    const bool has_map_quality,gt_map_parser_attr* const map_parser_attr) {
+    const bool has_map_quality,gt_map_parser_attributes* const map_parser_attr) {
   GT_NULL_CHECK(text_line);
   GT_TEMPLATE_CHECK(template);
   gt_status error_code;
@@ -1394,7 +1395,7 @@ GT_INLINE gt_status gt_input_map_parse_counters(const char* const string,gt_vect
   const char* _string = string; // Placeholder
   return gt_imp_counters(&_string,counters,attributes);
 }
-GT_INLINE gt_status gt_input_map_parse_map(const char* const string,gt_map** const map,gt_map_parser_attr* map_parser_attr) {
+GT_INLINE gt_status gt_input_map_parse_map(const char* const string,gt_map** const map,gt_map_parser_attributes* map_parser_attr) {
   GT_NULL_CHECK(string);
   GT_NULL_CHECK(map);
   GT_MAP_PARSER_CHECK_ATTRIBUTES(map_parser_attr);
@@ -1406,7 +1407,7 @@ GT_INLINE gt_status gt_input_map_parse_map(const char* const string,gt_map** con
   } GT_IMP_PARSE_MAP_END_ERROR_HANDLER(error_code)
   return 0;
 }
-GT_INLINE gt_status gt_input_map_parse_map_list(const char* const string,gt_vector* const maps,gt_map_parser_attr* map_parser_attr) {
+GT_INLINE gt_status gt_input_map_parse_map_list(const char* const string,gt_vector* const maps,gt_map_parser_attributes* map_parser_attr) {
   GT_NULL_CHECK(string);
   GT_VECTOR_CHECK(maps);
   GT_MAP_PARSER_CHECK_ATTRIBUTES(map_parser_attr);
@@ -1447,7 +1448,7 @@ GT_INLINE gt_status gt_input_map_parse_alignment(const char* const string,gt_ali
     i++;
   }
   if (gt_expect_true(num_fields==4 || num_fields==3)) {
-    gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(false);
+    gt_map_parser_attributes map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(false);
     return gt_imp_parse_alignment(&_string,alignment,num_fields==4,&map_parser_attr);
   }
   return GT_IMP_PE_WRONG_FILE_FORMAT;
@@ -1464,7 +1465,7 @@ GT_INLINE gt_status gt_input_map_parse_template(const char* const string,gt_temp
     i++;
   }
   if (gt_expect_true(num_fields==4 || num_fields==3)) {
-    gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(false);
+    gt_map_parser_attributes map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(false);
     return gt_imp_parse_template(&_string,template,num_fields==4,&map_parser_attr);
   }
   return GT_IMP_PE_WRONG_FILE_FORMAT;
@@ -1474,7 +1475,7 @@ GT_INLINE gt_status gt_input_map_parse_template(const char* const string,gt_temp
  */
 GT_INLINE gt_status gt_imp_get_template(
     gt_buffered_input_file* const buffered_map_input,
-    gt_template* const template,gt_map_parser_attr* const map_parser_attr) {
+    gt_template* const template,gt_map_parser_attributes* const map_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(map_parser_attr);
@@ -1515,7 +1516,7 @@ GT_INLINE gt_status gt_imp_get_template(
 }
 GT_INLINE gt_status gt_imp_get_alignment(
     gt_buffered_input_file* const buffered_map_input,
-    gt_alignment* const alignment,gt_map_parser_attr* const map_parser_attr) {
+    gt_alignment* const alignment,gt_map_parser_attributes* const map_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_ALIGNMENT_CHECK(alignment);
   GT_NULL_CHECK(map_parser_attr);
@@ -1562,7 +1563,7 @@ GT_INLINE gt_status gt_imp_get_alignment(
  *   - Template/Alignment transparent memory management
  */
 GT_INLINE gt_status gt_input_map_parser_get_template(
-    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_map_parser_attr* map_parser_attr) {
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_map_parser_attributes* map_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_TEMPLATE_CHECK(template);
   GT_MAP_PARSER_CHECK_ATTRIBUTES(map_parser_attr);
@@ -1584,7 +1585,7 @@ GT_INLINE gt_status gt_input_map_parser_get_template(
   return error_code;
 }
 GT_INLINE gt_status gt_input_map_parser_get_alignment(
-    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_map_parser_attr* map_parser_attr) {
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_map_parser_attributes* map_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   GT_ALIGNMENT_CHECK(alignment);
   GT_MAP_PARSER_CHECK_ATTRIBUTES(map_parser_attr);
@@ -1595,11 +1596,11 @@ GT_INLINE gt_status gt_input_map_parser_get_alignment(
  */
 GT_INLINE gt_status gt_input_map_parser_synch_blocks(
     gt_buffered_input_file* const buffered_input1,gt_buffered_input_file* const buffered_input2,pthread_mutex_t* const input_mutex) {
-  gt_map_parser_attr map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(true);
+  gt_map_parser_attributes map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(true);
   return gt_input_map_parser_synch_blocks_va(input_mutex,&map_parser_attr,2,buffered_input1,buffered_input2);
 }
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
-    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    pthread_mutex_t* const input_mutex,gt_map_parser_attributes* const map_parser_attr,
     uint64_t num_inputs,gt_buffered_input_file* const buffered_input,va_list v_args) {
   GT_NULL_CHECK(input_mutex);
   GT_NULL_CHECK(map_parser_attr);
@@ -1633,7 +1634,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
   return GT_IMP_OK;
 }
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
-    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    pthread_mutex_t* const input_mutex,gt_map_parser_attributes* const map_parser_attr,
     const uint64_t num_inputs,gt_buffered_input_file* const buffered_input,...) {
   GT_NULL_CHECK(input_mutex);
   GT_NULL_CHECK(map_parser_attr);
@@ -1647,7 +1648,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_va(
 }
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_a(
     pthread_mutex_t* const input_mutex,gt_buffered_input_file** const buffered_input,
-    const uint64_t num_inputs,gt_map_parser_attr* const map_parser_attr) {
+    const uint64_t num_inputs,gt_map_parser_attributes* const map_parser_attr) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input[0]);
   gt_status error_code;
   // Check the end_of_block. Reload buffer if needed (synch)
@@ -1678,7 +1679,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_a(
 }
 // Used to merge files in parallel
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
-    pthread_mutex_t* const input_mutex,gt_map_parser_attr* const map_parser_attr,
+    pthread_mutex_t* const input_mutex,gt_map_parser_attributes* const map_parser_attr,
     gt_buffered_input_file* const buffered_map_input_master,gt_buffered_input_file* const buffered_map_input_slave) {
   GT_NULL_CHECK(input_mutex);
   GT_NULL_CHECK(map_parser_attr);

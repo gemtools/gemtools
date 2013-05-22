@@ -52,13 +52,12 @@
 typedef struct {
   bool parse_optional_fields; // TODO
   bool sam_soap_style;
-} gt_sam_parser_attr;
+} gt_sam_parser_attributes;
 #define GT_SAM_PARSER_ATTR_DEFAULT { .sam_soap_style=false }
 
-GT_INLINE gt_sam_parser_attr* gt_sam_parser_attr_new(const bool sam_soap_style);
-
-GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attr* const attributes);
-GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attr* const attributes);
+GT_INLINE gt_sam_parser_attributes* gt_input_sam_parser_attributes_new();
+GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attributes* const attributes);
+GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attributes* const attributes);
 
 /*
  * SAM File basics
@@ -74,8 +73,8 @@ GT_INLINE void gt_input_sam_parser_next_record(gt_buffered_input_file* const buf
  * High Level Parsers
  */
 GT_INLINE gt_status gt_input_sam_parser_get_template(
-    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_sam_parser_attr* const attributes);
+    gt_buffered_input_file* const buffered_map_input,gt_template* const template,gt_sam_parser_attributes* const attributes);
 GT_INLINE gt_status gt_input_sam_parser_get_alignment(
-    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_sam_parser_attr* const attributes);
+    gt_buffered_input_file* const buffered_map_input,gt_alignment* const alignment,gt_sam_parser_attributes* const attributes);
 
 #endif /* GT_INPUT_SAM_PARSER_H_ */

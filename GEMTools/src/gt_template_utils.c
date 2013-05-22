@@ -40,6 +40,16 @@ GT_INLINE void gt_template_setup_pair_attributes_to_alignments(gt_template* cons
     gt_attributes_add(template->attributes,GT_ATTR_ID_TAG_PAIR,&p,int64_t);
   }
 }
+GT_INLINE uint64_t gt_template_get_read_proportion(gt_template* const template,const float proportion) {
+  GT_TEMPLATE_CHECK(template);
+  if (proportion<=0.0) return 0;
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_read_proportion(alignment,proportion);
+  } GT_TEMPLATE_END_REDUCTION;
+  const uint64_t read_length_end1 = gt_string_get_length(gt_template_get_end1(template)->read);
+  const uint64_t read_length_end2 = gt_string_get_length(gt_template_get_end2(template)->read);
+  return (uint64_t)(proportion*(float)(read_length_end1+read_length_end2));
+}
 
 /*
  * Template's MMaps operators (Update global state: counters, ...)

@@ -466,7 +466,7 @@ int main(int argc,char *argv[])
 			.output_file=NULL,
 			.dist_file=NULL,
 			.mmap_input=false,
-			.parser_attr=GENERIC_PARSER_ATTR_DEFAULT(false),
+			.parser_attr=gt_input_generic_parser_attributes_new(false),
 			.paired_read=false,
 			.ignore_id=false,
 			.min_insert=0,
@@ -626,7 +626,7 @@ int main(int argc,char *argv[])
 			gt_status error_code;
 			gt_template *template=gt_template_new();
 			stats[tid]=as_stats_new(param.paired_read);
-			while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&param.parser_attr))) {
+			while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param.parser_attr))) {
 				if (error_code!=GT_IMP_OK) {
 					gt_error_msg("Error parsing file '%s'\n",param.input_files[0]);
 					continue;

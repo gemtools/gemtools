@@ -10,6 +10,19 @@
 #include "gt_error.h"
 
 /*
+ * Helper functions (OPERATIVE)
+ */
+GT_INLINE uint64_t gt_get_integer_proportion(const float proportion,const uint64_t total_length) {
+  if (proportion<=0.0) {
+    return 0;
+  } else if (proportion>1.0) {
+    return (uint64_t)proportion;
+  } else {
+    return (uint64_t)(proportion*(float)total_length);
+  }
+}
+
+/*
  * Print's template helpers
  */
 GT_INLINE uint64_t gt_calculate_memory_required_v(const char *template,va_list v_args) {

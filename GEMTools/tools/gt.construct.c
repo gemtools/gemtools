@@ -108,7 +108,7 @@ void gt_example_map_parsing() {
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,GT_EXAMPLE_MMAP_FILE);
 
   // Buffered reading of the file
-  gt_map_parser_attr map_parser_attributes = GT_MAP_PARSER_ATTR_DEFAULT(false);
+  gt_map_parser_attributes map_parser_attributes = GT_MAP_PARSER_ATTR_DEFAULT(false);
   gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
   gt_template* template = gt_template_new();
   gt_status error_code;
@@ -144,8 +144,8 @@ void gt_remove_maps_with_n_or_more_mismatches() {
     gt_status error_code;
     gt_alignment *alignment_src = gt_alignment_new();
     gt_alignment *alignment_dst;
-    gt_generic_parser_attr generic_parser_attr = GENERIC_PARSER_ATTR_DEFAULT(false);
-    while ((error_code = gt_input_generic_parser_get_alignment(buffered_input,alignment_src,&generic_parser_attr))) {
+    gt_generic_parser_attributes* generic_parser_attr = gt_input_generic_parser_attributes_new(false);
+    while ((error_code = gt_input_generic_parser_get_alignment(buffered_input,alignment_src,generic_parser_attr))) {
       if (error_code != GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file \n");
       }

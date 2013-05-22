@@ -30,6 +30,7 @@
 #include "gt_output_fasta.h"
 #include "gt_output_map.h"
 #include "gt_output_sam.h"
+#include "gt_output_generic_printer.h"
 
 // GEM-Tools basic data structures: Template/Alignment/Maps/...
 #include "gt_misms.h"
