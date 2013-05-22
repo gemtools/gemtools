@@ -10,13 +10,18 @@
 #ifndef GT_ALIGNMENT_UTILS_H_
 #define GT_ALIGNMENT_UTILS_H_
 
-#include "gt_commons.h"
+#include "gt_essentials.h"
 #include "gt_alignment.h"
 #include "gt_counters_utils.h"
 #include "gt_map_align.h"
 
 #include "gt_output_map.h"
 #include "gt_input_parser.h"
+
+/*
+ * Alignment basic tools
+ */
+GT_INLINE uint64_t gt_alignment_get_read_proportion(gt_alignment* const alignment,const float proportion);
 
 /*
  * Alignment's Maps operators (Update global state: counters, ...)
@@ -31,11 +36,6 @@ GT_INLINE void gt_alignment_insert_map_fx(
 GT_INLINE void gt_alignment_insert_map_gt_vector(gt_alignment* const alignment,gt_vector* const map_vector);
 GT_INLINE void gt_alignment_insert_map_fx_gt_vector(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_vector* const map_vector);
-
-// TODO: Scheduled for v2.0
-GT_INLINE void gt_alignment_remove_map(gt_alignment* const alignment,gt_map* const map);
-GT_INLINE void gt_alignment_remove_map_fx(
-      int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map);
 
 GT_INLINE bool gt_alignment_find_map_fx(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map,

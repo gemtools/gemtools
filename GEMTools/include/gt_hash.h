@@ -14,7 +14,7 @@
 /*
  * Checkers
  */
-#define GT_HASH_CHECK(hash) gt_fatal_check(hash==NULL,NULL_HANDLER)
+#define GT_HASH_CHECK(hash) gt_fatal_check((hash)==NULL,NULL_HANDLER)
 
 /*
  * Internal Type Setup/Handlers

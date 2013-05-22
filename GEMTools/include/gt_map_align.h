@@ -13,8 +13,6 @@
 #include "gt_map.h"
 #include "gt_sequence_archive.h"
 
-#include "gt_output_map.h"  // FIXME: ERASEME DEBUG
-
 /*
  * Error Codes
  */
@@ -36,31 +34,35 @@ typedef struct {
 } gt_cv_pattern;
 
 /*
- * Map (Re)alignment operators
+ * Map check/recover operators
  */
-GT_INLINE gt_status gt_map_check_alignment(
+GT_INLINE gt_status gt_map_block_check_alignment(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length);
 GT_INLINE gt_status gt_map_check_alignment_sa(
-    gt_map* const map,char* const pattern,const uint64_t pattern_length,
-    gt_sequence_archive* const sequence_archive);
+    gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive);
 
-GT_INLINE gt_status gt_map_recover_mismatches(
+GT_INLINE gt_status gt_map_block_recover_mismatches(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length);
 GT_INLINE gt_status gt_map_recover_mismatches_sa(
     gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive);
 
-GT_INLINE gt_status gt_map_realign_hamming(
+/*
+ * Map (Re)alignment operators
+ */
+GT_INLINE gt_status gt_map_block_realign_hamming(
     gt_map* const map,char* const pattern,char* const sequence,const uint64_t length);
 GT_INLINE gt_status gt_map_realign_hamming_sa(
     gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive);
-GT_INLINE gt_status gt_map_realign_levenshtein(
+
+GT_INLINE gt_status gt_map_block_realign_levenshtein(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length,const bool ends_free);
 GT_INLINE gt_status gt_map_realign_levenshtein_sa(
     gt_map* const map,gt_string* const pattern,gt_sequence_archive* const sequence_archive);
-GT_INLINE gt_status gt_map_realign_weighted(
+
+GT_INLINE gt_status gt_map_block_realign_weighted(
     gt_map* const map,char* const pattern,const uint64_t pattern_length,
     char* const sequence,const uint64_t sequence_length,int32_t (*gt_weigh_fx)(char*,char*));
 GT_INLINE gt_status gt_map_realign_weighted_sa(
@@ -98,5 +100,10 @@ GT_INLINE void gt_map_cdp_realign_sa(gt_map* const map,gt_cdp_pattern* const cdp
 GT_INLINE void gt_map_cdp_search_global_alignment(
     gt_map* const map,gt_cdp_pattern* const cdp_pattern,
     char* const sequence,const uint64_t max_scope,const uint64_t levenshtein_distance);
+
+/*
+ * Filters
+ */
+
 
 #endif /* GT_MAP_ALIGN_H_ */

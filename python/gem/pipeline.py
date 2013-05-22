@@ -264,9 +264,6 @@ class CreateStatsStep(PipelineStep):
         process.join()
 
 
-
-
-
 class CreateBamStep(PipelineStep):
     """Create BAM file"""
 

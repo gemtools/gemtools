@@ -12,6 +12,7 @@
 #define GT_STRING_H_
 
 #include "gt_commons.h"
+#include "gt_error.h"
 
 typedef struct {
   char* buffer;
@@ -27,19 +28,21 @@ typedef struct {
   GT_STRING_CHECK(string); \
   gt_fatal_check(string->buffer==NULL,NULL_HANDLER)
 #define GT_STRING_CHECK_NO_STATIC(string) \
-    GT_STRING_CHECK(string); \
-    gt_fatal_check(string->allocated==0,STRING_STATIC)
+  GT_STRING_CHECK(string); \
+  gt_fatal_check(string->allocated==0,STRING_STATIC)
 
 /*
  * Printers
  */
 #define PRIgts "%.*s"
 #define PRIgts_content(string) (int)gt_string_get_length(string),gt_string_get_string(string)
+#define PRIgts_trimmed_content(string,left_trim,right_trim) ((int)gt_string_get_length(string)-(left_trim+right_trim)),(gt_string_get_string(string)+left_trim)
 
 /*
  * Constructor & Accessors
  */
 GT_INLINE gt_string* gt_string_new(const uint64_t initial_buffer_size);
+GT_INLINE gt_string* gt_string_set_new(const char* const string_src);
 GT_INLINE void gt_string_resize(gt_string* const string,const uint64_t new_buffer_size);
 GT_INLINE void gt_string_clear(gt_string* const string);
 GT_INLINE void gt_string_delete(gt_string* const string);
@@ -50,6 +53,8 @@ GT_INLINE void gt_string_cast_dynamic(gt_string* const string,const uint64_t ini
 
 GT_INLINE void gt_string_set_string(gt_string* const string,char* const string_src);
 GT_INLINE void gt_string_set_nstring(gt_string* const string,char* const string_src,const uint64_t length);
+GT_INLINE void gt_string_set_string_static(gt_string* const string,const char* const string_src);
+GT_INLINE void gt_string_set_nstring_static(gt_string* const string,const char* const string_src,const uint64_t length);
 GT_INLINE char* gt_string_get_string(gt_string* const string);
 
 GT_INLINE uint64_t gt_string_get_length(gt_string* const string);
@@ -57,10 +62,10 @@ GT_INLINE void gt_string_set_length(gt_string* const string,const uint64_t lengt
 
 GT_INLINE char* gt_string_char_at(gt_string* const string,const uint64_t pos);
 
-GT_INLINE void gt_string_append_char(gt_string* const string_dst,char const character);
+GT_INLINE void gt_string_append_char(gt_string* const string_dst,const char character);
 GT_INLINE void gt_string_append_eos(gt_string* const string_dst);
 
-GT_INLINE void gt_string_append_string(gt_string* const string_dst,char* const string_src,const uint64_t length);
+GT_INLINE void gt_string_append_string(gt_string* const string_dst,const char* const string_src,const uint64_t length);
 GT_INLINE void gt_string_append_gt_string(gt_string* const string_dst,gt_string* const string_src);
 
 /*
@@ -75,10 +80,12 @@ GT_INLINE bool gt_string_nequals(gt_string* const string_a,gt_string* const stri
 /*
  * Handlers
  */
+GT_INLINE void gt_string_reverse(gt_string* const sequence);
+
 GT_INLINE gt_string* gt_string_dup(gt_string* const sequence);
 GT_INLINE void gt_string_copy(gt_string* const sequence_dst,gt_string* const sequence_src);
 GT_INLINE void gt_string_reverse_copy(gt_string* const sequence_dst,gt_string* const sequence_src);
-GT_INLINE void gt_string_reverse(gt_string* const sequence);
+GT_INLINE gt_string* gt_string_reverse_dup(gt_string* const sequence);
 
 /*
  * String Printers
@@ -92,10 +99,20 @@ GT_INLINE gt_status gt_sprintf_append(gt_string* const sequence,const char *temp
  * Iterator
  */
 #define GT_STRING_ITERATE(string,mem,pos) \
-  register uint64_t pos; \
-  register const uint64_t __length_##mem = gt_string_get_length(string); \
-  register const char* mem = gt_string_get_string(string); \
+  uint64_t pos; \
+  const uint64_t __length_##mem = gt_string_get_length(string); \
+  const char* mem = gt_string_get_string(string); \
   for (pos=0;pos<__length_##mem;++pos) /* mem[pos] */
 
+/*
+ * String-Buffer functions
+ */
+GT_INLINE void gt_strncpy(char* const buffer_dst,const char* const buffer_src,const uint64_t length);
+GT_INLINE char* gt_strndup(const char* const buffer,const uint64_t length);
+GT_INLINE int gt_strcmp(const char* const buffer_a,const char* const buffer_b);
+GT_INLINE bool gt_streq(const char* const buffer_a,const char* const buffer_b);
+GT_INLINE int gt_strncmp(const char* const buffer_a,const char* const buffer_b,const uint64_t length);
+GT_INLINE bool gt_strneq(const char* const buffer_a,const char* const buffer_b,const uint64_t length);
+GT_INLINE uint64_t gt_strlen(const char* const buffer);
 
 #endif /* GT_STRING_H_ */

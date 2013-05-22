@@ -11,7 +11,7 @@ gt_string* tag;
 gt_string* expected;
 gt_string* expected_casava;
 gt_string* expected_extra;
-gt_shash* attributes;
+gt_attributes* attributes;
 gt_template* template;
 gt_output_map_attributes* output_attributes;
 gt_output_fasta_attributes* fastq_attributes;
@@ -21,7 +21,7 @@ void gt_input_tag_parser_setup(void) {
 	expected = gt_string_new(1024);
 	expected_casava = gt_string_new(1024);
 	expected_extra = gt_string_new(1024);
-	attributes = gt_shash_new();
+	attributes = gt_attributes_new();
 	template = gt_template_new();
 	output_attributes = gt_output_map_attributes_new();
 	fastq_attributes = gt_output_fasta_attributes_new();
@@ -32,7 +32,7 @@ void gt_input_tag_parser_teardown(void) {
 	gt_string_delete(expected);
 	gt_string_delete(expected_casava);
 	gt_string_delete(expected_extra);
-	gt_shash_delete(attributes, true);
+	gt_attributes_delete(attributes);
 	gt_template_delete(template);
 	gt_output_map_attributes_delete(output_attributes);
 	gt_output_fasta_attributes_delete(fastq_attributes);
@@ -46,12 +46,12 @@ START_TEST(gt_test_basic_tag_parsing)
 	// basic
 	input[0] = "mytag";
 	gt_string_set_string(expected, "mytag");
-	register char* tag_begin = *input;
+	char* tag_begin = *input;
 	int pair = 1;
 
 	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
-	pair = *((int*)gt_shash_get_element(attributes, GT_TAG_PAIR));
+	pair = *((int*)gt_attributes_get(attributes,GT_TAG_PAIR));
 	fail_unless(pair == 0, "Pair information not parsed");
 
 	// pair info /1
@@ -61,7 +61,7 @@ START_TEST(gt_test_basic_tag_parsing)
 	tag_begin = *input;
 	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
-	pair = *((int*)gt_shash_get_element(attributes, GT_TAG_PAIR));
+	pair = *((int*)gt_attributes_get(attributes, GT_TAG_PAIR));
 	fail_unless(pair == 1, "Pair information not parsed");
 
 	// pair info /2
@@ -71,7 +71,7 @@ START_TEST(gt_test_basic_tag_parsing)
 	tag_begin = *input;
 	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
-	pair = *((int*)gt_shash_get_element(attributes, GT_TAG_PAIR));
+	pair = *((int*)gt_attributes_get(attributes, GT_TAG_PAIR));
 	fail_unless(pair == 2, "Pair information not parsed");
 
 	gt_string_clear(tag);
@@ -83,8 +83,8 @@ START_TEST(gt_test_basic_tag_parsing)
 	tag_begin = *input;
 	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
-	fail_unless(*gt_shash_get(attributes, GT_TAG_PAIR, int64_t) == 2, "Pair information not parsed");
-	fail_unless(gt_string_cmp(expected_extra, gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)) == 0, "Extra string not extracted");
+	fail_unless(*((int64_t*)gt_attributes_get(attributes, GT_TAG_PAIR)) == 2, "Pair information not parsed");
+	fail_unless(gt_string_cmp(expected_extra, gt_attributes_get(attributes,GT_TAG_EXTRA)) == 0, "Extra string not extracted");
 }
 END_TEST
 
@@ -96,14 +96,14 @@ START_TEST(gt_test_casava_tag_parsing)
 	input[0] = "mytag 1:Y:18:ATCACG";
 	gt_string_set_string(expected, "mytag");
 	gt_string_set_string(expected_casava, "1:Y:18:ATCACG");
-	register char* tag_begin = *input;
+	char* tag_begin = *input;
 	int pair = 0;
 
 	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	//printf("PARSED TAG "PRIgts"\n",PRIgts_content(tag));
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
-	fail_unless(*gt_shash_get(attributes, GT_TAG_PAIR, int64_t) == 1, "Pair information not parsed, should be 1");
-	fail_unless(gt_string_cmp(expected_casava, gt_shash_get(attributes, GT_TAG_CASAVA, gt_string)) == 0, "Casava string not extracted");
+	fail_unless(*((int64_t*)gt_attributes_get(attributes, GT_TAG_PAIR)) == 1, "Pair information not parsed, should be 1");
+	fail_unless(gt_string_cmp(expected_casava,(gt_string*)gt_attributes_get(attributes, GT_TAG_CASAVA)) == 0, "Casava string not extracted");
 
 	// pair info /1
 	gt_string_clear(tag);
@@ -116,9 +116,9 @@ START_TEST(gt_test_casava_tag_parsing)
 	tag_begin = *input;
 	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
-	fail_unless(*gt_shash_get(attributes, GT_TAG_PAIR, int64_t) == 2, "Pair information not parsed, should be 2");
-	fail_unless(gt_string_cmp(expected_casava, gt_shash_get(attributes, GT_TAG_CASAVA, gt_string)) == 0, "Casava string not extracted");
-	fail_unless(gt_string_cmp(expected_extra, gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)) == 0, "Extra string not extracted");
+	fail_unless(*((int64_t*)gt_attributes_get(attributes, GT_TAG_PAIR)) == 2, "Pair information not parsed, should be 2");
+	fail_unless(gt_string_cmp(expected_casava,(gt_string*)gt_attributes_get(attributes, GT_TAG_CASAVA)) == 0, "Casava string not extracted");
+	fail_unless(gt_string_cmp(expected_extra,(gt_string*)gt_attributes_get(attributes, GT_TAG_EXTRA)) == 0, "Extra string not extracted");
 
 
 	// invalid casava
@@ -131,8 +131,8 @@ START_TEST(gt_test_casava_tag_parsing)
 	tag_begin = *input;
 	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
-	fail_unless(*gt_shash_get(attributes, GT_TAG_PAIR, int64_t) == 0, "Pair information not parsed, should be 0");
-	fail_unless(gt_string_cmp(expected_extra, gt_shash_get(attributes, GT_TAG_EXTRA, gt_string)) == 0, "Extra string not extracted");
+	fail_unless(*((int64_t*)gt_attributes_get(attributes, GT_TAG_PAIR)) == 0, "Pair information not parsed, should be 0");
+	fail_unless(gt_string_cmp(expected_extra,(gt_string*)gt_attributes_get(attributes, GT_TAG_EXTRA)) == 0, "Extra string not extracted");
 
 }
 END_TEST
@@ -189,21 +189,21 @@ START_TEST(gt_test_tag_parsing_generic_parser_single_paired)
 	// check first template, one alignment first pair
 	fail_unless(gt_input_generic_parser_get_template(buffered_input, template, attr) == GT_STATUS_OK, "Failed to read input");
 	fail_unless(gt_string_cmp(template->tag, tag) == 0, "Tag is not myid");
-	fail_unless(*gt_shash_get(template->attributes, GT_TAG_PAIR, int64_t) == 1, "Pair information not parsed, should be 1");
+	fail_unless(*((int64_t*)gt_attributes_get(template->attributes, GT_TAG_PAIR)) == 1, "Pair information not parsed, should be 1");
 	fail_unless(gt_template_get_num_blocks(template) == 1, "Found more than 1 block");
 	alignment = gt_template_get_block(template, 0);
 	fail_unless(gt_string_cmp(alignment->tag, tag) == 0, "Alignment tag is not myid");
-	fail_unless(*gt_shash_get(alignment->attributes, GT_TAG_PAIR, int64_t) == 1, "Alignment pair information not 1");
+	fail_unless(*((int64_t*)gt_attributes_get(alignment->attributes, GT_TAG_PAIR)) == 1, "Alignment pair information not 1");
 
 
 	// check second template, one alignment first pair
 	fail_unless(gt_input_generic_parser_get_template(buffered_input, template, attr) == GT_STATUS_OK, "Failed to read input");
 	fail_unless(gt_string_cmp(template->tag, tag) == 0, "Tag is not myid");
-	fail_unless(*gt_shash_get(template->attributes, GT_TAG_PAIR, int64_t) == 2, "Pair information not parsed, should be 2");
+	fail_unless(*((int64_t*)gt_attributes_get(template->attributes, GT_TAG_PAIR)) == 2, "Pair information not parsed, should be 2");
 	fail_unless(gt_template_get_num_blocks(template) == 1, "Found more than 1 block");
 	alignment = gt_template_get_block(template, 0);
 	fail_unless(gt_string_cmp(alignment->tag, tag) == 0, "Alignment tag is not myid");
-	fail_unless(*gt_shash_get(alignment->attributes, GT_TAG_PAIR, int64_t) == 2, "Alignment pair information not 2");
+	fail_unless(*((int64_t*)gt_attributes_get(alignment->attributes, GT_TAG_PAIR)) == 2, "Alignment pair information not 2");
 
 	gt_buffered_input_file_close(buffered_input);
 	gt_input_file_close(input);
@@ -335,15 +335,15 @@ START_TEST(gt_test_tag_parsing_generic_parser_single_paired_casava_additional)
 	// check first template, one alignment first pair
 	fail_unless(gt_input_generic_parser_get_template(buffered_input, template, attr) == GT_STATUS_OK, "Failed to read input");
 	fail_unless(gt_string_cmp(template->tag, tag) == 0, "Tag is not myid");
-	fail_unless(gt_string_cmp(gt_shash_get(template->attributes, GT_TAG_CASAVA, gt_string), expected_casava) == 0, "Casava string does not match");
-	fail_unless(gt_string_cmp(gt_shash_get(template->attributes, GT_TAG_EXTRA, gt_string), expected_extra) == 0, "Extra String does not match");
-	fail_unless(*gt_shash_get(template->attributes, GT_TAG_PAIR, int64_t) == 1, "Pair information not parsed, should be 1");
+	fail_unless(gt_string_cmp(gt_attributes_get(template->attributes, GT_TAG_CASAVA), expected_casava) == 0, "Casava string does not match");
+	fail_unless(gt_string_cmp(gt_attributes_get(template->attributes, GT_TAG_EXTRA), expected_extra) == 0, "Extra String does not match");
+	fail_unless(*((int64_t*)gt_attributes_get(template->attributes, GT_TAG_PAIR)) == 1, "Pair information not parsed, should be 1");
 	fail_unless(gt_template_get_num_blocks(template) == 1, "Found more than 1 block");
 	alignment = gt_template_get_block(template, 0);
 	fail_unless(gt_string_cmp(alignment->tag, tag) == 0, "Alignment tag is not myid");
-	fail_unless(*gt_shash_get(alignment->attributes, GT_TAG_PAIR, int64_t) == 1, "Alignment pair information not 1");
-	fail_unless(gt_string_cmp(gt_shash_get(alignment->attributes, GT_TAG_CASAVA, gt_string), expected_casava) == 0, "Casava string does not match");
-	fail_unless(gt_string_cmp(gt_shash_get(alignment->attributes, GT_TAG_EXTRA, gt_string), expected_extra) == 0, "Extra String does not match");
+	fail_unless(*((int64_t*)gt_attributes_get(alignment->attributes, GT_TAG_PAIR)) == 1, "Alignment pair information not 1");
+	fail_unless(gt_string_cmp(gt_attributes_get(alignment->attributes, GT_TAG_CASAVA), expected_casava) == 0, "Casava string does not match");
+	fail_unless(gt_string_cmp(gt_attributes_get(alignment->attributes, GT_TAG_EXTRA), expected_extra) == 0, "Extra String does not match");
 
 
 	gt_string_set_string(expected_casava, "2:Y:18:ATCACG");
@@ -351,15 +351,15 @@ START_TEST(gt_test_tag_parsing_generic_parser_single_paired_casava_additional)
 	// check second template, one alignment first pair
 	fail_unless(gt_input_generic_parser_get_template(buffered_input, template, attr) == GT_STATUS_OK, "Failed to read input");
 	fail_unless(gt_string_cmp(template->tag, tag) == 0, "Tag is not myid");
-	fail_unless(gt_string_cmp(gt_shash_get(template->attributes, GT_TAG_CASAVA, gt_string), expected_casava) == 0, "Casava string does not match");
-	fail_unless(gt_string_cmp(gt_shash_get(template->attributes, GT_TAG_EXTRA, gt_string), expected_extra) == 0, "Extra String does not match");
-	fail_unless(*gt_shash_get(template->attributes, GT_TAG_PAIR, int64_t) == 2, "Pair information not parsed, should be 2");
+	fail_unless(gt_string_cmp(gt_attributes_get(template->attributes, GT_TAG_CASAVA), expected_casava) == 0, "Casava string does not match");
+	fail_unless(gt_string_cmp(gt_attributes_get(template->attributes, GT_TAG_EXTRA), expected_extra) == 0, "Extra String does not match");
+	fail_unless(*((int64_t*)gt_attributes_get(template->attributes, GT_TAG_PAIR)) == 2, "Pair information not parsed, should be 2");
 	fail_unless(gt_template_get_num_blocks(template) == 1, "Found more than 1 block");
 	alignment = gt_template_get_block(template, 0);
 	fail_unless(gt_string_cmp(alignment->tag, tag) == 0, "Alignment tag is not myid");
-	fail_unless(*gt_shash_get(alignment->attributes, GT_TAG_PAIR, int64_t) == 2, "Alignment pair information not 2");
-	fail_unless(gt_string_cmp(gt_shash_get(alignment->attributes, GT_TAG_CASAVA, gt_string), expected_casava) == 0, "Casava string does not match");
-	fail_unless(gt_string_cmp(gt_shash_get(alignment->attributes, GT_TAG_EXTRA, gt_string), expected_extra) == 0, "Extra String does not match");
+	fail_unless(*((int64_t*)gt_attributes_get(alignment->attributes, GT_TAG_PAIR)) == 2, "Alignment pair information not 2");
+	fail_unless(gt_string_cmp(gt_attributes_get(alignment->attributes, GT_TAG_CASAVA), expected_casava) == 0, "Casava string does not match");
+	fail_unless(gt_string_cmp(gt_attributes_get(alignment->attributes, GT_TAG_EXTRA), expected_extra) == 0, "Extra String does not match");
 
 	gt_buffered_input_file_close(buffered_input);
 	gt_input_file_close(input);

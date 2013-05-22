@@ -394,10 +394,11 @@ cdef class InputFile(object):
     #
     cdef gt_buffered_input_file* buffered_input
     # parser attributes
-    cdef gt_generic_parser_attr* parser_attr
+    cdef gt_generic_parser_attributes* parser_attr
     # the template instance that is used to iterate templates
     cdef readonly Template template
-
+    # remove scores when printing
+    cdef public bool remove_scores
 
     def __init__(self, source, bool mmap_file=False, bool force_paired_reads=False, object quality=None, object process=None):
         """Initialize a new input file on the source. The source can be either a file name
@@ -410,6 +411,7 @@ cdef class InputFile(object):
         self.process = process
         self.quality = quality
         self.template = Template()
+        self.remove_scores = False
         if isinstance(source, basestring):
             self.filename = source
         # make sure memory mapping is disabled for compressed files and
@@ -502,7 +504,7 @@ cdef class InputFile(object):
         interleave    -- interleave muliple inputs
         threads       -- number of threads to use (if supported by the iterator)
         """
-        __run_write_stream([self], output, write_map, threads, True, self.process)
+        __run_write_stream([self], output, write_map, threads, True, self.process, remove_scores=self.remove_scores)
 
     cpdef close(self):
         if self.buffered_input is not NULL:
@@ -516,9 +518,9 @@ cdef class InputFile(object):
             self.input_file = NULL
 
 
-cpdef __run_write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True, parent=None, function=__write_stream, bool async=False):
+cpdef __run_write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True, parent=None, function=__write_stream, bool async=False, bool remove_scores=False):
     import gem.utils
-    process = multiprocessing.Process(target=function, args=(source, output, write_map, threads, interleave,))
+    process = multiprocessing.Process(target=function, args=(source, output, write_map, threads, interleave, remove_scores))
     gem.utils.register_process(process)
     process.start()
 
@@ -528,7 +530,7 @@ cpdef __run_write_stream(source, OutputFile output, bool write_map=False, uint64
             parent.wait()
     return process
 
-cpdef __write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True):
+cpdef __write_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True, bool remove_scores=False):
     cdef gt_output_file* output_file = output.output_file
     cdef uint64_t num_inputs = len(source)
     cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
@@ -540,7 +542,7 @@ cpdef __write_stream(source, OutputFile output, bool write_map=False, uint64_t t
         inputs[i] = (<InputFile> source[i])._open()
 
     with nogil:
-        gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map)
+        gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map, remove_scores)
 
     output.close()
     for i in range(num_inputs):
@@ -1337,17 +1339,33 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
     p.filter_by_strand = params.get("filter_strand", False)
     p.keep_unique = params.get("keep_unique", False)
     p.min_score = params.get("min_score", 0)
+    p.filter_groups = params.get("filter_groups", False)
+    p.group_1 = params.get("group_1", False)
+    p.group_2 = params.get("group_2", False)
+    p.group_3 = params.get("group_3", False)
+    p.group_4 = params.get("group_4", False)
+    p.close_output = params.get("close_output", True)
+    if "annotation" in params and params["annotation"] is not None:
+        p.annotation = params["annotation"]
+    else:
+        p.annotation = ""
 
     with nogil:
         gt_filter_stream(input_file, output_file, use_threads, &p)
     gt_input_file_close(input_file)
 
 
-cpdef filter_map(input, OutputFile output, params, uint64_t threads=1):
-    import gem.utils
-    process = multiprocessing.Process(target=__write_filter, args=(input, output, threads, params))
-    gem.utils.register_process(process)
-    process.start()
-    process.join()
-    return process
+cpdef filter_map(input, OutputFile output, params, uint64_t threads=1,
+                 background_process=True):
+    if background_process:
+        import gem.utils
+        process = multiprocessing.Process(target=__write_filter, args=(input, output, threads, params))
+        gem.utils.register_process(process)
+        process.start()
+        process.join()
+        return process
+    else:
+        params["close_output"] = False
+        __write_filter(input, output, threads, params)
+        return None
 

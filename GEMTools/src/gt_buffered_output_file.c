@@ -15,8 +15,7 @@
  */
 gt_buffered_output_file* gt_buffered_output_file_new(gt_output_file* const output_file) {
   GT_OUTPUT_FILE_CHECK(output_file);
-  gt_buffered_output_file* buffered_output_file = malloc(sizeof(gt_buffered_output_file));
-  gt_cond_fatal_error(!buffered_output_file,MEM_HANDLER);
+  gt_buffered_output_file* buffered_output_file = gt_alloc(gt_buffered_output_file);
   // Initialize the bof
   buffered_output_file->output_file = output_file;
   buffered_output_file->buffer = gt_output_file_request_buffer(buffered_output_file->output_file);
@@ -28,7 +27,7 @@ void gt_buffered_output_file_close(gt_buffered_output_file* const buffered_outpu
     gt_buffered_output_file_dump(buffered_output_file);
     gt_output_file_release_buffer(buffered_output_file->output_file,buffered_output_file->buffer);
   }
-  free(buffered_output_file);
+  gt_free(buffered_output_file);
 }
 
 /*
@@ -70,8 +69,8 @@ GT_INLINE void gt_buffered_output_file_safety_dump(gt_buffered_output_file* cons
   GT_BUFFERED_OUTPUT_FILE_CHECK(buffered_output_file);
   if (gt_output_buffer_get_used(buffered_output_file->buffer)==0) return;
   gt_output_buffer_set_partial_block(buffered_output_file->buffer);
-  register const uint32_t mayor_id = gt_output_buffer_get_mayor_block_id(buffered_output_file->buffer);
-  register const uint32_t minor_id = gt_output_buffer_get_minor_block_id(buffered_output_file->buffer);
+  const uint32_t mayor_id = gt_output_buffer_get_mayor_block_id(buffered_output_file->buffer);
+  const uint32_t minor_id = gt_output_buffer_get_minor_block_id(buffered_output_file->buffer);
   buffered_output_file->buffer = gt_output_file_dump_buffer(
       buffered_output_file->output_file,buffered_output_file->buffer,false);
   gt_cond_fatal_error(buffered_output_file->buffer==NULL,BUFFER_SAFETY_DUMP);
@@ -89,7 +88,7 @@ GT_INLINE gt_status gt_vbofprintf(gt_buffered_output_file* const buffered_output
       gt_output_buffer_get_used(buffered_output_file->buffer)>=GT_BUFFERED_OUTPUT_FILE_FORCE_DUMP_SIZE)) {
     gt_buffered_output_file_safety_dump(buffered_output_file);
   }
-  register const gt_status chars_printed = gt_vbprintf(buffered_output_file->buffer,template,v_args);
+  const gt_status chars_printed = gt_vbprintf(buffered_output_file->buffer,template,v_args);
   return chars_printed;
 }
 GT_INLINE gt_status gt_bofprintf(gt_buffered_output_file* const buffered_output_file,const char *template,...) {
@@ -97,7 +96,7 @@ GT_INLINE gt_status gt_bofprintf(gt_buffered_output_file* const buffered_output_
   GT_NULL_CHECK(template);
   va_list v_args;
   va_start(v_args,template);
-  register const gt_status chars_printed = gt_vbofprintf(buffered_output_file,template,v_args);
+  const gt_status chars_printed = gt_vbofprintf(buffered_output_file,template,v_args);
   va_end(v_args);
   return chars_printed;
 }

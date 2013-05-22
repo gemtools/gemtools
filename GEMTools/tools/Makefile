@@ -10,7 +10,7 @@
 ROOT_PATH=..
 include ../Makefile.mk
 
-GEM_TOOLS=gt.stats gt.filter gt.mapset gt.construct gt.merge.map align_stats gt.quality
+GEM_TOOLS=gt.construct gt.stats gt.filter gt.mapset gt.map.2.sam gt.quality align_stats 
 
 GEM_TOOLS_SRC=$(addsuffix .c, $(GEM_TOOLS))
 GEM_TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(GEM_TOOLS))

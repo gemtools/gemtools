@@ -117,29 +117,29 @@ cdef extern from "gem_tools.h" nogil:
     void gt_buffered_output_file_close(gt_buffered_output_file* buffered_output_file)
 
     # sam parser
-    ctypedef struct gt_sam_parser_attr:
+    ctypedef struct gt_sam_parser_attributes:
         bool sam_soap_style
 
-    ctypedef struct gt_map_parser_attr:
+    ctypedef struct gt_map_parser_attributes:
         bool read_paired
         uint64_t max_parsed_maps
         gt_string* src_text
 
     # generic parser
-    ctypedef struct gt_generic_parser_attr:
-        gt_sam_parser_attr sam_parser_attr
-        gt_map_parser_attr map_parser_attr
+    ctypedef struct gt_generic_parser_attributes:
+        gt_sam_parser_attributes sam_parser_attributes
+        gt_map_parser_attributes map_parser_attributes
 
 
-    gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool  paired_read)
-    void gt_input_generic_parser_attributes_reset_defaults(gt_generic_parser_attr*  attributes)
-    void gt_input_generic_parser_attributes_set_defaults(gt_generic_parser_attr*  attributes)
-    bool gt_input_generic_parser_attributes_is_paired(gt_generic_parser_attr*  attributes)
-    void gt_input_generic_parser_attributes_set_paired(gt_generic_parser_attr*  attributes, bool is_paired)
+    gt_generic_parser_attributes* gt_input_generic_parser_attributes_new(bool  paired_read)
+    void gt_input_generic_parser_attributes_reset_defaults(gt_generic_parser_attributes*  attributes)
+    void gt_input_generic_parser_attributes_set_defaults(gt_generic_parser_attributes*  attributes)
+    bool gt_input_generic_parser_attributes_is_paired(gt_generic_parser_attributes*  attributes)
+    void gt_input_generic_parser_attributes_set_paired(gt_generic_parser_attributes*  attributes, bool is_paired)
 
 
-    gt_status gt_input_generic_parser_get_alignment(gt_buffered_input_file* buffered_input,gt_alignment* alignment, gt_generic_parser_attr* attributes)
-    gt_status gt_input_generic_parser_get_template(gt_buffered_input_file* buffered_input,gt_template* template,gt_generic_parser_attr* attributes)
+    gt_status gt_input_generic_parser_get_alignment(gt_buffered_input_file* buffered_input,gt_alignment* alignment, gt_generic_parser_attributes* attributes)
+    gt_status gt_input_generic_parser_get_template(gt_buffered_input_file* buffered_input,gt_template* template,gt_generic_parser_attributes* attributes)
 
     ## map template parser
     gt_status gt_input_map_parse_template(char* string, gt_template* template)
@@ -392,7 +392,7 @@ cdef extern from "gt_stats.h":
 
 cdef extern from "gemtools_binding.h" nogil:
     void gt_merge_files_synch(gt_output_file* output_file, uint64_t threads, uint64_t num_files, gt_input_file** files)
-    void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map)
+    void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map, bool remove_scores)
     void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_stats* target_best_stats, uint64_t num_threads, bool paired_end)
     void gt_stats_print_stats(FILE* output, gt_stats* stats, bool paired_end)
     void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t threads, gt_filter_params* params)
@@ -408,3 +408,10 @@ cdef extern from "gemtools_binding.h" nogil:
         bool filter_by_strand
         bool keep_unique
         uint64_t min_score
+        bool filter_groups
+        bool group_1
+        bool group_2
+        bool group_3
+        bool group_4
+        bool close_output
+        char* annotation

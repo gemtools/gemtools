@@ -29,7 +29,8 @@ def gemtools():
             "denovo-junctions": gem.production.JunctionExtraction,
             "stats": gem.production.Stats,
             "filter": gem.production.Filter,
-            "report": gem.production.StatsReport
+            "report": gem.production.StatsReport,
+            "sam": gem.production.SamConverter
         }
         instances = {}
 
