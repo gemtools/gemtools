@@ -115,6 +115,51 @@ GT_INLINE bool gt_gtf_contains_gene_type(const gt_gtf* const gtf, char* const na
 	return gt_shash_is_contained(gtf->gene_types, name);
 }
 
+GT_INLINE gt_gtf_node* gt_gtf_create_node(gt_vector* entries){
+  const uint64_t len = gt_vector_get_used(entries);
+  if(len == 0){
+    return NULL;
+  }
+  gt_gtf_node* const node = malloc(sizeof(gt_gtf_node));
+  const gt_gtf_entry* mid = *gt_vector_get_elm(entries, len/2, gt_gtf_entry*);
+  node->midpoint = mid->start + ((mid->end - mid->start)/2);
+  node->entries_by_end = gt_vector_new(16, sizeof(gt_gtf_entry*));
+  node->entries_by_start = gt_vector_new(16, sizeof(gt_gtf_entry*));
+  gt_vector* to_left = gt_vector_new(16, sizeof(gt_gtf_entry*));
+  gt_vector* to_right = gt_vector_new(16, sizeof(gt_gtf_entry*));
+  GT_VECTOR_ITERATE(entries, element, counter, gt_gtf_entry*){
+    if((*element)->end < node->midpoint){
+      gt_vector_insert(to_left, (*element), gt_gtf_entry*);
+    }else if((*element)->start > node->midpoint){
+      gt_vector_insert(to_right, (*element), gt_gtf_entry*);
+    }else{
+      gt_vector_insert(node->entries_by_end, (*element), gt_gtf_entry*);
+      gt_vector_insert(node->entries_by_start, (*element), gt_gtf_entry*);
+    }
+  }
+  // sort the start and end lists
+  gt_gtf_sort_by_start(node->entries_by_start);
+  gt_gtf_sort_by_end(node->entries_by_end);
+
+  // delete incoming entry list
+  gt_vector_delete(entries);
+  if(gt_vector_get_used(to_left) > 0){
+    // create left node
+    node->left = gt_gtf_create_node(to_left);
+  }else{
+    node->left = NULL;
+    gt_vector_delete(to_left);
+  }
+  if(gt_vector_get_used(to_right) > 0){
+    // create right node
+    node->right = gt_gtf_create_node(to_right);
+  }else{
+    node->right = NULL;
+    gt_vector_delete(to_right);
+  }
+  return node;
+}
+
 /**
  * Parse a single GTF line
  */
@@ -240,28 +285,40 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf){
 }
 
 /**
- * Compare two gt_gtf_entries to sort them first by start, then by end coordinate
- * and if all equal by their type
+ * Comparator that compares two gtf_entries by starting position
  */
-GT_INLINE int gt_gtf_cmp_entries(const gt_gtf_entry** a, const gt_gtf_entry** b){
-  uint64_t e_1 = (*a)->end;
-  uint64_t e_2 = (*b)->end;
-  if(e_1 < e_2){
-    return -1;
-  }else if (e_1 > e_2){
-    return 1;
-  }else{
-    uint64_t s_1 = (*a)->start;
-    uint64_t s_2 = (*b)->start;
-    if(s_1 < s_2){
-      return -1;
-    }else if (e_1 > e_2){
-      return 1;
-    }else{
-      return gt_string_cmp((*a)->type, (*b)->type);
-    }
-  }
+GT_INLINE int gt_gtf_sort_by_start_cmp_(const gt_gtf_entry** a, const gt_gtf_entry** b){
+  uint64_t p1 = (*a)->start;
+  uint64_t p2 = (*b)->start;
+  return p1 < p2 ? -1 : (p1>p2 ? 1 : gt_string_cmp( (*a)->type, (*b)->type ));
 }
+/**
+ * Comparator that compares two gtf_entries by ending position
+ */
+GT_INLINE int gt_gtf_sort_by_end_cmp_(const gt_gtf_entry** a, const gt_gtf_entry** b){
+  uint64_t p1 = (*a)->end;
+  uint64_t p2 = (*b)->end;
+  return p1 < p2 ? -1 : (p1>p2 ? 1 : gt_string_cmp( (*a)->type, (*b)->type ));
+}
+/**
+ * Sort vector of gt_gtf_entries by starting position
+ */
+GT_INLINE void gt_gtf_sort_by_start(gt_vector* entries){
+  qsort(gt_vector_get_mem(entries, gt_gtf_entry*),
+    gt_vector_get_used(entries),
+    sizeof(gt_gtf_entry**),
+    (int (*)(const void *,const void *))gt_gtf_sort_by_start_cmp_);
+}
+/**
+ * Sort vector of gt_gtf_entries by ending position
+ */
+GT_INLINE void gt_gtf_sort_by_end( gt_vector* entries){
+  qsort(gt_vector_get_mem(entries, gt_gtf_entry*),
+    gt_vector_get_used(entries),
+    sizeof(gt_gtf_entry**),
+    (int (*)(const void *,const void *))gt_gtf_sort_by_end_cmp_);
+}
+
 
 GT_INLINE gt_gtf* gt_gtf_read(FILE* input){
   gt_gtf* gtf = gt_gtf_new();
@@ -269,53 +326,14 @@ GT_INLINE gt_gtf* gt_gtf_read(FILE* input){
   while ( fgets(line, GTF_MAX_LINE_LENGTH, input) != NULL ){
     gt_gtf_read_line(line, gtf);
   }
-
   // sort the refs
   GT_SHASH_BEGIN_ELEMENT_ITERATE(gtf->refs,shash_element,gt_gtf_ref) {
-    qsort(gt_vector_get_mem(shash_element->entries, gt_gtf_entry*),
-        gt_vector_get_used(shash_element->entries),
-        sizeof(gt_gtf_entry**),
-        (int (*)(const void *,const void *))gt_gtf_cmp_entries);
+    // create a interval tree node for each ref
+    shash_element->node = gt_gtf_create_node(shash_element->entries);
   } GT_SHASH_END_ITERATE
-
-
-//  GT_SHASH_BEGIN_ELEMENT_ITERATE(gtf->refs,shash_element,gt_gtf_ref) {
-//    GT_VECTOR_ITERATE(shash_element->entries, element, counter, gt_gtf_entry*){
-//      const gt_gtf_entry* const entry = *element;
-//      printf("%d: %s %s %d %d\n",counter, gt_string_get_string(entry->type),gt_string_get_string(entry->gene_id), entry->start, entry->end);
-//    }
-//
-//  } GT_SHASH_END_ITERATE
-
-
-
-
   return gtf;
 }
 
-/*
- * Search
- */
-/**
- * walk back after the initial binary search to find the first element that overlaps with
- * the initially found element in binary search
- */
-GT_INLINE uint64_t gt_gtf_bin_search_first(gt_vector* const entries, uint64_t binary_search_result, uint64_t start, uint64_t end){
-  if(binary_search_result == 0){
-    return 0;
-  }
-  gt_gtf_entry* binary_search_element =  *gt_vector_get_elm(entries, binary_search_result, gt_gtf_entry*);
-  gt_gtf_entry* previous_element =  *gt_vector_get_elm(entries, binary_search_result-1, gt_gtf_entry*);
-  while(previous_element->end >= start){
-    binary_search_result = binary_search_result - 1;
-    if(binary_search_result == 0){
-      return 0;
-    }
-    previous_element =  *gt_vector_get_elm(entries, binary_search_result, gt_gtf_entry*);
-  }
-  printf("Search result %d for %d-%d\n", binary_search_result+1, start, end);
-  return binary_search_result+1;
-}
 /*
  * Binary search for start position
  */
@@ -338,11 +356,38 @@ GT_INLINE uint64_t gt_gtf_bin_search(gt_vector* const entries, const uint64_t t,
   e = *gt_vector_get_elm(entries, l, gt_gtf_entry*);
 
   if (h == l){
-    return gt_gtf_bin_search_first(entries, l, t, end);
+    return l;
   }else{
-    return gt_gtf_bin_search_first(entries, m, t, end);
+    return m;
   }
 }
+
+GT_INLINE void gt_gtf_search_node_(gt_gtf_node* node, const uint64_t start, const uint64_t end, gt_vector* const target){
+  if(node == NULL) return;
+
+  // add overlapping intervals from this node
+  GT_VECTOR_ITERATE(node->entries_by_start, element, counter, gt_gtf_entry*){
+    if((*element)->start > end){
+      break;
+    }
+    if((*element)->start <= start && (*element)->end >= end){
+      gt_vector_insert(target, (*element), gt_gtf_entry*);
+    }
+  }
+
+
+  if(end < node->midpoint || start < node->midpoint){
+    // search left tree
+    gt_gtf_search_node_(node->left, start, end, target);
+  }
+  if (start > node->midpoint || end > node->midpoint){
+    gt_gtf_search_node_(node->right, start, end, target);
+  }
+
+}
+
+
+
 
 GT_INLINE void gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, char* const ref, const uint64_t start, const uint64_t end){
   gt_vector_clear(target);
@@ -350,41 +395,16 @@ GT_INLINE void gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, 
   if (! gt_shash_is_contained(gtf->refs, ref)){
     return;
   }
-
   const gt_gtf_ref* const source_ref = gt_gtf_get_ref(gtf, ref);
-  gt_vector* const entries = source_ref->entries;
-  const uint64_t len = gt_vector_get_used(entries);
+  gt_gtf_search_node_(source_ref->node, start, end, target);
 
-  gt_gtf_entry* e;
-  uint64_t last_start = 0;
-  uint64_t last_end = 0;
-  gt_string* last_type = NULL;
-  // search for all hits and filter out duplicates
-  // duplicate search is based on the order of the hits
 
-  uint64_t hit = gt_gtf_bin_search(entries, start, end);
-  printf("Search for  %d-%d :: %d\n", start , end, hit);
-  for(; hit<len; hit++){
-    e =  *gt_vector_get_elm(entries, hit, gt_gtf_entry*);
-    if(e->end < start){
-      break;
-    }
-    printf("\t(%s %s %d %d) (%d-%d)\n",gt_string_get_string(e->type),gt_string_get_string(e->gene_id), e->start, e->end, start, end);
-
-    // overlap with the annotation
-    if(e->start <= end && e->end >= start){
-      // check for duplicates
-      if(last_type != NULL){
-        if(last_type == e->type && last_start == e->start && last_end == e->end){
-          continue;
-        }
-      }
-      // store last positions and type
-      last_type = e->type; last_start = e->start; last_end = e->end;
-      gt_vector_insert(target, e, gt_gtf_entry*);
-    }
-  }
+//  GT_VECTOR_ITERATE(target, element, counter, gt_gtf_entry*){
+//    printf("\t(%s %s %d %d) (%d-%d)\n",gt_string_get_string((*element)->type),
+//        gt_string_get_string((*element)->gene_id), (*element)->start, (*element)->end, start, end);
+//  }
 }
+
 
 GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_hits* const hits, gt_template* const template_src){
   if(!gt_gtf_contains_type(gtf, "exon")){
@@ -511,7 +531,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
         // get all the exons with same gene id
         GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
           const gt_gtf_entry* const entry = *element;
-          printf("\tSearch hit : %s %d-%d\n", gt_string_get_string(entry->type), entry->start, entry->end);
+//          printf("\tSearch hit : %s %d-%d\n", gt_string_get_string(entry->type), entry->start, entry->end);
           // check that the enry has a gene_id and is an exon
           if(entry->gene_id != NULL && gt_string_equals(exon_type, entry->type)){
             exon_found = true;
@@ -535,14 +555,14 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
           }
         }
         if(!exon_found && gt_vector_get_used(search_hits) > 0){
-          printf("No exon found ... checking for gene annotation %d %d-%d\n", gt_vector_get_used(search_hits), start, end);
+//          printf("No exon found ... checking for gene annotation %d %d-%d\n", gt_vector_get_used(search_hits), start, end);
           GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
             const gt_gtf_entry* const entry = *element;
-            printf("TYPE: %s :: %s :: %d-%d\n", gt_string_get_string(entry->type), gt_string_get_string(entry->gene_id), entry->start, entry->end);
+//            printf("TYPE: %s :: %s :: %d-%d\n", gt_string_get_string(entry->type), gt_string_get_string(entry->gene_id), entry->start, entry->end);
             // check that the enry has a gene_id and is an exon
             if(entry->gene_id != NULL && gt_string_equals(gene_type, entry->type)){
               if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
-                printf("Found gene ....\n\n");
+//                printf("Found gene ....\n\n");
                 // calculate the overlap
                 float read_length = end - start;
                 uint64_t tran_length = entry->end - entry->start;
@@ -562,9 +582,6 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
             }
           }
         }
-
-
-
         overlap += local_overlap;
       }
     }

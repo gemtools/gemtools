@@ -26,12 +26,23 @@ typedef struct {
 	gt_string* gene_type; // the gene id if it exists
 } gt_gtf_entry;
 
+typedef struct _gt_gtf_node gt_gtf_node;
+
+struct _gt_gtf_node {
+  uint64_t midpoint;
+  gt_vector* entries_by_start;
+  gt_vector* entries_by_end;
+  gt_gtf_node* left;
+  gt_gtf_node* right;
+} ;
+
 /**
  * Single chromosome reference with
  * all it gtf entries
  */
 typedef struct {
 	gt_vector* entries; // gt_gtf_entry list
+	gt_gtf_node* node; // gt_gtf_entry list
 } gt_gtf_ref;
 
 /**
