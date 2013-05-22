@@ -19,7 +19,7 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_sta
 
   //params_all.indel_profile = true
   // Parallel reading+process
-#pragma omp parallel num_threads(num_threads)
+  #pragma omp parallel num_threads(num_threads)
   {
     uint64_t tid = omp_get_thread_num();
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
@@ -30,7 +30,7 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_sta
       all_stats[tid] = gt_stats_new();
       best_stats[tid] = gt_stats_new();
     }
-    gt_generic_parser_attr* generic_parser_attr =  gt_input_generic_parser_attributes_new(paired_end);
+    gt_generic_parser_attributes* generic_parser_attr =  gt_input_generic_parser_attributes_new(paired_end);
     while ((error_code=gt_input_generic_parser_get_template(buffered_input,template, generic_parser_attr))) {
       if (error_code!=GT_IMP_OK) {
         gt_error_msg("Fatal error parsing file\n");
@@ -101,14 +101,12 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
   }
 
   // generic parser attributes
-  gt_generic_parser_attr* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
+  gt_generic_parser_attributes* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
   pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
 
   if(interleave){
-
-
     // main loop, interleave
-#pragma omp parallel num_threads(threads)
+    #pragma omp parallel num_threads(threads)
     {
       register uint64_t i = 0;
       register uint64_t c = 0;
@@ -301,7 +299,7 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
         is_4= true;
       }
       register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-      if(!best_printed) gt_template_add_mmap(template_dst,mmap_copy);
+      if(!best_printed) gt_template_add_mmap_array(template_dst,mmap_copy, mmap_attr);
       if(score > 119){
         best_printed = true;
       }
@@ -438,9 +436,9 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
   gt_output_map_attributes_set_print_casava(map_attributes, true);
 
   // generic parser attributes
-  gt_generic_parser_attr* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
+  gt_generic_parser_attributes* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
   if(params->max_matches > 0){
-    parser_attributes->map_parser_attr.max_parsed_maps = params->max_matches;
+    parser_attributes->map_parser_attributes->max_parsed_maps = params->max_matches;
   }
   gt_gtf* gtf = NULL;
 

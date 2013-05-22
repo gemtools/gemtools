@@ -270,7 +270,7 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
   }
   // Print attributes (scores)
   if (print_scores && gt_map_get_score(map)!=GT_MAP_NO_GT_SCORE) {
-    gt_gprintf(gprinter,GT_MAP_SCORE"%"PRIu64,gt_map_get_score(map));
+    gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_score(map));
   }
   // Print quimeras, split-maps across chromosomes, ...
   if (gt_map_has_next_block(map_it)) {

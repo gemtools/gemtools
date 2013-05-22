@@ -201,7 +201,7 @@ class Filter(Command):
             "min_event_distance": args.min_event_distance,
             "min_levenshtein_distance": args.min_levenshtein_distance,
             "filter_strand": args.filter_strand,
-            "keep_unique": args.keep_unique,            
+            "keep_unique": args.keep_unique,
         }
 
         if args.max_event_distance is not None:
@@ -226,7 +226,7 @@ class Filter(Command):
                 params["group_4"] = True
         else:
             params["filter_groups"] = False
-            
+
         if args.annotation is not None:
             params["annotation"] = args.annotation
 
@@ -234,15 +234,15 @@ class Filter(Command):
         if args.rescore:
             scored = gem.score(infile, args.index, quality=args.quality,
                                threads=threads)
-        
-        
+
+
         gt.filter_map(scored, outfile, params, threads=threads,
                       background_process=False)
-        
+
         if name is not None:
             outfile.close()
-        
-        
+
+
         if args.create_bam:
             map_file = gem.files.open("%s.map" % name, quality=args.quality)
             sam = gem.gem2sam(map_file,
@@ -527,3 +527,40 @@ class JunctionExtraction(Command):
         except PipelineError, e:
             sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
+
+
+class SamConverter(Command):
+    description = """Convert a .map or .map.gz file to SAM/BAM and index/sort it
+    """
+    title = "Convert to SAM/BAM"
+
+    def register(self, parser):
+        pipeline = MappingPipeline()
+        pipeline.register_general(parser)
+        pipeline.register_bam(parser)
+        pipeline.register_execution(parser)
+
+    def run(self, args):
+        ## parsing command line arguments
+        try:
+            ## initialize pipeline and check values
+            pipeline = MappingPipeline(args=args)
+        except PipelineError, e:
+            sys.stderr.write("\nERROR: " + e.message + "\n")
+            exit(1)
+
+        # add the bam step
+        bam = pipeline.bam(name="bam", dependencies=[], final=True)
+        if pipeline.bam_index:
+            pipeline.index_bam(name="index-bam", dependencies=[bam], final=True)
+
+        # show parameter and step configuration
+        pipeline.log_parameter()
+
+        # run the pipeline
+        try:
+            pipeline.run()
+        except PipelineError, e:
+            sys.stderr.write("\nERROR: " + e.message + "\n")
+            exit(1)
+

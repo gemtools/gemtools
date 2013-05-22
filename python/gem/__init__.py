@@ -816,8 +816,6 @@ def gem2sam(input, index=None, output=None,
         gem_2_sam_p.extend(['-I', index])
         if not exclude_header:
             gem_2_sam_p.append("-l")
-    if add_length is not None:
-        gem_2_sam_p.append('-l')
 
     quality = _prepare_quality_parameter(quality, input)
     if quality is not None and not quality == "ignore":

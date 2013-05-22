@@ -120,7 +120,7 @@ typedef struct {
   bool remove_duplicates; // Instead of strictly parse the record, tries to merge duplicates (sort of cleanup in case of bugs ...)
   /* Auxiliary Buffers */
   gt_string* src_text; // Source text line parsed (parsing from file)
-} gt_map_parser_attr;
+} gt_map_parser_attributes;
 #define GT_MAP_PARSER_ATTR_DEFAULT(_force_read_paired) { \
   /* PE/SE */ \
   .force_read_paired=_force_read_paired,  \

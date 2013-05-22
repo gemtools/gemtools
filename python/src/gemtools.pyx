@@ -394,7 +394,7 @@ cdef class InputFile(object):
     #
     cdef gt_buffered_input_file* buffered_input
     # parser attributes
-    cdef gt_generic_parser_attr* parser_attr
+    cdef gt_generic_parser_attributes* parser_attr
     # the template instance that is used to iterate templates
     cdef readonly Template template
     # remove scores when printing
@@ -1327,7 +1327,7 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
     cdef uint64_t use_threads = threads
     if params is None:
         params = {}
-    
+
     cdef gt_filter_params p
     p.max_matches = params.get("max_matches", 0)
     p.min_event_distance = params.get("min_event_distance", 0)
@@ -1349,10 +1349,10 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
         p.annotation = params["annotation"]
     else:
         p.annotation = ""
-    
+
     with nogil:
-        gt_filter_stream(input_file, output_file, use_threads, &p)    
-    gt_input_file_close(input_file)    
+        gt_filter_stream(input_file, output_file, use_threads, &p)
+    gt_input_file_close(input_file)
 
 
 cpdef filter_map(input, OutputFile output, params, uint64_t threads=1,

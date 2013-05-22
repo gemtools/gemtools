@@ -117,29 +117,29 @@ cdef extern from "gem_tools.h" nogil:
     void gt_buffered_output_file_close(gt_buffered_output_file* buffered_output_file)
 
     # sam parser
-    ctypedef struct gt_sam_parser_attr:
+    ctypedef struct gt_sam_parser_attributes:
         bool sam_soap_style
 
-    ctypedef struct gt_map_parser_attr:
+    ctypedef struct gt_map_parser_attributes:
         bool read_paired
         uint64_t max_parsed_maps
         gt_string* src_text
 
     # generic parser
-    ctypedef struct gt_generic_parser_attr:
-        gt_sam_parser_attr sam_parser_attr
-        gt_map_parser_attr map_parser_attr
+    ctypedef struct gt_generic_parser_attributes:
+        gt_sam_parser_attributes sam_parser_attributes
+        gt_map_parser_attributes map_parser_attributes
 
 
-    gt_generic_parser_attr* gt_input_generic_parser_attributes_new(bool  paired_read)
-    void gt_input_generic_parser_attributes_reset_defaults(gt_generic_parser_attr*  attributes)
-    void gt_input_generic_parser_attributes_set_defaults(gt_generic_parser_attr*  attributes)
-    bool gt_input_generic_parser_attributes_is_paired(gt_generic_parser_attr*  attributes)
-    void gt_input_generic_parser_attributes_set_paired(gt_generic_parser_attr*  attributes, bool is_paired)
+    gt_generic_parser_attributes* gt_input_generic_parser_attributes_new(bool  paired_read)
+    void gt_input_generic_parser_attributes_reset_defaults(gt_generic_parser_attributes*  attributes)
+    void gt_input_generic_parser_attributes_set_defaults(gt_generic_parser_attributes*  attributes)
+    bool gt_input_generic_parser_attributes_is_paired(gt_generic_parser_attributes*  attributes)
+    void gt_input_generic_parser_attributes_set_paired(gt_generic_parser_attributes*  attributes, bool is_paired)
 
 
-    gt_status gt_input_generic_parser_get_alignment(gt_buffered_input_file* buffered_input,gt_alignment* alignment, gt_generic_parser_attr* attributes)
-    gt_status gt_input_generic_parser_get_template(gt_buffered_input_file* buffered_input,gt_template* template,gt_generic_parser_attr* attributes)
+    gt_status gt_input_generic_parser_get_alignment(gt_buffered_input_file* buffered_input,gt_alignment* alignment, gt_generic_parser_attributes* attributes)
+    gt_status gt_input_generic_parser_get_template(gt_buffered_input_file* buffered_input,gt_template* template,gt_generic_parser_attributes* attributes)
 
     ## map template parser
     gt_status gt_input_map_parse_template(char* string, gt_template* template)
