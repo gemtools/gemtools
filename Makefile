@@ -59,6 +59,7 @@ venv: $(VIRTUALENV_NAME)/bin/activate
 $(VIRTUALENV_NAME)/bin/activate: requirements.txt
 	test -d $(VIRTUALENV_NAME)/bin/activate || python $(VIRTUALENV) $(VIRTUALENV_NAME)
 	. $(VIRTUALENV_NAME)/bin/activate; pip install -Ur requirements.txt
+	. $(VIRTUALENV_NAME)/bin/activate; pip install matplotlib==1.2.0
 	. $(VIRTUALENV_NAME)/bin/activate; python setup.py develop
 	@echo "----------------------------------------------------------"
 	@echo "---  Virtualenv set up in $(VIRTUALENV_NAME)"
