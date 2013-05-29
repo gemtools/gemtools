@@ -177,14 +177,14 @@ class Filter(Command):
         ## check rescore params
         if args.rescore or args.create_bam:
             if args.index is None:
-                args.error("You have to specify an index to do rescoring or bam creation")
+                sys.stderr.write("You have to specify an index to do rescoring or bam creation\n")
                 return False
             if args.quality is None:
-                args.error("You have to specify the quality offset")
+                sys.stderr.write("You have to specify the quality offset\n")
                 return False
             if args.create_bam and args.output is None:
-                args.error("You have to specify an output name prefix to "
-                           "create a BAM file")
+                sys.stderr.write("You have to specify an output name prefix to "
+                                 "create a BAM file\n")
                 return False
 
         # prepare input
