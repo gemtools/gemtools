@@ -549,7 +549,7 @@ cpdef __write_stream(source, OutputFile output, bool write_map=False, uint64_t t
         gt_input_file_close(inputs[i])
     free(inputs)
 
-cpdef __write_merge_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True):
+cpdef __write_merge_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True, bool remove_scores=False):
     cdef gt_output_file* output_file = output.output_file
     cdef uint64_t num_inputs = len(source)
     cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
