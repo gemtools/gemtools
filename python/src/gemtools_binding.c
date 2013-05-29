@@ -259,7 +259,6 @@ void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired
 void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
   bool is_4 = false;
   bool best_printed = false;
-
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
@@ -292,19 +291,22 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
         ||	(params->group_4 && (  (114 <= score && score <= 119)
             ||  (95  <= score && score <= 110 && is_4)))
 
-      ) { 
+      ) {
       if (!is_4 && 114 <= score && score <= 119){
         is_4= true;
       }
-
-      gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-      if(!best_printed){gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);}
-      if(score > 119){best_printed = true;}
-      gt_free(mmap_copy);
+      if(!best_printed){
+        gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
+        gt_template_insert_mmap(template_dst, mmap_copy, mmap_attributes);
+      }
+      if(score > 119){
+        best_printed = true;
+      }
     }
   }
-
 }
+
+
 
 void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params, gt_gtf* gtf) {
 //  register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
@@ -369,6 +371,8 @@ void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, g
 }
 
 void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
+  bool is_4 = false;
+  bool best_printed = false;
   /*SE*/
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
@@ -383,6 +387,31 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
       const uint64_t lev_distance = gt_map_get_global_levenshtein_distance(map);
       if (params->min_event_distance > total_distance || total_distance > params->max_event_distance) continue;
       if (params->min_levenshtein_distance > lev_distance || lev_distance > params->max_levenshtein_distance) continue;
+
+      // filter by score
+      if(params->filter_groups){
+        const int64_t score = get_mapq(map->gt_score);
+        if(   (params->group_1 && 252 <= score && score <= 254)
+            ||  (params->group_2 && 177 <= score && score <= 180)
+            ||  (params->group_3 && 123 <= score && score <= 127)
+            ||  (params->group_4 && (  (114 <= score && score <= 119)
+                ||  (95  <= score && score <= 110 && is_4)))
+
+          ) {
+          if (!is_4 && 114 <= score && score <= 119){
+            is_4= true;
+          }
+          if(best_printed){
+            continue;
+          }else{
+            if(score > 119){
+              best_printed = true;
+            }
+          }
+        }else{
+          continue;
+        }
+      }
       // Insert the map
       gt_alignment_insert_map(alignment_dst, gt_map_copy(map));
     }
@@ -415,6 +444,33 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
       if (mmap[0]->strand==FORWARD && mmap[1]->strand==FORWARD) continue;
       if (mmap[0]->strand==REVERSE && mmap[1]->strand==REVERSE) continue;
     }
+
+
+    // filter by score
+    if(params->filter_groups){
+      const int64_t score = get_mapq(mmap_attr->gt_score);
+      if(   (params->group_1 && 252 <= score && score <= 254)
+          ||  (params->group_2 && 177 <= score && score <= 180)
+          ||  (params->group_3 && 123 <= score && score <= 127)
+          ||  (params->group_4 && (  (114 <= score && score <= 119)
+              ||  (95  <= score && score <= 110 && is_4)))
+
+        ) {
+        if (!is_4 && 114 <= score && score <= 119){
+          is_4= true;
+        }
+        if(best_printed){
+          continue;
+        }else{
+          if(score > 119){
+            best_printed = true;
+          }
+        }
+      }else{
+        continue;
+      }
+    }
+
     // Add the mmap
     gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
     gt_template_insert_mmap(template_dst, mmap_copy, mmap_attr);
@@ -424,19 +480,7 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
 
 void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t threads, gt_filter_params* params){
   gt_handle_error_signals();
-
-  // prepare attributes
-  gt_output_map_attributes* map_attributes = gt_output_map_attributes_new();
-  gt_output_map_attributes_set_print_extra(map_attributes, true);
-  gt_output_map_attributes_set_print_casava(map_attributes, true);
-
-  // generic parser attributes
-  gt_generic_parser_attributes* parser_attributes = gt_input_generic_parser_attributes_new(false); // do not force pairs
-  if(params->max_matches > 0){
-    parser_attributes->map_parser_attributes->max_parsed_maps = params->max_matches;
-  }
   gt_gtf* gtf = NULL;
-
   if(params->annotation != NULL && strlen(params->annotation) > 0){
     FILE* of = fopen(params->annotation, "r");
     if(of == NULL){
@@ -451,28 +495,26 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
   // main loop, cat
   #pragma omp parallel num_threads(threads)
   {
+
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input);
     gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output);
-    gt_buffered_input_file_attach_buffered_output(buffered_input, buffered_output);
+    gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
+
+    gt_generic_printer_attributes* generic_printer_attributes = gt_generic_printer_attributes_new(MAP);
+    gt_output_map_attributes_reset_defaults(generic_printer_attributes->output_map_attributes);
+    gt_generic_parser_attributes* generic_parser_attributes = gt_input_generic_parser_attributes_new(params->paired);
+    gt_input_map_parser_attributes_set_max_parsed_maps(generic_parser_attributes->map_parser_attributes, params->max_matches); // Limit max-matches
+
     gt_template* template = gt_template_new();
     gt_status status = 0;
     bool is_mapped = false;
 
-
-    while( (status = gt_input_generic_parser_get_template(buffered_input,template, parser_attributes)) == GT_STATUS_OK ){
+    while ((status=gt_input_generic_parser_get_template(buffered_input,template,generic_parser_attributes))) {
       gt_template_sort_by_distance__score(template);
 
       if(gtf != NULL){
         gt_template *template_filtered = gt_template_copy(template,false,false);
         gt_annotation_filter(template_filtered, template, params, gtf);
-        gt_template_delete(template);
-        template = template_filtered;
-        gt_template_recalculate_counters(template);
-      }
-
-      if(params->filter_groups){
-        gt_template *template_filtered = gt_template_copy(template,false,false);
-        gt_score_filter(template_filtered, template, params);
         gt_template_delete(template);
         template = template_filtered;
         gt_template_recalculate_counters(template);
@@ -487,14 +529,17 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
         template = template_filtered;
         gt_template_recalculate_counters(template);
       }
-      gt_output_map_bofprint_template(buffered_output, template, map_attributes);
+
+      gt_output_generic_bofprint_template(buffered_output,template,generic_printer_attributes);
+
     }
+    gt_template_delete(template);
     gt_buffered_input_file_close(buffered_input);
     gt_buffered_output_file_close(buffered_output);
-    gt_template_delete(template);
+    gt_generic_printer_attributes_delete(generic_printer_attributes);
+    gt_input_generic_parser_attributes_delete(generic_parser_attributes);
   }
-  gt_output_map_attributes_delete(map_attributes);
-  gt_input_generic_parser_attributes_delete(parser_attributes);
+
   if(params->close_output){
     gt_output_file_close(output);
   }

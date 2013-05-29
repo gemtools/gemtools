@@ -85,6 +85,9 @@ class Filter(Command):
         parser.add_argument('-t', '--threads', dest="threads",
                             type=int, default=1,
                             help='Number of threads')
+        parser.add_argument('-p', '--paired', dest="paired",
+                            default=False, action="store_true",
+                            help='Paired reads')
 
         filter_group = parser.add_argument_group("Filter")
         filter_group.add_argument('--max-alignments', dest="max_matches",
@@ -209,6 +212,7 @@ class Filter(Command):
             "min_levenshtein_distance": args.min_levenshtein_distance,
             "filter_strand": args.filter_strand,
             "keep_unique": args.keep_unique,
+            "paired": args.paired,
         }
 
         if args.max_event_distance is not None:

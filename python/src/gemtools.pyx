@@ -1344,6 +1344,7 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
     p.group_2 = params.get("group_2", False)
     p.group_3 = params.get("group_3", False)
     p.group_4 = params.get("group_4", False)
+    p.paired = params.get("paired", False)
     p.close_output = params.get("close_output", True)
     if "annotation" in params and params["annotation"] is not None:
         p.annotation = params["annotation"]

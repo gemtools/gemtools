@@ -23,6 +23,7 @@ typedef struct {
   bool group_2;
   bool group_3;
   bool group_4;
+  bool paired;
   bool close_output;
   char* annotation;
 } gt_filter_params;
