@@ -156,6 +156,10 @@ class Filter(Command):
                                    action="store_true",
                                    default=False,
                                    help="Do not sort the resulting bam file")
+        rescore_group.add_argument("--no-xs", dest="no_xs",
+                                   action="store_true",
+                                   default=False,
+                                   help="Do not calculate the XS field in SAM")
         rescore_group.add_argument("--no-index", dest="no_index",
                                    action="store_true",
                                    default=False,
@@ -245,11 +249,14 @@ class Filter(Command):
 
         if args.create_bam:
             map_file = gem.files.open("%s.map" % name, quality=args.quality)
+            cons = gem.extended_splice_consensus
+            if args.no_xs:
+                cons = None
             sam = gem.gem2sam(map_file,
                               index=args.index,
                               threads=threads,
                               quality=args.quality,
-                              consensus=gem.extended_splice_consensus,
+                              consensus=cons,
                               )
             gem.sam2bam(sam, output=("%s.bam" % name),
                         sorted=not args.no_sort,
