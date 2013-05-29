@@ -160,6 +160,9 @@ class Filter(Command):
                                    action="store_true",
                                    default=False,
                                    help="Do not calculate the XS field in SAM")
+        rescore_group.add_argument('--sort-memory', dest="sort_memory", default=768,
+                                   metavar="mem", help="Memory used for samtools sort per thread. "
+                                                       "Suffix K/M/G recognized. Default 768M")
         rescore_group.add_argument("--no-index", dest="no_index",
                                    action="store_true",
                                    default=False,
@@ -260,7 +263,7 @@ class Filter(Command):
                               )
             gem.sam2bam(sam, output=("%s.bam" % name),
                         sorted=not args.no_sort,
-                        threads=threads, sort_memory="2G")
+                        threads=threads, sort_memory=str(args.sort_memory))
             if not args.no_index:
                 gem.bamIndex("%s.bam" % name)
 
