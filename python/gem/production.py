@@ -133,11 +133,11 @@ class Filter(Command):
                                   help="Include only the best mappings for "
                                   "groups I,II, and III and all "
                                   "mappings for IV")
-        filter_group.add_argument("--annotation", dest="annotation",
-                                 default=None,
-                                 help="Apply annotation filtering with the "
-                                 "given annotation"
-                                 )
+        # filter_group.add_argument("--annotation", dest="annotation",
+        #                          default=None,
+        #                          help="Apply annotation filtering with the "
+        #                          "given annotation"
+        #                          )
 
         rescore_group = parser.add_argument_group("SAM/BAM and rescoring")
         rescore_group.add_argument("--rescore", dest="rescore",
@@ -234,8 +234,8 @@ class Filter(Command):
         else:
             params["filter_groups"] = False
 
-        if args.annotation is not None:
-            params["annotation"] = args.annotation
+        # if args.annotation is not None:
+        #     params["annotation"] = args.annotation
 
         scored = infile
         if args.rescore:
