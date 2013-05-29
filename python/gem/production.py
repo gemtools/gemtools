@@ -170,7 +170,7 @@ class Filter(Command):
         ## check rescore params
         if args.rescore or args.create_bam:
             if args.index is None:
-                args.error("You have to specify an index to do rescoring""")
+                args.error("You have to specify an index to do rescoring or bam creation")
                 return False
             if args.quality is None:
                 args.error("You have to specify the quality offset")
