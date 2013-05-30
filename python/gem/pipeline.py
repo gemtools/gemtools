@@ -275,7 +275,15 @@ class CreateBamStep(PipelineStep):
 
     def run(self):
         cfg = self.configuration
-        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality, consensus=cfg['consensus'], exclude_header=cfg['sam_no_seq_header'], compact=cfg['sam_compact'])
+        cons =cfg['consensus']
+        if cfg['no_xs']:
+            cons = None
+        sam = gem.gem2sam(self._input(), cfg["index"],
+                          threads=self.pipeline.threads,
+                          quality=self.pipeline.quality,
+                          consensus=cons,
+                          exclude_header=cfg['sam_no_seq_header'],
+                          compact=cfg['sam_compact'])
         gem.sam2bam(sam, self._final_output(), sorted=cfg["sort"], mapq=cfg["mapq"], threads=self.pipeline.threads, sort_memory=self.pipeline.sort_memory)
 
 
@@ -590,6 +598,7 @@ class MappingPipeline(object):
         self.bam_index = True  # index bam
         self.sam_no_seq_header = False  # exlude seq header
         self.sam_compact = False  # sam compact format
+        self.no_xs = False # no xs calculation
         self.single_end = False  # single end alignments
         self.write_config = None  # write configuration
         self.dry = False  # only dry run
@@ -888,6 +897,7 @@ class MappingPipeline(object):
         config.consensus = self.junctions_consensus
         config.sam_no_seq_header = self.sam_no_seq_header
         config.sam_compact = self.sam_compact
+        config.no_xs = self.no_xs
 
         if configuration is not None:
             self.__update_dict(config, configuration)
@@ -1179,6 +1189,7 @@ index generated from your annotation.""")
         printer("Compress output  : %s", self.compress)
         printer("Compress all     : %s", self.compress_all)
         printer("Create BAM       : %s", self.bam_create)
+        printer("Create XS Flag   : %s", not self.no_xs)
         printer("SAM/BAM compact  : %s", self.sam_compact)
         printer("Sort BAM         : %s", self.bam_sort)
         printer("Index BAM        : %s", self.bam_index)
@@ -1466,6 +1477,10 @@ index generated from your annotation.""")
         bam_group.add_argument('--no-sequence-header', dest="sam_no_seq_header", action="store_true", default=None, help="Do not add the reference sequence header to the sam/bam file")
         bam_group.add_argument('--compact', dest="sam_compact", action="store_true", default=None, help="Create sam/bam compact format where each read is represented as a single line and any multi-maps are encoded in extra fields. The selection is based on the score.")
         bam_group.add_argument('--sort-memory', dest="sort_memory", default=self.sort_memory, metavar="mem", help="Memory used for samtools sort per thread. Suffix K/M/G recognized. Default %s" % (str(self.sort_memory)))
+        bam_group.add_argument("--no-xs", dest="no_xs",
+                                   action="store_true",
+                                   default=False,
+                                   help="Do not calculate the XS field in SAM")
 
     def register_general(self, parser):
         """Register all general parameters with the given

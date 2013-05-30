@@ -554,6 +554,7 @@ class SamConverter(Command):
         pipeline.register_bam(parser)
         pipeline.register_execution(parser)
 
+
     def run(self, args):
         ## parsing command line arguments
         try:
