@@ -126,6 +126,11 @@ GT_INLINE gt_misms* gt_map_get_misms(gt_map* const map,const uint64_t offset);
 GT_INLINE void gt_map_set_misms(gt_map* const map,gt_misms* misms,const uint64_t offset);
 GT_INLINE uint64_t gt_map_get_num_misms(gt_map* const map);
 GT_INLINE void gt_map_set_num_misms(gt_map* const map,const uint64_t num_misms);
+// Trim
+GT_INLINE void gt_map_left_trim(gt_map* const map,const uint64_t length);
+GT_INLINE void gt_map_right_trim(gt_map* const map,const uint64_t length);
+GT_INLINE void gt_map_restore_left_trim(gt_map* const map,const uint64_t length);
+GT_INLINE void gt_map_restore_right_trim(gt_map* const map,const uint64_t length);
 // Counting
 GT_INLINE uint64_t gt_map_get_num_mismatch_bases(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_num_indels(gt_map* const map);

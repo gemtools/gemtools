@@ -11,6 +11,8 @@
 
 #include "gem_tools.h"
 
+#define GT_STATS_OUT_FILE stdout
+
 typedef struct {
   /* [Input] */
   char *name_input_file;
@@ -19,16 +21,17 @@ typedef struct {
   bool paired_end;
   uint64_t num_reads;
   /* [Tests] */
-  bool best_map;
+  bool first_map;
   bool maps_profile;
   bool mismatch_transitions;
   bool mismatch_quality;
   bool splitmaps_profile;
   bool indel_profile;
+  /* [MAP Specific] */
+  bool use_only_decoded_maps;
   /* [Output] */
   bool verbose;
   bool compact;
-  bool quiet;
   /* [Misc] */
   uint64_t num_threads;
 } gt_stats_args;
@@ -41,16 +44,17 @@ gt_stats_args parameters = {
     .paired_end=false,
     .num_reads=0,
     /* [Tests] */
-    .best_map=false,
+    .first_map=false,
     .maps_profile = false,
     .mismatch_transitions = false,
     .mismatch_quality = false,
     .splitmaps_profile = false,
     .indel_profile = false,
+    /* [MAP Specific] */
+    .use_only_decoded_maps = false,
     /* [Output] */
     .verbose=false,
     .compact = false,
-    .quiet=false,
     /* [Misc] */
     .num_threads=1,
 };
@@ -62,14 +66,14 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
   /*
    * General.Stats (Reads,Alignments,...)
    */
-  fprintf(stderr,"[GENERAL.STATS]\n");
-  gt_stats_print_general_stats(stderr,stats,num_reads,paired_end);
+  fprintf(GT_STATS_OUT_FILE,"[GENERAL.STATS]\n");
+  gt_stats_print_general_stats(GT_STATS_OUT_FILE,stats,num_reads,paired_end);
   /*
    * Maps
    */
   if (parameters.maps_profile) {
-    fprintf(stderr,"[MAPS.PROFILE]\n");
-    gt_stats_print_maps_stats(stderr,stats,num_reads,paired_end);
+    fprintf(GT_STATS_OUT_FILE,"[MAPS.PROFILE]\n");
+    gt_stats_print_maps_stats(GT_STATS_OUT_FILE,stats,num_reads,paired_end);
   }
   /*
    * Print Quality Scores vs Errors/Misms
@@ -77,14 +81,14 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
   if (parameters.mismatch_quality) {
     const gt_maps_profile* const maps_profile = stats->maps_profile;
     if (maps_profile->total_mismatches > 0) {
-      fprintf(stderr,"[MISMATCH.QUALITY]\n");
+      fprintf(GT_STATS_OUT_FILE,"[MISMATCH.QUALITY]\n");
       gt_stats_print_qualities_error_distribution(
-          stderr,maps_profile->qual_score_misms,maps_profile->total_mismatches);
+          GT_STATS_OUT_FILE,maps_profile->qual_score_misms,maps_profile->total_mismatches);
     }
     if (maps_profile->total_errors_events > 0) {
-      fprintf(stderr,"[ERRORS.QUALITY]\n");
+      fprintf(GT_STATS_OUT_FILE,"[ERRORS.QUALITY]\n");
       gt_stats_print_qualities_error_distribution(
-          stderr,maps_profile->qual_score_errors,maps_profile->total_errors_events);
+          GT_STATS_OUT_FILE,maps_profile->qual_score_errors,maps_profile->total_errors_events);
     }
   }
   /*
@@ -93,46 +97,46 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
   if (parameters.mismatch_transitions) {
     const gt_maps_profile* const maps_profile = stats->maps_profile;
     if (maps_profile->total_mismatches > 0) {
-      fprintf(stderr,"[MISMATCH.TRANSITIONS]\n");
-      fprintf(stderr,"MismsTransitions\n");
+      fprintf(GT_STATS_OUT_FILE,"[MISMATCH.TRANSITIONS]\n");
+      fprintf(GT_STATS_OUT_FILE,"MismsTransitions\n");
       gt_stats_print_misms_transition_table(
-          stderr,maps_profile->misms_transition,maps_profile->total_mismatches);
-      fprintf(stderr,"MismsTransitions.1-Nucleotide.Context\n");
+          GT_STATS_OUT_FILE,maps_profile->misms_transition,maps_profile->total_mismatches);
+      fprintf(GT_STATS_OUT_FILE,"MismsTransitions.1-Nucleotide.Context\n");
       gt_stats_print_misms_transition_table_1context(
-          stderr,maps_profile->misms_1context,maps_profile->total_mismatches);
+          GT_STATS_OUT_FILE,maps_profile->misms_1context,maps_profile->total_mismatches);
     }
   }
   /*
    * Print Splitmaps profile
    */
   if (parameters.splitmaps_profile) {
-    fprintf(stderr,"[SPLITMAPS.PROFILE]\n");
-    gt_stats_print_split_maps_stats(stderr,stats,parameters.paired_end);
+    fprintf(GT_STATS_OUT_FILE,"[SPLITMAPS.PROFILE]\n");
+    gt_stats_print_split_maps_stats(GT_STATS_OUT_FILE,stats,parameters.paired_end);
   }
 }
 void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
   // #mapped, %mapped
   const uint64_t num_templates = paired_end ? num_reads>>1 : num_reads; // SE => 1 template. PE => 1 template
-  fprintf(stderr,"%" PRIu64 ",",stats->num_mapped);
-  fprintf(stderr,"%2.3f,",num_templates?100.0*(float)stats->num_mapped/(float)num_templates:0.0);
+  fprintf(GT_STATS_OUT_FILE,"%" PRIu64 ",",stats->num_mapped);
+  fprintf(GT_STATS_OUT_FILE,"%2.3f,",num_templates?100.0*(float)stats->num_mapped/(float)num_templates:0.0);
   // #unmapped, %unmapped
   const uint64_t unmapped = num_templates-stats->num_mapped;
-  fprintf(stderr,"%" PRIu64 ",",unmapped);
-  fprintf(stderr,"%2.3f,",num_templates?100.0*(float)unmapped/(float)num_templates:0.0);
+  fprintf(GT_STATS_OUT_FILE,"%" PRIu64 ",",unmapped);
+  fprintf(GT_STATS_OUT_FILE,"%2.3f,",num_templates?100.0*(float)unmapped/(float)num_templates:0.0);
   // MMap(maps/alg)
-  fprintf(stderr,"%2.3f,",stats->num_mapped?(float)stats->num_maps/(float)stats->num_mapped:0.0);
+  fprintf(GT_STATS_OUT_FILE,"%2.3f,",stats->num_mapped?(float)stats->num_maps/(float)stats->num_mapped:0.0);
   // Bases.aligned(%)
-  fprintf(stderr,"%2.3f,",GT_GET_PERCENTAGE(stats->maps_profile->total_bases_matching,stats->maps_profile->total_bases));
+  fprintf(GT_STATS_OUT_FILE,"%2.3f,",GT_GET_PERCENTAGE(stats->maps_profile->total_bases_matching,stats->maps_profile->total_bases));
   // Bases.trimmed(%)
-  fprintf(stderr,"%2.3f,",GT_GET_PERCENTAGE(stats->maps_profile->total_bases_trimmed,stats->maps_profile->total_bases));
+  fprintf(GT_STATS_OUT_FILE,"%2.3f,",GT_GET_PERCENTAGE(stats->maps_profile->total_bases_trimmed,stats->maps_profile->total_bases));
   // #Uniq-0, %Uniq-0
   const uint64_t all_uniq = stats->uniq[GT_STATS_UNIQ_RANGE_0]+
       stats->uniq[GT_STATS_UNIQ_RANGE_1]+stats->uniq[GT_STATS_UNIQ_RANGE_2]+
       stats->uniq[GT_STATS_UNIQ_RANGE_3]+stats->uniq[GT_STATS_UNIQ_RANGE_10]+
       stats->uniq[GT_STATS_UNIQ_RANGE_50]+stats->uniq[GT_STATS_UNIQ_RANGE_100]+
       stats->uniq[GT_STATS_UNIQ_RANGE_500]+stats->uniq[GT_STATS_UNIQ_RANGE_BEHOND];
-  fprintf(stderr,"%" PRIu64 ",",all_uniq);
-  fprintf(stderr,"%2.3f\n",num_templates?100.0*(float)all_uniq/(float)num_templates:0.0);
+  fprintf(GT_STATS_OUT_FILE,"%" PRIu64 ",",all_uniq);
+  fprintf(GT_STATS_OUT_FILE,"%2.3f\n",num_templates?100.0*(float)all_uniq/(float)num_templates:0.0);
 }
 
 /*
@@ -144,11 +148,12 @@ void gt_stats_parallel_generate_stats() {
   gt_stats** stats = gt_calloc(parameters.num_threads,gt_stats*,false);
 
   // Select analysis
-  stats_analysis.best_map = parameters.best_map;
+  stats_analysis.first_map = parameters.first_map;
   stats_analysis.maps_profile = parameters.maps_profile|parameters.mismatch_quality|parameters.mismatch_transitions;
   stats_analysis.nucleotide_stats = true;
   stats_analysis.split_map_stats = parameters.splitmaps_profile;
   stats_analysis.indel_profile = parameters.indel_profile;
+  stats_analysis.use_map_counters = !parameters.use_only_decoded_maps;
 
   // Open file
   gt_input_file* input_file = (parameters.name_input_file==NULL) ?
@@ -158,13 +163,13 @@ void gt_stats_parallel_generate_stats() {
   if (stats_analysis.indel_profile) {
     sequence_archive = gt_sequence_archive_new(GT_CDNA_ARCHIVE);
     gt_input_file* const reference_file = gt_input_file_open(parameters.name_reference_file,false);
-    fprintf(stderr,"Loading reference file ...");
+    fprintf(GT_STATS_OUT_FILE,"Loading reference file ...");
     if (gt_input_multifasta_parser_get_archive(reference_file,sequence_archive)!=GT_IFP_OK) {
-      fprintf(stderr,"\n");
+      fprintf(GT_STATS_OUT_FILE,"\n");
       gt_fatal_error_msg("Error parsing reference file '%s'\n",parameters.name_reference_file);
     }
     gt_input_file_close(reference_file);
-    fprintf(stderr," done! \n");
+    fprintf(GT_STATS_OUT_FILE," done! \n");
   }
 
   // Parallel reading+process
@@ -194,15 +199,17 @@ void gt_stats_parallel_generate_stats() {
   // Merge stats
   gt_stats_merge(stats,parameters.num_threads);
 
-  // Print Statistics
-  if (!parameters.quiet) {
-    if (!parameters.compact) {
-      gt_stats_print_stats(stats[0],(parameters.num_reads>0)?
-          parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
-    } else {
-      gt_stats_print_stats_compact(stats[0],(parameters.num_reads>0)?
-          parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
-    }
+  /*
+   * Print Statistics
+   *   Use stats[0]->num_blocks as the number of blocks in a MAP/SAM/FASTA/FASTQ file
+   *   is the number of reads in a FASTA/FASTQ
+   */
+  if (!parameters.compact) {
+    gt_stats_print_stats(stats[0],(parameters.num_reads>0)?
+        parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
+  } else {
+    gt_stats_print_stats_compact(stats[0],(parameters.num_reads>0)?
+        parameters.num_reads:stats[0]->num_blocks,parameters.paired_end);
   }
 
   // Clean
@@ -210,29 +217,33 @@ void gt_stats_parallel_generate_stats() {
   gt_input_file_close(input_file);
 }
 
-void usage() {
+void usage(const bool print_hidden) {
   fprintf(stderr, "USE: ./gt.stats [ARGS]...\n"
-                  "       [Input]\n"
-                  "        --input|-i [FILE]\n"
-                  "        --reference|-r [FILE]\n"
-                  "        --mmap-input\n"
-                  "        --paired-end|p\n"
-                  "        --num-reads|n\n"
-                  "       [Tests]\n"
-                  "        --best-map|--all-maps (default, --all-maps)\n"
-                  "        --all-tests|a\n"
-                  "        --maps-profile|M\n"
-                  "        --mismatch-transitions|T\n"
-                  "        --mismatch-quality|Q\n"
-                  "        --splitmaps-profile|S\n"
-                 // "        --indel-profile|I\n"
-                  "       [Output]\n"
-                  "        --compact|c\n"
-                  "        --verbose|v\n"
-                  "        --quiet|q\n"
-                  "       [Misc]\n"
-                  "        --threads|t\n"
-                  "        --help|h\n");
+                  "         [Input]\n"
+                  "           --input|-i [FILE]\n"
+               // "           --reference|-r [FILE]\n"
+               // "           --mmap-input\n"
+                  "           --paired-end|p\n"
+                  "           --num-reads|n\n"
+                  "         [Tests]\n"
+                  "           --first-map|--all-maps (default, --all-maps)\n"
+                  "           --all-tests|a\n"
+                  "           --maps-profile|M\n" // TODO: population analysis
+                  "           --mismatch-transitions|T\n"
+                  "           --mismatch-quality|Q\n"
+                  "           --splitmaps-profile|S\n"
+               // "           --indel-profile|I\n"
+                  "         [MAP Specific]\n"
+                  "           --use-only-decoded-maps (instead of counters)\n"
+                  "         [Output]\n"
+                  "           --verbose|v\n"
+                  "         [Misc]\n"
+                  "           --threads|t\n"
+                  "           --help|h\n");
+  if (print_hidden) {
+  fprintf(stderr, "         [Output]\n"
+                  "           --compact|c\n");
+  }
 }
 
 void parse_arguments(int argc,char** argv) {
@@ -244,7 +255,7 @@ void parse_arguments(int argc,char** argv) {
     { "paired-end", no_argument, 0, 'p' },
     { "num-reads", required_argument, 0, 'n' },
     /* [Tests] */
-    { "best-map", no_argument, 0, 2 },
+    { "first-map", no_argument, 0, 2 },
     { "all-maps", no_argument, 0, 3 },
     { "all-tests", no_argument, 0, 'a' },
     { "maps-profile", no_argument, 0, 'M' },
@@ -252,17 +263,18 @@ void parse_arguments(int argc,char** argv) {
     { "mismatch-quality", no_argument, 0, 'Q' },
     { "splitmaps-profile", no_argument, 0, 'S' },
     { "indel-profile", no_argument, 0, 'I' },
+    /* [MAP Specific] */
+    { "use-only-decoded-maps", no_argument, 0, 10 },
     /* [Output] */
     { "compact", no_argument, 0, 'c' },
     { "verbose", no_argument, 0, 'v' },
-    { "quiet", no_argument, 0, 'q' },
     /* [Misc] */
     { "threads", required_argument, 0, 't' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 } };
   int c,option_index;
   while (1) {
-    c=getopt_long(argc,argv,"i:r:pn:aMTQSIcvqt:h",long_options,&option_index);
+    c=getopt_long(argc,argv,"i:r:pn:aMTQSIcvqt:hH",long_options,&option_index);
     if (c==-1) break;
     switch (c) {
     /* [Input] */
@@ -281,11 +293,11 @@ void parse_arguments(int argc,char** argv) {
     case 'n':
       parameters.num_reads = atol(optarg);
       break;
-    case 2: // --best-map
-      parameters.best_map = true;
+    case 2: // --first-map
+      parameters.first_map = true;
       break;
     case 3: // --all-maps
-      parameters.best_map = false;
+      parameters.first_map = false;
       break;
     /* [Tests] */
     case 'a': // All tests
@@ -309,6 +321,10 @@ void parse_arguments(int argc,char** argv) {
     case 'I': // --indel-profile
       parameters.indel_profile = true;
       break;
+    /* [MAP Specific] */
+    case 10:
+      parameters.use_only_decoded_maps = true;
+      break;
     /* [Output] */
     case 'c':
       parameters.compact = true;
@@ -316,15 +332,15 @@ void parse_arguments(int argc,char** argv) {
     case 'v':
       parameters.verbose = true;
       break;
-    case 'q':
-      parameters.quiet = true;
-      break;
     /* [Misc] */
     case 't':
       parameters.num_threads = atol(optarg);
       break;
     case 'h':
-      usage();
+      usage(false);
+      exit(1);
+    case 'H':
+      usage(true);
       exit(1);
     case '?':
     default:

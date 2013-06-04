@@ -25,7 +25,7 @@ gt_buffered_input_file* gt_buffered_input_file_new(gt_input_file* const input_fi
   buffered_input_file->cursor = (char*) gt_vector_get_mem(buffered_input_file->block_buffer,uint8_t);
   buffered_input_file->current_line_num = UINT64_MAX;
   /* Attached output buffer */
-  buffered_input_file->buffered_output_file = NULL;
+  buffered_input_file->attached_buffered_output_file = gt_vector_new(2,sizeof(gt_buffered_output_file*));
   return buffered_input_file;
 }
 gt_status gt_buffered_input_file_close(gt_buffered_input_file* const buffered_input_file) {
@@ -79,12 +79,27 @@ GT_INLINE gt_status gt_buffered_input_file_add_lines_to_block(
   buffered_input_file->cursor = gt_vector_get_elm(buffered_input_file->block_buffer,current_position,char);
   return lines_added;
 }
-
 /*
  * Block Synchronization with Output
+ *   In the weird case that multiple buffers are attached,
+ *   using more threads than output buffers (default=25)
+ *   can cause race conditions. Sorry :(  // TODO
  */
 GT_INLINE void gt_buffered_input_file_attach_buffered_output(
     gt_buffered_input_file* const buffered_input_file,gt_buffered_output_file* const buffered_output_file) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file);
-  buffered_input_file->buffered_output_file = buffered_output_file;
+  gt_vector_insert(buffered_input_file->attached_buffered_output_file,buffered_output_file,gt_buffered_output_file*);
 }
+GT_INLINE void gt_buffered_input_file_dump_attached_buffers(gt_vector* const attached_buffered_output_file) {
+  GT_VECTOR_CHECK(attached_buffered_output_file);
+  GT_VECTOR_ITERATE(attached_buffered_output_file,bof,pos,gt_buffered_output_file*) {
+    gt_buffered_output_file_dump(*bof);
+  }
+}
+GT_INLINE void gt_buffered_input_file_set_id_attached_buffers(gt_vector* const attached_buffered_output_file,const uint64_t block_id) {
+  GT_VECTOR_CHECK(attached_buffered_output_file);
+  GT_VECTOR_ITERATE(attached_buffered_output_file,bof,pos,gt_buffered_output_file*) {
+    gt_buffered_output_file_set_block_ids(*bof,block_id,0);
+  }
+}
+

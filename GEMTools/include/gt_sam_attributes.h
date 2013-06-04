@@ -27,14 +27,6 @@
   GT_VECTOR_CHECK(sam_headers->comments)
 
 /*
- * GTAttributes :: SAM alignment/template attribute
- */
-#define GT_ATTR_ID_SAM_FLAGS "SAM_FLAGS"
-#define GT_ATTR_ID_SAM_PRIMARY_ALIGNMENT "SAM_PRIMARY_MAP"
-#define GT_ATTR_ID_SAM_PASSING_QC "SAM_PASSING_QC"
-#define GT_ATTR_ID_SAM_PCR_DUPLICATE "SAM_PCR_DUPLICATE"
-
-/*
  * SAM FLAGS
  */
 #define GT_SAM_FLAG_MULTIPLE_SEGMENTS 0x1
@@ -76,7 +68,6 @@ GT_INLINE void gt_sam_header_add_comment(gt_sam_headers* const sam_headers,gt_st
  *   - SAM Attributes(optional fields) are just a vector of @gt_sam_attribute
  *     embedded into the general attributes(@gt_shash) of any object(@template,@alignment,@map,...)
  */
-#define GT_ATTR_ID_SAM_ATTRIBUTES "SAM_ATTR"
 typedef enum { SAM_ATTR_INT_VALUE, SAM_ATTR_FLOAT_VALUE, SAM_ATTR_STRING_VALUE,
                SAM_ATTR_INT_FUNC,  SAM_ATTR_FLOAT_FUNC,  SAM_ATTR_STRING_FUNC } gt_sam_attribute_t;
 typedef gt_shash gt_sam_attributes;
@@ -189,8 +180,6 @@ GT_INLINE void gt_sam_attribute_func_params_set_pe(
  *   Storage for calculation to do once for all template/alignmet/map SAM output
  *   So that fields like NH are calculated just once, printed multiple times and erased at the end
  */
-#define GT_ATTR_ID_SAM_TAG_NH "SAM_NH"
-#define GT_ATTR_ID_SAM_TAG_XT "SAM_XT"
 
 /*
  * GT-library PRE-Implemented Functional Attributes

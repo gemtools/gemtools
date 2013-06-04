@@ -31,7 +31,7 @@ typedef struct {
   uint64_t lines_in_buffer;
   uint64_t current_line_num;
   /* Attached output buffer */
-  gt_buffered_output_file* buffered_output_file;
+  gt_vector* attached_buffered_output_file; /* (gt_buffered_output_file*) */
 } gt_buffered_input_file;
 
 /*
@@ -58,6 +58,8 @@ GT_INLINE gt_status gt_buffered_input_file_add_lines_to_block(
  */
 GT_INLINE void gt_buffered_input_file_attach_buffered_output(
     gt_buffered_input_file* const buffered_input_file,gt_buffered_output_file* const buffered_output_file);
+GT_INLINE void gt_buffered_input_file_dump_attached_buffers(gt_vector* const attached_buffered_output_file);
+GT_INLINE void gt_buffered_input_file_set_id_attached_buffers(gt_vector* const attached_buffered_output_file,const uint64_t block_id);
 
 /*
  * Processing Macros (for parsing)

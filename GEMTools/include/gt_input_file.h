@@ -135,7 +135,9 @@ GT_INLINE uint64_t gt_input_file_get_lines(
         gt_vector_dec_used(buffer_dst); \
         *gt_vector_get_last_elm(buffer_dst,char)=EOL; \
       } \
-      gt_input_file_fill_buffer(input_file); \
+      if (gt_expect_false(input_file->buffer_pos >= input_file->buffer_size)) { \
+        gt_input_file_fill_buffer(input_file); \
+      } \
     } \
   }
 

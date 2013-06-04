@@ -69,11 +69,6 @@ GT_INLINE gt_status gt_input_multifasta_parser_get_archive(
     gt_input_file* const input_multifasta_file,gt_sequence_archive* const sequence_archive);
 
 /*
- * FASTQ utils
- */
-GT_INLINE uint64_t gt_input_fasta_tag_chomp_end_info(gt_string* const tag);
-
-/*
  * Synch read of blocks
  */
 GT_INLINE gt_status gt_input_fasta_parser_synch_blocks(

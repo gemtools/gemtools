@@ -32,5 +32,6 @@ GT_INLINE int64_t gt_counters_get_min_matching_strata(gt_vector* const counters)
 GT_INLINE void gt_counters_calculate_num_maps(
     gt_vector* const counters,const uint64_t min_decoded_strata,const uint64_t max_decoded_matches,
     uint64_t* num_strata,uint64_t* num_matches);
+GT_INLINE uint64_t gt_counters_reduce_sum(gt_vector* const counters);
 
 #endif /* GT_COUNTERS_UTILS_H_ */

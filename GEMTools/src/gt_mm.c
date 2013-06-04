@@ -79,9 +79,14 @@ GT_INLINE void gt_mm_set_tmp_folder(char* const tmp_folder_path) {
  */
 GT_INLINE void* gt_malloc_(uint64_t const num_elements,const uint64_t size_element,const bool init_mem,const int init_value) {
   const uint64_t total_memory = num_elements*size_element;
-  void* const allocated_mem = (gt_expect_false(init_mem && init_value==0)) ?
-      calloc(num_elements,size_element) : malloc(total_memory);
-  gt_cond_fatal_error(!allocated_mem,MEM_ALLOC_INFO,total_memory);
+  void* allocated_mem;
+  if (gt_expect_false(init_mem && init_value==0)) {
+    allocated_mem = calloc(num_elements,size_element);
+    gt_cond_fatal_error(!allocated_mem,MEM_CALLOC_INFO,num_elements,size_element);
+  } else {
+    allocated_mem = malloc(total_memory);
+    gt_cond_fatal_error(!allocated_mem,MEM_ALLOC_INFO,total_memory);
+  }
   if (gt_expect_false(init_mem && init_value!=0)) memset(allocated_mem,init_value,total_memory);
   //GT_MM_PRINT_MEM_ALIGMENT(allocated_mem); // Debug
   return allocated_mem;

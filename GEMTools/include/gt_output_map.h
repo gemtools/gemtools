@@ -15,6 +15,7 @@
 
 #include "gt_generic_printer.h"
 #include "gt_buffered_output_file.h"
+#include "gt_output_printer.h"
 
 /*
  * Error/state codes (Map Output Error)

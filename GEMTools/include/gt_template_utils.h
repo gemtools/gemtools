@@ -53,6 +53,8 @@ GT_INLINE bool gt_template_is_mmap_contained_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
     gt_template* const template,gt_map** const mmap);
 
+GT_INLINE void gt_template_reduce_mmaps(gt_template* const template,const uint64_t max_num_matches);
+
 /*
  * Template's Insert Size
  */
@@ -126,7 +128,8 @@ GT_INLINE void gt_template_realign_weighted(
 /*
  * Template trimming
  */
-GT_INLINE void gt_template_trim(gt_template* const template,const uint64_t left,const uint64_t right,const uint64_t min_length,const bool set_extra);
+GT_INLINE void gt_template_hard_trim(gt_template* const template,const uint64_t left,const uint64_t right);
+GT_INLINE void gt_template_restore_trim(gt_template* const template);
 
 /*
  * Template/Alignment Placeholder (mmap/map)

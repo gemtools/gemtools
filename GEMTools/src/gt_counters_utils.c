@@ -67,6 +67,7 @@ GT_INLINE int64_t gt_counters_get_uniq_degree(gt_vector* const counters) {
 GT_INLINE bool gt_counters_get_next_matching_strata(
     gt_vector* const counters,const uint64_t begin_strata,
     uint64_t* const next_matching_strata,uint64_t* const num_maps) {
+  GT_VECTOR_CHECK(counters);
   const uint64_t num_counters = gt_vector_get_used(counters);
   uint64_t i;
   for (i=begin_strata;i<num_counters;++i) {
@@ -80,6 +81,7 @@ GT_INLINE bool gt_counters_get_next_matching_strata(
   return false;
 }
 GT_INLINE int64_t gt_counters_get_min_matching_strata(gt_vector* const counters) {
+  GT_VECTOR_CHECK(counters);
   GT_VECTOR_ITERATE(counters,counter,counter_pos,uint64_t) {
     if (*counter!=0) return counter_pos+1;
   }
@@ -102,4 +104,12 @@ GT_INLINE void gt_counters_calculate_num_maps(
   }
   if (num_strata) *num_strata = num_counters;
   if (num_matches) *num_matches = acc;
+}
+GT_INLINE uint64_t gt_counters_reduce_sum(gt_vector* const counters) {
+  GT_VECTOR_CHECK(counters);
+  uint64_t acc = 0;
+  GT_VECTOR_ITERATE(counters,counter,counter_pos,uint64_t) {
+    acc += *counter;
+  }
+  return acc;
 }

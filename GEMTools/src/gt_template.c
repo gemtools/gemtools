@@ -458,35 +458,49 @@ GT_INLINE void gt_template_copy_blocks(gt_template* template_dst,gt_template* co
     gt_template_add_block(template_dst,alignment_copy);
   }
 }
-GT_INLINE gt_template* gt_template_copy(gt_template* const template,const bool copy_maps,const bool copy_mmaps) {
+GT_INLINE gt_template* gt_template_dup(gt_template* const template,const bool copy_maps,const bool copy_mmaps) {
   GT_TEMPLATE_CHECK(template);
   gt_template* template_cpy = gt_template_new();
   gt_cond_fatal_error(!template_cpy,MEM_HANDLER);
+  gt_template_copy(template_cpy,template,copy_maps,copy_mmaps);
+  return template_cpy;
+}
+GT_INLINE void gt_template_copy(gt_template* const template_dst,gt_template* const template_src,const bool copy_maps,const bool copy_mmaps) {
+  GT_TEMPLATE_CHECK(template_dst);
+  GT_TEMPLATE_CHECK(template_src);
   // Copy handler
-  gt_template_copy_handler(template_cpy,template);
+  gt_template_copy_handler(template_dst,template_src);
   // Copy blocks
-  gt_template_copy_blocks(template_cpy,template,copy_maps);
+  gt_template_copy_blocks(template_dst,template_src,copy_maps);
   // Copy mmaps
-  if (copy_maps && copy_mmaps && gt_template_get_num_blocks(template)>1) {
+  if (copy_maps && copy_mmaps && gt_template_get_num_blocks(template_src)>1) {
     // Copy counters
-    gt_vector_copy(template_cpy->counters,template->counters);
+    gt_vector_copy(template_dst->counters,template_src->counters);
     // Copy mmaps & mmaps_attributes
-    GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attributes) {
+    GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
       // Locate maps
       uint64_t map_pos_end1, map_pos_end2;
       gt_cond_fatal_error(!gt_alignment_locate_map_reference(
-          gt_template_get_end1(template),mmap[0],&map_pos_end1),TEMPLATE_INCONSISTENT_MMAPS_ALIGNMENT);
+          gt_template_get_end1(template_src),mmap[0],&map_pos_end1),TEMPLATE_INCONSISTENT_MMAPS_ALIGNMENT);
       gt_cond_fatal_error(!gt_alignment_locate_map_reference(
-          gt_template_get_end2(template),mmap[1],&map_pos_end2),TEMPLATE_INCONSISTENT_MMAPS_ALIGNMENT);
-      gt_map* const homologe_map_end1 = gt_alignment_get_map(gt_template_get_end1(template_cpy),map_pos_end1);
-      gt_map* const homologe_map_end2 = gt_alignment_get_map(gt_template_get_end2(template_cpy),map_pos_end2);
+          gt_template_get_end2(template_src),mmap[1],&map_pos_end2),TEMPLATE_INCONSISTENT_MMAPS_ALIGNMENT);
+      gt_map* const homologe_map_end1 = gt_alignment_get_map(gt_template_get_end1(template_dst),map_pos_end1);
+      gt_map* const homologe_map_end2 = gt_alignment_get_map(gt_template_get_end2(template_dst),map_pos_end2);
       // Add mmap
-      gt_template_add_mmap_ends(template_cpy,homologe_map_end1,homologe_map_end2,mmap_attributes);
+      gt_template_add_mmap_ends(template_dst,homologe_map_end1,homologe_map_end2,mmap_attributes);
     }
   }
-  return template_cpy;
 }
-
+GT_INLINE void gt_template_swap(gt_template* const template_a,gt_template* const template_b) {
+  GT_SWAP(template_a->template_id,template_b->template_id);
+  GT_SWAP(template_a->in_block_id,template_b->in_block_id);
+  GT_SWAP(template_a->tag,template_b->tag);
+  GT_SWAP(template_a->alignment_end1,template_b->alignment_end1);
+  GT_SWAP(template_a->alignment_end2,template_b->alignment_end2);
+  GT_SWAP(template_a->counters,template_b->counters);
+  GT_SWAP(template_a->mmaps,template_b->mmaps);
+  GT_SWAP(template_a->attributes,template_b->attributes);
+}
 /*
  * Template's Alignments iterator (end1,end2, ... )
  */

@@ -141,7 +141,7 @@ void gt_map2sam_read__write() {
 }
 
 void usage() {
-  fprintf(stderr, "USE: ./gt.filter [ARGS]...\n"
+  fprintf(stderr, "USE: ./gt.map.2.sam [ARGS]...\n"
                   "         [I/O]\n"
                   "           --input|-i [FILE]\n"
                   "           --output|-o [FILE]\n"

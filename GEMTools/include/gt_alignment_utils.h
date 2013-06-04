@@ -44,6 +44,8 @@ GT_INLINE bool gt_alignment_is_map_contained(gt_alignment* const alignment,gt_ma
 GT_INLINE bool gt_alignment_is_map_contained_fx(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map);
 
+GT_INLINE void gt_alignment_reduce_maps(gt_alignment* const alignment,const uint64_t max_num_matches);
+
 /*
  * Alignment's Counters operators
  */
@@ -104,6 +106,10 @@ GT_INLINE void gt_alignment_realign_weighted(
 /*
  * Alignment trimming
  */
-GT_INLINE void gt_alignment_trim(gt_alignment* const alignment,uint64_t const left,uint64_t const right,uint64_t const min_length,bool const set_extra);
+GT_INLINE void gt_alignment_hard_trim(gt_alignment* const alignment,const uint64_t left,const uint64_t right);
+GT_INLINE void gt_alignment_hard_trim_min_length(gt_alignment* const alignment,const uint64_t left,const uint64_t right,const uint64_t min_length);
+GT_INLINE void gt_alignment_quality_trim(gt_alignment* const alignment,const uint64_t quality_threshold,const uint64_t min_length);
+
+GT_INLINE void gt_alignment_restore_trim(gt_alignment* const alignment);
 
 #endif /* GT_ALIGNMENT_UTILS_H_ */

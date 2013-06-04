@@ -87,7 +87,7 @@ void gt_get_by_score() {
 
       if (is_mapped) {
         //Filter template
-        gt_template *template_filtered = gt_template_copy(template,false,false);
+        gt_template *template_filtered = gt_template_dup(template,false,false);
         gt_template_filter(template_filtered, template);
         gt_template_delete(template);
         template = template_filtered;

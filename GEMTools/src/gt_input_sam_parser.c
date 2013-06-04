@@ -12,6 +12,25 @@
 #define GT_ISP_NUM_LINES GT_NUM_LINES_10K
 #define GT_ISP_NUM_INITIAL_MAPS 5
 
+/*
+ * SAM parser attributes
+ */
+GT_INLINE gt_sam_parser_attributes* gt_input_sam_parser_attributes_new() {
+  gt_sam_parser_attributes* attributes = gt_alloc(gt_sam_parser_attributes);
+  gt_input_sam_parser_attributes_reset_defaults(attributes);
+  return attributes;
+}
+GT_INLINE void gt_input_sam_parser_attributes_delete(gt_sam_parser_attributes* const attributes) {
+  GT_NULL_CHECK(attributes);
+  free(attributes);
+}
+GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attributes* const attributes) {
+  attributes->sam_soap_style = false;
+}
+GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attributes* const attributes) {
+  attributes->sam_soap_style = true;
+}
+
 // Internal pair-pending
 typedef struct {
   // Current map info
@@ -27,12 +46,6 @@ typedef struct {
 } gt_sam_pending_end;
 
 #define GT_SAM_INIT_PENDING { .map_seq_name.allocated=0, .next_seq_name.allocated=0 }
-
-GT_INLINE gt_sam_parser_attributes* gt_sam_parser_attributes_new(bool const sam_soap_style) { // FIXME
-  gt_sam_parser_attributes* attr = gt_alloc(gt_sam_parser_attributes);
-  attr->sam_soap_style = sam_soap_style;
-  return attr;
-}
 
 /*
  * SAM File Format test
@@ -236,7 +249,7 @@ GT_INLINE gt_status gt_input_sam_parser_get_block(
     uint64_t num_blocks=0, num_tabs=0;
     gt_string* const reference_tag = gt_string_new(30);
     if (gt_input_file_next_record(input_file,buffered_sam_input->block_buffer,reference_tag,&num_blocks,&num_tabs)) {
-      gt_input_fasta_tag_chomp_end_info(reference_tag);
+      gt_input_parse_tag_chomp_pairend_info(reference_tag);
       while (gt_input_file_next_record_cmp_first_field(input_file,reference_tag)) {
         if (!gt_input_file_next_record(input_file,buffered_sam_input->block_buffer,NULL,&num_blocks,&num_tabs)) break;
         ++lines_read;
@@ -261,18 +274,13 @@ GT_INLINE gt_status gt_input_sam_parser_get_block(
 GT_INLINE gt_status gt_input_sam_parser_reload_buffer(gt_buffered_input_file* const buffered_sam_input) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   // Dump buffer if BOF it attached to SAM-input, and get new out block (always FIRST)
-  if (buffered_sam_input->buffered_output_file!=NULL) {
-    gt_buffered_output_file_dump(buffered_sam_input->buffered_output_file);
-  }
+  gt_buffered_input_file_dump_attached_buffers(buffered_sam_input->attached_buffered_output_file);
   // Read new input block
   const uint64_t read_lines =
       gt_input_sam_parser_get_block(buffered_sam_input,GT_ISP_NUM_LINES);
   if (gt_expect_false(read_lines==0)) return GT_ISP_EOF;
   // Assign block ID
-  if (buffered_sam_input->buffered_output_file!=NULL) {
-    gt_buffered_output_file_set_block_ids(
-        buffered_sam_input->buffered_output_file,buffered_sam_input->block_id,0);
-  }
+  gt_buffered_input_file_set_id_attached_buffers(buffered_sam_input->attached_buffered_output_file,buffered_sam_input->block_id);
   return GT_ISP_OK;
 }
 /*
@@ -689,7 +697,7 @@ GT_INLINE bool gt_isp_fetch_next_line(
   gt_string* const next_tag = gt_string_new(0);
   char* ptext_line;
   if (gt_isp_read_tag(&(buffered_sam_input->cursor),&ptext_line,next_tag)) return false;
-  if (chomp_tag) gt_input_fasta_tag_chomp_end_info(next_tag);
+  if (chomp_tag) gt_input_parse_tag_chomp_pairend_info(next_tag);
   const bool same_tag = gt_string_equals(expected_tag,next_tag);
   gt_string_delete(next_tag);
   if (same_tag) {
@@ -790,7 +798,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   char** text_line = &(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
-  gt_input_fasta_tag_chomp_end_info(template->tag);
+  gt_input_parse_tag_chomp_pairend_info(template->tag);
   // Read all maps related to this TAG
   gt_vector* pending_v = gt_vector_new(GT_ISP_NUM_INITIAL_MAPS,sizeof(gt_sam_pending_end));
   do {
@@ -823,7 +831,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
   gt_status error_code;
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
-  gt_input_fasta_tag_chomp_end_info(template->tag);
+  gt_input_parse_tag_chomp_pairend_info(template->tag);
   // Read all maps related to this TAG
   do {
     // Parse SAM Alignment
@@ -945,20 +953,5 @@ GT_INLINE gt_status gt_input_sam_parser_get_alignment(
     return GT_ISP_FAIL;
   }
   return GT_ISP_OK;
-}
-
-/*
- * SAM alignment/template attribute
- */
-GT_INLINE gt_sam_parser_attributes* gt_input_sam_parser_attributes_new() {
-  gt_sam_parser_attributes* attributes = gt_alloc(gt_sam_parser_attributes);
-  gt_input_sam_parser_attributes_reset_defaults(attributes);
-  return attributes;
-}
-GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attributes* const attributes) {
-  attributes->sam_soap_style = false;
-}
-GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attributes* const attributes) {
-  attributes->sam_soap_style = true;
 }
 

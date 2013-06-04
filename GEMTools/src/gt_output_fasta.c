@@ -50,23 +50,19 @@ GT_INLINE gt_status gt_output_fasta_gprint_tag(gt_generic_printer* const gprinte
     bool const is_fasta,gt_string* const tag,gt_attributes* const attributes,gt_output_fasta_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
-  GT_ATTRIBUTES_CHECK(attributes);
-  // Print begin character
+  // Print begin character & TAG
   if (is_fasta) {
     gt_gprintf(gprinter,">"PRIgts,PRIgts_content(tag));
   } else {
     gt_gprintf(gprinter,"@"PRIgts,PRIgts_content(tag));
   }
-  // Check if we have CASAVA attributes
-  if (gt_output_fasta_attributes_is_print_casava(output_attributes) && gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_CASAVA)) {
-    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_attributes_get(attributes,GT_ATTR_ID_TAG_CASAVA))); // Print CASAVA
-  } else if (gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_PAIR)) { // Append /1 /2 if paired
-    int64_t p = *((int64_t*)gt_attributes_get(attributes,GT_ATTR_ID_TAG_PAIR));
-    if (p > 0) gt_gprintf(gprinter,"/%d",p);
+  // Print TAG Attributes
+  if (attributes!=NULL) {
+    gt_output_gprint_tag_attributes(gprinter,attributes,
+        gt_output_fasta_attributes_is_print_casava(output_attributes),
+        gt_output_fasta_attributes_is_print_extra(output_attributes));
   }
-  if (gt_output_fasta_attributes_is_print_extra(output_attributes) && gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_EXTRA)) {
-    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_attributes_get(attributes,GT_ATTR_ID_TAG_EXTRA))); // Print additional tag info
-  }
+  // Print EOL
   gt_gprintf(gprinter,"\n");
   return 0;
 }
@@ -83,7 +79,6 @@ GT_INLINE gt_status gt_output_fasta_gprint_fasta(gt_generic_printer* const gprin
   GT_ATTRIBUTES_CHECK(attributes);
   gt_output_fasta_gprint_tag(gprinter,true,tag,attributes,output_attributes);
   gt_gprintf(gprinter,PRIgts"\n",PRIgts_content(read));
-  // TODO attributes
   return 0;
 }
 

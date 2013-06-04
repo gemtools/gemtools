@@ -56,6 +56,7 @@ typedef struct {
 #define GT_SAM_PARSER_ATTR_DEFAULT { .sam_soap_style=false }
 
 GT_INLINE gt_sam_parser_attributes* gt_input_sam_parser_attributes_new();
+GT_INLINE void gt_input_sam_parser_attributes_delete(gt_sam_parser_attributes* const attributes);
 GT_INLINE void gt_input_sam_parser_attributes_reset_defaults(gt_sam_parser_attributes* const attributes);
 GT_INLINE void gt_input_sam_parser_attributes_set_soap_compilant(gt_sam_parser_attributes* const attributes);
 

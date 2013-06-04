@@ -149,7 +149,7 @@ START_TEST(gt_test_template_copy)
   // test no maps no mmaps
   fail_unless(gt_input_map_parse_template(
       "ID\tACGT\t####\t1\tchr1:-:20:4",source)==0);
-  gt_template* copy = gt_template_copy(source, false, false);
+  gt_template* copy = gt_template_dup(source, false, false);
   gt_string* string = gt_string_new(1024);
   gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
@@ -159,7 +159,7 @@ START_TEST(gt_test_template_copy)
 
   // test maps no mmaps
   gt_string_clear(string);
-  copy = gt_template_copy(source, true, false);
+  copy = gt_template_dup(source, true, false);
   string = gt_string_new(1024);
   gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
@@ -172,7 +172,7 @@ START_TEST(gt_test_template_copy)
     "ID\tACGT\t####\t2\tchr1:-:20:4,chr2:-:40:4",source)==0);
 
   gt_string_clear(string);
-  copy = gt_template_copy(source, true, false);
+  copy = gt_template_dup(source, true, false);
   string = gt_string_new(1024);
   gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check
@@ -182,7 +182,7 @@ START_TEST(gt_test_template_copy)
 
   // test maps and mmaps
   gt_string_clear(string);
-  copy = gt_template_copy(source, true, true);
+  copy = gt_template_dup(source, true, true);
   string = gt_string_new(1024);
   gt_output_map_sprint_template(string, copy, output_attributes);
   // convert to string for simple check

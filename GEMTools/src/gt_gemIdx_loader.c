@@ -62,6 +62,7 @@ GT_INLINE void gt_gemIdx_load_archive(
   gt_segmented_sequence* seg_seq = NULL;
   uint64_t i, last_offset=UINT64_MAX, seq_length;
   for (i=0;i<num_intervals;++i) {
+    // if (i%10000==0) { gt_debug("Loaded %lu/%lu",i,num_intervals); }
     // gt_debug("#%lu :: %s offset=%ld [bot,top]=[%lu,%lu]",i,
     //    tags+seq_info[i].tag_offset-1,seq_info[i].sequence_offset,seq_info[i].bot,seq_info[i].top);
     if (seq_info[i].tag_offset <= 0) continue; // Skip negative strand sequences

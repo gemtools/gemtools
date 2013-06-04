@@ -150,6 +150,114 @@ GT_INLINE void gt_map_set_num_misms(gt_map* const map,const uint64_t num_misms) 
   GT_MAP_CHECK(map);
   gt_vector_set_used(map->mismatches,num_misms);
 }
+// Trim
+GT_INLINE void gt_map_left_trim(gt_map* const map,const uint64_t length) {
+  GT_MAP_CHECK(map);
+  // Find trimmed mismatches
+  uint64_t removed_misms = 0;
+  GT_MISMS_ITERATE(map,misms) {
+    if (misms->position>length) break;
+    if (misms->misms_type==DEL && misms->position+misms->size>length) {
+      misms->size = misms->position+misms->size-length;
+      break;
+    } else {
+      ++removed_misms;
+    }
+  }
+  // Remove trimmed mismatches
+  if (removed_misms > 0) {
+    gt_misms* const misms_vector = gt_vector_get_mem(map->mismatches,gt_misms);
+    const uint64_t remaining_misms = gt_vector_get_used(map->mismatches)-removed_misms;
+    uint64_t i;
+    for (i=0;i<remaining_misms;++i) {
+      misms_vector[i] = misms_vector[i+removed_misms];
+      misms_vector[i].position -= length; // Adjust Position
+    }
+    gt_vector_set_used(map->mismatches,remaining_misms);
+  } else {
+    GT_MISMS_ITERATE(map,misms) {
+      misms->position = (misms->position>length) ? misms->position-length : 0; // Adjust Position
+    }
+  }
+  // Reduce base length
+  map->base_length -= length;
+}
+GT_INLINE void gt_map_right_trim(gt_map* const map,const uint64_t length) {
+  GT_MAP_CHECK(map);
+  // Find trimmed mismatches
+  const uint64_t misms_used = gt_vector_get_used(map->mismatches);
+  gt_misms* misms_vector = gt_vector_get_mem(map->mismatches,gt_misms);
+  const uint64_t new_eff_length = gt_map_get_base_length(map)-length;
+  uint64_t misms_removed=0;
+  int64_t i;
+  for (i=misms_used-1;i>=0;--i) {
+    if (misms_vector[i].position < new_eff_length) {
+      if (misms_vector[i].misms_type==DEL && misms_vector[i].position+misms_vector[i].size > new_eff_length) {
+        misms_vector[i].size = new_eff_length-misms_vector[i].position;
+      }
+      break;
+    }
+    ++misms_removed;
+  }
+  // Remove trimmed mismatches
+  gt_vector_set_used(map->mismatches,misms_used-misms_removed);
+  // Reduce base length
+  map->base_length -= length;
+}
+GT_INLINE void gt_map_restore_left_trim(gt_map* const map,const uint64_t length) {
+  GT_MAP_CHECK(map);
+  // Check first misms
+  bool inserted_trim = false;
+  if (gt_vector_get_used(map->mismatches) > 0) {
+    gt_misms* const first_misms = gt_map_get_misms(map,0);
+    if (first_misms->position==0 && first_misms->misms_type==DEL) {
+      // Add trim to the alredy existing deletion at the beginning
+      first_misms->size += length;
+      inserted_trim = true;
+    }
+  }
+  if (!inserted_trim) {
+    // Allocate one more misms
+    gt_vector_reserve_additional(map->mismatches,1);
+    // Shift all misms 1-right
+    const uint64_t num_misms = gt_vector_get_used(map->mismatches);
+    gt_misms* const misms_vector = gt_vector_get_mem(map->mismatches,gt_misms);
+    uint64_t i;
+    for (i=0;i<num_misms;++i) misms_vector[i+1] = misms_vector[i];
+    gt_vector_add_used(map->mismatches,1);
+    // Add the trim
+    misms_vector[0].misms_type = DEL;
+    misms_vector[0].position = 0;
+    misms_vector[0].size = length;
+  }
+  // Adjust the rest of positions
+  GT_VECTOR_ITERATE_OFFSET(map->mismatches,misms,misms_pos,1,gt_misms) {
+    misms->position += length;
+  }
+  // Adjust base length
+  map->base_length += length;
+}
+GT_INLINE void gt_map_restore_right_trim(gt_map* const map,const uint64_t length) {
+  GT_MAP_CHECK(map);
+  // Check last misms
+  const uint64_t num_misms = gt_vector_get_used(map->mismatches);
+  if (num_misms > 0) {
+    gt_misms* const last_misms = gt_map_get_misms(map,num_misms-1);
+    if (last_misms->position+last_misms->size==map->base_length && last_misms->misms_type==DEL) {
+      last_misms->size += length;
+      map->base_length += length;
+      return;
+    }
+  }
+  // Add the trim
+  gt_misms misms;
+  misms.misms_type = DEL;
+  misms.position = map->base_length;
+  misms.size = length;
+  gt_map_add_misms(map,&misms);
+  // Adjust base length
+  map->base_length += length;
+}
 // Counting
 GT_INLINE uint64_t gt_map_get_num_mismatch_bases(gt_map* const map) {
   GT_MAP_CHECK(map);

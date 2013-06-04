@@ -21,6 +21,8 @@ GT_INLINE gt_generic_parser_attributes* gt_input_generic_parser_attributes_new(c
 }
 GT_INLINE void gt_input_generic_parser_attributes_delete(gt_generic_parser_attributes* const attributes) {
   GT_NULL_CHECK(attributes);
+  gt_input_map_parser_attributes_delete(attributes->map_parser_attributes);
+  gt_input_sam_parser_attributes_delete(attributes->sam_parser_attributes);
   gt_free(attributes);
 }
 
@@ -48,17 +50,15 @@ GT_INLINE gt_status gt_input_generic_parser_get_alignment(
     gt_buffered_input_file* const buffered_input,gt_alignment* const alignment,gt_generic_parser_attributes* const attributes) {
   gt_status error_code = GT_IGP_FAIL;
   switch (buffered_input->input_file->file_format) {
-    case MAP:
-      return gt_input_map_parser_get_alignment(buffered_input,alignment,attributes->map_parser_attributes);
-      break;
     case SAM:
       return gt_input_sam_parser_get_alignment(buffered_input,alignment,attributes->sam_parser_attributes);
       break;
     case FASTA:
       return gt_input_fasta_parser_get_alignment(buffered_input,alignment);
       break;
-    default:
-      gt_fatal_error_msg("File type not supported");
+    case MAP:
+    default: // gt_fatal_error_msg("File type not supported");
+      return gt_input_map_parser_get_alignment(buffered_input,alignment,attributes->map_parser_attributes);
       break;
   }
   return error_code;
@@ -67,9 +67,6 @@ GT_INLINE gt_status gt_input_generic_parser_get_template(
     gt_buffered_input_file* const buffered_input,gt_template* const template,gt_generic_parser_attributes* const attributes) {
   gt_status error_code = GT_IGP_FAIL;
   switch (buffered_input->input_file->file_format) {
-    case MAP:
-      return gt_input_map_parser_get_template(buffered_input,template,attributes->map_parser_attributes);
-      break;
     case SAM:
       if (gt_input_generic_parser_attributes_is_paired(attributes)) {
         error_code = gt_input_sam_parser_get_template(buffered_input,template,attributes->sam_parser_attributes);
@@ -84,8 +81,9 @@ GT_INLINE gt_status gt_input_generic_parser_get_template(
     case FASTA:
       return gt_input_fasta_parser_get_template(buffered_input,template,gt_input_generic_parser_attributes_is_paired(attributes));
       break;
-    default:
-      gt_fatal_error_msg("File type not supported");
+    case MAP:
+    default: // gt_fatal_error_msg("File type not supported");
+      return gt_input_map_parser_get_template(buffered_input,template,attributes->map_parser_attributes);
       break;
   }
   return error_code;

@@ -17,39 +17,39 @@
 /*
  * Range Definition
  */
-#define GT_STATS_MMAP_RANGE_1 0
-#define GT_STATS_MMAP_RANGE_5 1
-#define GT_STATS_MMAP_RANGE_10 2
-#define GT_STATS_MMAP_RANGE_50 3
-#define GT_STATS_MMAP_RANGE_100 4
-#define GT_STATS_MMAP_RANGE_500 5
-#define GT_STATS_MMAP_RANGE_1000 6
-#define GT_STATS_MMAP_RANGE_BEHOND 7
-#define GT_STATS_MMAP_RANGE 8
+#define GT_STATS_MMAP_RANGE_0 0
+#define GT_STATS_MMAP_RANGE_1 1
+#define GT_STATS_MMAP_RANGE_5 2
+#define GT_STATS_MMAP_RANGE_10 3
+#define GT_STATS_MMAP_RANGE_50 4
+#define GT_STATS_MMAP_RANGE_100 5
+#define GT_STATS_MMAP_RANGE_500 6
+#define GT_STATS_MMAP_RANGE_1000 7
+#define GT_STATS_MMAP_RANGE_BEHOND 8
+#define GT_STATS_MMAP_RANGE 9
 
-#define GT_STATS_INSS_RANGE_NEG  0
-#define GT_STATS_INSS_RANGE_OVER 1
-#define GT_STATS_INSS_RANGE_100  2
-#define GT_STATS_INSS_RANGE_200  3
-#define GT_STATS_INSS_RANGE_300  4
-#define GT_STATS_INSS_RANGE_400  5
-#define GT_STATS_INSS_RANGE_500  6
-#define GT_STATS_INSS_RANGE_600  7
-#define GT_STATS_INSS_RANGE_700  8
-#define GT_STATS_INSS_RANGE_800  9
-#define GT_STATS_INSS_RANGE_900  10
-#define GT_STATS_INSS_RANGE_1000 11
-#define GT_STATS_INSS_RANGE_2000 12
-#define GT_STATS_INSS_RANGE_5000 13
-#define GT_STATS_INSS_RANGE_10000 14
-#define GT_STATS_INSS_RANGE_BEHOND 15
-#define GT_STATS_INSS_RANGE 16
+#define GT_STATS_LENGTH_RANGE_5 0
+#define GT_STATS_LENGTH_RANGE_40 1
+#define GT_STATS_LENGTH_RANGE_80 2
+#define GT_STATS_LENGTH_RANGE_100 3
+#define GT_STATS_LENGTH_RANGE_150 4
+#define GT_STATS_LENGTH_RANGE_300 5
+#define GT_STATS_LENGTH_RANGE_800 6
+#define GT_STATS_LENGTH_RANGE_1000 7
+#define GT_STATS_LENGTH_RANGE_2000 8
+#define GT_STATS_LENGTH_RANGE_5000 9
+#define GT_STATS_LENGTH_RANGE_BEHOND 10
+#define GT_STATS_LENGTH_RANGE 11
 
-#define GT_STATS_INSS_FG_MIN  (-1000)
-#define GT_STATS_INSS_FG_MAX   10000
-#define GT_STATS_INSS_FG_STEP  10
-#define GT_STATS_INSS_FG_RANGE ((GT_STATS_INSS_FG_MAX-GT_STATS_INSS_FG_MIN+(GT_STATS_INSS_FG_STEP-1))/GT_STATS_INSS_FG_STEP)
-#define GT_STATS_INSS_FG_GET_BUCKET(INSS) (((INSS)-GT_STATS_INSS_FG_MIN)/GT_STATS_INSS_FG_STEP)
+#define GT_STATS_LENGTH__MMAP_RANGE (GT_STATS_LENGTH_RANGE*GT_STATS_MMAP_RANGE)
+#define GT_STATS_LENGTH__QUAL_SCORE_RANGE (GT_STATS_LENGTH_RANGE*GT_STATS_QUAL_SCORE_RANGE)
+#define GT_STATS_QUAL_SCORE__MMAP_RANGE (GT_STATS_QUAL_SCORE_RANGE*GT_STATS_MMAP_RANGE)
+
+#define GT_STATS_INSS_MIN  (-1000)
+#define GT_STATS_INSS_MAX   50010
+#define GT_STATS_INSS_STEP  10
+#define GT_STATS_INSS_RANGE ((GT_STATS_INSS_MAX-GT_STATS_INSS_MIN+(GT_STATS_INSS_STEP-1))/GT_STATS_INSS_STEP)
+#define GT_STATS_INSS_GET_BUCKET(INSS) (((INSS)-GT_STATS_INSS_MIN)/GT_STATS_INSS_STEP)
 
 #define GT_STATS_MISMS_RANGE_0 0
 #define GT_STATS_MISMS_RANGE_1 1
@@ -113,7 +113,7 @@
 #define GT_STATS_LEN_JUNCTION_RANGE  6
 
 #define GT_STATS_MISMS_1_CONTEXT_RANGE ((GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE)*GT_STATS_MISMS_BASE_RANGE)
-#define GT_STATS_MISMS_2_CONTEXT_RANGE ((GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE)*GT_STATS_MISMS_BASE_RANGE)
+// DELTEME TODO #define GT_STATS_MISMS_2_CONTEXT_RANGE ((GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_BASE_RANGE)*GT_STATS_MISMS_BASE_RANGE)
 #define GT_STATS_INDEL_TRANSITION_1_RANGE ((GT_STATS_MISMS_BASE_RANGE))  /* TODO */
 #define GT_STATS_INDEL_TRANSITION_2_RANGE ((GT_STATS_MISMS_BASE_RANGE))  /* TODO */
 #define GT_STATS_INDEL_TRANSITION_3_RANGE ((GT_STATS_MISMS_BASE_RANGE))  /* TODO */
@@ -141,18 +141,18 @@ typedef struct {
   uint64_t total_bases_matching;
   uint64_t total_bases_trimmed;
   // Strandness combinations
+  uint64_t single_strand_f;
+  uint64_t single_strand_r;
   uint64_t pair_strand_rf;
   uint64_t pair_strand_fr;
   uint64_t pair_strand_ff;
   uint64_t pair_strand_rr;
   // Insert Size Distribution
   uint64_t *inss;               /* GT_STATS_INSS_RANGE */
-  uint64_t *inss_fine_grain;    /* GT_STATS_INSS_FG_RANGE */
   // Mismatch/Errors bases
   uint64_t *misms_transition;   /* GT_STATS_MISMS_BASE_RANGE*GT_STATS_MISMS_RANGE */
   uint64_t *qual_score_misms;   /* GT_STATS_QUAL_SCORE_RANGE */
   uint64_t *misms_1context;     /* GT_STATS_MISMS_1_CONTEXT_RANGE */
-  uint64_t *misms_2context;     /* GT_STATS_MISMS_2_CONTEXT_RANGE */
   uint64_t *indel_transition_1; /* GT_STATS_INDEL_TRANSITION_1_RANGE */
   uint64_t *indel_transition_2; /* GT_STATS_INDEL_TRANSITION_2_RANGE */
   uint64_t *indel_transition_3; /* GT_STATS_INDEL_TRANSITION_3_RANGE */
@@ -160,7 +160,7 @@ typedef struct {
   uint64_t *indel_1context;     /* GT_STATS_INDEL_1_CONTEXT */
   uint64_t *indel_2context;     /* GT_STATS_INDEL_2_CONTEXT */
   uint64_t *qual_score_errors;  /* GT_STATS_QUAL_SCORE_RANGE */
-} gt_maps_profile; // TODO Called map profile
+} gt_maps_profile;
 
 typedef struct {
   // General SM
@@ -178,14 +178,28 @@ typedef struct {
    */
   uint64_t total_splitmaps;
   uint64_t total_junctions;
-  uint64_t *num_junctions; /* GT_STATS_NUM_JUNCTION_RANGE */
-  uint64_t *length_junctions; /* GT_STATS_LEN_JUNCTION_RANGE */
+  uint64_t *num_junctions;     /* GT_STATS_NUM_JUNCTION_RANGE */
+  uint64_t *length_junctions;  /* GT_STATS_LEN_JUNCTION_RANGE */
   uint64_t *junction_position; /* GT_STATS_SHORT_READ_POS_RANGE */
   // Paired SM combinations
   uint64_t pe_sm_sm;
   uint64_t pe_sm_rm;
   uint64_t pe_rm_rm;
 } gt_splitmaps_profile;
+
+typedef struct {
+  // Diversity
+  uint64_t* local_diversity;           /* GT_STATS_DIVERSITY_RANGE */
+  uint64_t* local_dominant;            /* GT_STATS_DOMINANT_RANGE */
+  uint64_t* local_diversity__dominant; /* GT_STATS_DIVERSITY_DOMINANT_RANGE */
+  uint64_t global_diversity;
+  // Quimeras
+  uint64_t num_map_quimeras;
+  uint64_t num_pair_quimeras;
+  // Aux
+  gt_shash* _local_diversity_hash;    // Auxiliary hash for diversity
+  gt_shash* _global_diversity_hash;   // Auxiliary hash for diversity
+} gt_population_profile;
 
 typedef struct {
   // Length stats
@@ -195,38 +209,51 @@ typedef struct {
   uint64_t total_bases_aligned; // WRT to reads mapped
   uint64_t mapped_min_length;
   uint64_t mapped_max_length;
-  // Nucleotide counting (wrt to the maps=read+errors)
-  uint64_t *nt_counting; /* GT_STATS_MISMS_BASE_RANGE */
+  uint64_t *length;            /* GT_STATS_LENGTH_RANGE */
+  uint64_t *length_mapped;     /* GT_STATS_LENGTH_RANGE */
+  uint64_t *length__mmap;      /* GT_STATS_LENGTH__MMAP_RANGE */
+  uint64_t *length__quality;   /* GT_STATS_LENGTH__QUAL_SCORE_RANGE */
+  uint64_t *avg_quality;       /* GT_STATS_QUAL_SCORE_RANGE */
+  uint64_t *mmap__avg_quality; /* GT_STATS_QUAL_SCORE__MMAP_RANGE */
+  // Nucleotide counting
+  uint64_t *nt_counting;   /* GT_STATS_MISMS_BASE_RANGE */
   // Mapped/Maps
-  uint64_t num_blocks; // SE => 1 block. PE => 2 blocks
-  uint64_t num_alignments;
+  uint64_t num_blocks;     // SE => 1 block. PE => 2 blocks
+  uint64_t num_alignments; // Number of alignments (independently of the type{SE,PE} or the syntax used in the file)
   uint64_t num_maps;
   uint64_t num_mapped;
   // MMap Distribution
-  uint64_t *mmap; /* GT_STATS_MMAP_RANGE */
+  uint64_t *mmap;          /* GT_STATS_MMAP_RANGE */
   // Uniq Distribution
-  uint64_t *uniq; /* GT_STATS_UNIQ_RANGE */
+  uint64_t *uniq;          /* GT_STATS_UNIQ_RANGE */
   // Error Profile
   gt_maps_profile *maps_profile;
   // Split maps info
   gt_splitmaps_profile* splitmaps_profile;
+  // Population profile
+  gt_population_profile* population_profile;
 } gt_stats;
 
 typedef struct {
-  bool best_map;
+  /* Analysis */
+  bool first_map;
   bool nucleotide_stats;
   bool maps_profile;
   bool indel_profile; // TODO
   bool split_map_stats;
+  /* Control Flags */
+  bool use_map_counters; /* If possible, use counters instead of decoded matches */
 } gt_stats_analysis;
-
 #define GT_STATS_ANALYSIS_DEFAULT() \
   { \
-    .best_map=false, \
+    /* Analysis */ \
+    .first_map=false, \
     .nucleotide_stats=true, \
     .maps_profile=true, \
     .indel_profile=false, \
-    .split_map_stats=true \
+    .split_map_stats=true, \
+    /* Control Flags */ \
+    .use_map_counters = true \
   }
 
 /*
@@ -253,7 +280,7 @@ GT_INLINE void gt_stats_calculate_template_stats(
  */
 GT_INLINE void gt_stats_print_mmap_distribution(FILE* stream,uint64_t* const mmap,const uint64_t num_alignments,const uint64_t num_mapped);
 GT_INLINE void gt_stats_print_uniq_distribution(FILE* stream,uint64_t* const uniq,const uint64_t num_alignments);
-GT_INLINE void gt_stats_print_inss_distribution(FILE* stream,uint64_t* const inss,const uint64_t num_maps);
+GT_INLINE void gt_stats_print_inss_distribution(FILE* stream,uint64_t* const inss,const uint64_t num_maps,const bool full_resolution);
 GT_INLINE void gt_stats_print_error_event_distribution(FILE* stream,uint64_t* const error,const uint64_t num_maps);
 GT_INLINE void gt_stats_print_read_event_positions(FILE* stream,uint64_t* const pos_error,uint64_t const num_errors,uint64_t const max_length);
 GT_INLINE void gt_stats_print_num_junctions_distribution(FILE* stream,uint64_t* const num_junctions,uint64_t const total);

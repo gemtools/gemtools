@@ -150,24 +150,85 @@ GT_INLINE void gt_string_append_eos(gt_string* const string_dst) {
   gt_string_resize(string_dst,string_dst->length+1);
   string_dst->buffer[string_dst->length] = EOS;
 }
-
-GT_INLINE void gt_string_append_string(gt_string* const string_dst,const char* const string_src,const uint64_t length) {
+GT_INLINE void gt_string_left_append_string(gt_string* const string_dst,const char* const string_src,const uint64_t length) {
+  GT_STRING_CHECK_NO_STATIC(string_dst);
+  GT_NULL_CHECK(string_src);
+  const uint64_t base_length = string_dst->length;
+  const uint64_t final_length = base_length+length;
+  gt_string_resize(string_dst,final_length+1);
+  // Shift dst characters to the left
+  char* const buffer = string_dst->buffer;
+  int64_t i;
+  for (i=base_length;i>=0;--i) {
+    buffer[i+length] = buffer[i];
+  }
+  // Left append the src string
+  for (i=0;i<length;++i) {
+    buffer[i] = string_src[i];
+  }
+  string_dst->length = final_length;
+}
+GT_INLINE void gt_string_left_append_gt_string(gt_string* const string_dst,gt_string* const string_src) {
+  GT_STRING_CHECK_NO_STATIC(string_dst);
+  GT_STRING_CHECK(string_src);
+  const uint64_t base_src_length = string_src->length;
+  const uint64_t base_dst_length = string_dst->length;
+  const uint64_t final_length = base_dst_length+base_src_length;
+  gt_string_resize(string_dst,final_length+1);
+  // Shift dst characters to the left
+  char* const buffer_src = string_src->buffer;
+  char* const buffer_dst = string_dst->buffer;
+  int64_t i;
+  for (i=base_dst_length;i>=0;--i) {
+    buffer_dst[i+base_src_length] = buffer_dst[i];
+  }
+  // Left append the src string
+  for (i=0;i<base_src_length;++i) {
+    buffer_dst[i] = buffer_src[i];
+  }
+  string_dst->length = final_length;
+}
+GT_INLINE void gt_string_right_append_string(gt_string* const string_dst,const char* const string_src,const uint64_t length) {
   GT_STRING_CHECK_NO_STATIC(string_dst);
   GT_NULL_CHECK(string_src);
   const uint64_t final_length = string_dst->length+length;
-  gt_string_resize(string_dst,final_length);
+  gt_string_resize(string_dst,final_length+1);
   gt_strncpy(string_dst->buffer+string_dst->length,string_src,length);
   string_dst->length = final_length;
 }
-GT_INLINE void gt_string_append_gt_string(gt_string* const string_dst,gt_string* const string_src) {
+GT_INLINE void gt_string_right_append_gt_string(gt_string* const string_dst,gt_string* const string_src) {
   GT_STRING_CHECK_NO_STATIC(string_dst);
   GT_STRING_CHECK(string_src);
   const uint64_t final_length = string_dst->length+string_src->length;
-  gt_string_resize(string_dst,final_length);
+  gt_string_resize(string_dst,final_length+1);
   gt_strncpy(string_dst->buffer+string_dst->length,string_src->buffer,string_src->length);
   string_dst->length = final_length;
 }
-
+GT_INLINE void gt_string_trim_left(gt_string* const string,const uint64_t length) {
+  GT_STRING_CHECK_NO_STATIC(string);
+  if (length > 0) {
+    if (gt_expect_false(length >= string->length)) {
+      gt_string_clear(string);
+      return;
+    }
+    const uint64_t new_length = string->length-length;
+    uint64_t i;
+    for (i=0;i<new_length;++i) string->buffer[i]=string->buffer[i+length];
+    string->buffer[new_length] = EOS;
+    string->length = new_length;
+  }
+}
+GT_INLINE void gt_string_trim_right(gt_string* const string,const uint64_t length) {
+  GT_STRING_CHECK_NO_STATIC(string);
+  if (length > 0) {
+    if (gt_expect_false(length >= string->length)) {
+      gt_string_clear(string);
+      return;
+    }
+    string->length -= length;
+    string->buffer[string->length] = EOS;
+  }
+}
 /*
  * Cmp functions
  */

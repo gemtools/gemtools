@@ -78,6 +78,7 @@
 #define SEMICOLON ';'
 #define COLON ':'
 #define HASH '#'
+#define UNDERSCORE '_'
 
 // Buffer sizes // FIXME
 #define GT_BUFFER_SIZE_1K   ((1<<10)-64)
@@ -143,7 +144,7 @@
 #define GT_ABS(a) ((a)>=0?(a):-(a))
 #define GT_SWAP(a,b) do {typeof(a) aux = a; a = b; b = aux; } while (0)
 #define GT_BETWEEN(number,a,b) ((a)<=(number) && (number)<=(b))
-GT_INLINE uint64_t gt_get_integer_proportion(const float proportion,const uint64_t total_length);
+GT_INLINE uint64_t gt_get_integer_proportion(const float proportion,const uint64_t length);
 
 /*
  * Print's template helpers

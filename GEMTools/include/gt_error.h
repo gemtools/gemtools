@@ -169,16 +169,16 @@ void gt_perror();
 /*
  * Exception handlers (conditional error handlers)
  */
-#define gt_cond_fatal_error_msg(condition,gt_error_msg,args...) \
+#define gt_cond_fatal_error_msg(condition,error_msg,args...) \
   do { \
     if (__builtin_expect((condition),0)){ \
-      gt_fatal_error_msg(gt_error_name,##args); \
+      gt_fatal_error_msg(error_msg,##args); \
     } \
   } while (0)
-#define gt_cond_error_msg(condition,gt_error_msg,args...) \
+#define gt_cond_error_msg(condition,error_msg,args...) \
   do { \
     if (__builtin_expect((condition),0)){ \
-      gt_error_msg(gt_error_name,##args); \
+      gt_error_msg(error_msg,##args); \
     } \
   } while (0)
 /*
@@ -265,6 +265,7 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_MEM_HANDLER "Could not allocate handler"
 #define GT_ERROR_MEM_ALLOC "Could not allocate memory"
 #define GT_ERROR_MEM_ALLOC_INFO "Could not allocate memory (%"PRIu64" requested)"
+#define GT_ERROR_MEM_CALLOC_INFO "Could not allocate memory (%"PRIu64"x%"PRIu64" requested)"
 #define GT_ERROR_MEM_ALLOC_DISK "Requested %"PRIu64" Bytes. Resorting to disk"
 #define GT_ERROR_MEM_ALLOC_MMAP_DISK_FAIL "Requested %"PRIu64" Bytes. Failed to mmap memory to '%s'"
 #define GT_ERROR_MEM_ALLOC_MMAP_FAIL "Requested %"PRIu64" Bytes. Failed to mmap memory"
@@ -352,7 +353,7 @@ gt_status gt_tprintf(const char* format,...);
  * Parsing FASTQ File format errors
  */
 // IFP (Input FASTA Parser). General
-#define GT_ERROR_PARSE_FASTA "Parsing FASTA/FASTQ error(%s:%"PRIu64")"
+#define GT_ERROR_PARSE_FASTA "Parsing FASTA/FASTQ error(%s:%"PRIu64":%"PRIu64")"
 
 /*
  * Parsing MAP File format errors

@@ -11,15 +11,19 @@
 const bool gt_dna[256] =
 {
     [0 ... 255] = false,
-    ['A'] = true,['C'] = true,['G'] = true,['T'] = true,
-    /*['a'] = true,['c'] = true,['g'] = true,['t'] = true, *//* TODO: a,c,g,t,n compatibility via gt_dna_string */
-    ['N'] = true
+    ['A'] = true,['C'] = true,['G'] = true,['T'] = true,['N'] = true,
+    ['a'] = true,['c'] = true,['g'] = true,['t'] = true,['n'] = true  /* TODO: a,c,g,t,n compatibility via gt_dna_string */
 };
 const char gt_dna_normalized[256] =
 {
     [0 ... 255] = 'N',
     ['A'] = 'A',['C'] = 'C',['G'] = 'G',['T'] = 'T',
     ['a'] = 'A',['c'] = 'C',['g'] = 'G',['t'] = 'T',
+};
+const char gt_dna_strictly_normalized[256] =
+{
+    [0 ... 255] = 'N',
+    ['A'] = 'A',['C'] = 'C',['G'] = 'G',['T'] = 'T',
 };
 const char gt_complement_table[256] =
 {

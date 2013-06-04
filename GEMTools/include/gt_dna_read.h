@@ -12,6 +12,7 @@
 #include "gt_essentials.h"
 #include "gt_attributes.h"
 
+// DNA read
 typedef struct {
   gt_string* tag;
   gt_string* read;
@@ -62,11 +63,12 @@ GT_INLINE char* gt_dna_read_get_qualities(gt_dna_read* const read);
 /*
  * Handlers
  */
-GT_INLINE gt_status gt_dna_read_deduce_qualities_offset(gt_dna_read* const read,gt_qualities_offset_t* qualities_offset_type);
+GT_INLINE gt_status gt_qualities_deduce_offset(gt_string* const qualities,gt_qualities_offset_t* qualities_offset_type);
+GT_INLINE gt_status gt_qualities_adapt_from_offset33_to_offset64(gt_string* const qualities);
+GT_INLINE gt_status gt_qualities_adapt_from_offset64_to_offset33(gt_string* const qualities);
 
 GT_INLINE gt_string* gt_qualities_dup__adapt_offset64_to_offset33(gt_string* const qualities);
-
-// GT_INLINE uint64_t gt_dna_read_quality_trim(gt_dna_read* const read,const uint8_t quality_threshold,const uint64_t min_length); // TODO
-// GT_INLINE uint64_t gt_dna_read_hard_trim(gt_dna_read* const read,const uint64_t length); // TODO
+GT_INLINE void gt_dna_read_uniform_content(gt_string* const read,gt_string* const qualities);
+GT_INLINE void gt_dna_read_uniform_strict_content(gt_string* const read,gt_string* const qualities);
 
 #endif /* GT_DNA_READ_H_ */

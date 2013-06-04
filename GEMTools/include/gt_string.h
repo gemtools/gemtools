@@ -36,7 +36,8 @@ typedef struct {
  */
 #define PRIgts "%.*s"
 #define PRIgts_content(string) (int)gt_string_get_length(string),gt_string_get_string(string)
-#define PRIgts_trimmed_content(string,left_trim,right_trim) ((int)gt_string_get_length(string)-(left_trim+right_trim)),(gt_string_get_string(string)+left_trim)
+#define PRIgts_range_content(string,start_pos,length) (length),(gt_string_get_string(string)+start_pos)
+#define PRIgts_trimmed_content(string,left_trim,right_trim) ((int)gt_string_get_length(string)-((left_trim)+(right_trim))),(gt_string_get_string(string)+(left_trim))
 
 /*
  * Constructor & Accessors
@@ -65,8 +66,15 @@ GT_INLINE char* gt_string_char_at(gt_string* const string,const uint64_t pos);
 GT_INLINE void gt_string_append_char(gt_string* const string_dst,const char character);
 GT_INLINE void gt_string_append_eos(gt_string* const string_dst);
 
-GT_INLINE void gt_string_append_string(gt_string* const string_dst,const char* const string_src,const uint64_t length);
-GT_INLINE void gt_string_append_gt_string(gt_string* const string_dst,gt_string* const string_src);
+#define gt_string_append_string    gt_string_right_append_string
+#define gt_string_append_gt_string gt_string_right_append_gt_string
+GT_INLINE void gt_string_left_append_string(gt_string* const string_dst,const char* const string_src,const uint64_t length);
+GT_INLINE void gt_string_left_append_gt_string(gt_string* const string_dst,gt_string* const string_src);
+GT_INLINE void gt_string_right_append_string(gt_string* const string_dst,const char* const string_src,const uint64_t length);
+GT_INLINE void gt_string_right_append_gt_string(gt_string* const string_dst,gt_string* const string_src);
+
+GT_INLINE void gt_string_trim_left(gt_string* const string,const uint64_t length);
+GT_INLINE void gt_string_trim_right(gt_string* const string,const uint64_t length);
 
 /*
  * Cmp functions
@@ -101,7 +109,7 @@ GT_INLINE gt_status gt_sprintf_append(gt_string* const sequence,const char *temp
 #define GT_STRING_ITERATE(string,mem,pos) \
   uint64_t pos; \
   const uint64_t __length_##mem = gt_string_get_length(string); \
-  const char* mem = gt_string_get_string(string); \
+  char* mem = gt_string_get_string(string); \
   for (pos=0;pos<__length_##mem;++pos) /* mem[pos] */
 
 /*

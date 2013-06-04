@@ -13,20 +13,22 @@
 #include "gt_essentials.h"
 #include "gt_attributes.h"
 
-// Attributes ID
-#define GT_ATTR_ID_TAG_PAIR "pair"     // (int64_t)
-#define GT_ATTR_ID_TAG_CASAVA "casava" // (gt_string*)
-#define GT_ATTR_ID_TAG_EXTRA "extra"   // (gt_string*)
+/*
+ * Parsing error/state codes
+ */
+#define GT_PE_BAD_CHARACTER 10
 
-#define GT_PAIR_SE 0
-#define GT_PAIR_PE_1 1
-#define GT_PAIR_PE_2 2
-#define GT_PAIR_BOTH 3
+#define GT_PE_BAD_TRIM_READ_STRING_LENGTH 30
+#define GT_PE_BAD_TRIM_QUAL_STRING_LENGTH 31
 
 /*
- * Generic tag parser
+ * Generic Tag Parser
  */
 GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* const tag,gt_attributes* const attributes);
+
+/*
+ * Tag Parser Utils
+ */
 GT_INLINE uint64_t gt_input_parse_tag_chomp_pairend_info(gt_string* const tag);
 
 /*

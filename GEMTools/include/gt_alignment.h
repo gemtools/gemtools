@@ -108,10 +108,6 @@ GT_INLINE void gt_alignment_inc_counter(gt_alignment* const alignment,const uint
 /*
  * Attribute accessors
  */
-// Predefined attributes
-#define GT_ATTR_ID_MAX_COMPLETE_STRATA "MCS"
-#define GT_ATTR_ID_NOT_UNIQUE "NOT-UNIQUE"
-
 GT_INLINE uint64_t gt_alignment_get_mcs(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_set_mcs(gt_alignment* const alignment,uint64_t max_complete_strata);
 GT_INLINE void gt_alignment_set_not_unique_flag(gt_alignment* const alignment,bool is_not_unique);

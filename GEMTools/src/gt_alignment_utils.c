@@ -13,9 +13,7 @@
  */
 GT_INLINE uint64_t gt_alignment_get_read_proportion(gt_alignment* const alignment,const float proportion) {
   GT_ALIGNMENT_CHECK(alignment);
-  if (proportion<=0.0) return 0;
-  if (proportion>=1.0) return (uint64_t)proportion;
-  return (uint64_t)(proportion*(float)gt_string_get_length(alignment->read));
+  return gt_get_integer_proportion(proportion,gt_string_get_length(alignment->read));
 }
 
 /*
@@ -115,6 +113,17 @@ GT_INLINE bool gt_alignment_is_map_contained_fx(
   gt_map* found_map;
   uint64_t found_map_pos;
   return gt_alignment_find_map_fx(gt_map_cmp_fx,alignment,map,&found_map_pos,&found_map);
+}
+GT_INLINE void gt_alignment_reduce_maps(gt_alignment* const alignment,const uint64_t max_num_matches) {
+  const uint64_t num_matches = gt_alignment_get_num_maps(alignment);
+  if (max_num_matches < num_matches) {
+    // Free unused maps
+    GT_VECTOR_ITERATE_OFFSET(alignment->maps,map,map_pos,max_num_matches,gt_map*) {
+      gt_map_delete(*map);
+    }
+    // Shrink maps vector
+    gt_vector_set_used(alignment->maps,max_num_matches);
+  }
 }
 
 /*
@@ -434,63 +443,165 @@ GT_INLINE void gt_alignment_realign_weighted(
 /*
  * Alignment trimming
  */
-GT_INLINE void gt_alignment_trim(gt_alignment* const alignment,uint64_t const left,uint64_t const right,uint64_t const min_length,bool const set_extra) {
-  if (left == 0 && right == 0) return;
-  char* read = gt_alignment_get_read(alignment);
-  uint64_t read_length = gt_alignment_get_read_length(alignment);
-  if (read_length - left - right < min_length) return;
-
-  // trim the read
-  uint64_t trimmed_length = read_length - (left + right);
-  char* trimmed_read = strndup(read + left,trimmed_length);
-  gt_alignment_set_read(alignment,trimmed_read,trimmed_length);
-
-  // get trimmed parts
-  char* left_read = 0;
-  char* right_read = 0;
-  if (left > 0) left_read = strndup(read,left);
-  else left_read = "";
-
-  if (right > 0) right_read = strndup(read + read_length - right,right);
-  else right_read = "";
-
-  char* trimmed_qual = 0;
-  char* left_qual = 0;
-  char* right_qual = 0;
-  // trim qualities
-  char* qual = gt_alignment_get_qualities(alignment);
-  if (qual != NULL) {
-    trimmed_qual = strndup(qual + left,trimmed_length);
-    gt_alignment_set_qualities(alignment,trimmed_qual,trimmed_length);
-    if (left > 0) left_qual = strndup(qual,left);
-    else left_qual = "";
-
-    if(right > 0) right_qual = strndup(qual + read_length - right,right);
-    else right_qual = "";
-  }
-
-  if (set_extra) {
-    // update extra
-    gt_string* extra = gt_string_new(8+ (2*left) + (2*right));
-    if (qual != NULL) {
-      gt_sprintf_append(extra," B T %s %s %s %s",left_read,right_read,left_qual,right_qual);
-    } else {
-      gt_sprintf_append(extra," B T %s %s    ",left_read,right_read);
+GT_INLINE void gt_alignment_hard_trim(gt_alignment* const alignment,const uint64_t left,const uint64_t right) {
+  GT_ALIGNMENT_CHECK(alignment);
+  uint64_t read_length = gt_string_get_length(alignment->read);
+  uint64_t qualities_length = gt_string_get_length(alignment->qualities);
+  if (left+right >= read_length) return;
+  /*
+   * Apply left trim
+   */
+  if (left > 0) {
+    gt_read_trim left_trim;
+    left_trim.length = left;
+    // Store trimmed read & apply trim
+    left_trim.trimmed_read = gt_string_new(left+1);
+    gt_string_set_nstring(left_trim.trimmed_read,gt_string_get_string(alignment->read),left);
+    gt_string_trim_left(alignment->read,left);
+    read_length-=left;
+    if (qualities_length > 0) {
+      // Store trimmed qualities & apply trim
+      left_trim.trimmed_qualities = gt_string_new(left+1);
+      gt_string_set_nstring(left_trim.trimmed_qualities,gt_string_get_string(alignment->qualities),left);
+      gt_string_trim_left(alignment->qualities,left);
+      qualities_length-=left;
     }
-    if (gt_attributes_is_contained(alignment->attributes,GT_ATTR_ID_TAG_EXTRA)) {
-      gt_string* old = gt_attributes_get(alignment->attributes,GT_ATTR_ID_TAG_EXTRA);
-      gt_string_delete(old);
+    // Annotate LEFT-trim
+    gt_attributes_annotate_left_trim(alignment->attributes,&left_trim);
+    // Apply LEFT-trim to all maps
+    GT_ALIGNMENT_ITERATE(alignment,map) {
+      gt_map_left_trim(map,left);
     }
-    gt_attributes_add_string(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,extra);
   }
-
-  // gt_free(left_read);
-  // gt_free(trimmed_read);
-  // gt_free(right_read);
-  // if (qual != NULL ){
-  //   gt_free(trimmed_qual);
-  //   gt_free(left_qual);
-  //   gt_free(right_qual);
-  // }
+  /*
+   * Apply right trim
+   */
+  if (right > 0) {
+    gt_read_trim right_trim;
+    right_trim.length = right;
+    // Store trimmed read & apply trim
+    right_trim.trimmed_read = gt_string_new(right+1);
+    gt_string_set_nstring(right_trim.trimmed_read,gt_string_get_string(alignment->read),right);
+    gt_string_trim_right(alignment->read,right);
+    if (qualities_length > 0) {
+      // Store trimmed qualities & apply trim
+      right_trim.trimmed_qualities = gt_string_new(right+1);
+      gt_string_set_nstring(right_trim.trimmed_qualities,gt_string_get_string(alignment->qualities),right);
+      gt_string_trim_right(alignment->qualities,right);
+    }
+    // Annotate RIGHT-trim
+    gt_attributes_annotate_right_trim(alignment->attributes,&right_trim);
+    // Apply RIGHT-trim to all maps
+    GT_ALIGNMENT_ITERATE(alignment,map) {
+      gt_map_right_trim(map,right);
+    }
+  }
 }
+GT_INLINE void gt_alignment_hard_trim_min_length(gt_alignment* const alignment,const uint64_t left,const uint64_t right,const uint64_t min_length) {
+  GT_ALIGNMENT_CHECK(alignment);
+  if (min_length+(left+right) > gt_string_get_length(alignment->read)) return;
+  gt_alignment_hard_trim(alignment,left,right);
+}
+GT_INLINE void gt_alignment_quality_trim(gt_alignment* const alignment,const uint64_t quality_threshold,const uint64_t min_length) {
+  GT_ALIGNMENT_CHECK(alignment);
+
+}
+GT_INLINE void gt_alignment_restore_trim(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  /*
+   * Restore RIGHT-trim (if any)
+   */
+  gt_read_trim* const right_trim = gt_attributes_get_right_trim(alignment->attributes);
+  if (right_trim!=NULL) {
+    // Restore Read & Qualities
+    if (right_trim->trimmed_read != NULL) gt_string_right_append_gt_string(alignment->read,right_trim->trimmed_read);
+    if (right_trim->trimmed_qualities != NULL) gt_string_right_append_gt_string(alignment->qualities,right_trim->trimmed_qualities);
+    // Restore Maps
+    GT_ALIGNMENT_ITERATE(alignment,map) {
+      gt_map_restore_right_trim(map,right_trim->length);
+    }
+    // Delete annotated trim
+    gt_attributes_remove(alignment->attributes,GT_ATTR_ID_RIGHT_TRIM);
+  }
+  /*
+   * Restore LEFT-trim (if any)
+   */
+  gt_read_trim* const left_trim = gt_attributes_get_left_trim(alignment->attributes);
+  if (left_trim!=NULL) {
+    // Restore Read & Qualities
+    if (left_trim->trimmed_read != NULL) gt_string_left_append_gt_string(alignment->read,left_trim->trimmed_read);
+    if (left_trim->trimmed_qualities != NULL) gt_string_left_append_gt_string(alignment->qualities,left_trim->trimmed_qualities);
+    // Restore Maps
+    GT_ALIGNMENT_ITERATE(alignment,map) {
+      gt_map_restore_left_trim(map,left_trim->length);
+    }
+    // Delete annotated trim
+    gt_attributes_remove(alignment->attributes,GT_ATTR_ID_LEFT_TRIM);
+  }
+}
+
+
+///*
+// * Alignment trimming
+// */
+//GT_INLINE void gt_alignment_trim(gt_alignment* const alignment,const uint64_t left,const uint64_t right,const uint64_t min_length,const bool set_extra) {
+//  GT_ALIGNMENT_CHECK(alignment);
+//
+//  if (left == 0 && right == 0) return;
+//  char* read = gt_alignment_get_read(alignment);
+//  uint64_t read_length = gt_alignment_get_read_length(alignment);
+//  if (read_length - left - right < min_length) return;
+//
+//  // trim the read
+//  uint64_t trimmed_length = read_length - (left + right);
+//  char* trimmed_read = strndup(read + left,trimmed_length);
+//  gt_alignment_set_read(alignment,trimmed_read,trimmed_length);
+//
+//  // get trimmed parts
+//  char* left_read = 0;
+//  char* right_read = 0;
+//  if (left > 0) left_read = strndup(read,left);
+//  else left_read = "";
+//
+//  if (right > 0) right_read = strndup(read + read_length - right,right);
+//  else right_read = "";
+//
+//  char* trimmed_qual = 0;
+//  char* left_qual = 0;
+//  char* right_qual = 0;
+//  // trim qualities
+//  char* qual = gt_alignment_get_qualities(alignment);
+//  if (qual != NULL) {
+//    trimmed_qual = strndup(qual + left,trimmed_length);
+//    gt_alignment_set_qualities(alignment,trimmed_qual,trimmed_length);
+//    if (left > 0) left_qual = strndup(qual,left);
+//    else left_qual = "";
+//    if(right > 0) right_qual = strndup(qual + read_length - right,right);
+//    else right_qual = "";
+//  }
+//
+//  if (set_extra) {
+//    // update extra
+//    gt_string* extra = gt_string_new(8+ (2*left) + (2*right));
+//    if (qual != NULL) {
+//      gt_sprintf_append(extra," B T %s %s %s %s",left_read,right_read,left_qual,right_qual);
+//    } else {
+//      gt_sprintf_append(extra," B T %s %s    ",left_read,right_read);
+//    }
+//    if (gt_attributes_is_contained(alignment->attributes,GT_ATTR_ID_TAG_EXTRA)) {
+//      gt_string* old = gt_attributes_get(alignment->attributes,GT_ATTR_ID_TAG_EXTRA);
+//      gt_string_delete(old);
+//    }
+//    gt_attributes_add_string(alignment->attributes,GT_ATTR_ID_TAG_EXTRA,extra);
+//  }
+//
+//  // gt_free(left_read);
+//  // gt_free(trimmed_read);
+//  // gt_free(right_read);
+//  // if (qual != NULL ){
+//  //   gt_free(trimmed_qual);
+//  //   gt_free(left_qual);
+//  //   gt_free(right_qual);
+//  // }
+//}
 

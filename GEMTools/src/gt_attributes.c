@@ -3,7 +3,7 @@
  * FILE: gt_attributes.c
  * DATE: 15/01/2013
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
- * DESCRIPTION: Provides support to data attributes (from general attributes to specific to certain file formats)
+ * DESCRIPTION: Provides support to data attributes
  */
 
 
@@ -78,4 +78,60 @@ GT_INLINE void gt_attributes_copy(gt_attributes* const attributes_dst,gt_attribu
   GT_ATTRIBUTES_CHECK(attributes_src);
   gt_shash_copy(attributes_dst,attributes_src);
 }
+
+/*
+ * Specific Attributes Handlers
+ */
+GT_INLINE gt_read_trim* gt_attributes_get_left_trim(gt_attributes* const attributes) {
+  GT_ATTRIBUTES_CHECK(attributes);
+  return gt_attributes_get(attributes,GT_ATTR_ID_LEFT_TRIM);
+}
+GT_INLINE gt_read_trim* gt_attributes_get_right_trim(gt_attributes* const attributes) {
+  GT_ATTRIBUTES_CHECK(attributes);
+  return gt_attributes_get(attributes,GT_ATTR_ID_RIGHT_TRIM);
+}
+GT_INLINE void gt_attributes_annotate_left_trim(gt_attributes* const attributes,gt_read_trim* const left_trim) {
+  GT_ATTRIBUTES_CHECK(attributes);
+  gt_read_trim* const previous_left_trim = gt_attributes_get(attributes,GT_ATTR_ID_LEFT_TRIM);
+  if (previous_left_trim==NULL) {
+    gt_attributes_add(attributes,GT_ATTR_ID_LEFT_TRIM,left_trim,gt_read_trim); // Set LEFT-Trim
+  } else {
+    previous_left_trim->length += left_trim->length;
+    // Read
+    if (left_trim->trimmed_read!=NULL) {
+      gt_string_right_append_gt_string(previous_left_trim->trimmed_read,left_trim->trimmed_read);
+      gt_string_delete(left_trim->trimmed_read);
+    }
+    // Qualities
+    if (left_trim->trimmed_qualities!=NULL) {
+      gt_string_right_append_gt_string(previous_left_trim->trimmed_qualities,left_trim->trimmed_qualities);
+      gt_string_delete(left_trim->trimmed_qualities);
+    }
+  }
+}
+GT_INLINE void gt_attributes_annotate_right_trim(gt_attributes* const attributes,gt_read_trim* const right_trim) {
+  GT_ATTRIBUTES_CHECK(attributes);
+  gt_read_trim* const previous_right_trim = gt_attributes_get(attributes,GT_ATTR_ID_RIGHT_TRIM);
+  if (previous_right_trim==NULL) {
+    gt_attributes_add(attributes,GT_ATTR_ID_RIGHT_TRIM,right_trim,gt_read_trim); // Set RIGHT-Trim
+  } else {
+    previous_right_trim->length += right_trim->length;
+    // Read
+    if (right_trim->trimmed_read!=NULL) {
+      gt_string_left_append_gt_string(previous_right_trim->trimmed_read,right_trim->trimmed_read);
+      gt_string_delete(right_trim->trimmed_read);
+    }
+    // Qualities
+    if (right_trim->trimmed_qualities!=NULL) {
+      gt_string_left_append_gt_string(previous_right_trim->trimmed_qualities,right_trim->trimmed_qualities);
+      gt_string_delete(right_trim->trimmed_qualities);
+    }
+  }
+}
+
+GT_INLINE gt_segmented_read_info* gt_attributes_get_segmented_read_info(gt_attributes* const attributes) {
+  GT_ATTRIBUTES_CHECK(attributes);
+  return gt_attributes_get(attributes,GT_ATTR_ID_SEGMENTED_READ_INFO);
+}
+
 

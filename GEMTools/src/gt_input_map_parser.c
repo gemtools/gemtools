@@ -250,9 +250,7 @@ GT_INLINE gt_status gt_imp_reload_buffer_matching_tag(
     gt_buffered_input_file* const buffered_map_input,gt_string* const reference_tag,const bool read_paired) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
-  if (buffered_map_input->buffered_output_file!=NULL) {
-    gt_buffered_output_file_dump(buffered_map_input->buffered_output_file);
-  }
+  gt_buffered_input_file_dump_attached_buffers(buffered_map_input->attached_buffered_output_file);
   // Read new input block
   gt_input_file* const input_file = buffered_map_input->input_file;
   // Read lines
@@ -266,14 +264,14 @@ GT_INLINE gt_status gt_imp_reload_buffer_matching_tag(
   buffered_map_input->current_line_num = input_file->processed_lines+1;
   gt_vector_clear(buffered_map_input->block_buffer); // Clear dst buffer
   // Read lines
-  if (read_paired) gt_input_fasta_tag_chomp_end_info(reference_tag);
+  if (read_paired) gt_input_parse_tag_chomp_pairend_info(reference_tag);
   gt_string* const last_tag = gt_string_new(0);
   uint64_t lines_read, total_lines_read = 0;
   uint64_t num_blocks = 0, num_tabs = 0;
   do {
     if ((lines_read=gt_input_file_next_record(input_file,
         buffered_map_input->block_buffer,last_tag,&num_blocks,&num_tabs))==0) break;
-    if (read_paired) gt_input_fasta_tag_chomp_end_info(last_tag);
+    if (read_paired) gt_input_parse_tag_chomp_pairend_info(last_tag);
     ++total_lines_read;
   } while (!gt_string_equals(reference_tag,last_tag));
   if (read_paired && lines_read>0 && num_blocks%2!=0) { // Check paired read
@@ -291,10 +289,7 @@ GT_INLINE gt_status gt_imp_reload_buffer_matching_tag(
   // Setup the block
   buffered_map_input->cursor = gt_vector_get_mem(buffered_map_input->block_buffer,char);
   // Assign block ID
-  if (buffered_map_input->buffered_output_file!=NULL) {
-    gt_buffered_output_file_set_block_ids(
-        buffered_map_input->buffered_output_file,buffered_map_input->block_id,0);
-  }
+  gt_buffered_input_file_set_id_attached_buffers(buffered_map_input->attached_buffered_output_file,buffered_map_input->block_id);
   // Free
   gt_string_delete(last_tag);
   return GT_IMP_OK;
@@ -335,19 +330,14 @@ GT_INLINE gt_status gt_input_map_parser_reload_buffer(
     gt_buffered_input_file* const buffered_map_input,const bool synchronized_map,const uint64_t num_lines) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
   // Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
-  if (buffered_map_input->buffered_output_file!=NULL) {
-    gt_buffered_output_file_dump(buffered_map_input->buffered_output_file);
-  }
+  gt_buffered_input_file_dump_attached_buffers(buffered_map_input->attached_buffered_output_file);
   // Read new input block
   const uint64_t read_lines = (synchronized_map) ?
       gt_imp_get_block(buffered_map_input,num_lines):
       gt_buffered_input_file_get_block(buffered_map_input,num_lines);
   if (gt_expect_false(read_lines==0)) return GT_IMP_EOF;
   // Assign block ID
-  if (buffered_map_input->buffered_output_file!=NULL) {
-    gt_buffered_output_file_set_block_ids(
-        buffered_map_input->buffered_output_file,buffered_map_input->block_id,0);
-  }
+  gt_buffered_input_file_set_id_attached_buffers(buffered_map_input->attached_buffered_output_file,buffered_map_input->block_id);
   return GT_IMP_OK;
 }
 
@@ -1609,9 +1599,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_v(
   // Check the end_of_block. Reload buffer if needed (synch)
   if (gt_buffered_input_file_eob(buffered_input)) {
     // Dump buffer if BOF it attached to the input, and get new out block (always FIRST)
-    if (buffered_input->buffered_output_file!=NULL) {
-      gt_buffered_output_file_dump(buffered_input->buffered_output_file);
-    }
+    gt_buffered_input_file_dump_attached_buffers(buffered_input->attached_buffered_output_file);
     // Read synch blocks & Reload all the 'buffered_input' files
     GT_BEGIN_MUTEX_SECTION(*input_mutex) {
       if ((error_code=gt_input_map_parser_reload_buffer(buffered_input,
@@ -1656,9 +1644,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_a(
     /*
      * Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
      */
-    if (buffered_input[0]->buffered_output_file!=NULL) {
-      gt_buffered_output_file_dump(buffered_input[0]->buffered_output_file);
-    }
+    gt_buffered_input_file_dump_attached_buffers(buffered_input[0]->attached_buffered_output_file);
     /*
      * Read synch blocks
      */
@@ -1694,9 +1680,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
   /*
    * Dump buffer if BOF it attached to Map-input, and get new out block (always FIRST)
    */
-  if (buffered_map_input_master->buffered_output_file!=NULL) {
-    gt_buffered_output_file_dump(buffered_map_input_master->buffered_output_file);
-  }
+  gt_buffered_input_file_dump_attached_buffers(buffered_map_input_master->attached_buffered_output_file);
   /*
    * Read synch blocks
    */

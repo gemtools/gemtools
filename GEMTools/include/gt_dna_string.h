@@ -38,12 +38,14 @@ extern const bool gt_dna[256];
 extern const bool gt_iupac_code[256];
 
 extern const char gt_dna_normalized[256];
+extern const char gt_dna_strictly_normalized[256];
 extern const char gt_complement_table[256];
 
 #define gt_is_dna(character)         (gt_dna[(int)(character)])
 #define gt_is_iupac_code(character)  (gt_iupac_code[(int)(character)])
 
 #define gt_get_dna_normalized(character) (gt_dna_normalized[(int)(character)])
+#define gt_get_dna_strictly_normalized(character) (gt_dna_strictly_normalized[(int)(character)])
 #define gt_get_complement(character) (gt_complement_table[(int)(character)])
 
 /*

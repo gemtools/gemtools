@@ -70,4 +70,29 @@ GT_INLINE void gt_merge_unsynch_map_files(
     pthread_mutex_t* const input_mutex,gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
     const bool paired_end,gt_output_file* const output_file);
 
+// General generic I/O loop (overkilling, but useful)
+#define GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,paired_end,buffered_output,template) \
+  /* Prepare IN/OUT buffers & printers */ \
+  gt_status __error_code; \
+  gt_buffered_input_file* __buffered_input = gt_buffered_input_file_new(input_file); \
+  gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file); \
+  gt_buffered_input_file_attach_buffered_output(__buffered_input,buffered_output); \
+  /* Prepare Attributes for generic I/O */ \
+  gt_generic_parser_attributes* __gparser_attr = gt_input_generic_parser_attributes_new(paired_end); \
+  /* I/O Loop */ \
+  gt_template* template = gt_template_new(); \
+  while ((__error_code=gt_input_generic_parser_get_template(__buffered_input,template,__gparser_attr))) { \
+    if (__error_code!=GT_IMP_OK) { \
+      gt_error_msg("Fatal error parsing file '%s', line %"PRIu64"\n", \
+          parameters.name_input_file,__buffered_input->current_line_num-1); \
+      continue; \
+    }
+#define GT_END_READING_WRITING_LOOP(input_file,output_file,template) \
+  } \
+  /* Clean */ \
+  gt_buffered_input_file_close(__buffered_input); \
+  gt_buffered_output_file_close(buffered_output); \
+  gt_input_generic_parser_attributes_delete(__gparser_attr); \
+  gt_template_delete(template); \
+
 #endif /* GEM_TOOLS_H_ */

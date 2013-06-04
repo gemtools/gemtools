@@ -165,7 +165,9 @@ GT_INLINE void gt_template_add_mmap_gtvector(
 /*
  * Miscellaneous
  */
-GT_INLINE gt_template* gt_template_copy(gt_template* const template,const bool copy_maps,const bool copy_mmaps);
+GT_INLINE gt_template* gt_template_dup(gt_template* const template,const bool copy_maps,const bool copy_mmaps);
+GT_INLINE void gt_template_copy(gt_template* const template_dst,gt_template* const template_src,const bool copy_maps,const bool copy_mmaps);
+GT_INLINE void gt_template_swap(gt_template* const template_a,gt_template* const template_b);
 
 /*
  * Template's Alignments iterator (end1,end2, ... )

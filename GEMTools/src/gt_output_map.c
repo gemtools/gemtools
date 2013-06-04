@@ -80,23 +80,12 @@ GT_INLINE gt_status gt_output_map_gprint_tag(gt_generic_printer* const gprinter,
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
   GT_ATTRIBUTES_CHECK(attributes);
-  // PRIgts needed as this calls gt_string_get_string downstream, which returns the full buffer not trimmed to length
+  // Print the TAG itself
   gt_gprintf(gprinter,PRIgts,PRIgts_content(tag));
-  // Check if we have casava attributes
-  if (gt_output_map_attributes_is_print_casava(output_map_attributes) && gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_CASAVA)) {
-    // Print casava
-    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_attributes_get(attributes,GT_ATTR_ID_TAG_CASAVA)));
-  } else {
-    // Append /1 /2 if paired
-    if (gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_PAIR)) {
-      int64_t p = *((int64_t*)gt_attributes_get(attributes,GT_ATTR_ID_TAG_PAIR));
-      if (p > 0) gt_gprintf(gprinter,"/%"PRId64,p);
-    }
-  }
-  // Print additional info (extra tag)
-  if(gt_output_map_attributes_is_print_extra(output_map_attributes) && gt_attributes_is_contained(attributes,GT_ATTR_ID_TAG_EXTRA)) {
-    gt_gprintf(gprinter," "PRIgts,PRIgts_content(gt_attributes_get(attributes,GT_ATTR_ID_TAG_EXTRA)));
-  }
+  // Print TAG Attributes
+  gt_output_gprint_tag_attributes(gprinter,attributes,
+      gt_output_map_attributes_is_print_casava(output_map_attributes),
+      gt_output_map_attributes_is_print_extra(output_map_attributes));
   return 0;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
