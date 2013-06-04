@@ -10,6 +10,9 @@
 
 #include "gt_fm.h"
 
+#ifndef O_NOATIME
+  #define O_NOATIME 0
+#endif
 /*
  * I/O Constants/Values
  */
@@ -83,8 +86,12 @@ GT_INLINE void gt_fm_bulk_read_file_parallel(
     const uint64_t thread_size = (tid < (num_threads-1)) ? chunk_size : stat_info.st_size-chunk_size*tid;
     // Open file descriptor
     int fd = open(file_name,O_RDONLY,S_IRUSR);
-    gt_cond_fatal_error__perror(fd==-1,FILE_OPEN,file_name);
-    gt_cond_fatal_error__perror(lseek(fd,thread_file_offset,SEEK_SET)==-1,FILE_SEEK,file_name,thread_file_offset); // Seek
+    if(fd == -1){
+    	gt_fatal_error(FILE_OPEN,file_name);
+    }
+    if(lseek(fd,thread_file_offset,SEEK_SET)==-1){
+    	gt_fatal_error(FILE_SEEK,file_name,thread_file_offset); // Seek
+    }
     // Copy file chunk
     gt_fm_bulk_read_fd(fd,dst+thread_mem_offset,thread_size);
   }

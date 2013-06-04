@@ -33,6 +33,14 @@
   #define MAP_HUGETLB 0
 #endif
 
+#ifndef MAP_ANONYMOUS
+  #define MAP_ANONYMOUS 0 // TODO: disable for mac compatibility
+#endif
+
+#ifndef MAP_POPULATE
+  #define MAP_POPULATE 0 // TODO: disable for mac compatibility
+#endif
+
 /*
  * Memory Alignment Utils
  */
@@ -481,7 +489,7 @@ GT_INLINE void gt_mm_copy_mem_parallel(
   GT_MM_CHECK_SEGMENT(mm);
   // Calculate size of each chunk
   const uint64_t chunk_size = num_bytes/num_threads; // num_bytes > num_threads
-  #pragma omp parallel num_threads(num_threads)
+  //#pragma omp parallel num_threads(num_threads)
   {
     // Calculate offsets
     const uint64_t tid = omp_get_thread_num();

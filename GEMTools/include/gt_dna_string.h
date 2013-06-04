@@ -22,7 +22,7 @@
 #define gt_dna_string gt_string
 
 // Orientation (strand)
-typedef enum { FORWARD, REVERSE } gt_strand;
+typedef enum { FORWARD, REVERSE, UNKNOWN } gt_strand;
 
 typedef struct {
   gt_dna_string* dna_string;

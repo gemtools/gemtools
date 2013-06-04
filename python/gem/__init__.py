@@ -785,15 +785,17 @@ def score(input,
 
     if raw or isinstance(input, gt.InputFile):
         raw = True
+        if isinstance(input, gt.InputFile):
+            input.remove_scores = True
         #input = input.raw_stream()
 
     tools = [score_p]
-
+    tools.append(["/home/devel/thasso/git/github/gemtools/GEMTools/bin/gt.filter", "-t", "8"])
     if compress:
         gzip = _compressor(threads=max(1, threads / 2))
         tools.append(gzip)
 
-    process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=raw)
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=False)
     return _prepare_output(process, output=output)
 
 
@@ -814,8 +816,6 @@ def gem2sam(input, index=None, output=None,
         gem_2_sam_p.extend(['-I', index])
         if not exclude_header:
             gem_2_sam_p.append("-l")
-    if add_length is not None:
-        gem_2_sam_p.append('-l')
 
     quality = _prepare_quality_parameter(quality, input)
     if quality is not None and not quality == "ignore":
@@ -899,7 +899,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1,
 def bamIndex(input, output=None):
     in_name = input
     if not isinstance(input, basestring):
-        in_name = input.file
+        in_name = input.filename
     bam_p = ['samtools', 'index', in_name]
     if output is None:
         output = in_name + ".bai"

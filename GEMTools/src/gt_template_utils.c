@@ -323,8 +323,10 @@ GT_INLINE bool gt_template_get_next_matching_strata(
  *                0 if (a==b)
  */
 typedef struct {
-  gt_mmap_attributes* attributes;
+  gt_mmap_attributes attributes;
   uint64_t init_position;
+  gt_map* end_1;
+  gt_map* end_2;
 } gt_mmap_placeholder;
 int gt_mmap_cmp_distance__score(gt_mmap* const mmap_a,gt_mmap* const mmap_b) {
   // Sort by distance
@@ -336,6 +338,7 @@ int gt_mmap_cmp_distance__score(gt_mmap* const mmap_a,gt_mmap* const mmap_b) {
   const uint64_t score_b = mmap_b->attributes.gt_score;
   return (score_a > score_b) ? -1 : (score_a < score_b ? 1 : 0);
 }
+
 GT_INLINE void gt_template_sort_by_distance__score(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {

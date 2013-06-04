@@ -76,33 +76,143 @@ class Filter(Command):
 
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-i', '--input', dest="input", help='Input map file', required=True)
-        parser.add_argument('-t', '--threads', dest="threads", type=int, default=1, help='Number of threads')
-        parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
-        parser.add_argument('--max-matched', dest="max_matches", type=int, default=0, help="Reduce the maximum number of alignments reported")
-        parser.add_argument('--min-strata', dest="min_event_distance", type=int, default=0, help="Minimum number of strata (default 0)")
-        parser.add_argument('--max-strata', dest="max_event_distance", type=int, default=None, help="Maximum number of strata (default all)")
-        parser.add_argument('--min-levenshtein-error', dest="min_levenshtein_distance", type=int, default=0, help="Minimum levenshtein distance (default 0)")
-        parser.add_argument('--max-levenshtein-error', dest="max_levenshtein_distance", type=int, default=None, help="Maximum levenshtein distance (default all)")
-        parser.add_argument('--max-insert-size', dest="max_inss", type=int, default=None, help="Maximum insert size for paired reads")
-        parser.add_argument('--min-insert-size', dest="min_inss", type=int, default=None, help="Minimum insert size for paired reads")
-        parser.add_argument('--filter-strand', dest="filter_strand", action="store_true", default=False, help="Filter strand and allow only F-R or R-F")
-        parser.add_argument('--keep-unique', dest="keep_unique", action="store_true", default=False, help="Always keep unique mappings as they are")
-        parser.add_argument('--min-score', dest="min_score", default=None, help="Filter by score")
+        parser.add_argument('-i', '--input', dest="input",
+                            help='Input map file. If no specified, stdin'
+                            ' is used to read input',
+                            )
+        parser.add_argument('-o', '--output', dest="output",
+                            help='Output file prefix')
+        parser.add_argument('-t', '--threads', dest="threads",
+                            type=int, default=1,
+                            help='Number of threads')
+        parser.add_argument('-p', '--paired', dest="paired",
+                            default=False, action="store_true",
+                            help='Paired reads')
+
+        filter_group = parser.add_argument_group("Filter")
+        filter_group.add_argument('--max-alignments', dest="max_matches",
+                                  type=int, default=0,
+                                  help="Reduce the maximum number of "
+                                  "alignments reported")
+        filter_group.add_argument('--min-strata', dest="min_event_distance",
+                                  type=int, default=0,
+                                  help="Minimum number of strata (default 0)")
+        filter_group.add_argument('--max-strata',
+                                  dest="max_event_distance", type=int,
+                                  default=None,
+                                  help="Maximum number of "
+                                  "strata (default all)")
+        filter_group.add_argument('--min-levenshtein-error',
+                                  dest="min_levenshtein_distance", type=int,
+                                  default=0,
+                                  help="Minimum levenshtein "
+                                  "distance (default 0)")
+        filter_group.add_argument('--max-levenshtein-error',
+                                  dest="max_levenshtein_distance", type=int,
+                                  default=None,
+                                  help="Maximum levenshtein "
+                                  "distance (default all)")
+        filter_group.add_argument('--max-insert-size', dest="max_inss",
+                                  type=int, default=None,
+                                  help="Maximum insert "
+                                  "size for paired reads")
+        filter_group.add_argument('--min-insert-size', dest="min_inss",
+                                  type=int, default=None,
+                                  help="Minimum insert size for paired reads")
+        filter_group.add_argument('--filter-strand', dest="filter_strand",
+                                  action="store_true", default=False,
+                                  help="Filter strand and "
+                                  "allow only F-R or R-F")
+        filter_group.add_argument('--keep-unique', dest="keep_unique",
+                                  action="store_true", default=False,
+                                  help="Always keep unique"
+                                  " mappings as they are")
+        filter_group.add_argument('--min-score', dest="min_score",
+                                  default=None,
+                                  help="Filter by score")
+        filter_group.add_argument('--group', dest="include_groups",
+                                  nargs="*",
+                                  choices=["I", "II", "III", "IV"],
+                                  help="Include only the best mappings for "
+                                  "groups I,II, and III and all "
+                                  "mappings for IV")
+        # filter_group.add_argument("--annotation", dest="annotation",
+        #                          default=None,
+        #                          help="Apply annotation filtering with the "
+        #                          "given annotation"
+        #                          )
+
+        rescore_group = parser.add_argument_group("SAM/BAM and rescoring")
+        rescore_group.add_argument("--rescore", dest="rescore",
+                                   action="store_true", default=False,
+                                   help="Rescore the alignments. You have to "
+                                   "specify the index and the quality offset "
+                                   "to apply rescoring.")
+        rescore_group.add_argument("--create-bam", dest="create_bam",
+                                   action="store_true",
+                                   default=False,
+                                   help="Create BAM file. You need to specify "
+                                   "the index and the quality offset as well "
+                                   "as the output name. This can not be "
+                                   "used with stdout output")
+        rescore_group.add_argument("--no-sort", dest="no_sort",
+                                   action="store_true",
+                                   default=False,
+                                   help="Do not sort the resulting bam file")
+        rescore_group.add_argument("--no-xs", dest="no_xs",
+                                   action="store_true",
+                                   default=False,
+                                   help="Do not calculate the XS field in SAM")
+        rescore_group.add_argument('--sort-memory', dest="sort_memory", default=768,
+                                   metavar="mem", help="Memory used for samtools sort per thread. "
+                                                       "Suffix K/M/G recognized. Default 768M")
+        rescore_group.add_argument("--no-index", dest="no_index",
+                                   action="store_true",
+                                   default=False,
+                                   help="Do not index the resulting bam file")
+        rescore_group.add_argument('--index', dest="index",
+                                   help='Index to support rescoring')
+        rescore_group.add_argument('-q', '--quality', dest="quality",
+                                   choices=["33", "64", "ignore"],
+                                   help='Quality Offset 33|64|ignore')
 
     def run(self, args):
-        infile = gem.files.open(args.input)
-        outfile = None
-        if args.output is not None:
-            outfile = gt.OutputFile(args.output)
+        ## check rescore params
+        if args.rescore or args.create_bam:
+            if args.index is None:
+                sys.stderr.write("You have to specify an index to do rescoring or bam creation\n")
+                return False
+            if args.quality is None:
+                sys.stderr.write("You have to specify the quality offset\n")
+                return False
+            if args.create_bam and args.output is None:
+                sys.stderr.write("You have to specify an output name prefix to "
+                                 "create a BAM file\n")
+                return False
+
+        # prepare input
+        infile = None
+        if args.input:
+            infile = gem.files.open(args.input)
         else:
+            infile = gem.files.open(sys.stdin)
+
+        name = args.output
+        threads = int(args.threads)
+
+        outfile = None
+        if name is None:
             outfile = gt.OutputFile(sys.stdout)
+        else:
+            outfile = gt.OutputFile("%s.map" % name)
+
         params = {
             "max_matches": args.max_matches,
             "min_event_distance": args.min_event_distance,
             "min_levenshtein_distance": args.min_levenshtein_distance,
             "filter_strand": args.filter_strand,
             "keep_unique": args.keep_unique,
+            "paired": args.paired,
         }
 
         if args.max_event_distance is not None:
@@ -115,8 +225,51 @@ class Filter(Command):
             params["max_inss"] = args.max_inss
         if args.min_score is not None:
             params["min_score"] = args.min_score
+        if args.include_groups is not None:
+            params["filter_groups"] = True
+            if "I" in args.include_groups:
+                params["group_1"] = True
+            if "II" in args.include_groups:
+                params["group_2"] = True
+            if "III" in args.include_groups:
+                params["group_3"] = True
+            if "IV" in args.include_groups:
+                params["group_4"] = True
+        else:
+            params["filter_groups"] = False
 
-        gt.filter_map(infile, outfile, params, threads=args.threads)
+        # if args.annotation is not None:
+        #     params["annotation"] = args.annotation
+
+        scored = infile
+        if args.rescore:
+            scored = gem.score(infile, args.index, quality=args.quality,
+                               threads=threads)
+
+
+        gt.filter_map(scored, outfile, params, threads=threads,
+                      background_process=False)
+
+        if name is not None:
+            outfile.close()
+
+
+        if args.create_bam:
+            map_file = gem.files.open("%s.map" % name, quality=args.quality)
+            cons = gem.extended_splice_consensus
+            if args.no_xs:
+                cons = None
+            sam = gem.gem2sam(map_file,
+                              index=args.index,
+                              threads=threads,
+                              quality=args.quality,
+                              consensus=cons,
+                              )
+            gem.sam2bam(sam, output=("%s.bam" % name),
+                        sorted=not args.no_sort,
+                        threads=threads, sort_memory=str(args.sort_memory))
+            if not args.no_index:
+                gem.bamIndex("%s.bam" % name)
 
 
 class StatsReport(Command):
@@ -388,3 +541,41 @@ class JunctionExtraction(Command):
         except PipelineError, e:
             sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
+
+
+class SamConverter(Command):
+    description = """Convert a .map or .map.gz file to SAM/BAM and index/sort it
+    """
+    title = "Convert to SAM/BAM"
+
+    def register(self, parser):
+        pipeline = MappingPipeline()
+        pipeline.register_general(parser)
+        pipeline.register_bam(parser)
+        pipeline.register_execution(parser)
+
+
+    def run(self, args):
+        ## parsing command line arguments
+        try:
+            ## initialize pipeline and check values
+            pipeline = MappingPipeline(args=args)
+        except PipelineError, e:
+            sys.stderr.write("\nERROR: " + e.message + "\n")
+            exit(1)
+
+        # add the bam step
+        bam = pipeline.bam(name="bam", dependencies=[], final=True)
+        if pipeline.bam_index:
+            pipeline.index_bam(name="index-bam", dependencies=[bam], final=True)
+
+        # show parameter and step configuration
+        pipeline.log_parameter()
+
+        # run the pipeline
+        try:
+            pipeline.run()
+        except PipelineError, e:
+            sys.stderr.write("\nERROR: " + e.message + "\n")
+            exit(1)
+

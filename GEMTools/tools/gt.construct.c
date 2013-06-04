@@ -201,7 +201,7 @@ void gt_load_reference__dump_it() {
   gt_sequence_archive_new_iterator(sequence_archive,&seq_arch_it);
   gt_segmented_sequence* seq;
   while ((seq=gt_sequence_archive_iterator_next(&seq_arch_it))) {
-    fprintf(stderr,"SEQUENCE '%s' [length=%lu]\n",seq->seq_name->buffer,seq->sequence_total_length);
+    fprintf(stderr,"SEQUENCE '%s' [length=%"PRIu64"]\n",seq->seq_name->buffer,seq->sequence_total_length);
   }
   fprintf(stderr,"\n");
 
@@ -385,9 +385,9 @@ void gt_mm_performance_test() {
       // Report
       fprintf(stderr,"--> Time.alloc           %2.3f       \n",GT_GET_TIMER(0));
       fprintf(stderr,"--> Time.writeSeq.all    %2.3f       \n",GT_GET_TIMER(1));
-      fprintf(stderr,"--> Time.readSeq.all     %2.3f  (%lX)\n",GT_GET_TIMER(2),seq_check);
+      fprintf(stderr,"--> Time.readSeq.all     %2.3f  (%"PRIu64"X)\n",GT_GET_TIMER(2),seq_check);
       fprintf(stderr,"--> Time.writeRand.100M  %2.3f       \n",GT_GET_TIMER(3));
-      fprintf(stderr,"--> Time.readRand.100M   %2.3f  (%lX)\n",GT_GET_TIMER(4),rand_check);
+      fprintf(stderr,"--> Time.readRand.100M   %2.3f  (%"PRIu64"X)\n",GT_GET_TIMER(4),rand_check);
       // Free
       gt_mm_free(mm);
       break;
@@ -426,8 +426,8 @@ void gt_mm_performance_test() {
       GT_STOP_TIMER(4);
       // Report
       fprintf(stderr,"--> Time.alloc           %2.3f       \n",GT_GET_TIMER(0));
-      fprintf(stderr,"--> Time.readSeq.all     %2.3f  (%lX)\n",GT_GET_TIMER(2),seq_check);
-      fprintf(stderr,"--> Time.readRand.10M    %2.3f  (%lX)\n",GT_GET_TIMER(4),rand_check);
+      fprintf(stderr,"--> Time.readSeq.all     %2.3f  (%"PRIu64"X)\n",GT_GET_TIMER(2),seq_check);
+      fprintf(stderr,"--> Time.readRand.10M    %2.3f  (%"PRIu64"X)\n",GT_GET_TIMER(4),rand_check);
       // Free
       gt_mm_free(mm);
       break;

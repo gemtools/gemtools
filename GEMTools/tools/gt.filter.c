@@ -1418,7 +1418,7 @@ void parse_arguments(int argc,char** argv) {
     case 't':
       parameters.num_threads = atol(optarg);
       gt_cond_fatal_error_msg(parameters.num_threads > GT_MAX_OUTPUT_BUFFERS,
-          "Excessive number of threads (maximum %"PRId64")",GT_MAX_OUTPUT_BUFFERS);
+          "Excessive number of threads (maximum %"PRId32")",GT_MAX_OUTPUT_BUFFERS);
       break;
     case 'v':
       parameters.verbose = true;
