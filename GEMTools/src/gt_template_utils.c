@@ -584,12 +584,14 @@ GT_INLINE void gt_template_hard_trim(gt_template* const template,const uint64_t 
   GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     gt_alignment_hard_trim(alignment,left,right);
   }
+  if (gt_template_is_paired_end(template)) gt_template_recalculate_counters(template);
 }
 GT_INLINE void gt_template_restore_trim(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
     gt_alignment_restore_trim(alignment);
   }
+  if (gt_template_is_paired_end(template)) gt_template_recalculate_counters(template);
 }
 
 ///*

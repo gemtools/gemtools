@@ -497,6 +497,8 @@ GT_INLINE void gt_alignment_hard_trim(gt_alignment* const alignment,const uint64
       gt_map_right_trim(map,right);
     }
   }
+  // Recalculate counters
+  gt_alignment_recalculate_counters(alignment);
 }
 GT_INLINE void gt_alignment_hard_trim_min_length(gt_alignment* const alignment,const uint64_t left,const uint64_t right,const uint64_t min_length) {
   GT_ALIGNMENT_CHECK(alignment);
@@ -539,6 +541,8 @@ GT_INLINE void gt_alignment_restore_trim(gt_alignment* const alignment) {
     // Delete annotated trim
     gt_attributes_remove(alignment->attributes,GT_ATTR_ID_LEFT_TRIM);
   }
+  // Recalculate counters
+  gt_alignment_recalculate_counters(alignment);
 }
 
 

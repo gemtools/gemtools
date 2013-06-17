@@ -84,7 +84,7 @@ GT_INLINE void gt_merge_unsynch_map_files(
   while ((__error_code=gt_input_generic_parser_get_template(__buffered_input,template,__gparser_attr))) { \
     if (__error_code!=GT_IMP_OK) { \
       gt_error_msg("Fatal error parsing file '%s', line %"PRIu64"\n", \
-          parameters.name_input_file,__buffered_input->current_line_num-1); \
+          input_file->file_name,__buffered_input->current_line_num-1); \
       continue; \
     }
 #define GT_END_READING_WRITING_LOOP(input_file,output_file,template) \

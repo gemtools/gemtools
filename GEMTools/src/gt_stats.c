@@ -169,7 +169,6 @@ GT_INLINE void gt_maps_profile_merge(
   GT_STATS_VECTOR_ADD(maps_profile_dst->indel_2context,maps_profile_src->indel_2context,GT_STATS_INDEL_2_CONTEXT);
   GT_STATS_VECTOR_ADD(maps_profile_dst->qual_score_errors,maps_profile_src->qual_score_errors,GT_STATS_QUAL_SCORE_RANGE);
 }
-
 /*
  * SPLITMAPS Profile
  */
@@ -230,6 +229,68 @@ GT_INLINE void gt_splitmaps_profile_merge(
   splitmaps_profile_dst->pe_sm_sm += splitmaps_profile_src->pe_sm_sm;
   splitmaps_profile_dst->pe_sm_rm += splitmaps_profile_src->pe_sm_rm;
   splitmaps_profile_dst->pe_rm_rm += splitmaps_profile_src->pe_rm_rm;
+}
+/*
+ * POPULATION Profile
+ */
+GT_INLINE gt_population_profile* gt_population_profile_new() {
+  // Allocate handler
+  gt_population_profile* population_profile = gt_alloc(gt_population_profile);
+  /*
+   * Init
+   */
+  // Diversity
+  population_profile->local_diversity = gt_calloc(GT_STATS_DIVERSITY_RANGE,uint64_t,true);
+  population_profile->local_dominant = gt_calloc(GT_STATS_DOMINANT_RANGE,uint64_t,true);
+  population_profile->local_diversity__dominant = gt_calloc(GT_STATS_DIVERSITY_DOMINANT_RANGE,uint64_t,true);
+  population_profile->global_diversity = 0;
+  // Quimeras
+  population_profile->num_map_quimeras = 0;
+  population_profile->num_pair_quimeras = 0;
+  // Aux
+  population_profile->_local_diversity_hash = gt_shash_new();
+  population_profile->_global_diversity_hash = gt_shash_new();
+  return population_profile;
+}
+GT_INLINE void gt_population_profile_clear(gt_population_profile* const population_profile) {
+  // Diversity
+  memset(population_profile->local_diversity,0,GT_STATS_DIVERSITY_RANGE*sizeof(uint64_t));
+  memset(population_profile->local_dominant,0,GT_STATS_DOMINANT_RANGE*sizeof(uint64_t));
+  memset(population_profile->local_diversity__dominant,0,GT_STATS_DIVERSITY_DOMINANT_RANGE*sizeof(uint64_t));
+  population_profile->global_diversity = 0;
+  // Quimeras
+  population_profile->num_map_quimeras = 0;
+  population_profile->num_pair_quimeras = 0;
+  // Auxiliary
+  gt_shash_clear(population_profile->_local_diversity_hash,true);
+  gt_shash_clear(population_profile->_global_diversity_hash,true);
+}
+GT_INLINE void gt_population_profile_delete(gt_population_profile* const population_profile) {
+  gt_free(population_profile->local_diversity);
+  gt_free(population_profile->local_dominant);
+  gt_free(population_profile->local_diversity__dominant);
+}
+GT_INLINE void gt_population_profile_merge(
+    gt_population_profile* const population_profile_dst,gt_population_profile* const population_profile_src) {
+  // Diversity
+  GT_STATS_VECTOR_ADD(population_profile_dst->local_diversity,population_profile_src->local_diversity,GT_STATS_DIVERSITY_RANGE);
+  GT_STATS_VECTOR_ADD(population_profile_dst->local_dominant,population_profile_src->local_dominant,GT_STATS_DOMINANT_RANGE);
+  GT_STATS_VECTOR_ADD(population_profile_dst->local_diversity__dominant,population_profile_src->local_diversity__dominant,GT_STATS_DIVERSITY_DOMINANT_RANGE);
+  // Quimeras
+  population_profile_dst->num_map_quimeras += population_profile_src->num_map_quimeras;
+  population_profile_dst->num_pair_quimeras += population_profile_src->num_pair_quimeras;
+  // Global diversity
+  GT_SHASH_BEGIN_ITERATE(population_profile_src->_global_diversity_hash,key,count_src,uint64_t) {
+    uint64_t* count_dst = gt_shash_get_element(population_profile_dst->_global_diversity_hash,key);
+    if (count_dst==NULL) {
+      count_dst = gt_malloc_uint64();
+      *count_dst = *count_src;
+      gt_shash_insert(population_profile_dst->_global_diversity_hash,key,count_dst,uint64_t);
+    } else {
+      *count_dst+=*count_src;
+    }
+  } GT_SHASH_END_ITERATE;
+  population_profile_dst->global_diversity = gt_shash_get_num_elements(population_profile_dst->_global_diversity_hash);
 }
 
 /*
@@ -391,6 +452,49 @@ GT_INLINE void gt_stats_get_juntions_length_distribution(uint64_t* const junctio
     }
   //}
 }
+GT_INLINE uint64_t gt_stats_get_local_diversity_bucket(const uint64_t local_diversity) {
+  if (local_diversity==0) {
+    return GT_STATS_DIVERSITY_RANGE_0;
+  } else if (local_diversity<=1) {
+    return GT_STATS_DIVERSITY_RANGE_1;
+  } else if (local_diversity<=2) {
+    return GT_STATS_DIVERSITY_RANGE_2;
+  } else if (local_diversity<=3) {
+    return GT_STATS_DIVERSITY_RANGE_3;
+  } else if (local_diversity<=4) {
+    return GT_STATS_DIVERSITY_RANGE_4;
+  } else if (local_diversity<=5) {
+    return GT_STATS_DIVERSITY_RANGE_5;
+  } else if (local_diversity<=10) {
+    return GT_STATS_DIVERSITY_RANGE_10;
+  } else if (local_diversity<=20) {
+    return GT_STATS_DIVERSITY_RANGE_20;
+  } else if (local_diversity<=50) {
+    return GT_STATS_DIVERSITY_RANGE_50;
+  } else {
+    return GT_STATS_DIVERSITY_RANGE_BEHOND;
+  }
+}
+GT_INLINE uint64_t gt_stats_get_local_dominant_bucket(const uint64_t local_dominant,const uint64_t local_diversity) {
+  if (local_diversity==0) return 0;
+  if (local_dominant==local_diversity) return GT_STATS_DOMINANT_RANGE_100;
+  const uint64_t proportion = (100*local_dominant)/local_diversity;
+  if (proportion<=10) {
+    return GT_STATS_DOMINANT_RANGE_10;
+  } else if (proportion<=25) {
+    return GT_STATS_DOMINANT_RANGE_25;
+  } else if (proportion<=50) {
+    return GT_STATS_DOMINANT_RANGE_50;
+  } else if (proportion<=75) {
+    return GT_STATS_DOMINANT_RANGE_75;
+  } else if (proportion<=90) {
+    return GT_STATS_DOMINANT_RANGE_90;
+  } else if (proportion<=95) {
+    return GT_STATS_DOMINANT_RANGE_95;
+  } else {
+    return GT_STATS_DOMINANT_RANGE_100;
+  }
+}
 /*
  * STATS Profile
  */
@@ -423,6 +527,8 @@ GT_INLINE gt_stats* gt_stats_new() {
   stats->maps_profile = gt_maps_profile_new();
   // Split maps Profile
   stats->splitmaps_profile = gt_splitmaps_profile_new();
+  // Population profile
+  stats->population_profile = gt_population_profile_new();
   return stats;
 }
 GT_INLINE void gt_stats_clear(gt_stats* const stats) {
@@ -454,6 +560,8 @@ GT_INLINE void gt_stats_clear(gt_stats* const stats) {
   gt_maps_profile_clear(stats->maps_profile);
   // Split maps Profile
   gt_splitmaps_profile_clear(stats->splitmaps_profile);
+  // Population profile
+  gt_population_profile_clear(stats->population_profile);
 }
 GT_INLINE void gt_stats_delete(gt_stats* const stats) {
   gt_free(stats->length);
@@ -467,6 +575,7 @@ GT_INLINE void gt_stats_delete(gt_stats* const stats) {
   gt_free(stats->uniq);
   gt_maps_profile_delete(stats->maps_profile);
   gt_splitmaps_profile_delete(stats->splitmaps_profile);
+  gt_population_profile_delete(stats->population_profile);
   gt_free(stats);
 }
 
@@ -504,18 +613,66 @@ GT_INLINE void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_
     gt_maps_profile_merge(stats[0]->maps_profile,stats[i]->maps_profile);
     // Merge SplitMaps Profile
     gt_splitmaps_profile_merge(stats[0]->splitmaps_profile,stats[i]->splitmaps_profile);
+    // Population profile
+    gt_population_profile_merge(stats[0]->population_profile,stats[i]->population_profile);
     // Free Handlers
     gt_stats_delete(stats[i]);
   }
 }
-
 /*
  * Calculate stats
  */
+GT_INLINE void gt_stats_add_map_to_population(gt_shash* const diversity_hash,gt_string* const seq_name) {
+  uint64_t* count = gt_shash_get_element(diversity_hash,gt_string_get_string(seq_name));
+  if (count==NULL) {
+    count = gt_malloc_uint64();
+    *count = 1;
+    gt_shash_insert(diversity_hash,gt_string_get_string(seq_name),count,uint64_t);
+  } else {
+    ++(*count);
+  }
+}
+GT_INLINE uint64_t gt_stats_get_local_dominant(gt_shash* const diversity_hash) {
+  uint64_t local_dominant = 0;
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(diversity_hash,count,uint64_t) {
+    if (local_dominant < *count) local_dominant = *count;
+  } GT_SHASH_END_ITERATE;
+  return local_dominant;
+}
+GT_INLINE void gt_stats_make_population_profile(
+    gt_population_profile* const population_profile,gt_template* const template,gt_stats_analysis* const stats_analysis) {
+  // Diversity
+  const uint64_t num_blocks_template = gt_template_get_num_blocks(template);
+  const uint64_t paired_map = (num_blocks_template==2);
+  // Check population
+  uint64_t num_maps=0;
+  gt_shash_clear(population_profile->_local_diversity_hash,true);
+  // Iterate over all/best maps
+  GT_TEMPLATE_ITERATE(template,mmap) {
+    GT_MMAP_ITERATE(mmap,map,end_pos) {
+      ++num_maps;
+      gt_stats_add_map_to_population(population_profile->_local_diversity_hash,map->seq_name);
+      gt_stats_add_map_to_population(population_profile->_global_diversity_hash,map->seq_name);
+      if (gt_map_segment_get_num_segments(map)>1) ++population_profile->num_map_quimeras;
+    }
+    if (paired_map) {
+      if (!gt_string_equals(mmap[0]->seq_name,mmap[1]->seq_name)) ++population_profile->num_pair_quimeras;
+    }
+    // FIRST-MAP :: Break if we just proccess the first one
+    if (stats_analysis->first_map) break;
+  }
+  const uint64_t local_diversity = gt_shash_get_num_elements(population_profile->_local_diversity_hash);
+  const uint64_t local_diversity_bucket = gt_stats_get_local_diversity_bucket(local_diversity);
+  const uint64_t local_dominant = gt_stats_get_local_dominant(population_profile->_local_diversity_hash);
+  const uint64_t local_dominant_bucket = gt_stats_get_local_dominant_bucket(local_dominant,num_maps);
+  ++population_profile->local_diversity[local_diversity_bucket];
+  ++population_profile->local_dominant[local_dominant_bucket];
+  ++population_profile->local_diversity__dominant[local_diversity_bucket*GT_STATS_DOMINANT_RANGE+local_dominant_bucket];
+}
 GT_INLINE void gt_stats_make_indel_profile(
     gt_maps_profile *maps_error_profile,
     gt_template* const template,const uint64_t alignment_total_length) {
-
+  // TODO
 }
 GT_INLINE void gt_stats_make_maps_error_profile(
     gt_maps_profile *maps_error_profile,gt_template* const template,
@@ -605,7 +762,6 @@ GT_INLINE void gt_stats_make_maps_error_profile(
   gt_stats_get_misms(maps_error_profile->deletion_length,total_del_length,alignment_total_length);
   gt_stats_get_misms(maps_error_profile->errors_events,total_errors_events,alignment_total_length);
 }
-
 GT_INLINE void gt_stats_make_mmaps_profile(
     gt_stats* const stats,gt_template* const template,
     const uint64_t alignment_total_length,gt_stats_analysis* const stats_analysis) {
@@ -653,7 +809,7 @@ GT_INLINE void gt_stats_make_mmaps_profile(
     /*
      * SplitMap Stats
      */
-    if (stats_analysis->split_map_stats) {
+    if (stats_analysis->splitmap_profile) {
       // SM block stats
       bool has_sm[2] = {true, true};
       GT_MMAP_ITERATE(mmap,map,end_pos) {
@@ -701,7 +857,7 @@ GT_INLINE void gt_stats_make_mmaps_profile(
   /*
    * Global SM stats about the whole alignment
    */
-  if (stats_analysis->split_map_stats && has_splitsmaps) {
+  if (stats_analysis->splitmap_profile && has_splitsmaps) {
     splitmaps_profile->num_mapped_with_splitmaps++;
     if (only_splitsmaps) splitmaps_profile->num_mapped_only_splitmaps++;
   }
@@ -771,6 +927,9 @@ GT_INLINE void gt_stats_calculate_template_stats(
       gt_stats_make_indel_profile(stats->maps_profile,template,alignment_total_length);
     }
   }
+  if (stats_analysis->population_profile) {
+    gt_stats_make_population_profile(stats->population_profile,template,stats_analysis);
+  }
 }
 
 /*
@@ -789,6 +948,70 @@ GT_INLINE uint64_t gt_stats_matrix_reduce_sum_fixed_coordinate(
   }
   return acc;
 }
+
+#define GT_STATS_DIVERSITY_DOMINANT_RANGE (GT_STATS_DIVERSITY_RANGE*GT_STATS_DOMINANT_RANGE)
+
+GT_INLINE void gt_stats_print_local_diversity_distribution(FILE* stream,uint64_t* const local_diversity,const uint64_t num_alignments) {
+#define GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT "%6"PRIu64" \t\t %1.3f%%\n"
+#define GT_STATS_PRINT_LOCAL_DIVERSITY(RANGE) local_diversity[RANGE],100.0*(float)local_diversity[RANGE]/(float)num_alignments
+  if(!num_alignments) return;
+  fprintf(stream,"LocalDiversity.ranges\n");
+  fprintf(stream,"  -->       [0] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_0));
+  fprintf(stream,"  -->       [1] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_1));
+  fprintf(stream,"  -->       [2] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_2));
+  fprintf(stream,"  -->       [3] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_3));
+  fprintf(stream,"  -->       [4] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_4));
+  fprintf(stream,"  -->       [5] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_5));
+  fprintf(stream,"  -->    (5,10] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_10));
+  fprintf(stream,"  -->   (10,20] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_20));
+  fprintf(stream,"  -->   (20,50] \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_50));
+  fprintf(stream,"  -->  (50,inf) \t=> "GT_STATS_PRINT_LOCAL_DIVERSITY_FORMAT,GT_STATS_PRINT_LOCAL_DIVERSITY(GT_STATS_DIVERSITY_RANGE_BEHOND));
+}
+GT_INLINE void gt_stats_print_local_dominant_distribution(FILE* stream,uint64_t* const local_dominant,const uint64_t num_alignments) {
+#define GT_STATS_PRINT_LOCAL_DOMINANT_FORMAT "%6"PRIu64" \t\t %1.3f%%\n"
+#define GT_STATS_PRINT_LOCAL_DOMINANT(RANGE) local_dominant[RANGE],100.0*(float)local_dominant[RANGE]/(float)num_alignments
+  if(!num_alignments) return;
+  fprintf(stream,"LocalDominant.ranges\n");
+  fprintf(stream,"  -->  [<=10%%] \t=> "GT_STATS_PRINT_LOCAL_DOMINANT_FORMAT,GT_STATS_PRINT_LOCAL_DOMINANT(GT_STATS_DOMINANT_RANGE_10));
+  fprintf(stream,"  -->  [<=25%%] \t=> "GT_STATS_PRINT_LOCAL_DOMINANT_FORMAT,GT_STATS_PRINT_LOCAL_DOMINANT(GT_STATS_DOMINANT_RANGE_25));
+  fprintf(stream,"  -->  [<=50%%] \t=> "GT_STATS_PRINT_LOCAL_DOMINANT_FORMAT,GT_STATS_PRINT_LOCAL_DOMINANT(GT_STATS_DOMINANT_RANGE_50));
+  fprintf(stream,"  -->  [<=75%%] \t=> "GT_STATS_PRINT_LOCAL_DOMINANT_FORMAT,GT_STATS_PRINT_LOCAL_DOMINANT(GT_STATS_DOMINANT_RANGE_75));
+  fprintf(stream,"  -->  [<=90%%] \t=> "GT_STATS_PRINT_LOCAL_DOMINANT_FORMAT,GT_STATS_PRINT_LOCAL_DOMINANT(GT_STATS_DOMINANT_RANGE_90));
+  fprintf(stream,"  -->  [<=95%%] \t=> "GT_STATS_PRINT_LOCAL_DOMINANT_FORMAT,GT_STATS_PRINT_LOCAL_DOMINANT(GT_STATS_DOMINANT_RANGE_95));
+  fprintf(stream,"  -->   [100%%] \t=> "GT_STATS_PRINT_LOCAL_DOMINANT_FORMAT,GT_STATS_PRINT_LOCAL_DOMINANT(GT_STATS_DOMINANT_RANGE_100));
+}
+#define GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(RANGE) \
+  fprintf(stream,"         %04.1f%%",100.0*(float)local_diversity__dominant[RANGE*GT_STATS_DOMINANT_RANGE+GT_STATS_DOMINANT_RANGE_10]/(float)num_alignments); \
+  fprintf(stream,"         %04.1f%%",100.0*(float)local_diversity__dominant[RANGE*GT_STATS_DOMINANT_RANGE+GT_STATS_DOMINANT_RANGE_25]/(float)num_alignments); \
+  fprintf(stream,"         %04.1f%%",100.0*(float)local_diversity__dominant[RANGE*GT_STATS_DOMINANT_RANGE+GT_STATS_DOMINANT_RANGE_50]/(float)num_alignments); \
+  fprintf(stream,"         %04.1f%%",100.0*(float)local_diversity__dominant[RANGE*GT_STATS_DOMINANT_RANGE+GT_STATS_DOMINANT_RANGE_75]/(float)num_alignments); \
+  fprintf(stream,"         %04.1f%%",100.0*(float)local_diversity__dominant[RANGE*GT_STATS_DOMINANT_RANGE+GT_STATS_DOMINANT_RANGE_90]/(float)num_alignments); \
+  fprintf(stream,"         %04.1f%%",100.0*(float)local_diversity__dominant[RANGE*GT_STATS_DOMINANT_RANGE+GT_STATS_DOMINANT_RANGE_95]/(float)num_alignments); \
+  fprintf(stream,"         %04.1f%%",100.0*(float)local_diversity__dominant[RANGE*GT_STATS_DOMINANT_RANGE+GT_STATS_DOMINANT_RANGE_100]/(float)num_alignments); \
+  fprintf(stream,"\n")
+GT_INLINE void gt_stats_print_local_diversity__dominant_distribution(FILE* stream,uint64_t* const local_diversity__dominant,const uint64_t num_alignments) {
+  if(!num_alignments) return;
+  fprintf(stream,"LocalDiversity.vs.LocalDominant.ranges\n");
+  fprintf(stream,"                           ");
+  fprintf(stream,"       [<=10%%]");
+  fprintf(stream,"       [<=25%%]");
+  fprintf(stream,"       [<=50%%]");
+  fprintf(stream,"       [<=75%%]");
+  fprintf(stream,"       [<=90%%]");
+  fprintf(stream,"       [<=95%%]");
+  fprintf(stream,"        [100%%]\n");
+  // fprintf(stream,"  -->       [0] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_0);
+  fprintf(stream,"  -->       [1] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_1);
+  fprintf(stream,"  -->       [2] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_2);
+  fprintf(stream,"  -->       [3] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_3);
+  fprintf(stream,"  -->       [4] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_4);
+  fprintf(stream,"  -->       [5] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_5);
+  fprintf(stream,"  -->    (5,10] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_10);
+  fprintf(stream,"  -->   (10,20] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_20);
+  fprintf(stream,"  -->   (20,50] \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_50);
+  fprintf(stream,"  -->  (50,inf) \t=> "); GT_STATS_PRINT_LOCAL_DIVERSITY__DOMINANT(GT_STATS_DIVERSITY_RANGE_BEHOND);
+}
+
 GT_INLINE void gt_stats_print_read_length_distribution(FILE* stream,uint64_t* const length,uint64_t* const length_mapped,const uint64_t num_alignments) {
 #define GT_STATS_PRINT_LENGTH_FORMAT "%6"PRIu64"/%"PRIu64" \t\t %1.3f%%/%1.3f%%\n"
 #define GT_STATS_PRINT_LENGTH(RANGE) length[RANGE],length_mapped[RANGE],100.0*(float)length[RANGE]/(float)num_alignments,100.0*(float)length_mapped[RANGE]/(float)num_alignments
@@ -835,7 +1058,7 @@ GT_INLINE void gt_stats_print_length__mmap_distribution(FILE* stream,uint64_t* c
   fprintf(stream,"  (2000,5000]");
   fprintf(stream,"   (5000,inf)\n");
   fprintf(stream,"  -->        [0] \t=>"); GT_STATS_PRINT_LENGTH__MMAP(GT_STATS_MMAP_RANGE_0);
-  fprintf(stream,"  -->      (0,1] \t=>"); GT_STATS_PRINT_LENGTH__MMAP(GT_STATS_MMAP_RANGE_1);
+  fprintf(stream,"  -->        [1] \t=>"); GT_STATS_PRINT_LENGTH__MMAP(GT_STATS_MMAP_RANGE_1);
   fprintf(stream,"  -->      (1,5] \t=>"); GT_STATS_PRINT_LENGTH__MMAP(GT_STATS_MMAP_RANGE_5);
   fprintf(stream,"  -->     (5,10] \t=>"); GT_STATS_PRINT_LENGTH__MMAP(GT_STATS_MMAP_RANGE_10);
   fprintf(stream,"  -->    (10,50] \t=>"); GT_STATS_PRINT_LENGTH__MMAP(GT_STATS_MMAP_RANGE_50);
@@ -1187,7 +1410,20 @@ GT_INLINE void gt_stats_print_misms_transition_table_1context(FILE* stream,uint6
     }
   }
 }
-
+GT_INLINE void gt_stats_print_population_stats(FILE* stream,gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
+  gt_population_profile* const population_profile = stats->population_profile;
+  if (num_reads==0) {
+    fprintf(stream,"Population \t 0\n"); return;
+  }
+  fprintf(stream,"PP.Num.Map.Quimeras \t %"PRIu64"\n",population_profile->num_map_quimeras);
+  if (paired_end) {
+    fprintf(stream,"PP.Num.Pair.Quimeras \t %"PRIu64"\n",population_profile->num_pair_quimeras);
+  }
+  fprintf(stream,"PP.Global.Diversity \t %"PRIu64"\n",population_profile->global_diversity);
+  gt_stats_print_local_diversity_distribution(stream,population_profile->local_diversity,num_reads);
+  gt_stats_print_local_dominant_distribution(stream,population_profile->local_dominant,num_reads);
+  gt_stats_print_local_diversity__dominant_distribution(stream,population_profile->local_diversity__dominant,num_reads);
+}
 GT_INLINE void gt_stats_print_split_maps_stats(FILE* stream,gt_stats* const stats,const bool paired_end) {
   gt_splitmaps_profile* const splitmap_stats = stats->splitmaps_profile;
   if (splitmap_stats->total_splitmaps==0) {
@@ -1212,13 +1448,16 @@ GT_INLINE void gt_stats_print_split_maps_stats(FILE* stream,gt_stats* const stat
     }
   }
 }
-GT_INLINE void gt_stats_print_maps_stats(FILE* stream, gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
+GT_INLINE void gt_stats_print_maps_stats(FILE* stream,gt_stats* const stats,const uint64_t num_reads,const bool paired_end) {
   /*
    * @num_reads should be counted from the FASTA/FASTQ file.
    * In a paired protocol, two reads come from the same template (paired template).
    * So, as to display proper statistics of reads mapped, we adapt this number to number of templates
    *   SE => 1 template / PE => 1 template
    */
+  if (num_reads==0) {
+    fprintf(stream,"Total.Maps \t 0\n"); return;
+  }
   const uint64_t num_templates = paired_end ? num_reads*2 : num_reads;
   // Total bases (aligned/trimmed/unaligned)
   const gt_maps_profile* const maps_profile = stats->maps_profile;
@@ -1253,14 +1492,16 @@ GT_INLINE void gt_stats_print_maps_stats(FILE* stream, gt_stats* const stats,con
   fprintf(stream,"  --> Total.Levenshtein %" PRIu64 " (%2.3f per map) \n",
       maps_profile->total_levenshtein,GT_DIV_F(maps_profile->total_levenshtein,stats->num_maps));
   if (stats->num_maps > 0) {
-    fprintf(stream,"Mismatches.Distribution\n");
+    fprintf(stream,"1.Mismatches.Distribution\n");
     gt_stats_print_error_event_distribution(stream,stats->maps_profile->mismatches,stats->num_maps);
-    fprintf(stream,"Ins.Length.Distribution\n");
-    gt_stats_print_error_event_distribution(stream,stats->maps_profile->insertion_length,stats->num_maps);
-    fprintf(stream,"Del.Length.Distribution\n");
-    gt_stats_print_error_event_distribution(stream,stats->maps_profile->deletion_length,stats->num_maps);
-    fprintf(stream,"Error.Events.Distribution\n");
+    fprintf(stream,"2.Levenshtein.Events.Distribution\n");
+    gt_stats_print_error_event_distribution(stream,stats->maps_profile->levenshtein,stats->num_maps);
+    fprintf(stream,"3.Error.Events.Distribution\n");
     gt_stats_print_error_event_distribution(stream,stats->maps_profile->errors_events,stats->num_maps);
+    fprintf(stream,"4.Ins.Length.Distribution\n");
+    gt_stats_print_error_event_distribution(stream,stats->maps_profile->insertion_length,stats->num_maps);
+    fprintf(stream,"5.Del.Length.Distribution\n");
+    gt_stats_print_error_event_distribution(stream,stats->maps_profile->deletion_length,stats->num_maps);
   }
   gt_stats_print_read_event_positions(stream,stats->maps_profile->error_position,stats->maps_profile->total_errors_events,stats->max_length);
 }
@@ -1277,6 +1518,7 @@ GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,c
   if(stats->mapped_min_length>stats->mapped_max_length) stats->mapped_min_length=0;
   // Print
   fprintf(stream,"  --> Num.Reads %" PRIu64 "\n",num_reads);
+  if (num_reads==0) return;
   if (paired_end) fprintf(stream,"    --> Num.Paired.Templates %" PRIu64 "\n",num_templates);
   fprintf(stream,"    --> Reads.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
       stats->min_length,GT_DIV(stats->total_bases,stats->num_blocks),stats->max_length);

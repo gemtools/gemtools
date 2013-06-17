@@ -99,6 +99,9 @@ GT_INLINE gt_status gt_output_gprint_tag_attributes(gt_generic_printer* const gp
       if (p > 0) gt_gprintf(gprinter,"/%"PRId64,p);
     }
   }
+  // Group info
+  gt_segmented_read_info* const segmented_read_info = gt_attributes_get_segmented_read_info(attributes);
+  if (segmented_read_info!=NULL) gt_output_gprint_segmented_read(gprinter,segmented_read_info);
   // Print RIGHT-Trim
   gt_read_trim* const right_trim = gt_attributes_get_right_trim(attributes);
   if (right_trim!=NULL) gt_output_gprint_right_trim(gprinter,right_trim);

@@ -181,6 +181,7 @@ GT_INLINE void gt_map_left_trim(gt_map* const map,const uint64_t length) {
   }
   // Reduce base length
   map->base_length -= length;
+  map->position += length;
 }
 GT_INLINE void gt_map_right_trim(gt_map* const map,const uint64_t length) {
   GT_MAP_CHECK(map);
@@ -222,8 +223,8 @@ GT_INLINE void gt_map_restore_left_trim(gt_map* const map,const uint64_t length)
     // Shift all misms 1-right
     const uint64_t num_misms = gt_vector_get_used(map->mismatches);
     gt_misms* const misms_vector = gt_vector_get_mem(map->mismatches,gt_misms);
-    uint64_t i;
-    for (i=0;i<num_misms;++i) misms_vector[i+1] = misms_vector[i];
+    int64_t i;
+    for (i=num_misms-1;i>=0;--i) misms_vector[i+1] = misms_vector[i];
     gt_vector_add_used(map->mismatches,1);
     // Add the trim
     misms_vector[0].misms_type = DEL;
@@ -236,6 +237,7 @@ GT_INLINE void gt_map_restore_left_trim(gt_map* const map,const uint64_t length)
   }
   // Adjust base length
   map->base_length += length;
+  map->position -= length;
 }
 GT_INLINE void gt_map_restore_right_trim(gt_map* const map,const uint64_t length) {
   GT_MAP_CHECK(map);

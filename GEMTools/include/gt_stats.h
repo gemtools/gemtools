@@ -121,6 +121,29 @@
 #define GT_STATS_INDEL_1_CONTEXT           (GT_STATS_MISMS_BASE_RANGE)   /* TODO */
 #define GT_STATS_INDEL_2_CONTEXT           (GT_STATS_MISMS_BASE_RANGE)   /* TODO */
 
+#define GT_STATS_DIVERSITY_RANGE_0  0
+#define GT_STATS_DIVERSITY_RANGE_1  1
+#define GT_STATS_DIVERSITY_RANGE_2  2
+#define GT_STATS_DIVERSITY_RANGE_3  3
+#define GT_STATS_DIVERSITY_RANGE_4  4
+#define GT_STATS_DIVERSITY_RANGE_5  5
+#define GT_STATS_DIVERSITY_RANGE_10 6
+#define GT_STATS_DIVERSITY_RANGE_20 7
+#define GT_STATS_DIVERSITY_RANGE_50 8
+#define GT_STATS_DIVERSITY_RANGE_BEHOND 9
+#define GT_STATS_DIVERSITY_RANGE 10
+
+#define GT_STATS_DOMINANT_RANGE_10  0
+#define GT_STATS_DOMINANT_RANGE_25  1
+#define GT_STATS_DOMINANT_RANGE_50  2
+#define GT_STATS_DOMINANT_RANGE_75  3
+#define GT_STATS_DOMINANT_RANGE_90  4
+#define GT_STATS_DOMINANT_RANGE_95  5
+#define GT_STATS_DOMINANT_RANGE_100 6
+#define GT_STATS_DOMINANT_RANGE 7
+
+#define GT_STATS_DIVERSITY_DOMINANT_RANGE (GT_STATS_DIVERSITY_RANGE*GT_STATS_DOMINANT_RANGE)
+
 /*
  * Stats Data Structures
  */
@@ -240,7 +263,8 @@ typedef struct {
   bool nucleotide_stats;
   bool maps_profile;
   bool indel_profile; // TODO
-  bool split_map_stats;
+  bool splitmap_profile;
+  bool population_profile;
   /* Control Flags */
   bool use_map_counters; /* If possible, use counters instead of decoded matches */
 } gt_stats_analysis;
@@ -251,7 +275,8 @@ typedef struct {
     .nucleotide_stats=true, \
     .maps_profile=true, \
     .indel_profile=false, \
-    .split_map_stats=true, \
+    .splitmap_profile=true, \
+    .population_profile=true, \
     /* Control Flags */ \
     .use_map_counters = true \
   }
@@ -290,6 +315,7 @@ GT_INLINE void gt_stats_print_qualities_error_distribution(FILE* stream,uint64_t
 GT_INLINE void gt_stats_print_misms_transition_table(FILE* stream,uint64_t* const misms_trans,uint64_t const total_misms);
 GT_INLINE void gt_stats_print_misms_transition_table_1context(FILE* stream,uint64_t* const misms_trans,uint64_t const total_misms);
 
+GT_INLINE void gt_stats_print_population_stats(FILE* stream,gt_stats* const stats,const uint64_t num_reads,const bool paired_end);
 GT_INLINE void gt_stats_print_split_maps_stats(FILE* stream,gt_stats* const stats,const bool paired_end);
 GT_INLINE void gt_stats_print_maps_stats(FILE* stream, gt_stats* const stats,const uint64_t num_reads,const bool paired_end);
 GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,const uint64_t num_reads,const bool paired_end);

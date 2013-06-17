@@ -52,7 +52,7 @@ GT_INLINE gt_status gt_input_parse_attribute_trim(const char** const text_line,g
   if (**text_line!=COLON) return GT_PE_BAD_CHARACTER;
   GT_NEXT_CHAR(text_line);
   const char* const trimmed_qual_begin = *text_line;
-  GT_READ_UNTIL(text_line,**text_line==COLON || **text_line==SPACE || **text_line==TAB);
+  GT_READ_UNTIL(text_line,**text_line==SPACE || **text_line==TAB);
   const uint64_t trimmed_qual_length = *text_line-trimmed_qual_begin;
   if (trimmed_qual_length!=trim_info->length) return GT_PE_BAD_TRIM_QUAL_STRING_LENGTH;
   // Set trimmed qualities

@@ -27,6 +27,7 @@ typedef struct {
   bool mismatch_quality;
   bool splitmaps_profile;
   bool indel_profile;
+  bool population_profile;
   /* [MAP Specific] */
   bool use_only_decoded_maps;
   /* [Output] */
@@ -50,6 +51,7 @@ gt_stats_args parameters = {
     .mismatch_quality = false,
     .splitmaps_profile = false,
     .indel_profile = false,
+    .population_profile = false,
     /* [MAP Specific] */
     .use_only_decoded_maps = false,
     /* [Output] */
@@ -78,7 +80,7 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
   /*
    * Print Quality Scores vs Errors/Misms
    */
-  if (parameters.mismatch_quality) {
+  if (parameters.mismatch_quality && num_reads>0) {
     const gt_maps_profile* const maps_profile = stats->maps_profile;
     if (maps_profile->total_mismatches > 0) {
       fprintf(GT_STATS_OUT_FILE,"[MISMATCH.QUALITY]\n");
@@ -94,7 +96,7 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
   /*
    * Print Mismatch transition table
    */
-  if (parameters.mismatch_transitions) {
+  if (parameters.mismatch_transitions && num_reads>0) {
     const gt_maps_profile* const maps_profile = stats->maps_profile;
     if (maps_profile->total_mismatches > 0) {
       fprintf(GT_STATS_OUT_FILE,"[MISMATCH.TRANSITIONS]\n");
@@ -112,6 +114,13 @@ void gt_stats_print_stats(gt_stats* const stats,uint64_t num_reads,const bool pa
   if (parameters.splitmaps_profile) {
     fprintf(GT_STATS_OUT_FILE,"[SPLITMAPS.PROFILE]\n");
     gt_stats_print_split_maps_stats(GT_STATS_OUT_FILE,stats,parameters.paired_end);
+  }
+  /*
+   * Print Population profile
+   */
+  if (parameters.population_profile) {
+    fprintf(GT_STATS_OUT_FILE,"[POPULATION.PROFILE]\n");
+    gt_stats_print_population_stats(GT_STATS_OUT_FILE,stats,num_reads,parameters.paired_end);
   }
 }
 void gt_stats_print_stats_compact(gt_stats* const stats,uint64_t num_reads,const bool paired_end) {
@@ -151,8 +160,9 @@ void gt_stats_parallel_generate_stats() {
   stats_analysis.first_map = parameters.first_map;
   stats_analysis.maps_profile = parameters.maps_profile|parameters.mismatch_quality|parameters.mismatch_transitions;
   stats_analysis.nucleotide_stats = true;
-  stats_analysis.split_map_stats = parameters.splitmaps_profile;
+  stats_analysis.splitmap_profile = parameters.splitmaps_profile;
   stats_analysis.indel_profile = parameters.indel_profile;
+  stats_analysis.population_profile = parameters.population_profile;
   stats_analysis.use_map_counters = !parameters.use_only_decoded_maps;
 
   // Open file
@@ -228,10 +238,11 @@ void usage(const bool print_hidden) {
                   "         [Tests]\n"
                   "           --first-map|--all-maps (default, --all-maps)\n"
                   "           --all-tests|a\n"
-                  "           --maps-profile|M\n" // TODO: population analysis
+                  "           --maps-profile|M\n"
                   "           --mismatch-transitions|T\n"
                   "           --mismatch-quality|Q\n"
                   "           --splitmaps-profile|S\n"
+                  "           --population-profile|P\n"
                // "           --indel-profile|I\n"
                   "         [MAP Specific]\n"
                   "           --use-only-decoded-maps (instead of counters)\n"
@@ -263,6 +274,7 @@ void parse_arguments(int argc,char** argv) {
     { "mismatch-quality", no_argument, 0, 'Q' },
     { "splitmaps-profile", no_argument, 0, 'S' },
     { "indel-profile", no_argument, 0, 'I' },
+    { "population-profile", no_argument, 0, 'P' },
     /* [MAP Specific] */
     { "use-only-decoded-maps", no_argument, 0, 10 },
     /* [Output] */
@@ -305,6 +317,7 @@ void parse_arguments(int argc,char** argv) {
       parameters.mismatch_transitions = true;
       parameters.mismatch_quality = true;
       parameters.splitmaps_profile = true;
+      parameters.population_profile = true;
       break;
     case 'M': // --maps-profile
       parameters.maps_profile = true;
@@ -320,6 +333,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'I': // --indel-profile
       parameters.indel_profile = true;
+      break;
+    case 'P': // --population-profile
+      parameters.population_profile = true;
       break;
     /* [MAP Specific] */
     case 10:

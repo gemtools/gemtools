@@ -13,7 +13,7 @@
 
 typedef enum { GT_MAP_SET_INTERSECTION, GT_MAP_SET_UNION, GT_MAP_SET_DIFFERENCE,
                GT_MAP_SET_JOIN, GT_MAP_SET_COMPARE,
-               GT_MERGE_MAP} gt_operation;
+               GT_MERGE_MAP, GT_DISPLAY_COMPACT_MAP} gt_operation;
 
 typedef struct {
   char* name_input_file_1;
@@ -307,7 +307,43 @@ void gt_mapset_perform_merge_map() {
   gt_input_file_close(input_file_2);
   gt_output_file_close(output_file);
 }
+void gt_mapset_display_compact_map() {
+  // Open file IN/OUT
+  gt_input_file* input_file = (parameters.name_input_file_1==NULL) ?
+      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file_1,parameters.mmap_input);
+  gt_output_file* output_file = (parameters.name_output_file==NULL) ?
+      gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
+  #pragma omp parallel num_threads(parameters.num_threads)
+  {
+    gt_output_map_attributes* const output_map_attributes = gt_output_map_attributes_new();
+    output_map_attributes->compact = true;
+    GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,parameters.paired_end,buffered_output,template) {
+      GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
+        // Print compact summary
+        gt_bofprintf(buffered_output,"End1::"PRIgts"[%"PRIu64"]\t",PRIgts_content(alignment->tag),gt_string_get_length(alignment->read));
+        gt_output_map_bofprint_counters(buffered_output,alignment->counters,alignment->attributes,output_map_attributes);
+        gt_bofprintf(buffered_output,"\t");
+        uint64_t printed = 0;
+        GT_ALIGNMENT_ITERATE(alignment,map) {
+          if (printed>0) {
+            gt_bofprintf(buffered_output,","PRIgts,PRIgts_content(map->seq_name));
+          } else {
+            gt_bofprintf(buffered_output,PRIgts,PRIgts_content(map->seq_name));
+          }
+          ++printed;
+        }
+        gt_bofprintf(buffered_output,"\n");
+      }
+    } GT_END_READING_WRITING_LOOP(input_file,output_file,template);
+    // Clean
+    gt_output_map_attributes_delete(output_map_attributes);
+  }
+
+  // Clean
+  gt_input_file_close(input_file);
+  gt_output_file_close(output_file);
+}
 void usage() {
   fprintf(stderr, "USE: ./gt.mapset [OPERATION] [ARGS]...\n"
                   "       {OPERATION}\n"
@@ -315,13 +351,14 @@ void usage() {
                   "           union\n"
                   "           intersection\n"
                   "           difference\n"
-                  "         [Compare Files]\n"
+                  "         [Compare/Display Files]\n"
                   "           compare\n"
                   "           join\n"
+                  "           display-compact\n"
                   "         [Map Specific]\n"
                   "           merge-map\n"
                   "       {ARGS}\n"
-                  "         [I/O]"
+                  "         [I/O]\n"
                   "           --i1 [FILE]\n"
                   "           --i2 [FILE]\n"
                   "           --mmap-input\n"
@@ -338,8 +375,9 @@ void usage() {
 }
 
 void parse_arguments(int argc,char** argv) {
+#define GT_MAPSET_OPERATIONS "union,intersection,difference,compare,join,merge-map,display-compact"
   // Parse operation
-  if (argc<=1) gt_fatal_error_msg("Please specify operation {union,intersection,difference,compare,join,merge-map}");
+  if (argc<=1) gt_fatal_error_msg("Please specify operation {"GT_MAPSET_OPERATIONS"}");
   if (gt_streq(argv[1],"INTERSECCTION") || gt_streq(argv[1],"Intersection") || gt_streq(argv[1],"intersection")) {
     parameters.operation = GT_MAP_SET_INTERSECTION;
   } else if (gt_streq(argv[1],"UNION") || gt_streq(argv[1],"Union") || gt_streq(argv[1],"union")) {
@@ -352,6 +390,8 @@ void parse_arguments(int argc,char** argv) {
     parameters.operation = GT_MAP_SET_JOIN;
   } else if (gt_streq(argv[1],"MERGE-MAP") || gt_streq(argv[1],"Merge-map") || gt_streq(argv[1],"merge-map")) {
     parameters.operation = GT_MERGE_MAP;
+  } else if (gt_streq(argv[1],"DISPLAY-COMPACT") || gt_streq(argv[1],"Display-compact") || gt_streq(argv[1],"display-compact")) {
+    parameters.operation = GT_DISPLAY_COMPACT_MAP;
   } else {
     if (argv[1][0]=='I' || argv[1][0]=='i') {
       fprintf(stderr,"\tAssuming 'Intersection' ...\n");
@@ -372,7 +412,7 @@ void parse_arguments(int argc,char** argv) {
       fprintf(stderr,"\tAssuming 'Merge-map' ...\n");
       parameters.operation = GT_MERGE_MAP;
     } else {
-      gt_fatal_error_msg("Unknown operation '%s'\n",argv[1]);
+      gt_fatal_error_msg("Unknown operation '%s' in {"GT_MAPSET_OPERATIONS"}",argv[1]);
     }
   }
   argc--; argv++;
@@ -436,7 +476,7 @@ void parse_arguments(int argc,char** argv) {
     }
   }
   // Check parameters
-  if (!parameters.name_input_file_1) {
+  if (parameters.operation!=GT_DISPLAY_COMPACT_MAP && !parameters.name_input_file_1) {
     gt_fatal_error_msg("Input file 1 required (--i1)\n");
   }
 }
@@ -451,6 +491,8 @@ int main(int argc,char** argv) {
   // Filter !
   if (parameters.operation==GT_MERGE_MAP) {
     gt_mapset_perform_merge_map();
+  } else if (parameters.operation==GT_DISPLAY_COMPACT_MAP) {
+    gt_mapset_display_compact_map();
   } else if (parameters.operation==GT_MAP_SET_INTERSECTION ||
       parameters.operation==GT_MAP_SET_UNION ||
       parameters.operation==GT_MAP_SET_DIFFERENCE) {

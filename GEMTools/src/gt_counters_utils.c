@@ -92,11 +92,12 @@ GT_INLINE void gt_counters_calculate_num_maps(
     uint64_t* num_strata,uint64_t* num_matches) {
   GT_VECTOR_CHECK(counters);
   const uint64_t num_counters = gt_vector_get_used(counters);
-  uint64_t i, acc;
-  for (i=0,acc=0;i<num_counters;++i) {
+  uint64_t i, acc, strata;
+  for (i=0,acc=0,strata=0;i<num_counters;++i) {
     const uint64_t current_matches = *gt_vector_get_elm(counters,i,uint64_t);
-    if (acc+current_matches > max_decoded_matches) {
-      if (num_strata) *num_strata = GT_MAX(min_decoded_strata,i);
+    if (current_matches!=0 || strata!=0) ++strata;
+    if (acc+current_matches > max_decoded_matches && strata>min_decoded_strata) {
+      if (num_strata) *num_strata = i;
       if (num_matches) *num_matches = acc;
       return;
     }

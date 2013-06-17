@@ -470,6 +470,9 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps(
   GT_NULL_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   GT_OUTPUT_MAP_CHECK_ATTRIBUTES(output_map_attributes);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_output_map_gprint_alignment_maps(gprinter,alignment,output_map_attributes);
+  } GT_TEMPLATE_END_REDUCTION;
   gt_status error_code = 0;
   if (gt_expect_false(gt_template_get_num_mmaps(template)==0 || output_map_attributes->max_printable_maps==0)) {
     gt_gprintf(gprinter,GT_MAP_NONE_S);

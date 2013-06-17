@@ -153,7 +153,7 @@ gt_filter_args parameters = {
     .first_map=false,
     .matches_pruning=false,
     .max_decoded_matches=GT_ALL,
-    .min_decoded_strata=GT_ALL,
+    .min_decoded_strata=0,
     .max_output_matches=GT_ALL,
     .max_input_matches=GT_ALL,
     .make_counters=false,
@@ -285,7 +285,7 @@ GT_INLINE bool gt_filter_is_quality_value_allowed(const uint64_t quality_score) 
 }
 GT_INLINE void gt_filter_prune_matches(gt_template* const template) {
   uint64_t max_num_matches = GT_ALL;
-  if (parameters.max_decoded_matches!=GT_ALL || parameters.min_decoded_strata!=GT_ALL) {
+  if (parameters.max_decoded_matches!=GT_ALL || parameters.min_decoded_strata!=0) {
     uint64_t max_strata;
     gt_counters_calculate_num_maps(gt_template_get_counters_vector(template),
         parameters.min_decoded_strata,parameters.max_decoded_matches,&max_strata,&max_num_matches);
@@ -421,7 +421,7 @@ void gt_template_filter(gt_template* const template_dst,gt_template* const templ
 GT_INLINE bool gt_filter_apply_filters(
     const gt_file_format file_format,const uint64_t line_no,gt_sequence_archive* const sequence_archive,gt_template* const template) {
   /*
-   * Process Read/Qualities
+   * Process Read/Qualities // TODO: move out of filter (this is processing)
    */
   const uint64_t has_qualities = gt_template_has_qualities(template);
   if (parameters.remove_qualities && has_qualities) {
@@ -538,6 +538,11 @@ GT_INLINE void gt_filter__print(
    * Apply Filters
    */
   if (!gt_filter_apply_filters(file_format,line_no,sequence_archive,template)) discaded = true;
+  if (parameters.uniform_read) { // Check zero-length reads
+    GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
+      if (gt_alignment_get_read_length(alignment)==0) return;
+    }
+  }
   /*
    * Check
    */
@@ -608,9 +613,9 @@ GT_INLINE void gt_filter_group_reads() {
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,parameters.mmap_input);
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
             gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
-  // Parallel I/O
-  #pragma omp parallel num_threads(parameters.num_threads)
-  {
+//  // Parallel I/O
+//  #pragma omp parallel num_threads(parameters.num_threads)
+//  {
     // Prepare out-printers
     if (parameters.output_format==FILE_FORMAT_UNKNOWN) parameters.output_format = input_file->file_format; // Select output format
     gt_generic_printer_attributes* const generic_printer_attributes = gt_generic_printer_attributes_new(parameters.output_format);
@@ -623,6 +628,8 @@ GT_INLINE void gt_filter_group_reads() {
       if (segmented_read_info==NULL) {
         gt_filter_cond_fatal_error_msg(total_segments!=last_segment_id,
             "Expected SegmentedRead Info => lastRead(%"PRIu64"/%"PRIu64")",last_segment_id,total_segments);
+        gt_template_restore_trim(template); // If any
+        gt_attributes_remove(template->attributes,GT_ATTR_ID_SEGMENTED_READ_INFO); // If any
         gt_output_generic_bofprint_template(buffered_output,template,generic_printer_attributes); // Print it, as it is
       } else {
         // First, undo the trim
@@ -647,6 +654,7 @@ GT_INLINE void gt_filter_group_reads() {
           gt_template_merge_template_mmaps(group_template,template);
           last_segment_id = segmented_read_info->segment_id;
           if (last_segment_id==total_segments) { // Close group
+            gt_attributes_remove(template->attributes,GT_ATTR_ID_SEGMENTED_READ_INFO); // If any
             gt_output_generic_bofprint_template(buffered_output,group_template,generic_printer_attributes);
           }
         } else {
@@ -661,7 +669,7 @@ GT_INLINE void gt_filter_group_reads() {
     // Clean
     gt_template_delete(group_template);
     gt_generic_printer_attributes_delete(generic_printer_attributes);
-  }
+//  }
   // Clean
   gt_input_file_close(input_file);
   gt_output_file_close(output_file);
@@ -680,7 +688,17 @@ GT_INLINE void gt_filter_split_read() {
           // Calculate the chunks
           const uint64_t read_length = gt_alignment_get_read_length(alignment);
           const uint64_t split_chunk_size = gt_get_integer_proportion(parameters.split_chunk_size,read_length);
-          const uint64_t split_step_size = gt_get_integer_proportion(parameters.split_step_size,read_length);
+          // Check boundaries
+          if (split_chunk_size>read_length || split_chunk_size==0) {
+            if (gt_alignment_has_qualities(alignment)) {
+              gt_filter_split_read_print_fastq(buffered_output,alignment->tag,alignment->read,alignment->qualities,1,1,0,0,read_length); // FASTQ
+            } else {
+              gt_filter_split_read_print_fasta(buffered_output,alignment->tag,alignment->read,1,1,0,0,read_length); // FASTA
+            }
+            continue;
+          }
+          uint64_t split_step_size = gt_get_integer_proportion(parameters.split_step_size,read_length);
+          if (split_step_size==0) split_step_size=1;
           const uint64_t split_left_trim = gt_get_integer_proportion(parameters.split_left_trim,read_length);
           const uint64_t split_right_trim = gt_get_integer_proportion(parameters.split_right_trim,read_length);
           const uint64_t full_chunks = ((read_length-split_left_trim-split_right_trim-split_chunk_size)/split_step_size)+1;
@@ -1121,7 +1139,7 @@ void parse_arguments(int argc,char** argv) {
     /* Filter Read/Qualities */
     { "hard-trim", required_argument, 0, 10 },
     { "restore-trim", no_argument, 0, 11 },
-    { "uniform-read", no_argument, 0, 12 },
+    { "uniform-read", optional_argument, 0, 12 },
     { "qualities-to-offset-33", no_argument, 0, 13 },
     { "qualities-to-offset-64", no_argument, 0, 14 },
     { "remove-qualities", no_argument, 0, 15 },
