@@ -32,7 +32,7 @@ GT_INLINE uint64_t gt_map_get_global_bases_aligned(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_levenshtein_distance(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_segment_levenshtein_distance(gt_map* const map);
 GT_INLINE uint64_t gt_map_get_global_levenshtein_distance(gt_map* const map);
-
+GT_INLINE uint64_t gt_map_get_no_split_distance(gt_map* const map);
 /*
  * MMap/Vector Metrics
  */
