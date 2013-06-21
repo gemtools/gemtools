@@ -159,7 +159,6 @@ GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) 
 }
 
 GT_INLINE void gt_alignment_recalculate_counters_no_splits(gt_alignment* const alignment) {
-  gt_alignment_recalculate_counters_(alignment, gt_map_get_no_split_distance);
   GT_ALIGNMENT_CHECK(alignment);
   gt_vector_clear(gt_alignment_get_counters_vector(alignment));
   // Recalculate counters
