@@ -57,6 +57,8 @@ typedef struct {
   float max_length;
   int64_t min_maps;
   int64_t max_maps;
+  /*RNA Seq to recalculate counters*/
+  bool rna_seq;
   /* Filter SE-Maps */
   bool no_split_maps;
   bool only_split_maps;
@@ -147,6 +149,8 @@ gt_filter_args parameters = {
     .max_length=-1.0,
     .min_maps=-1,
     .max_maps=-1,
+    /*RNA Seq*/
+    .rna_seq=false,
     /* Filter SE-Maps */
     .no_split_maps=false,
     .only_split_maps=false,
@@ -420,6 +424,11 @@ void gt_template_filter(gt_template* const template_dst,gt_template* const templ
 }
 GT_INLINE bool gt_filter_apply_filters(
     const gt_file_format file_format,const uint64_t line_no,gt_sequence_archive* const sequence_archive,gt_template* const template) {
+
+  /*
+   * Recalculate counters for rnaseq reads
+   */
+  if(parameters.rna_seq) gt_template_recalculate_counters_no_splits(template);
   /*
    * Process Read/Qualities // TODO: move out of filter (this is processing)
    */
@@ -522,7 +531,7 @@ GT_INLINE bool gt_filter_apply_filters(
   // Map pruning
   if (parameters.matches_pruning) gt_filter_prune_matches(template);
   // Make counters
-  if (parameters.make_counters) gt_template_recalculate_counters(template);
+  if (parameters.make_counters || parameters.rna_seq) gt_template_recalculate_counters(template);
   // Ok, go on
   return true;
 }
@@ -1187,6 +1196,8 @@ void parse_arguments(int argc,char** argv) {
     /* Read Split/Grouping */
     { "split-read", required_argument, 0, 700 },
     { "group-read-chunks", no_argument, 0, 701 },
+    /*RNA Seq*/
+    { "rna-seq", no_argument, 0, 800},
     /* Misc */
     { "threads", required_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
@@ -1431,6 +1442,10 @@ void parse_arguments(int argc,char** argv) {
     case 701: // group-read-chunks
       parameters.special_functionality = true;
       parameters.group_reads = true;
+      break;
+    /*RNA-Seq*/
+    case 800:
+      parameters.rna_seq = true;
       break;
     /* Misc */
     case 't':
