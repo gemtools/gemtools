@@ -145,6 +145,10 @@ GT_INLINE void gt_map_attribute_set_(gt_map* const map,char* const attribute_id,
 #define gt_map_attribute_set(map,attribute_id,attribute,element_type) \
     gt_map_attribute_set_(map,attribute_id,(void*)attribute,sizeof(element_type))
 
+// Utils
+GT_INLINE uint64_t gt_map_get_min_intron_length(gt_map* const map);
+GT_INLINE uint64_t gt_map_get_min_block_length(gt_map* const map);
+
 /*
  * Multiple BlockMap Handlers
  *   One MapBlock is a continuous mapping of a read (or subread) to

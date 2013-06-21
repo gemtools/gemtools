@@ -371,6 +371,17 @@ GT_INLINE void gt_template_sort_by_distance__score(gt_template* const template) 
       (int (*)(const void *,const void *))gt_mmap_cmp_distance__score);
 }
 
+GT_INLINE void gt_template_sort_by_distance__score_no_split(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_sort_by_distance__score_no_split(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  // Sort
+  const uint64_t num_mmap = gt_template_get_num_mmaps(template);
+  qsort(gt_vector_get_mem(template->mmaps,gt_mmap),num_mmap,sizeof(gt_mmap),
+      (int (*)(const void *,const void *))gt_mmap_cmp_distance__score);
+}
+
 /*
  * Template Set operators
  */
