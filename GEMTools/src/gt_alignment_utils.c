@@ -145,6 +145,7 @@ GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,
   }
   return false;
 }
+
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_vector_clear(gt_alignment_get_counters_vector(alignment));
@@ -156,6 +157,20 @@ GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) 
     gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
   }
 }
+
+GT_INLINE void gt_alignment_recalculate_counters_no_splits(gt_alignment* const alignment) {
+  gt_alignment_recalculate_counters_(alignment, gt_map_get_no_split_distance);
+  GT_ALIGNMENT_CHECK(alignment);
+  gt_vector_clear(gt_alignment_get_counters_vector(alignment));
+  // Recalculate counters
+  gt_alignment_map_iterator map_iterator;
+  gt_alignment_new_map_iterator(alignment,&map_iterator);
+  gt_map* map;
+  while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
+    gt_alignment_inc_counter(alignment, gt_map_get_no_split_distance(map));
+  }
+}
+
 
 GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);

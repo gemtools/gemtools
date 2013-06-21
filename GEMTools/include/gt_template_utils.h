@@ -69,6 +69,7 @@ GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,gt_status* con
 GT_INLINE bool gt_template_is_mapped(gt_template* const template);
 GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,const uint64_t max_allowed_strata);
 GT_INLINE void gt_template_recalculate_counters(gt_template* const template);
+GT_INLINE void gt_template_recalculate_counters_no_splits(gt_template* const template);
 
 GT_INLINE int64_t gt_template_get_min_matching_strata(gt_template* const template);
 GT_INLINE int64_t gt_template_get_uniq_degree(gt_template* const template);

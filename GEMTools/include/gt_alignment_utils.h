@@ -52,6 +52,7 @@ GT_INLINE void gt_alignment_reduce_maps(gt_alignment* const alignment,const uint
 GT_INLINE bool gt_alignment_is_mapped(gt_alignment* const alignment);
 GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,const int64_t max_allowed_strata);
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment);
+GT_INLINE void gt_alignment_recalculate_counters_no_splits(gt_alignment* const alignment);
 
 GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment);
 GT_INLINE int64_t gt_alignment_get_min_matching_strata(gt_alignment* const alignment);

@@ -271,6 +271,7 @@ GT_INLINE bool gt_template_is_thresholded_mapped(gt_template* const template,con
   }
   return false;
 }
+
 GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
@@ -289,6 +290,26 @@ GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
     gt_template_inc_counter(template,total_distance);
   }
 }
+
+GT_INLINE void gt_template_recalculate_counters_no_splits(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_recalculate_counters_no_splits(alignment);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  // Clear previous counters
+  gt_vector_clear(gt_template_get_counters_vector(template));
+  // Recalculate counters
+  const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
+    uint64_t i, total_distance = 0;
+    for (i=0;i<num_blocks;++i) {
+      total_distance+=gt_map_get_no_split_distance(mmap[i]);
+    }
+    mmap_attr->distance=total_distance;
+    gt_template_inc_counter(template,total_distance);
+  }
+}
+
 
 GT_INLINE int64_t gt_template_get_min_matching_strata(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
