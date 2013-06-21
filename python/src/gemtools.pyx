@@ -68,8 +68,9 @@ cdef class filter_trim(TemplateFilter):
         self.min_length = min_length
         self.set_extra = set_extra
 
-    cpdef bool filter(self, Template template):
-        gt_template_trim(template.template, self.left, self.right, self.min_length, self.set_extra)
+    cpdef bool filter(self, Template template):        
+        gt_template_hard_trim(template.template, self.left, self.right)
+        #gt_template_trim(template.template, self.left, self.right, self.min_length, self.set_extra)
         return True
 
 cpdef unmapped(source, int64_t max_mismatches=GT_ALL):
@@ -1210,9 +1211,6 @@ cdef class StatsMapProfile(object):
     property total_bases_trimmed:
         def __get__(self):
             return self.profile.total_bases_trimmed
-    property inss_fine_grain:
-        def __get__(self):
-            return [self.profile.inss_fine_grain[i] for i in range(GT_STATS_INSS_FG_RANGE)]
     property inss:
         def __get__(self):
             return [self.profile.inss[i] for i in range(16)]
@@ -1231,9 +1229,6 @@ cdef class StatsMapProfile(object):
     property misms_1context:
         def __get__(self):
             return [self.profile.misms_1context[i] for i in range(GT_STATS_MISMS_1_CONTEXT_RANGE)]
-    property misms_2context:
-        def __get__(self):
-            return [self.profile.misms_2context[i] for i in range(GT_STATS_MISMS_2_CONTEXT_RANGE)]
     property indel_transition_1:
         def __get__(self):
             return [self.profile.indel_transition_1[i] for i in range(GT_STATS_INDEL_TRANSITION_1_RANGE)]
@@ -1269,8 +1264,7 @@ cdef class StatsMapProfile(object):
                 "total_bases": self.total_bases,
                 "total_bases_matching": self.total_bases_matching,
                 "total_bases_trimmed": self.total_bases_trimmed,
-                "inss": self.inss,
-                "inss_fine_grain": self.inss_fine_grain,
+                "inss": self.inss,                
                 "inss_description": self.inss_description,
                 "misms_transition": self.misms_transition,
                 "qual_score_misms": self.qual_score_misms,
@@ -1329,11 +1323,15 @@ cpdef __write_filter(source, OutputFile output, uint64_t threads=1, params=None)
         params = {}
 
     cdef gt_filter_params p
-    p.max_matches = params.get("max_matches", 0)
+    p.max_matches = params.get("max_matches", 0)    
+    p.min_intron_length = params.get("min_intron_length", 0)
+    p.min_block_length = params.get("min_block_length", 0)
+    p.quality_offset = params.get("quality_offset", 33)
     p.min_event_distance = params.get("min_event_distance", 0)
     p.max_event_distance = params.get("max_event_distance", UINT64_MAX)
     p.min_levenshtein_distance = params.get("min_levenshtein_distance", 0)
     p.max_levenshtein_distance = params.get("max_levenshtein_distance", UINT64_MAX)
+    p.min_unique_level = params.get("min_unique_level", -1)
     p.max_inss = params.get("max_inss", INT64_MAX)
     p.min_inss = params.get("min_inss", INT64_MIN);
     p.filter_by_strand = params.get("filter_strand", False)

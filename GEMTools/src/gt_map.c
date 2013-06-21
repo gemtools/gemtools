@@ -100,6 +100,31 @@ GT_INLINE void gt_map_set_position(gt_map* const map,const uint64_t position) {
   GT_MAP_CHECK(map);
   map->position = position;
 }
+
+//Utils
+GT_INLINE uint64_t gt_map_get_min_intron_length(gt_map* const map) {
+  uint64_t min_intron_length = UINT64_MAX;
+  GT_MAP_ITERATE(map, map_block){
+    if(gt_map_has_next_block(map_block)){
+      int64_t l = gt_map_get_junction_size(map_block);
+      if(l>=0 && min_intron_length > l){
+        min_intron_length = l;
+      }
+    }
+  }
+  return min_intron_length;
+}
+GT_INLINE uint64_t gt_map_get_min_block_length(gt_map* const map) {
+  uint64_t min_block_length = UINT64_MAX;
+  GT_MAP_ITERATE(map, map_block){
+    int64_t l = gt_map_get_base_length(map_block);
+    if(l>=0 && min_block_length > l){
+      min_block_length = l;
+    }
+  }
+  return min_block_length;
+}
+
 // Trim helpers
 GT_INLINE uint64_t gt_map_get_left_trim_length(gt_map* const map) {
   if (gt_map_get_num_misms(map)>0) {

@@ -75,6 +75,11 @@ GT_INLINE uint64_t gt_map_get_global_distance(gt_map* const map) {
   }
   return distance;
 }
+
+GT_INLINE uint64_t gt_map_get_no_split_distance(gt_map* const map){
+  return gt_map_get_global_distance(map) - (gt_map_get_num_blocks(map)-1);
+}
+
 // Bases aligned (Mismatches not included)
 GT_INLINE uint64_t gt_map_get_bases_aligned(gt_map* const map) {
   GT_MAP_CHECK(map);
