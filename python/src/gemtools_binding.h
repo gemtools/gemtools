@@ -12,9 +12,13 @@ typedef struct {
   uint64_t max_event_distance;
   uint64_t min_levenshtein_distance;
   uint64_t max_levenshtein_distance;
+  int64_t min_unique_level;
+  uint64_t min_intron_length;
+  uint64_t min_block_length;
   /* Filter-pairs */
   int64_t max_inss;
   int64_t min_inss;
+  int64_t quality_offset;
   bool filter_by_strand;
   bool keep_unique;
   uint64_t min_score;
@@ -35,4 +39,5 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_sta
 bool gt_input_file_has_qualities(gt_input_file* file);
 void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired_end);
 void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t threads, gt_filter_params* params);
+GT_INLINE uint64_t gt_map_get_no_split_distance(gt_map* const map);
 #endif /* GEMTOOLS_BINDING_H */
