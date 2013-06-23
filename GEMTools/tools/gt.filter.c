@@ -31,6 +31,8 @@ typedef struct {
   char* name_output_file;
   char* name_reference_file;
   char* name_gem_index_file;
+  char* annotation;
+  gt_gtf* gtf;
   bool mmap_input;
   bool paired_end;
   bool no_output;
@@ -82,6 +84,7 @@ typedef struct {
   float min_levenshtein_distance;
   float max_levenshtein_distance;
   gt_vector* map_ids;
+  gt_shash* gtf_types;
   bool filter_by_strand_se;
   bool allow_strand_r;
   bool allow_strand_f;
@@ -120,6 +123,7 @@ typedef struct {
   bool verbose;
   /* Control flags */
   bool perform_map_filter; // Any filtering criteria activated
+  bool perform_annotation_filter; // Any filtering criteria activated
   bool load_index;
 } gt_filter_args;
 
@@ -129,6 +133,8 @@ gt_filter_args parameters = {
     .name_output_file=NULL,
     .name_reference_file=NULL,
     .name_gem_index_file=NULL,
+    .annotation = NULL,
+    .gtf = NULL,
     .mmap_input=false,
     .paired_end=false,
     .no_output=false,
@@ -180,6 +186,7 @@ gt_filter_args parameters = {
     .min_levenshtein_distance=GT_FILTER_FLOAT_NO_VALUE,
     .max_levenshtein_distance=GT_FILTER_FLOAT_NO_VALUE,
     .map_ids=NULL,
+    .gtf_types=NULL,
     .filter_by_strand_se=false,
     .allow_strand_r=false,
     .allow_strand_f=false,
@@ -217,6 +224,7 @@ gt_filter_args parameters = {
     .verbose=false,
     /* Control flags */
     .perform_map_filter=false,
+    .perform_annotation_filter=false,
     .load_index=false
 };
 /*
@@ -380,7 +388,6 @@ int64_t gt_filter_get_max_quality(gt_template* const template){
 void gt_filter_make_reduce_by_quality(gt_template* const template_dst,gt_template* const template_src) {
   // filter alignments
   int64_t max_quality = gt_filter_get_max_quality(template_src);
-
   /*
    * SE
    */
@@ -388,7 +395,7 @@ void gt_filter_make_reduce_by_quality(gt_template* const template_dst,gt_templat
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
       int64_t q = gt_alignment_sum_mismatch_qualities(alignment_src, map);
-      if(q==0 || abs(max_quality-q) > parameters.reduce_by_quality){
+      if(q==0 || q == max_quality || abs(max_quality-q) > parameters.reduce_by_quality){
         gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
       }
     }
@@ -400,15 +407,190 @@ void gt_filter_make_reduce_by_quality(gt_template* const template_dst,gt_templat
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
     int64_t q = gt_alignment_sum_mismatch_qualities(gt_template_get_block(template_src, 0), mmap[0])
                 + gt_alignment_sum_mismatch_qualities(gt_template_get_block(template_src, 1), mmap[1]);
-
-    // Add the mmap
-    if(q==0 || abs(max_quality-q) > parameters.reduce_by_quality){
+    if(q==0 || q == max_quality || abs(max_quality-q) > parameters.reduce_by_quality){
       gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
       gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
       free(mmap_copy);
     }
   }
 }
+
+bool gt_filter_has_junction(gt_map* map, uint64_t start, uint64_t end){
+  GT_MAP_ITERATE(map, s_1){
+    if(gt_map_has_next_block(s_1)){
+      bool forward = gt_map_get_strand(s_1) == FORWARD;
+      // is the junction in the overlap ?
+      uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? s_1: gt_map_get_next_block(s_1));
+      uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(s_1): s_1);
+      if(junctions_start == start && junctions_end == end) return true;
+    }
+  }
+  return false;
+}
+
+bool gt_template_filter_splits(gt_template* const template_dst,gt_template* const template_src) {
+  // filter alignments
+  int64_t max_quality = gt_filter_get_max_quality(template_src);
+  /*
+   * SE
+   */
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+    return false; // don't filter single end
+  } GT_TEMPLATE_END_REDUCTION;
+  /*
+   * PE
+   */
+  const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+  gt_status status;
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
+    // see if we have junctions in at least one mate
+    bool copy = true;
+    if(gt_map_get_num_blocks(mmap[0]) != 0 || gt_map_get_num_blocks(mmap[1]) != 0){
+      // global coordinates
+      uint64_t mmap_0_start =  gt_map_get_global_coordinate(mmap[0]);
+      uint64_t mmap_1_start =  gt_map_get_global_coordinate(mmap[1]);
+      uint64_t mmap_0_end =  mmap_0_start + gt_map_get_global_length(mmap[0]);
+      uint64_t mmap_1_end =  mmap_1_start + gt_map_get_global_length(mmap[1]);
+
+      // check overlap
+      if(mmap_0_start <= mmap_1_start){
+        if(mmap_0_end < mmap_1_start){
+          continue;
+        }
+      }else{
+        if(mmap_1_end < mmap_0_start){
+          continue;
+        }
+      }
+
+      uint64_t overlap_start = 0;
+      uint64_t overlap_end = 0;
+      if(mmap_0_start <= mmap_1_start){
+        overlap_start = mmap_0_start + (mmap_1_start - mmap_0_start);
+        overlap_end = mmap_0_end;
+      }else{
+        overlap_start = mmap_1_start + (mmap_0_start - mmap_1_start);
+        overlap_end = mmap_1_end;
+      }
+
+      GT_MAP_ITERATE(mmap[0], s_1){
+        if(gt_map_has_next_block(s_1)){
+          bool forward = gt_map_get_strand(s_1) == FORWARD;
+          // is the junction in the overlap ?
+          uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? s_1: gt_map_get_next_block(s_1));
+          uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(s_1): s_1);
+          if(junctions_start >= overlap_start && junctions_start < overlap_end){
+            // find the junctions start in the other map
+            if(!gt_filter_has_junction(mmap[1], junctions_start, junctions_end)){
+              // start not found, not overlapping split maps
+              copy = false;
+              break;
+            }
+          }
+        }
+      }
+    }
+    if(copy){
+      gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+      gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+      free(mmap_copy);
+    }
+  }
+  return true;
+}
+
+
+void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
+  gt_gtf_hits* hits = gt_gtf_hits_new();
+  gt_gtf_search_template_for_exons(parameters.gtf, hits, template_src);
+
+  // count elements contained in gtf_type genes
+  uint64_t contained = 0;
+  uint64_t i = 0;
+  GT_VECTOR_ITERATE(hits->types, type, c, gt_string*){
+    gt_string* tt = (*type);
+    if(tt != NULL && tt->length > 0){
+      if(gt_shash_is_contained(parameters.gtf_types, tt->buffer)){
+        contained++;
+      }
+    }
+  }
+  /*
+   * SE
+   */
+  i=0;
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+    GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      bool add = true;
+      if(contained > 0){
+        gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+        if(gene_id != NULL){
+          gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
+          if(type != NULL && !gt_shash_is_contained(parameters.gtf_types, type->buffer)){
+            add = false;
+          }
+        }
+      }
+      i++;
+      if(add){
+        gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      }
+    }
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  /*
+   * PE
+   */
+  const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+  i = 0;
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
+    bool add = true;
+    if(contained > 0){
+      gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+      if(gene_id != NULL){
+        gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
+        if(type != NULL && !gt_shash_is_contained(parameters.gtf_types, type->buffer)){
+          add = false;
+        }
+      }
+    }
+    i++;
+//    gt_output_map_fprint_map(stdout, mmap[0], NULL);
+//    printf("::");
+//    gt_output_map_fprint_map(stdout, mmap[1], NULL);
+//    printf("\t");
+//    gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+//    if(gene_id != NULL){
+//      gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
+//      //bool contained = gt_shash_is_contained(parameters.gtf_types, gt_string_get_string(type));
+//      bool contained = gt_shash_is_contained(parameters.gtf_types, type->buffer);
+//      printf("Annotation mapped : %s -> Overlap: %f Type:%s Exonic:%d Contained:%d\n",
+//          gt_string_get_string(gene_id),
+//          *gt_vector_get_elm(hits->scores, i, float),
+//          gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+//          *gt_vector_get_elm(hits->exonic, i, bool),
+//          contained
+//          );
+//    }else{
+//      printf("Annotation mapped : %s -> Overlap: %f \n",
+//          "NULL",
+//          *gt_vector_get_elm(hits->scores, i, float)
+//          );
+//    }
+//    i++;
+    if(add){
+      gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+      gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+      free(mmap_copy);
+    }
+  }
+  gt_gtf_hits_delete(hits);
+//  printf("\n\n");
+}
+
+
+
+
 
 
 void gt_template_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
@@ -699,6 +881,16 @@ GT_INLINE bool gt_filter_apply_filters(
   } else if (parameters.mismatch_recovery) {
     gt_filter_mismatch_recovery_maps(parameters.name_input_file,line_no,template,sequence_archive);
   }
+
+  if(parameters.rna_seq){
+    // filter splitmaps by split coordinate
+    gt_template *template_filtered = gt_template_dup(template,false,false);
+    if(gt_template_filter_splits(template_filtered,template)){
+      gt_template_swap(template,template_filtered);
+      gt_template_recalculate_counters(template);
+    }
+    gt_template_delete(template_filtered);
+  }
   // Map filtering
   if (parameters.perform_map_filter) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
@@ -709,7 +901,7 @@ GT_INLINE bool gt_filter_apply_filters(
 
 
     if(parameters.reduce_to_level >= 0){
-      gt_template_recalculate_counters_no_splits(template);
+      if(parameters.rna_seq)gt_template_recalculate_counters_no_splits(template);
       template_filtered = gt_template_dup(template,false,false);
       gt_filter_make_reduce_to_level(template_filtered, template);
       gt_template_swap(template,template_filtered);
@@ -718,7 +910,7 @@ GT_INLINE bool gt_filter_apply_filters(
     }
 
     if(parameters.reduce_by_quality >= 0){
-      gt_template_recalculate_counters_no_splits(template);
+      if(parameters.rna_seq)gt_template_recalculate_counters_no_splits(template);
       template_filtered = gt_template_dup(template,false,false);
       gt_filter_make_reduce_by_quality(template_filtered, template);
       gt_template_swap(template,template_filtered);
@@ -726,7 +918,31 @@ GT_INLINE bool gt_filter_apply_filters(
       gt_template_recalculate_counters(template);
     }
 
+    if(parameters.gtf != NULL && parameters.perform_annotation_filter){
+      if(parameters.rna_seq)gt_template_recalculate_counters_no_splits(template);
+      template_filtered = gt_template_dup(template,false,false);
+      gt_filter_make_reduce_by_annotation(template_filtered, template);
+      gt_template_swap(template,template_filtered);
+      gt_template_delete(template_filtered);
+      gt_template_recalculate_counters(template);
+    }
+
+
+    // re-reduce
+    if(parameters.reduce_to_level >= 0 && (
+        (parameters.gtf != NULL && parameters.perform_annotation_filter)
+        || parameters.reduce_by_quality >= 0)){
+      if(parameters.rna_seq)gt_template_recalculate_counters_no_splits(template);
+      template_filtered = gt_template_dup(template,false,false);
+      gt_filter_make_reduce_to_level(template_filtered, template);
+      gt_template_swap(template,template_filtered);
+      gt_template_delete(template_filtered);
+      gt_template_recalculate_counters(template);
+    }
   }
+
+
+
   // Map pruning
   if (parameters.matches_pruning) gt_filter_prune_matches(template);
   // Make counters
@@ -1071,6 +1287,17 @@ void gt_filter_read__write() {
     sequence_archive = gt_filter_open_sequence_archive(true);
   }
 
+  // read annotaiton if specified
+  if(parameters.annotation != NULL && parameters.perform_annotation_filter){
+      FILE* of = fopen(parameters.annotation, "r");
+      if(of == NULL){
+        printf("ERROR opening annotation !\n");
+        return;
+      }
+      parameters.gtf = gt_gtf_read(of);
+      fclose(of);
+  }
+
   // Parallel reading+process
   uint64_t total_algs_checked=0, total_algs_correct=0, total_maps_checked=0, total_maps_correct=0;
   #pragma omp parallel num_threads(parameters.num_threads) reduction(+:total_algs_checked,total_algs_correct,total_maps_checked,total_maps_correct)
@@ -1267,6 +1494,21 @@ void gt_filter_get_argument_map_id(char* const maps_ids) {
     opt = strtok(NULL,","); // Reload
   }
 }
+
+void gt_filter_get_argument_gtf_type(char* const maps_ids) {
+  // Allocate vector
+  parameters.gtf_types = gt_shash_new();
+  // Add all the valid map Ids (sequence names)
+  char *opt;
+  opt = strtok(maps_ids,",");
+  while (opt!=NULL) {
+    // Get id
+    gt_shash_insert(parameters.gtf_types, opt, true, bool);
+    // Next
+    opt = strtok(NULL,","); // Reload
+  }
+}
+
 void usage(const bool print_hidden) {
   fprintf(stderr, "USE: ./gt.filter [ARGS]...\n"
                   "         [I/O]\n"
@@ -1274,6 +1516,7 @@ void usage(const bool print_hidden) {
                   "           --output|-o <file>\n"
                   "           --reference|-r <file> (MultiFASTA/FASTA)\n"
                   "           --gem-index|-I <file> (GEM2-Index)\n"
+                  "           --annotation <file> (GTF Annotation)\n"
                // "           --mmap-input\n"
                   "           --paired-end|p\n"
                   "           --output-format 'FASTA'|'MAP'|'SAM' (default='InputFormat')\n"
@@ -1286,6 +1529,7 @@ void usage(const bool print_hidden) {
                   "         [Reduce alignments]\n"
                   "           --reduce-to-level <unique-level>\n"
                   "           --reduce-by-quality <diff>\n"
+                  "           --reduce-by-annotation <gtf>\n"
                   "         [Filter Read/Qualities]\n"
                   "           --hard-trim <left>,<right>\n"
                // "           --quality-trim <quality-threshold>,<min-read-length>\n" // TODO
@@ -1353,6 +1597,7 @@ void parse_arguments(int argc,char** argv) {
     { "discarded-output", required_argument, 0, 3 },
     { "no-output", no_argument, 0, 4 },
     { "filter-alignments", no_argument, 0, 5 },
+    { "annotation", required_argument, 0, 6 },
     /* Filter Read/Qualities */
     { "hard-trim", required_argument, 0, 10 },
     { "restore-trim", no_argument, 0, 11 },
@@ -1412,6 +1657,7 @@ void parse_arguments(int argc,char** argv) {
     /*Reduce alignment*/
     { "reduce-to-level", required_argument, 0, 900},
     { "reduce-by-quality", required_argument, 0, 901},
+    { "reduce-by-annotation", required_argument, 0, 902},
     /* Misc */
     { "threads", required_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
@@ -1459,6 +1705,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 4: // no-output
       parameters.no_output = true;
+      break;
+    case 6: // annotation
+      parameters.annotation = optarg;
       break;
     /* Filter Read/Qualities */
     case 10: // hard-trim
@@ -1680,6 +1929,11 @@ void parse_arguments(int argc,char** argv) {
     case 901:
       parameters.reduce_by_quality = atol(optarg);
       parameters.perform_map_filter = true;
+      break;
+    case 902:
+      gt_filter_get_argument_gtf_type(optarg);
+      parameters.perform_map_filter = true;
+      parameters.perform_annotation_filter = true;
       break;
     /* Misc */
     case 't':

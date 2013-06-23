@@ -269,7 +269,7 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
           ||	(params->group_4 && (  (114 <= score && score <= 119)
               ||  (95  <= score && score <= 110 && is_4)))
 
-        ) { 
+        ) {
         if (!is_4 && 114 <= score && score <= 119){
           is_4= true;
         }
