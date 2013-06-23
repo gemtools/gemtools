@@ -429,23 +429,21 @@ bool gt_filter_has_junction(gt_map* map, uint64_t start, uint64_t end){
 }
 
 bool gt_template_filter_splits(gt_template* const template_dst,gt_template* const template_src) {
-  // filter alignments
-  int64_t max_quality = gt_filter_get_max_quality(template_src);
   /*
    * SE
    */
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
-    return false; // don't filter single end
-  } GT_TEMPLATE_END_REDUCTION;
+  if(gt_template_get_num_blocks(template_src) != 2){
+    return false;
+  }
   /*
    * PE
    */
   const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
-  gt_status status;
+
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
     // see if we have junctions in at least one mate
     bool copy = true;
-    if(gt_map_get_num_blocks(mmap[0]) != 0 || gt_map_get_num_blocks(mmap[1]) != 0){
+    if(gt_map_get_num_blocks(mmap[0]) > 1 || gt_map_get_num_blocks(mmap[1]) > 1){
       // global coordinates
       uint64_t mmap_0_start =  gt_map_get_global_coordinate(mmap[0]);
       uint64_t mmap_1_start =  gt_map_get_global_coordinate(mmap[1]);
@@ -453,38 +451,40 @@ bool gt_template_filter_splits(gt_template* const template_dst,gt_template* cons
       uint64_t mmap_1_end =  mmap_1_start + gt_map_get_global_length(mmap[1]);
 
       // check overlap
+      bool overlaps = true;
       if(mmap_0_start <= mmap_1_start){
         if(mmap_0_end < mmap_1_start){
-          continue;
+          overlaps = false;
         }
       }else{
         if(mmap_1_end < mmap_0_start){
-          continue;
+          overlaps = false;
         }
       }
+      if(overlaps){
+        uint64_t overlap_start = 0;
+        uint64_t overlap_end = 0;
+        if(mmap_0_start <= mmap_1_start){
+          overlap_start = mmap_0_start + (mmap_1_start - mmap_0_start);
+          overlap_end = mmap_0_end;
+        }else{
+          overlap_start = mmap_1_start + (mmap_0_start - mmap_1_start);
+          overlap_end = mmap_1_end;
+        }
 
-      uint64_t overlap_start = 0;
-      uint64_t overlap_end = 0;
-      if(mmap_0_start <= mmap_1_start){
-        overlap_start = mmap_0_start + (mmap_1_start - mmap_0_start);
-        overlap_end = mmap_0_end;
-      }else{
-        overlap_start = mmap_1_start + (mmap_0_start - mmap_1_start);
-        overlap_end = mmap_1_end;
-      }
-
-      GT_MAP_ITERATE(mmap[0], s_1){
-        if(gt_map_has_next_block(s_1)){
-          bool forward = gt_map_get_strand(s_1) == FORWARD;
-          // is the junction in the overlap ?
-          uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? s_1: gt_map_get_next_block(s_1));
-          uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(s_1): s_1);
-          if(junctions_start >= overlap_start && junctions_start < overlap_end){
-            // find the junctions start in the other map
-            if(!gt_filter_has_junction(mmap[1], junctions_start, junctions_end)){
-              // start not found, not overlapping split maps
-              copy = false;
-              break;
+        GT_MAP_ITERATE(mmap[0], s_1){
+          if(gt_map_has_next_block(s_1)){
+            bool forward = gt_map_get_strand(s_1) == FORWARD;
+            // is the junction in the overlap ?
+            uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? s_1: gt_map_get_next_block(s_1));
+            uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(s_1): s_1);
+            if(junctions_start >= overlap_start && junctions_start < overlap_end){
+              // find the junctions start in the other map
+              if(!gt_filter_has_junction(mmap[1], junctions_start, junctions_end)){
+                // start not found, not overlapping split maps
+                copy = false;
+                break;
+              }
             }
           }
         }
