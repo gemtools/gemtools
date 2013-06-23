@@ -509,6 +509,7 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
   uint64_t i = 0;
   GT_VECTOR_ITERATE(hits->types, type, c, gt_string*){
     gt_string* tt = (*type);
+
     if(tt != NULL && tt->length > 0){
       if(gt_shash_is_contained(parameters.gtf_types, tt->buffer)){
         contained++;
@@ -555,29 +556,42 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
       }
     }
     i++;
-//    gt_output_map_fprint_map(stdout, mmap[0], NULL);
-//    printf("::");
-//    gt_output_map_fprint_map(stdout, mmap[1], NULL);
-//    printf("\t");
-//    gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
-//    if(gene_id != NULL){
-//      gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
-//      //bool contained = gt_shash_is_contained(parameters.gtf_types, gt_string_get_string(type));
-//      bool contained = gt_shash_is_contained(parameters.gtf_types, type->buffer);
-//      printf("Annotation mapped : %s -> Overlap: %f Type:%s Exonic:%d Contained:%d\n",
-//          gt_string_get_string(gene_id),
-//          *gt_vector_get_elm(hits->scores, i, float),
-//          gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
-//          *gt_vector_get_elm(hits->exonic, i, bool),
-//          contained
-//          );
-//    }else{
-//      printf("Annotation mapped : %s -> Overlap: %f \n",
-//          "NULL",
-//          *gt_vector_get_elm(hits->scores, i, float)
-//          );
-//    }
-//    i++;
+    gt_output_map_fprint_map(stdout, mmap[0], NULL);
+    printf("::");
+    gt_output_map_fprint_map(stdout, mmap[1], NULL);
+    printf("\t");
+    gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+    gt_string* transcript_id = *gt_vector_get_elm(hits->transcript_ids, i, gt_string*);
+    if(gene_id != NULL){
+      gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
+      //bool contained = gt_shash_is_contained(parameters.gtf_types, gt_string_get_string(type));
+      bool contained = gt_shash_is_contained(parameters.gtf_types, type->buffer);
+      if(transcript_id != NULL){
+        printf("Annotation mapped : %s [%s] -> Overlap: %f Type:%s Exonic:%d Contained:%d\n",
+            gt_string_get_string(gene_id),
+            gt_string_get_string(transcript_id),
+            *gt_vector_get_elm(hits->scores, i, float),
+            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+            *gt_vector_get_elm(hits->exonic, i, bool),
+            contained
+            );
+      }else{
+        printf("Annotation mapped : %s [No Transcript id] -> Overlap: %f Type:%s Exonic:%d Contained:%d\n",
+            gt_string_get_string(gene_id),
+            *gt_vector_get_elm(hits->scores, i, float),
+            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+            *gt_vector_get_elm(hits->exonic, i, bool),
+            contained
+            );
+
+      }
+    }else{
+      printf("Annotation mapped : %s -> Overlap: %f \n",
+          "NULL",
+          *gt_vector_get_elm(hits->scores, i, float)
+          );
+    }
+    i++;
     if(add){
       gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
       gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
@@ -585,7 +599,7 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
     }
   }
   gt_gtf_hits_delete(hits);
-//  printf("\n\n");
+  printf("\n\n");
 }
 
 
