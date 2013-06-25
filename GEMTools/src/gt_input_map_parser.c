@@ -683,7 +683,7 @@ GT_INLINE gt_status gt_imp_parse_mismatch_string_v1(const char** const text_line
         map = next_map;
         read_span=0; reference_span=0;
       }
-    } else { // ?¿ Parsing error
+    } else { // ?�� Parsing error
      return GT_IMP_PE_MISMS_BAD_CHARACTER;
     }
   }
@@ -955,7 +955,7 @@ GT_INLINE gt_status gt_imp_parse_map(
       GT_NEXT_CHAR(text_line); // Separator ':'
     } else if (gt_is_number((**text_line))) { // GEMv0
       misms_format = MISMATCH_STRING_GEMv0;
-    } else { // ?¿
+    } else { // ?��
       return GT_IMP_PE_MAP_BAD_CHARACTER;
     }
     // Position

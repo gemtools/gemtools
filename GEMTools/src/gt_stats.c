@@ -1512,7 +1512,7 @@ GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,c
    * So, as to display proper statistics of reads mapped, we adapt this number to number of templates
    *   SE => 1 template / PE => 1 template
    */
-  const uint64_t num_templates = paired_end ? num_reads*2 : num_reads;
+  const uint64_t num_templates = paired_end ? num_reads/2 : num_reads;
   // For the case of zero input lines
   if(stats->min_length>stats->max_length) stats->min_length=0;
   if(stats->mapped_min_length>stats->mapped_max_length) stats->mapped_min_length=0;

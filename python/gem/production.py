@@ -82,6 +82,8 @@ class Filter(Command):
                             )
         parser.add_argument('-o', '--output', dest="output",
                             help='Output file prefix')
+        parser.add_argument('-a', '--annotation', dest="annotation",
+                            help='Annotation')
         parser.add_argument('-t', '--threads', dest="threads",
                             type=int, default=1,
                             help='Number of threads')
@@ -119,6 +121,9 @@ class Filter(Command):
         filter_group.add_argument('--min-insert-size', dest="min_inss",
                                   type=int, default=None,
                                   help="Minimum insert size for paired reads")
+        filter_group.add_argument('--min-intron-length', dest="min_intron_length",
+                                  type=int, default=0,
+                                  help="Minimum intron length for split reads")
         filter_group.add_argument('--filter-strand', dest="filter_strand",
                                   action="store_true", default=False,
                                   help="Filter strand and "
@@ -130,12 +135,21 @@ class Filter(Command):
         filter_group.add_argument('--min-score', dest="min_score",
                                   default=None,
                                   help="Filter by score")
+        filter_group.add_argument('--min-block-length', dest="min_block_length",
+                                  default=0,
+                                  type=int,
+                                  help="Minimum block length for split alignment blocks")
         filter_group.add_argument('--group', dest="include_groups",
                                   nargs="*",
                                   choices=["I", "II", "III", "IV"],
                                   help="Include only the best mappings for "
                                   "groups I,II, and III and all "
                                   "mappings for IV")
+        filter_group.add_argument('--min-unique-level', dest="min_unique_level",
+                          default=-1,
+                          type=int,
+                          help="Include reads that are unique by given level")
+
         # filter_group.add_argument("--annotation", dest="annotation",
         #                          default=None,
         #                          help="Apply annotation filtering with the "
@@ -207,13 +221,23 @@ class Filter(Command):
             outfile = gt.OutputFile("%s.map" % name)
 
         params = {
+            "annotation": args.annotation,
             "max_matches": args.max_matches,
             "min_event_distance": args.min_event_distance,
             "min_levenshtein_distance": args.min_levenshtein_distance,
             "filter_strand": args.filter_strand,
             "keep_unique": args.keep_unique,
             "paired": args.paired,
+            "min_unique_level": args.min_unique_level,
+            "min_intron_length": args.min_intron_length,
+            "min_block_length": args.min_block_length
         }
+        if args.quality == "33":
+            params["quality_offset"] = 33
+        elif args.quality == "64":
+            params["quality_offset"] = 64
+        else:
+            params["quality_offset"] = 0
 
         if args.max_event_distance is not None:
             params["max_event_distance"] = args.max_event_distance

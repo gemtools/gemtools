@@ -13,9 +13,9 @@ void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_sta
   best_stats[0] = target_best_stats;
 
   gt_stats_analysis params_all = GT_STATS_ANALYSIS_DEFAULT();
-  params_all.best_map = false;
+  params_all.first_map = false;
   gt_stats_analysis params_best = GT_STATS_ANALYSIS_DEFAULT();
-  params_best.best_map = true;
+  params_best.first_map = true;
 
   //params_all.indel_profile = true
   // Parallel reading+process
@@ -210,7 +210,7 @@ void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired
   gt_stats_print_maps_stats(output, stats,num_reads,paired_end);
   // }
   if (paired_end) {
-    gt_stats_print_inss_distribution(output,stats->maps_profile->inss,stats->num_maps);
+    gt_stats_print_inss_distribution(output,stats->maps_profile->inss,stats->num_maps, true);
   }
   /*
    * Print Quality Scores vs Errors/Misms
@@ -269,7 +269,7 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
           ||	(params->group_4 && (  (114 <= score && score <= 119)
               ||  (95  <= score && score <= 110 && is_4)))
 
-        ) { 
+        ) {
         if (!is_4 && 114 <= score && score <= 119){
           is_4= true;
         }
@@ -309,68 +309,117 @@ void gt_score_filter(gt_template* template_dst,gt_template* template_src, gt_fil
 
 
 void gt_annotation_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params, gt_gtf* gtf) {
-//  register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
-//  gt_gtf_hits* hits = gt_gtf_hits_new();
-//  gt_gtf_search_template_for_exons(gtf, hits, template_src);
-//  uint64_t i = 0;
-//
-//  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
-//    GT_ALIGNMENT_ITERATE(alignment_src,map) {
-//      gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
-////      if(gene_id != NULL){
-////        printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s Exonic:%d\n",
-////            gt_string_get_string(gene_id),
-////            *gt_vector_get_elm(hits->scores, i, float),
-////            gt_map_get_segment_distance(map),
-////            gt_map_get_global_levenshtein_distance(map),
-////            gt_map_get_score(map),
-////            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
-////            *gt_vector_get_elm(hits->exonic, i, bool)
-////            );
-////      }else{
-////        printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d\n",
-////            "NULL",
-////            *gt_vector_get_elm(hits->scores, i, float),
-////            gt_map_get_segment_distance(map),
-////            gt_map_get_global_levenshtein_distance(map),
-////            gt_map_get_score(map)
-////            );
-////      }
-//      i++;
-//      gt_alignment_insert_map(alignment_src,gt_map_copy(map));
-//    }
-//  } GT_TEMPLATE_END_REDUCTION__RETURN;
-//
-//  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
-//    gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
-//    if(gene_id != NULL){
-////      printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s Exonic:%d\n",
-////          gt_string_get_string(gene_id),
-////          *gt_vector_get_elm(hits->scores, i, float),
-////          mmap_attr->distance,
-////          gt_mmap_get_global_levenshtein_distance(mmap, num_blocks),
-////          get_mapq(mmap_attr->gt_score),
-////          gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
-////          *gt_vector_get_elm(hits->exonic, i, bool)
-////          );
-////    }else{
-////      printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d\n",
-////          "NULL",
-////          *gt_vector_get_elm(hits->scores, i, float),
-////          mmap_attr->distance,
-////          gt_mmap_get_global_levenshtein_distance(mmap, num_blocks),
-////          get_mapq(mmap_attr->gt_score)
-////          );
-////    }
-//    i++;
-//    register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-//    gt_template_insert_mmap(template_dst,mmap_copy,mmap_attr);
-//    free(mmap_copy);
-//  }
-//  gt_gtf_hits_delete(hits);
+  register const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+  gt_gtf_hits* hits = gt_gtf_hits_new();
+  gt_gtf_search_template_for_exons(gtf, hits, template_src);
+  uint64_t i = 0;
+
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src, alignment_src) {
+    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+    GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+      if(gene_id != NULL){
+        printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s Exonic:%d\n",
+            gt_string_get_string(gene_id),
+            *gt_vector_get_elm(hits->scores, i, float),
+            gt_map_get_segment_distance(map),
+            gt_map_get_global_levenshtein_distance(map),
+            gt_map_get_score(map),
+            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+            *gt_vector_get_elm(hits->exonic, i, bool)
+            );
+      }else{
+        printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d\n",
+            "NULL",
+            *gt_vector_get_elm(hits->scores, i, float),
+            gt_map_get_segment_distance(map),
+            gt_map_get_global_levenshtein_distance(map),
+            gt_map_get_score(map)
+            );
+      }
+      i++;
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+    }
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+
+  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
+    gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+    if(gene_id != NULL){
+      printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d Type:%s Exonic:%d\n",
+          gt_string_get_string(gene_id),
+          *gt_vector_get_elm(hits->scores, i, float),
+          mmap_attr->distance,
+          gt_mmap_get_global_levenshtein_distance(mmap, num_blocks),
+          get_mapq(mmap_attr->gt_score),
+          gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+          *gt_vector_get_elm(hits->exonic, i, bool)
+          );
+    }else{
+      printf("Annotation mapped : %s -> Overlap: %f Distance:%d LV: %d Score: %d\n",
+          "NULL",
+          *gt_vector_get_elm(hits->scores, i, float),
+          mmap_attr->distance,
+          gt_mmap_get_global_levenshtein_distance(mmap, num_blocks),
+          get_mapq(mmap_attr->gt_score)
+          );
+    }
+    i++;
+    register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+    gt_template_insert_mmap(template_dst,mmap_copy,mmap_attr);
+    free(mmap_copy);
+  }
+  gt_gtf_hits_delete(hits);
 }
 
-void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_filter_params* params) {
+GT_INLINE void gt_alignment_recalculate_counters_no_splits(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  gt_vector_clear(gt_alignment_get_counters_vector(alignment));
+  // Recalculate counters
+  gt_alignment_map_iterator map_iterator;
+  gt_alignment_new_map_iterator(alignment,&map_iterator);
+  gt_map* map;
+  while ((map=gt_alignment_next_map(&map_iterator))!=NULL) {
+    gt_alignment_inc_counter(alignment, gt_map_get_no_split_distance(map));
+  }
+}
+
+GT_INLINE uint64_t gt_map_get_no_split_distance(gt_map* const map){
+  return gt_map_get_global_distance(map) - (gt_map_get_num_blocks(map)-1);
+}
+
+GT_INLINE uint64_t gt_template_get_no_split_distance(gt_template* const template, gt_map** mmap, const uint64_t num_blocks){
+  uint64_t i, total_distance = 0;
+  for (i=0;i<num_blocks;++i) {
+    total_distance+= gt_map_get_no_split_distance(mmap[i]);//(gt_map_get_global_distance(mmap[i]) - gt_map_get_num_blocks(mmap[i]));
+  }
+  return total_distance;
+}
+
+GT_INLINE void gt_template_recalculate_counters_no_splits(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    gt_alignment_recalculate_counters_no_splits(alignment);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  // Clear previous counters
+  gt_vector_clear(gt_template_get_counters_vector(template));
+  // Recalculate counters
+  const uint64_t num_blocks = gt_template_get_num_blocks(template);
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
+    uint64_t total_distance = gt_template_get_no_split_distance(template, mmap, num_blocks);
+    mmap_attr->distance=total_distance;
+    gt_template_inc_counter(template,total_distance);
+  }
+}
+
+
+bool gt_filter_is_group_1_template(gt_template* template, gt_map** mmap, gt_mmap_attributes* attributes){
+  // filter for group one maps
+  // maps that have only one mapping
+  return gt_template_get_num_mmaps(template) == 1;
+}
+
+
+void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_gtf* gtf, gt_filter_params* params) {
   bool is_4 = false;
   bool best_printed = false;
   /*SE*/
@@ -383,33 +432,61 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
       }
 
       // Check SM contained
-      const uint64_t total_distance = gt_map_get_global_distance(map);
+      const uint64_t total_distance = gt_map_get_no_split_distance(map); //gt_map_get_global_distance(map);
       const uint64_t lev_distance = gt_map_get_global_levenshtein_distance(map);
       if (params->min_event_distance > total_distance || total_distance > params->max_event_distance) continue;
       if (params->min_levenshtein_distance > lev_distance || lev_distance > params->max_levenshtein_distance) continue;
 
-      // filter by score
-      if(params->filter_groups){
-        const int64_t score = get_mapq(map->gt_score);
-        if(   (params->group_1 && 252 <= score && score <= 254)
-            ||  (params->group_2 && 177 <= score && score <= 180)
-            ||  (params->group_3 && 123 <= score && score <= 127)
-            ||  (params->group_4 && (  (114 <= score && score <= 119)
-                ||  (95  <= score && score <= 110 && is_4)))
-
-          ) {
-          if (!is_4 && 114 <= score && score <= 119){
-            is_4= true;
-          }
-          if(best_printed){
-            continue;
-          }else{
-            if(score > 119){
-              best_printed = true;
+      //printf("Check intron size ...%d\n", params->min_intron_length);
+      if(params->min_intron_length > 0){
+        // ignore mapping if it contains splits and their length is < min_intron_length
+        if(gt_map_get_num_blocks(map) > 1){
+          uint64_t min_intron_length = UINT64_MAX;
+          GT_MAP_ITERATE(map, map_block){
+            if(gt_map_has_next_block(map_block)){
+              uint64_t l = gt_map_get_junction_size(map_block);
+              if(min_intron_length > l){
+                min_intron_length = l;
+              }
             }
           }
-        }else{
-          continue;
+          printf("found intron length %d\n", min_intron_length);
+          if(min_intron_length < params->min_intron_length){
+            continue;
+          }
+        }
+      }
+      if(params->min_block_length > 0){
+        // ignore mapping if its a splitmap and the block length is < min_block_length
+        if(gt_map_get_num_blocks(map) > 1){
+          uint64_t min_block_length = UINT64_MAX;
+          GT_MAP_ITERATE(map, map_block){
+            uint64_t l = gt_map_get_base_length(map);
+            if(min_block_length > l){
+              min_block_length = l;
+            }
+          }
+          if(min_block_length < params->min_block_length){
+            continue;
+          }
+        }
+      }
+
+//      // bad quality mismatchs
+//      if(params->quality_offset > 0){
+//        GT_MISMS_ITERATE(map, misms){
+//          if(misms->misms_type == MISMS){
+//            uint8_t qv = gt_alignment_get_qualities(alignment_src)[misms->position] - params->quality_offset;
+//          }
+//        }
+//      }
+
+      if(params->min_unique_level >= 0){
+        int64_t level = gt_alignment_get_uniq_degree(alignment_src);
+        if(level >= 0 && params->min_unique_level <= level){
+          // insert the first alignment and continue
+          gt_alignment_insert_map(alignment_dst, gt_map_copy(map));
+          break;
         }
       }
       // Insert the map
@@ -426,7 +503,7 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
       if(score < params->min_score) continue;
     }
     // Check strata
-    const uint64_t total_distance = gt_map_get_global_distance(mmap[0])+gt_map_get_global_distance(mmap[1]);
+    const uint64_t total_distance = gt_map_get_no_split_distance(mmap[0])+gt_map_get_no_split_distance(mmap[1]);
     if (params->min_event_distance > total_distance || total_distance > params->max_event_distance) continue;
 
     // Check levenshtein distance
@@ -478,6 +555,50 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src, gt_
   }
 }
 
+
+int gt_alignment_cmp_distance__score_no_split(gt_map** const map_a,gt_map** const map_b) {
+  // Sort by distance
+  const int64_t distance_a = gt_map_get_no_split_distance(*map_a);
+  const int64_t distance_b = gt_map_get_no_split_distance(*map_b);
+
+  if (distance_a != distance_b) return distance_a-distance_b;
+
+  // Sort by score (here we cannot do the trick as gt_score fills the whole uint64_t range)
+  const uint64_t score_a = (*map_a)->gt_score;
+  const uint64_t score_b = (*map_b)->gt_score;
+  return (score_a > score_b) ? -1 : (score_a < score_b ? 1 : 0);
+}
+
+GT_INLINE void gt_alignment_sort_by_distance__score_no_split(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  qsort(gt_vector_get_mem(alignment->maps,gt_map*),gt_vector_get_used(alignment->maps),
+      sizeof(gt_map*),(int (*)(const void *,const void *))gt_alignment_cmp_distance__score_no_split);
+}
+
+int gt_mmap_cmp_distance__score_no_split(gt_mmap* const mmap_a,gt_mmap* const mmap_b) {
+  // Sort by distance
+  const int64_t distance_a = mmap_a->attributes.distance;
+  const int64_t distance_b = mmap_b->attributes.distance;
+  if (distance_a != distance_b) return distance_a-distance_b;
+  // Sort by score (here we cannot do the trick as gt_score fills the whole uint64_t range)
+  const uint64_t score_a = mmap_a->attributes.gt_score;
+  const uint64_t score_b = mmap_b->attributes.gt_score;
+  return (score_a > score_b) ? -1 : (score_a < score_b ? 1 : 0);
+}
+
+
+GT_INLINE void gt_template_sort_by_distance__score_no_split(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_sort_by_distance__score_no_split(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  // Sort
+  const uint64_t num_mmap = gt_template_get_num_mmaps(template);
+  qsort(gt_vector_get_mem(template->mmaps,gt_mmap),num_mmap,sizeof(gt_mmap),
+      (int (*)(const void *,const void *))gt_mmap_cmp_distance__score_no_split);
+}
+
+
 void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t threads, gt_filter_params* params){
   gt_handle_error_signals();
   gt_gtf* gtf = NULL;
@@ -489,6 +610,9 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
     }
     gtf = gt_gtf_read(of);
     fclose(of);
+  }
+  if(params->max_matches == 0){
+    params->max_matches = UINT64_MAX;
   }
   pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -510,26 +634,29 @@ void gt_filter_stream(gt_input_file* input, gt_output_file* output, uint64_t thr
     bool is_mapped = false;
 
     while ((status=gt_input_generic_parser_get_template(buffered_input,template,generic_parser_attributes))) {
-      gt_template_sort_by_distance__score(template);
+      // calculate counters such that splits are not taken into account
+      gt_template_recalculate_counters_no_splits(template);
+      gt_template_sort_by_distance__score_no_split(template);
+
+      is_mapped = gt_template_is_mapped(template);
+      const bool is_unique = gt_template_get_num_mmaps(template) == 1;
+      if(is_mapped && (!is_unique || !params->keep_unique )){
+        gt_template *template_filtered = gt_template_dup(template,false,false);
+        gt_template_filter(template_filtered,template, gtf, params);
+        gt_template_delete(template);
+        template = template_filtered;
+      }
 
       if(gtf != NULL){
-        gt_template *template_filtered = gt_template_copy(template,false,false);
+        gt_template *template_filtered = gt_template_dup(template,false,false);
         gt_annotation_filter(template_filtered, template, params, gtf);
         gt_template_delete(template);
         template = template_filtered;
-        gt_template_recalculate_counters(template);
+        gt_template_recalculate_counters_no_splits(template);
       }
 
-      is_mapped = gt_template_is_mapped(template);
-      const bool is_unique = gt_template_get_not_unique_flag(template);
-      if(is_mapped && (!is_unique || !params->keep_unique )){
-        gt_template *template_filtered = gt_template_copy(template,false,false);
-        gt_template_filter(template_filtered,template, params);
-        gt_template_delete(template);
-        template = template_filtered;
-        gt_template_recalculate_counters(template);
-      }
-
+      // get back the original counters
+      gt_template_recalculate_counters(template);
       gt_output_generic_bofprint_template(buffered_output,template,generic_printer_attributes);
 
     }

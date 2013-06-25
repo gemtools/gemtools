@@ -41,7 +41,7 @@ cdef extern from "gem_tools.h" nogil:
     cdef uint64_t GT_ALL
     cdef int GT_STATUS_OK
     cdef int GT_STATUS_FAIL
-    cdef int GT_STATS_INSS_FG_RANGE
+    cdef int GT_STATS_INSS_RANGE
 
     ctypedef struct gt_vector:
         pass
@@ -233,7 +233,8 @@ cdef extern from "gem_tools.h" nogil:
     # template utils
     bool gt_template_is_mapped(gt_template* template)
     bool gt_template_is_thresholded_mapped(gt_template* template, uint64_t max_allowed_strata)
-    void gt_template_trim(gt_template* template, uint64_t left, uint64_t right, uint64_t min_length, bool set_extra)
+    #void gt_template_trim(gt_template* template, uint64_t left, uint64_t right, uint64_t min_length, bool set_extra)
+    void gt_template_hard_trim(gt_template* template,const uint64_t left, uint64_t right)
 
     # template merge
     cdef gt_template* gt_template_union_template_mmaps(gt_template* src_A, gt_template* src_B)
@@ -316,8 +317,7 @@ cdef extern from "gt_stats.h":
         uint64_t total_bases_matching
         uint64_t total_bases_trimmed
 
-        uint64_t *inss
-        uint64_t *inss_fine_grain
+        uint64_t *inss        
 
         uint64_t *misms_transition
         uint64_t *qual_score_misms
@@ -380,8 +380,7 @@ cdef extern from "gt_stats.h":
     cdef int GT_STATS_QUAL_SCORE_RANGE
     cdef int GT_STATS_NUM_JUNCTION_RANGE
     cdef int GT_STATS_LEN_JUNCTION_RANGE
-    cdef int GT_STATS_MISMS_1_CONTEXT_RANGE
-    cdef int GT_STATS_MISMS_2_CONTEXT_RANGE
+    cdef int GT_STATS_MISMS_1_CONTEXT_RANGE    
     cdef int GT_STATS_INDEL_TRANSITION_1_RANGE
     cdef int GT_STATS_INDEL_TRANSITION_2_RANGE
     cdef int GT_STATS_INDEL_TRANSITION_3_RANGE
@@ -403,6 +402,10 @@ cdef extern from "gemtools_binding.h" nogil:
         uint64_t max_event_distance
         uint64_t min_levenshtein_distance
         uint64_t max_levenshtein_distance
+        uint64_t min_intron_length
+        int64_t quality_offset
+        uint64_t min_block_length
+        int64_t min_unique_level
         int64_t max_inss
         int64_t min_inss
         bool filter_by_strand

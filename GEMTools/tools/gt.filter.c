@@ -31,6 +31,8 @@ typedef struct {
   char* name_output_file;
   char* name_reference_file;
   char* name_gem_index_file;
+  char* annotation;
+  gt_gtf* gtf;
   bool mmap_input;
   bool paired_end;
   bool no_output;
@@ -57,6 +59,14 @@ typedef struct {
   float max_length;
   int64_t min_maps;
   int64_t max_maps;
+  int64_t max_strata_after_map;
+  /*Make templates unique*/
+  int64_t reduce_to_level;
+  int64_t reduce_by_quality;
+  /*RNA Seq to recalculate counters*/
+  bool rna_seq;
+  uint64_t min_intron_length;
+  uint64_t min_block_length;
   /* Filter SE-Maps */
   bool no_split_maps;
   bool only_split_maps;
@@ -74,6 +84,7 @@ typedef struct {
   float min_levenshtein_distance;
   float max_levenshtein_distance;
   gt_vector* map_ids;
+  gt_shash* gtf_types;
   bool filter_by_strand_se;
   bool allow_strand_r;
   bool allow_strand_f;
@@ -112,6 +123,7 @@ typedef struct {
   bool verbose;
   /* Control flags */
   bool perform_map_filter; // Any filtering criteria activated
+  bool perform_annotation_filter; // Any filtering criteria activated
   bool load_index;
 } gt_filter_args;
 
@@ -121,6 +133,8 @@ gt_filter_args parameters = {
     .name_output_file=NULL,
     .name_reference_file=NULL,
     .name_gem_index_file=NULL,
+    .annotation = NULL,
+    .gtf = NULL,
     .mmap_input=false,
     .paired_end=false,
     .no_output=false,
@@ -146,7 +160,15 @@ gt_filter_args parameters = {
     .min_length=-1.0,
     .max_length=-1.0,
     .min_maps=-1,
+    .max_strata_after_map=-1,
     .max_maps=-1,
+    /*Make templates unique*/
+    .reduce_to_level=-1,
+    .reduce_by_quality=-1,
+    /*RNA Seq*/
+    .rna_seq=false,
+    .min_intron_length=0,
+    .min_block_length=0,
     /* Filter SE-Maps */
     .no_split_maps=false,
     .only_split_maps=false,
@@ -164,6 +186,7 @@ gt_filter_args parameters = {
     .min_levenshtein_distance=GT_FILTER_FLOAT_NO_VALUE,
     .max_levenshtein_distance=GT_FILTER_FLOAT_NO_VALUE,
     .map_ids=NULL,
+    .gtf_types=NULL,
     .filter_by_strand_se=false,
     .allow_strand_r=false,
     .allow_strand_f=false,
@@ -201,6 +224,7 @@ gt_filter_args parameters = {
     .verbose=false,
     /* Control flags */
     .perform_map_filter=false,
+    .perform_annotation_filter=false,
     .load_index=false
 };
 /*
@@ -298,24 +322,325 @@ GT_INLINE void gt_filter_prune_matches(gt_template* const template) {
     gt_template_reduce_mmaps(template,max_num_matches);
   }
 }
-void gt_template_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
+void gt_filter_make_reduce_to_level(gt_template* const template_dst,gt_template* const template_src) {
+  // filter alignments
+  int64_t degree = gt_template_get_uniq_degree(template_src);
+  bool pick_first = false;
+  bool first_picked = true;
+  if(degree >= parameters.reduce_to_level){
+    first_picked = false;
+    pick_first = true;
+  }
+
   /*
    * SE
    */
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      if(pick_first && first_picked) continue;
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      first_picked = true;
+    }
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  /*
+   * PE
+   */
+  const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
+    // check if first match should be picked and if its picked already
+    if(pick_first && first_picked) continue;
+    // Add the mmap
+    gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+    gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+    free(mmap_copy);
+    first_picked = true;
+  }
+}
+
+int64_t gt_filter_get_max_quality(gt_template* const template){
+  /*
+   * SE
+   */
+  int64_t max_qual = 0;
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment_src) {
+    GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      int64_t q = gt_alignment_sum_mismatch_qualities(alignment_src, map);
+      if(q > max_qual){
+        max_qual = q;
+      }
+    }
+    return max_qual;
+  }GT_TEMPLATE_END_REDUCTION;
+  /*
+   * PE
+   */
+  GT_TEMPLATE_ITERATE_(template, mmap){
+    int64_t q = gt_alignment_sum_mismatch_qualities(gt_template_get_block(template, 0), mmap[0])
+                + gt_alignment_sum_mismatch_qualities(gt_template_get_block(template, 1), mmap[1]);
+    if(q > max_qual){
+      max_qual = q;
+    }
+  }
+  return max_qual;
+}
+
+void gt_filter_make_reduce_by_quality(gt_template* const template_dst,gt_template* const template_src) {
+  // filter alignments
+  int64_t max_quality = gt_filter_get_max_quality(template_src);
+  /*
+   * SE
+   */
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+    GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      int64_t q = gt_alignment_sum_mismatch_qualities(alignment_src, map);
+      if(q==0 || q == max_quality || abs(max_quality-q) > parameters.reduce_by_quality){
+        gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      }
+    }
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  /*
+   * PE
+   */
+  const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
+    int64_t q = gt_alignment_sum_mismatch_qualities(gt_template_get_block(template_src, 0), mmap[0])
+                + gt_alignment_sum_mismatch_qualities(gt_template_get_block(template_src, 1), mmap[1]);
+    if(q==0 || q == max_quality || abs(max_quality-q) > parameters.reduce_by_quality){
+      gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+      gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+      free(mmap_copy);
+    }
+  }
+}
+
+bool gt_filter_has_junction(gt_map* map, uint64_t start, uint64_t end){
+  GT_MAP_ITERATE(map, s_1){
+    if(gt_map_has_next_block(s_1)){
+      bool forward = gt_map_get_strand(s_1) == FORWARD;
+      // is the junction in the overlap ?
+      uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? s_1: gt_map_get_next_block(s_1));
+      uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(s_1): s_1);
+      if(junctions_start == start && junctions_end == end) return true;
+    }
+  }
+  return false;
+}
+
+bool gt_template_filter_splits(gt_template* const template_dst,gt_template* const template_src) {
+  /*
+   * SE
+   */
+  if(gt_template_get_num_blocks(template_src) != 2){
+    return false;
+  }
+  /*
+   * PE
+   */
+  const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
+    // see if we have junctions in at least one mate
+    bool copy = true;
+    if(gt_map_get_num_blocks(mmap[0]) > 1 || gt_map_get_num_blocks(mmap[1]) > 1){
+      // global coordinates
+      uint64_t mmap_0_start =  gt_map_get_global_coordinate(mmap[0]);
+      uint64_t mmap_1_start =  gt_map_get_global_coordinate(mmap[1]);
+      uint64_t mmap_0_end =  mmap_0_start + gt_map_get_global_length(mmap[0]);
+      uint64_t mmap_1_end =  mmap_1_start + gt_map_get_global_length(mmap[1]);
+
+      // check overlap
+      bool overlaps = true;
+      if(mmap_0_start <= mmap_1_start){
+        if(mmap_0_end < mmap_1_start){
+          overlaps = false;
+        }
+      }else{
+        if(mmap_1_end < mmap_0_start){
+          overlaps = false;
+        }
+      }
+      if(overlaps){
+        uint64_t overlap_start = 0;
+        uint64_t overlap_end = 0;
+        if(mmap_0_start <= mmap_1_start){
+          overlap_start = mmap_0_start + (mmap_1_start - mmap_0_start);
+          overlap_end = mmap_0_end;
+        }else{
+          overlap_start = mmap_1_start + (mmap_0_start - mmap_1_start);
+          overlap_end = mmap_1_end;
+        }
+
+        GT_MAP_ITERATE(mmap[0], s_1){
+          if(gt_map_has_next_block(s_1)){
+            bool forward = gt_map_get_strand(s_1) == FORWARD;
+            // is the junction in the overlap ?
+            uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? s_1: gt_map_get_next_block(s_1));
+            uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(s_1): s_1);
+            if(junctions_start >= overlap_start && junctions_start < overlap_end){
+              // find the junctions start in the other map
+              if(!gt_filter_has_junction(mmap[1], junctions_start, junctions_end)){
+                // start not found, not overlapping split maps
+                copy = false;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    if(copy){
+      gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+      gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+      free(mmap_copy);
+    }
+  }
+  return true;
+}
+
+
+void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
+  gt_gtf_hits* hits = gt_gtf_hits_new();
+  gt_gtf_search_template_for_exons(parameters.gtf, hits, template_src);
+
+  // count elements contained in gtf_type genes
+  uint64_t contained = 0;
+  uint64_t i = 0;
+  GT_VECTOR_ITERATE(hits->types, type, c, gt_string*){
+    gt_string* tt = (*type);
+
+    if(tt != NULL && tt->length > 0){
+      if(gt_shash_is_contained(parameters.gtf_types, tt->buffer)){
+        contained++;
+      }
+    }
+  }
+  /*
+   * SE
+   */
+  i=0;
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+    GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      bool add = true;
+      if(contained > 0){
+        gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+        if(gene_id != NULL){
+          gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
+          if(type != NULL && !gt_shash_is_contained(parameters.gtf_types, type->buffer)){
+            add = false;
+          }
+        }
+      }
+      i++;
+      if(add){
+        gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      }
+    }
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+  /*
+   * PE
+   */
+  const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+  i = 0;
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
+    bool add = true;
+    if(contained > 0){
+      gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+      if(gene_id != NULL){
+        gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
+        if(type != NULL && !gt_shash_is_contained(parameters.gtf_types, type->buffer)){
+          add = false;
+        }
+      }
+    }
+    i++;
+    gt_output_map_fprint_map(stdout, mmap[0], NULL);
+    printf("::");
+    gt_output_map_fprint_map(stdout, mmap[1], NULL);
+    printf("\t");
+    gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
+    gt_string* transcript_id = *gt_vector_get_elm(hits->transcript_ids, i, gt_string*);
+    if(gene_id != NULL){
+      gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
+      //bool contained = gt_shash_is_contained(parameters.gtf_types, gt_string_get_string(type));
+      bool contained = gt_shash_is_contained(parameters.gtf_types, type->buffer);
+      if(transcript_id != NULL){
+        printf("Annotation mapped : %s [%s] -> Overlap: %f Type:%s Exonic:%d Contained:%d\n",
+            gt_string_get_string(gene_id),
+            gt_string_get_string(transcript_id),
+            *gt_vector_get_elm(hits->scores, i, float),
+            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+            *gt_vector_get_elm(hits->exonic, i, bool),
+            contained
+            );
+      }else{
+        printf("Annotation mapped : %s [No Transcript id] -> Overlap: %f Type:%s Exonic:%d Contained:%d\n",
+            gt_string_get_string(gene_id),
+            *gt_vector_get_elm(hits->scores, i, float),
+            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
+            *gt_vector_get_elm(hits->exonic, i, bool),
+            contained
+            );
+
+      }
+    }else{
+      printf("Annotation mapped : %s -> Overlap: %f \n",
+          "NULL",
+          *gt_vector_get_elm(hits->scores, i, float)
+          );
+    }
+    i++;
+    if(add){
+      gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+      gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+      free(mmap_copy);
+    }
+  }
+  gt_gtf_hits_delete(hits);
+  printf("\n\n");
+}
+
+
+
+
+
+
+void gt_template_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
+  // filter alignments
+  bool pick_first = false;
+  bool first_picked = false;
+  int64_t strata_after_map = 0;
+  int64_t last_stratum = -1;
+  /*
+   * SE
+   */
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
+    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+    GT_ALIGNMENT_ITERATE(alignment_src,map) {
+      // check if first match should be picked and if its picked already
+      if(pick_first && first_picked) continue;
+
       // Check sequence name
       if (parameters.map_ids!=NULL) {
         if (!gt_filter_is_sequence_name_allowed(map->seq_name)) continue;
       }
+
+      const int64_t current_stratum = parameters.rna_seq ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
+      strata_after_map = (last_stratum < 0) ? 0 : (current_stratum - last_stratum);
+      last_stratum = current_stratum;
+      if(parameters.max_strata_after_map >= 0 && strata_after_map > parameters.max_strata_after_map){
+        continue;
+      }
+
       // Check SM contained
       const uint64_t num_blocks = gt_map_get_num_blocks(map);
       if (parameters.no_split_maps && num_blocks>1) continue;
       if (parameters.only_split_maps && num_blocks==1) continue;
       // Check strata
       if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
-        const uint64_t total_distance = gt_map_get_global_distance(map);
+        const uint64_t total_distance = parameters.rna_seq ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
         if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
           if (total_distance < gt_alignment_get_read_proportion(alignment_src,parameters.min_event_distance)) continue;
         }
@@ -342,8 +667,25 @@ void gt_template_filter(gt_template* const template_dst,gt_template* const templ
       if (parameters.quality_score_ranges!=NULL) {
         if (!gt_filter_is_quality_value_allowed((file_format==SAM) ? map->phred_score : map->gt_score)) continue;
       }
+      // filter intron length
+      if(parameters.min_intron_length > 0){
+        if(gt_map_get_num_blocks(map) > 1){
+          if(gt_map_get_min_intron_length(map) < parameters.min_intron_length){
+            continue;
+          }
+        }
+      }
+      // filter block length
+      if(parameters.min_block_length > 0){
+        if(gt_map_get_num_blocks(map) > 1){
+          if(gt_map_get_min_block_length(map) < parameters.min_block_length){
+            continue;
+          }
+        }
+      }
       // Insert the map
       gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      first_picked = true;
       // Skip the rest if best
       if (parameters.first_map) return;
     }
@@ -353,17 +695,40 @@ void gt_template_filter(gt_template* const template_dst,gt_template* const templ
    */
   const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attributes) {
+    // check if first match should be picked and if its picked already
+    if(pick_first && first_picked) continue;
+
+    const int64_t current_stratum = parameters.rna_seq ?
+        gt_map_get_no_split_distance(mmap[0])+gt_map_get_no_split_distance(mmap[1]):
+        gt_map_get_global_distance(mmap[0])+gt_map_get_global_distance(mmap[1]);
+
+    strata_after_map = (last_stratum < 0) ? 0 : (current_stratum - last_stratum);
+    last_stratum = current_stratum;
+    if(parameters.max_strata_after_map >= 0 && strata_after_map > parameters.max_strata_after_map){
+      continue;
+    }
+
     // Check sequence name
     if (parameters.map_ids!=NULL) {
       if (!gt_filter_is_sequence_name_allowed(mmap[0]->seq_name)) continue;
       if (!gt_filter_is_sequence_name_allowed(mmap[1]->seq_name)) continue;
     }
-    // Check SM contained
+    // Check SM contained and get min intron length
     uint64_t has_sm = false;
-    if (parameters.no_split_maps || parameters.only_split_maps) {
+    uint64_t min_intron_length = UINT64_MAX;
+    uint64_t min_block_length = UINT64_MAX;
+    if (parameters.no_split_maps || parameters.only_split_maps || parameters.min_intron_length >= 0) {
       GT_MMAP_ITERATE(mmap,map,end_p) {
         if (gt_map_get_num_blocks(map)>1) {
-          has_sm = true; break;
+          has_sm = true;
+          uint64_t mil = gt_map_get_min_intron_length(map);
+          uint64_t mbl = gt_map_get_min_block_length(map);
+          if(mil >= 0 && mil < min_intron_length){
+            min_intron_length = mil;
+          }
+          if(mbl >= 0 && mbl < min_block_length){
+            min_block_length = mil;
+          }
         }
       }
     }
@@ -371,7 +736,9 @@ void gt_template_filter(gt_template* const template_dst,gt_template* const templ
     if (parameters.only_split_maps && !has_sm) continue;
     // Check strata
     if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
-      const int64_t total_distance = gt_map_get_global_distance(mmap[0])+gt_map_get_global_distance(mmap[1]);
+      const int64_t total_distance = parameters.rna_seq ?
+          gt_map_get_no_split_distance(mmap[0])+gt_map_get_no_split_distance(mmap[1]):
+          gt_map_get_global_distance(mmap[0])+gt_map_get_global_distance(mmap[1]);
       if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
         if (total_distance < gt_template_get_read_proportion(template_src,parameters.min_event_distance)) continue;
       }
@@ -410,16 +777,33 @@ void gt_template_filter(gt_template* const template_dst,gt_template* const templ
     if (parameters.quality_score_ranges!=NULL) {
       if (!gt_filter_is_quality_value_allowed((file_format==SAM) ? mmap_attributes->phred_score : mmap_attributes->gt_score)) continue;
     }
+    // filter intron length
+    if(parameters.min_intron_length > 0 && min_intron_length != UINT64_MAX){
+      if(min_intron_length < parameters.min_intron_length) continue;
+    }
+    // filter block length
+    if(parameters.min_block_length > 0 && min_block_length != UINT64_MAX){
+      if(min_block_length < parameters.min_block_length) continue;
+    }
+
     // Add the mmap
     gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
     gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
     free(mmap_copy);
+    first_picked = true;
     // Skip the rest if best
     if (parameters.first_map) return;
   }
 }
 GT_INLINE bool gt_filter_apply_filters(
     const gt_file_format file_format,const uint64_t line_no,gt_sequence_archive* const sequence_archive,gt_template* const template) {
+  /*
+   * Recalculate counters for rnaseq reads
+   */
+  if(parameters.rna_seq){
+    gt_template_recalculate_counters_no_splits(template);
+    gt_template_sort_by_distance__score_no_split(template);
+  }
   /*
    * Process Read/Qualities // TODO: move out of filter (this is processing)
    */
@@ -511,6 +895,16 @@ GT_INLINE bool gt_filter_apply_filters(
   } else if (parameters.mismatch_recovery) {
     gt_filter_mismatch_recovery_maps(parameters.name_input_file,line_no,template,sequence_archive);
   }
+
+  if(parameters.rna_seq){
+    // filter splitmaps by split coordinate
+    gt_template *template_filtered = gt_template_dup(template,false,false);
+    if(gt_template_filter_splits(template_filtered,template)){
+      gt_template_swap(template,template_filtered);
+      gt_template_recalculate_counters(template);
+    }
+    gt_template_delete(template_filtered);
+  }
   // Map filtering
   if (parameters.perform_map_filter) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
@@ -518,11 +912,55 @@ GT_INLINE bool gt_filter_apply_filters(
     gt_template_swap(template,template_filtered);
     gt_template_delete(template_filtered);
     gt_template_recalculate_counters(template);
+
+
+    if(parameters.reduce_to_level >= 0){
+      if(parameters.rna_seq)gt_template_recalculate_counters_no_splits(template);
+      template_filtered = gt_template_dup(template,false,false);
+      gt_filter_make_reduce_to_level(template_filtered, template);
+      gt_template_swap(template,template_filtered);
+      gt_template_delete(template_filtered);
+      gt_template_recalculate_counters(template);
+    }
+
+    if(parameters.reduce_by_quality >= 0){
+      if(parameters.rna_seq)gt_template_recalculate_counters_no_splits(template);
+      template_filtered = gt_template_dup(template,false,false);
+      gt_filter_make_reduce_by_quality(template_filtered, template);
+      gt_template_swap(template,template_filtered);
+      gt_template_delete(template_filtered);
+      gt_template_recalculate_counters(template);
+    }
+
+    if(parameters.gtf != NULL && parameters.perform_annotation_filter){
+      if(parameters.rna_seq)gt_template_recalculate_counters_no_splits(template);
+      template_filtered = gt_template_dup(template,false,false);
+      gt_filter_make_reduce_by_annotation(template_filtered, template);
+      gt_template_swap(template,template_filtered);
+      gt_template_delete(template_filtered);
+      gt_template_recalculate_counters(template);
+    }
+
+
+    // re-reduce
+    if(parameters.reduce_to_level >= 0 && (
+        (parameters.gtf != NULL && parameters.perform_annotation_filter)
+        || parameters.reduce_by_quality >= 0)){
+      if(parameters.rna_seq)gt_template_recalculate_counters_no_splits(template);
+      template_filtered = gt_template_dup(template,false,false);
+      gt_filter_make_reduce_to_level(template_filtered, template);
+      gt_template_swap(template,template_filtered);
+      gt_template_delete(template_filtered);
+      gt_template_recalculate_counters(template);
+    }
   }
+
+
+
   // Map pruning
   if (parameters.matches_pruning) gt_filter_prune_matches(template);
   // Make counters
-  if (parameters.make_counters) gt_template_recalculate_counters(template);
+  if (parameters.make_counters || parameters.rna_seq) gt_template_recalculate_counters(template);
   // Ok, go on
   return true;
 }
@@ -863,6 +1301,17 @@ void gt_filter_read__write() {
     sequence_archive = gt_filter_open_sequence_archive(true);
   }
 
+  // read annotaiton if specified
+  if(parameters.annotation != NULL && parameters.perform_annotation_filter){
+      FILE* of = fopen(parameters.annotation, "r");
+      if(of == NULL){
+        printf("ERROR opening annotation !\n");
+        return;
+      }
+      parameters.gtf = gt_gtf_read(of);
+      fclose(of);
+  }
+
   // Parallel reading+process
   uint64_t total_algs_checked=0, total_algs_correct=0, total_maps_checked=0, total_maps_correct=0;
   #pragma omp parallel num_threads(parameters.num_threads) reduction(+:total_algs_checked,total_algs_correct,total_maps_checked,total_maps_correct)
@@ -1059,6 +1508,21 @@ void gt_filter_get_argument_map_id(char* const maps_ids) {
     opt = strtok(NULL,","); // Reload
   }
 }
+
+void gt_filter_get_argument_gtf_type(char* const maps_ids) {
+  // Allocate vector
+  parameters.gtf_types = gt_shash_new();
+  // Add all the valid map Ids (sequence names)
+  char *opt;
+  opt = strtok(maps_ids,",");
+  while (opt!=NULL) {
+    // Get id
+    gt_shash_insert(parameters.gtf_types, opt, true, bool);
+    // Next
+    opt = strtok(NULL,","); // Reload
+  }
+}
+
 void usage(const bool print_hidden) {
   fprintf(stderr, "USE: ./gt.filter [ARGS]...\n"
                   "         [I/O]\n"
@@ -1066,11 +1530,20 @@ void usage(const bool print_hidden) {
                   "           --output|-o <file>\n"
                   "           --reference|-r <file> (MultiFASTA/FASTA)\n"
                   "           --gem-index|-I <file> (GEM2-Index)\n"
+                  "           --annotation <file> (GTF Annotation)\n"
                // "           --mmap-input\n"
                   "           --paired-end|p\n"
                   "           --output-format 'FASTA'|'MAP'|'SAM' (default='InputFormat')\n"
                   "           --discarded-output <file>[,<format>]\n"
                   "           --no-output\n"
+                  "         [RNA Seq]\n"
+                  "           --rna-seq\n"
+                  "           --min-intron-length <length>\n"
+                  "           --min-block-length <length>\n"
+                  "         [Reduce alignments]\n"
+                  "           --reduce-to-level <unique-level>\n"
+                  "           --reduce-by-quality <diff>\n"
+                  "           --reduce-by-annotation <gtf>\n"
                   "         [Filter Read/Qualities]\n"
                   "           --hard-trim <left>,<right>\n"
                // "           --quality-trim <quality-threshold>,<min-read-length>\n" // TODO
@@ -1083,6 +1556,7 @@ void usage(const bool print_hidden) {
                   "           --unique-level <number>\n"
                   "           --min-length/--max-length <number>\n"
                   "           --min-maps/--max-maps <number>\n"
+                  "           --max-strata-after-map <number>\n"
                   "         [Filter SE-maps]\n"
                   "           --no-split-maps|--only-split-maps\n"
                   "           --first-map\n"
@@ -1136,6 +1610,8 @@ void parse_arguments(int argc,char** argv) {
     { "output-format", required_argument, 0, 2 },
     { "discarded-output", required_argument, 0, 3 },
     { "no-output", no_argument, 0, 4 },
+    { "filter-alignments", no_argument, 0, 5 },
+    { "annotation", required_argument, 0, 6 },
     /* Filter Read/Qualities */
     { "hard-trim", required_argument, 0, 10 },
     { "restore-trim", no_argument, 0, 11 },
@@ -1152,6 +1628,7 @@ void parse_arguments(int argc,char** argv) {
     { "max-length", required_argument, 0,304 },
     { "min-maps", required_argument, 0,305 },
     { "max-maps", required_argument, 0,306 },
+    { "max-strata-after-map", required_argument, 0,307 },
     /* Filter SE-Maps */
     { "no-split-maps", no_argument, 0, 400 },
     { "only-split-maps", no_argument, 0, 401 },
@@ -1169,7 +1646,7 @@ void parse_arguments(int argc,char** argv) {
     { "strandedness", required_argument, 0, 411 },
     { "filter-quality", required_argument, 0, 412 },
     /* Filter PE-Maps */
-    { "pair-strandness", required_argument, 0, 450 },
+    { "pair-strandedness", required_argument, 0, 450 },
     { "min-inss", required_argument, 0, 451 },
     { "max-inss", required_argument, 0, 452 },
     /* Filter-Realign */
@@ -1187,6 +1664,14 @@ void parse_arguments(int argc,char** argv) {
     /* Read Split/Grouping */
     { "split-read", required_argument, 0, 700 },
     { "group-read-chunks", no_argument, 0, 701 },
+    /*RNA Seq*/
+    { "rna-seq", no_argument, 0, 800},
+    { "min-intron-length", required_argument, 0, 801},
+    { "min-block-length", required_argument, 0, 802},
+    /*Reduce alignment*/
+    { "reduce-to-level", required_argument, 0, 900},
+    { "reduce-by-quality", required_argument, 0, 901},
+    { "reduce-by-annotation", required_argument, 0, 902},
     /* Misc */
     { "threads", required_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
@@ -1235,6 +1720,9 @@ void parse_arguments(int argc,char** argv) {
     case 4: // no-output
       parameters.no_output = true;
       break;
+    case 6: // annotation
+      parameters.annotation = optarg;
+      break;
     /* Filter Read/Qualities */
     case 10: // hard-trim
       parameters.hard_trim = true;
@@ -1280,6 +1768,10 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 306:
       parameters.max_maps = atof(optarg);
+      break;
+    case 307:
+      parameters.max_strata_after_map = atof(optarg);
+      parameters.perform_map_filter = true;
       break;
     /* Filter Maps */
     case 400:
@@ -1431,6 +1923,31 @@ void parse_arguments(int argc,char** argv) {
     case 701: // group-read-chunks
       parameters.special_functionality = true;
       parameters.group_reads = true;
+      break;
+    /*RNA-Seq*/
+    case 800:
+      parameters.rna_seq = true;
+      break;
+    case 801:
+      parameters.min_intron_length = atol(optarg);
+      parameters.perform_map_filter = true;
+      break;
+    case 802:
+      parameters.min_block_length = atol(optarg);
+      parameters.perform_map_filter = true;
+      break;
+    case 900:
+      parameters.reduce_to_level = atol(optarg);
+      parameters.perform_map_filter = true;
+      break;
+    case 901:
+      parameters.reduce_by_quality = atol(optarg);
+      parameters.perform_map_filter = true;
+      break;
+    case 902:
+      gt_filter_get_argument_gtf_type(optarg);
+      parameters.perform_map_filter = true;
+      parameters.perform_annotation_filter = true;
       break;
     /* Misc */
     case 't':
