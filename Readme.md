@@ -202,6 +202,11 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 
 Change log
 =====================
+	1.6.2
+    - Fixed issue with compute-transcriptome
+    - Fixed issue with gem-2-sam where XS flag could not be computed
+    - Added additional flag to avoid XS computation
+
 	1.6.1
     - GEMTools SAM conversion doesnow include the header again
     - Pair detection fixed for reads with space in the id and not casava
