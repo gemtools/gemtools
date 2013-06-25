@@ -800,7 +800,7 @@ def score(input,
 def gem2sam(input, index=None, output=None,
     single_end=False, compact=False, threads=1,
     quality=None, check_ids=True, add_length=True, consensus=None,
-    exclude_header=False):
+    exclude_header=False, calc_xs=True):
 
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
@@ -821,7 +821,7 @@ def gem2sam(input, index=None, output=None,
     if quality is not None and not quality == "ignore":
         gem_2_sam_p.extend(["-q", quality])
 
-    if consensus is not None:
+    if consensus is not None and calc_xs:
         gem_2_sam_p.extend(['-s', _prepare_splice_consensus_parameter(consensus)])
 
     if single_end:

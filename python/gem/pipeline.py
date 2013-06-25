@@ -278,7 +278,13 @@ class CreateBamStep(PipelineStep):
 
     def run(self):
         cfg = self.configuration
-        sam = gem.gem2sam(self._input(), cfg["index"], threads=self.pipeline.threads, quality=self.pipeline.quality, consensus=cfg['consensus'], exclude_header=cfg['sam_no_seq_header'], compact=cfg['sam_compact'])
+        sam = gem.gem2sam(self._input(), cfg["index"],
+                          threads=self.pipeline.threads,
+                          quality=self.pipeline.quality,
+                          consensus=cfg['consensus'],
+                          exclude_header=cfg['sam_no_seq_header'],
+                          compact=cfg['sam_compact'],
+                          calc_xs=cfg['calc_xs'])
         gem.sam2bam(sam, self._final_output(), sorted=cfg["sort"], mapq=cfg["mapq"], threads=self.pipeline.threads, sort_memory=self.pipeline.sort_memory)
 
 
@@ -593,6 +599,7 @@ class MappingPipeline(object):
         self.bam_index = True  # index bam
         self.sam_no_seq_header = False  # exlude seq header
         self.sam_compact = False  # sam compact format
+        self.calc_xs = True  # sam compact format
         self.single_end = False  # single end alignments
         self.write_config = None  # write configuration
         self.dry = False  # only dry run
@@ -887,6 +894,7 @@ class MappingPipeline(object):
 
         config.index = self.index
         config.mapq = self.bam_mapq
+        config.calc_xs = self.calc_xs
         config.sort = self.bam_sort
         config.consensus = self.junctions_consensus
         config.sam_no_seq_header = self.sam_no_seq_header
@@ -1183,6 +1191,7 @@ index generated from your annotation.""")
         printer("Compress all     : %s", self.compress_all)
         printer("Create BAM       : %s", self.bam_create)
         printer("SAM/BAM compact  : %s", self.sam_compact)
+        printer("Calculate XS     : %s", self.calc_xs)
         printer("Sort BAM         : %s", self.bam_sort)
         printer("Index BAM        : %s", self.bam_index)
         printer("Keep Temporary   : %s", not self.remove_temp)
@@ -1463,6 +1472,7 @@ index generated from your annotation.""")
         """
         bam_group = parser.add_argument_group('BAM conversion')
         bam_group.add_argument('--map-quality', dest="bam_mapq", default=self.bam_mapq, type=int, help="Filter resulting bam for minimum map quality, Default %d" % self.bam_mapq)
+        bam_group.add_argument('--no-xs', dest="calc_xs", action="store_false", default=None, help="Do not calculate the XS field")
         bam_group.add_argument('--no-bam', dest="bam_create", action="store_false", default=None, help="Do not create bam file")
         bam_group.add_argument('--no-bam-sort', dest="bam_sort", action="store_false", default=None, help="Do not sort bam file")
         bam_group.add_argument('--no-bam-index', dest="bam_index", action="store_false", default=None, help="Do not index the bam file")
