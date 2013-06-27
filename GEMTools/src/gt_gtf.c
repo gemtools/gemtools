@@ -367,6 +367,10 @@ bool gt_gtf_hits_junction(gt_map* map, gt_gtf_entry* e){
 }
 
 void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map){
+  if(map != NULL){
+    gt_output_map_fprint_map(stdout, map, NULL);
+    printf(" ==> ");
+  }
   printf("%s : %"PRIu64" - %"PRIu64" (%d)", e->type->buffer, e->start, e->end, e->strand);
   if(e->gene_id != NULL){
     printf(" GID:%s", e->gene_id->buffer);
@@ -541,7 +545,6 @@ GT_INLINE void gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, 
 
 GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search_hits,const gt_gtf* const gtf, gt_string* exon_type, gt_string* protein_coding){
   bool collect_transcripts = true;
-  bool collect_genes = true;
   GT_MAP_ITERATE(map, map_it) {
     uint64_t start = gt_map_get_begin_mapping_position(map_it);
     uint64_t end   = gt_map_get_end_mapping_position(map_it);
@@ -555,6 +558,7 @@ GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search
     if(gt_map_has_next_block(map_it)){
       hit->intron_length += gt_map_get_junction_size(map_it);
     }
+    gt_shash* local_genes = gt_shash_new();
 
     bool hit_junction = false;
     // get all the exons with same gene id
@@ -598,27 +602,27 @@ GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search
       }
       // fill initial transcripts
       if(entry->gene_id != NULL){
-        if(collect_genes){
-          if(!gt_shash_is_contained(hit->genes, gt_string_get_string(entry->gene_id))){
+        // count if the gene is not in the local gene list and we counted it
+        // for this hit set already
+        char* gene_id = gt_string_get_string(entry->gene_id);
+        if(!gt_shash_is_contained(local_genes, gene_id)){
+          // insert into local list and count
+          gt_shash_insert(local_genes, gene_id, true, bool);
+          if(!gt_shash_is_contained(hit->genes, gene_id)){
             uint64_t* v = gt_malloc_uint64();
             *v = 1;
-            gt_shash_insert(hit->genes, gt_string_get_string(entry->gene_id), v, uint64_t);
+            gt_shash_insert(hit->genes, gene_id, v, uint64_t);
           }else{
-            uint64_t* v = gt_shash_get(hit->transcripts,gt_string_get_string(entry->transcript_id),uint64_t);
-            ++(*v);
-          }
-        }else{
-          if(gt_shash_is_contained(hit->genes, gt_string_get_string(entry->gene_id))){
-            uint64_t* v = gt_shash_get(hit->transcripts,gt_string_get_string(entry->transcript_id),uint64_t);
+            uint64_t* v = gt_shash_get(hit->genes,gene_id,uint64_t);
             ++(*v);
           }
         }
       }
-
     }
     hit->exon_overlap += local_overlap;
-    // check if the splits go over the same transcript ids
+    gt_shash_delete(local_genes, false);
   }
+
 
 }
 
@@ -656,12 +660,16 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
           hit->pairs_splits = true;
         }
       }GT_SHASH_END_ITERATE;
-
-      GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->genes, count, uint64_t){
-        if((*count) == gt_map_get_num_blocks(map)){
-          hit->pairs_gene = true;
-        }
-      }GT_SHASH_END_ITERATE;
+      if(gt_map_get_num_blocks(map) >0){
+        GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->genes, count, uint64_t){
+          if((*count) == gt_map_get_num_blocks(map)){
+            hit->pairs_gene = true;
+          }
+        }GT_SHASH_END_ITERATE;
+      }else{
+        // always mark as pairing if we dont know better
+        hit->pairs_gene = true;
+      }
 
 
       gt_vector_insert(hits->exon_hits, hit, gt_gtf_hit*);
@@ -699,12 +707,6 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
       GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->transcripts, count, uint64_t){
         if((*count) > 1 && (*count) == gt_map_get_num_blocks(map)){
           hit->pairs_splits = true;
-        }
-      }GT_SHASH_END_ITERATE;
-
-      GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->genes, count, uint64_t){
-        if((*count) == gt_map_get_num_blocks(map)){
-          hit->pairs_gene = true;
         }
       }GT_SHASH_END_ITERATE;
 
@@ -754,7 +756,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
 
         GT_SHASH_BEGIN_ELEMENT_ITERATE(template_hit->genes, count, uint64_t){
           if((*count) > 1 && (*count) == gt_map_get_num_blocks(mmap[1]) + gt_map_get_num_blocks(mmap[0])){
-            hit->pairs_gene = true;
+            template_hit->pairs_gene = true;
           }
         }GT_SHASH_END_ITERATE;
 

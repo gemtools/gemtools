@@ -584,11 +584,11 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
     if(!hit->pairs_gene){
       continue;
     }
-
     if(pick_first && (!is_protein_coding || (is_protein_coding && hit->is_protein_coding))){
       gt_filter_add_from_hit(template_dst, hit);
       break;
     }else{
+
       if((is_protein_coding && hit->is_protein_coding) || !is_protein_coding){
         // pick all protein coding hits or all hits
         gt_filter_add_from_hit(template_dst, hit);

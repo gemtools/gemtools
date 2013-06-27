@@ -10,6 +10,8 @@
 #include "gt_vector.h"
 #include "gt_shash.h"
 #include "gt_template.h"
+#include "gt_output_map.h"
+
 
 #define GTF_DEFAULT_ENTRIES 10000
 #define GTF_MAX_LINE_LENGTH 2048
