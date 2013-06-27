@@ -362,7 +362,8 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t counter)
 bool gt_gtf_hits_junction(gt_map* map, gt_gtf_entry* e){
   uint64_t rs = gt_map_get_begin_mapping_position(map);
   uint64_t re = gt_map_get_end_mapping_position(map);
-  return (rs==e->start) || (rs==e->end) || (re == e->end) || (re == e->start);
+  bool hit = (rs==e->start) || (rs==e->end) || (re == e->end) || (re == e->start);
+  return hit;
 }
 
 void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map){
@@ -545,6 +546,7 @@ GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search
     // and search for this block
     gt_vector_clear(search_hits);
     gt_gtf_search(gtf, search_hits, gt_map_get_seq_name(map_it), start, end);
+
     float local_overlap = 0;
     if(gt_map_has_next_block(map_it)){
       hit->intron_length += gt_map_get_junction_size(map_it);
@@ -552,11 +554,15 @@ GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search
 
     bool hit_junction = false;
     // get all the exons with same gene id
+    printf("\n");
+    printf("Search %d-%d\n", start, end);
     GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
       gt_gtf_entry* entry = *element;
       if(!gt_string_equals(exon_type, entry->type) || !gt_string_equals(protein_coding, entry->gene_type)){
         continue;
       }
+      gt_gtf_print_entry_(entry, map_it);
+
       // we hit something protein coding
       hit->is_protein_coding = true;
       // calculate the overlap
@@ -641,6 +647,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
     template_hit->mmap = mmap;
     template_hit->map_attributes = mmap_attr;
     template_hit->num_template_blocks = gt_template_get_num_blocks(template_src);
+    printf("NEXT MAP\n");
     GT_MMAP_ITERATE(mmap, map, end_position){
       gt_gtf_hit* hit = NULL;
       if(end_position == 0){
