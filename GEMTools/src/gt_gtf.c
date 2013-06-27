@@ -217,11 +217,11 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t counter)
   if(line[0] == '#'){
     return;
   }
-  char* ref;
-  char* type;
-  char* gene_id;
-  char* transcript_id;
-  char* gene_type;
+  char* ref = NULL;
+  char* type = NULL;
+  char* gene_id = NULL;
+  char* transcript_id = NULL;
+  char* gene_type = NULL;
   uint64_t start = 0;
   uint64_t end = 0;
 
