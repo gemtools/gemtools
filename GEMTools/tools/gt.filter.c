@@ -519,7 +519,7 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
   // see if we find a single common transcript
   // if so, that transcript id is covered by all alignments
   // and we pick the first mapping
-  bool paired = gt_template_get_num_blocks(template_src) == 2;
+  //bool paired = gt_template_get_num_blocks(template_src) == 2;
 
   float_t max_junction_hits = 0;
   float_t max_overlap = 0;
@@ -559,7 +559,8 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
       continue;
     }
 
-    GT_SHASH_BEGIN_ITERATE(hit->transcripts,key, count, uint64_t){
+
+    GT_SHASH_BEGIN_KEY_ITERATE(hit->transcripts,key){
       if((is_protein_coding && hit->is_protein_coding) || !is_protein_coding){
         uint64_t* v;
         if(!gt_shash_is_contained(transcripts, key)){

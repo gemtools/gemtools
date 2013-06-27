@@ -723,7 +723,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
         template_hit->num_junctions += hit->num_junctions;
 
 
-        GT_SHASH_BEGIN_KEY_ITERATE(hit->transcripts, key, char){
+        GT_SHASH_BEGIN_KEY_ITERATE(hit->transcripts, key){
           if(gt_shash_is_contained(template_hit->transcripts, key)){
             uint64_t* v = gt_shash_get(hit->transcripts, key, uint64_t);
             uint64_t* u = gt_shash_get(template_hit->transcripts, key, uint64_t);
@@ -734,7 +734,7 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
           }
 
         }GT_SHASH_END_ITERATE;
-        GT_SHASH_BEGIN_KEY_ITERATE(hit->genes, key, char){
+        GT_SHASH_BEGIN_KEY_ITERATE(hit->genes, key){
           if(gt_shash_is_contained(template_hit->genes, key)){
             uint64_t* v = gt_shash_get(hit->genes, key, uint64_t);
             uint64_t* u = gt_shash_get(template_hit->genes, key, uint64_t);
