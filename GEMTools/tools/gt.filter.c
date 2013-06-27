@@ -536,6 +536,9 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
   gt_vector* exon_hits = hits->exon_hits;
   for (counter=0;counter<gt_vector_get_used(exon_hits);++counter){
     hit = *gt_vector_get_elm(exon_hits, counter, gt_gtf_hit*);
+    if(!hit->pairs_gene){
+      continue;
+    }
     is_protein_coding |= hit->is_protein_coding;
     pairs_transcripts |= hit->pairs_transcript;
     if(hit->junction_hits > max_junction_hits){
@@ -552,6 +555,10 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
   // collect transcripts hits
   for (counter=0;counter<gt_vector_get_used(exon_hits);++counter){
     hit = *gt_vector_get_elm(exon_hits, counter, gt_gtf_hit*);
+    if(!hit->pairs_gene){
+      continue;
+    }
+
     GT_SHASH_BEGIN_ITERATE(hit->transcripts,key, count, uint64_t){
       if((is_protein_coding && hit->is_protein_coding) || !is_protein_coding){
         uint64_t* v;
@@ -573,6 +580,10 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
   // iterate again and pick the hits
   for (counter=0;counter<gt_vector_get_used(exon_hits);++counter){
     hit = *gt_vector_get_elm(exon_hits, counter, gt_gtf_hit*);
+    if(!hit->pairs_gene){
+      continue;
+    }
+
     if(pick_first && (!is_protein_coding || (is_protein_coding && hit->is_protein_coding))){
       gt_filter_add_from_hit(template_dst, hit);
       break;

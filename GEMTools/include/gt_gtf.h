@@ -72,6 +72,7 @@ typedef struct {
   gt_map** mmap;
   gt_mmap_attributes* map_attributes;
   gt_shash* transcripts;
+  gt_shash* genes;
   float_t exon_overlap;
   float_t junction_hits;
   uint64_t num_junctions;
@@ -80,6 +81,7 @@ typedef struct {
   bool is_protein_coding;
   bool pairs_transcript;
   bool pairs_splits;
+  bool pairs_gene;
 }gt_gtf_hit;
 
 GT_INLINE gt_gtf_hit* gt_gtf_hit_new(void);
