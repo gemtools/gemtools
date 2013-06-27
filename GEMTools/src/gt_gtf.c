@@ -386,7 +386,7 @@ void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map){
 
 
 GT_INLINE gt_gtf_hit* gt_gtf_hit_new(void){
-  gt_gtf_hit* hit = malloc(sizeof(gt_gtf_hit*));
+  gt_gtf_hit* hit = malloc(sizeof(gt_gtf_hit));
   hit->exon_overlap = 0.0;
   hit->intron_length = 0.0;
   hit->is_protein_coding = false;
@@ -396,10 +396,14 @@ GT_INLINE gt_gtf_hit* gt_gtf_hit_new(void){
   hit->pairs_transcript = false;
   hit->pairs_splits = false;
   hit->num_template_blocks = 0;
+  hit->transcripts = NULL;
   return hit;
 }
 
 GT_INLINE void gt_gtf_hit_delete(gt_gtf_hit* hit){
+  if(hit->transcripts != NULL){
+    gt_shash_delete(hit->transcripts, true);
+  }
   free(hit);
 }
 
