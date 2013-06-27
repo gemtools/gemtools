@@ -463,3 +463,46 @@ GT_INLINE void gt_sam_attributes_add_tag_md(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_sfunc(sam_attributes,"md",'Z',gt_sam_attribute_generate_md);
 }
 
+//  XS  A  +/- directionality infomration for split reads
+GT_INLINE gt_status gt_sam_attribute_generate_XS(gt_sam_attribute_func_params* func_params) {
+  // do not print this for non split maps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MAP_PLACEHOLDER) {
+    gt_map* map = func_params->alignment_info->map;
+    if(!gt_map_has_next_block(map)){
+      return -1; // no split map
+    }else{
+      bool forward = gt_map_get_strand(map) == FORWARD;
+      // is the junction in the overlap ?
+      uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map: gt_map_get_next_block(map));
+      uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map): map);
+      gt_sequence_archive* index = func_params->sequence_archive;
+      gt_string* j_start = gt_string_new(8);
+      gt_string* j_end = gt_string_new(8);
+      gt_sequence_archive_get_sequence_string(index, gt_map_get_seq_name(map), gt_map_get_strand(map), junctions_start+1, 5, j_start);
+      gt_sequence_archive_get_sequence_string(index, gt_map_get_seq_name(map), gt_map_get_strand(map), junctions_end-1-5, 5, j_end);
+
+
+      gt_string_delete(j_start);
+      gt_string_delete(j_end);
+    }
+  }
+//    // Set proper value to return
+//    switch (xt_value) {
+//      case GT_XT_UNIQUE:   xt_char_value = 'U'; break;
+//      case GT_XT_REPEAT:   xt_char_value = 'R'; break;
+//      case GT_XT_UNMAPPED: xt_char_value = 'N'; break;
+//      case GT_XT_MATE_SW:  xt_char_value = 'M'; break;
+//      default: return -1; break;
+//    }
+//    // Save as Functional Internal Data (let's save computations)
+//    xt_char_value_attr = &xt_char_value;
+//    gt_attributes_add(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT,&xt_char_value,char);
+
+  return 0; // OK
+}
+GT_INLINE void gt_sam_attributes_add_tag_XS(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_sfunc(sam_attributes,"XS",'A',gt_sam_attribute_generate_XS);
+}
+

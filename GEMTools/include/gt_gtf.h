@@ -18,6 +18,7 @@
  * Single gtf entry
  */
 typedef struct {
+  uint64_t uid;
 	uint64_t start; // the start position
 	uint64_t end; // the end position
 	gt_strand strand; // the strand
@@ -62,13 +63,27 @@ typedef struct {
  * gtf hit that are filled by the template search methods
  */
 typedef struct {
-  gt_vector* ids; // contains an entry for each map or map pair with the hit target id (gene_id)
-  gt_vector* transcript_ids; // contains an entry for each map or map pair with the hit target id (transcript_id)
-  gt_vector* types; // contains an entry for each map or map pair with the hit target gene_type
-  gt_vector* scores; // contains an entry for each map or map pair with the hit target score
-  gt_vector* exonic; // contains an entry for each map or map pair with boolean indicating that an exon was covered
-
+  gt_vector* exon_hits; // contains an entry for each map or map pair with the hit target id (gene_id)
 }gt_gtf_hits;
+
+
+typedef struct {
+  gt_map* map;
+  gt_map** mmap;
+  gt_mmap_attributes* map_attributes;
+  gt_shash* transcripts;
+  float_t exon_overlap;
+  float_t junction_hits;
+  uint64_t num_junctions;
+  uint64_t intron_length;
+  uint64_t num_template_blocks;
+  bool is_protein_coding;
+  bool pairs_transcript;
+  bool pairs_splits;
+}gt_gtf_hit;
+
+GT_INLINE gt_gtf_hit* gt_gtf_hit_new(void);
+GT_INLINE void gt_gtf_hit_delete(gt_gtf_hit* hit);
 
 /**
  * Create and delete gtf
