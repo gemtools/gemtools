@@ -567,6 +567,7 @@ GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search
       if(!gt_string_equals(exon_type, entry->type) || !gt_string_equals(protein_coding, entry->gene_type)){
         continue;
       }
+      //gt_gtf_print_entry_(entry, map_it);
       // we hit something protein coding
       hit->is_protein_coding = true;
       // calculate the overlap
