@@ -420,8 +420,8 @@ bool gt_filter_has_junction(gt_map* map, uint64_t start, uint64_t end){
     if(gt_map_has_next_block(s_1)){
       bool forward = gt_map_get_strand(s_1) == FORWARD;
       // is the junction in the overlap ?
-      uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? s_1: gt_map_get_next_block(s_1));
-      uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(s_1): s_1);
+      uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? s_1: gt_map_get_next_block(s_1)) + 1;
+      uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(s_1): s_1) - 1;
       if(junctions_start == start && junctions_end == end) return true;
     }
   }
@@ -499,107 +499,104 @@ bool gt_template_filter_splits(gt_template* const template_dst,gt_template* cons
   return true;
 }
 
+void gt_filter_add_from_hit(gt_template* const template, gt_gtf_hit* hit){
+  if(hit->mmap != NULL){
+    // add PE
+    gt_map** mmap_copy = gt_mmap_array_copy(hit->mmap, hit->num_template_blocks);
+    gt_template_insert_mmap(template,mmap_copy,hit->map_attributes);
+    free(mmap_copy);
+  }else if(hit->map != NULL){
+    GT_TEMPLATE_REDUCTION(template,alignment_dst);
+    gt_alignment_insert_map(alignment_dst,gt_map_copy(hit->map));
+  }
+}
+
 
 void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
   gt_gtf_hits* hits = gt_gtf_hits_new();
   gt_gtf_search_template_for_exons(parameters.gtf, hits, template_src);
 
-  // count elements contained in gtf_type genes
-  uint64_t contained = 0;
-  uint64_t i = 0;
-  GT_VECTOR_ITERATE(hits->types, type, c, gt_string*){
-    gt_string* tt = (*type);
+  // see if we find a single common transcript
+  // if so, that transcript id is covered by all alignments
+  // and we pick the first mapping
+  //bool paired = gt_template_get_num_blocks(template_src) == 2;
 
-    if(tt != NULL && tt->length > 0){
-      if(gt_shash_is_contained(parameters.gtf_types, tt->buffer)){
-        contained++;
-      }
+  float_t max_junction_hits = 0;
+  float_t max_overlap = 0;
+  uint64_t all_hits = 0;
+  uint64_t protein_coding_hits = 0;
+  gt_shash* transcripts = gt_shash_new();
+  bool pairs_transcripts = false;
+  bool is_protein_coding = false;
+  bool pick_first = false;
+
+
+  uint64_t counter;
+  gt_gtf_hit* hit = NULL;
+  gt_vector* exon_hits = hits->exon_hits;
+  for (counter=0;counter<gt_vector_get_used(exon_hits);++counter){
+    hit = *gt_vector_get_elm(exon_hits, counter, gt_gtf_hit*);
+    if(!hit->pairs_gene){
+      continue;
+    }
+    is_protein_coding |= hit->is_protein_coding;
+    pairs_transcripts |= hit->pairs_transcript;
+    if(hit->junction_hits > max_junction_hits){
+      max_junction_hits = hit->junction_hits;
+    }
+    if(hit->exon_overlap > max_overlap){
+      max_overlap = hit->exon_overlap;
+    }
+    all_hits++;
+    if(hit->is_protein_coding){
+      protein_coding_hits++;
     }
   }
-  /*
-   * SE
-   */
-  i=0;
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
-    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
-    GT_ALIGNMENT_ITERATE(alignment_src,map) {
-      bool add = true;
-      if(contained > 0){
-        gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
-        if(gene_id != NULL){
-          gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
-          if(type != NULL && !gt_shash_is_contained(parameters.gtf_types, type->buffer)){
-            add = false;
-          }
-        }
-      }
-      i++;
-      if(add){
-        gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
-      }
+  // collect transcripts hits
+  for (counter=0;counter<gt_vector_get_used(exon_hits);++counter){
+    hit = *gt_vector_get_elm(exon_hits, counter, gt_gtf_hit*);
+    if(!hit->pairs_gene){
+      continue;
     }
-  } GT_TEMPLATE_END_REDUCTION__RETURN;
-  /*
-   * PE
-   */
-  const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
-  i = 0;
-  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attributes) {
-    bool add = true;
-    if(contained > 0){
-      gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
-      if(gene_id != NULL){
-        gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
-        if(type != NULL && !gt_shash_is_contained(parameters.gtf_types, type->buffer)){
-          add = false;
-        }
-      }
-    }
-    i++;
-    gt_output_map_fprint_map(stdout, mmap[0], NULL);
-    printf("::");
-    gt_output_map_fprint_map(stdout, mmap[1], NULL);
-    printf("\t");
-    gt_string* gene_id = *gt_vector_get_elm(hits->ids, i, gt_string*);
-    gt_string* transcript_id = *gt_vector_get_elm(hits->transcript_ids, i, gt_string*);
-    if(gene_id != NULL){
-      gt_string* type = *gt_vector_get_elm(hits->types, i, gt_string*);
-      //bool contained = gt_shash_is_contained(parameters.gtf_types, gt_string_get_string(type));
-      bool contained = gt_shash_is_contained(parameters.gtf_types, type->buffer);
-      if(transcript_id != NULL){
-        printf("Annotation mapped : %s [%s] -> Overlap: %f Type:%s Exonic:%d Contained:%d\n",
-            gt_string_get_string(gene_id),
-            gt_string_get_string(transcript_id),
-            *gt_vector_get_elm(hits->scores, i, float),
-            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
-            *gt_vector_get_elm(hits->exonic, i, bool),
-            contained
-            );
-      }else{
-        printf("Annotation mapped : %s [No Transcript id] -> Overlap: %f Type:%s Exonic:%d Contained:%d\n",
-            gt_string_get_string(gene_id),
-            *gt_vector_get_elm(hits->scores, i, float),
-            gt_string_get_string(*gt_vector_get_elm(hits->types, i, gt_string*)),
-            *gt_vector_get_elm(hits->exonic, i, bool),
-            contained
-            );
 
+
+    GT_SHASH_BEGIN_KEY_ITERATE(hit->transcripts,key){
+      if((is_protein_coding && hit->is_protein_coding) || !is_protein_coding){
+        uint64_t* v;
+        if(!gt_shash_is_contained(transcripts, key)){
+          v = gt_malloc_uint64();
+          *v = 1;
+          gt_shash_insert(transcripts, key, v, uint64_t);
+        }else{
+          v = gt_shash_get(transcripts, key, uint64_t);
+          ++(*v);
+        }
+        if(*v == (is_protein_coding ? protein_coding_hits : all_hits)){
+          pick_first = true;
+        }
       }
-    }else{
-      printf("Annotation mapped : %s -> Overlap: %f \n",
-          "NULL",
-          *gt_vector_get_elm(hits->scores, i, float)
-          );
+    }GT_SHASH_END_ITERATE;
+  }
+
+  // iterate again and pick the hits
+  for (counter=0;counter<gt_vector_get_used(exon_hits);++counter){
+    hit = *gt_vector_get_elm(exon_hits, counter, gt_gtf_hit*);
+    if(!hit->pairs_gene){
+      continue;
     }
-    i++;
-    if(add){
-      gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-      gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
-      free(mmap_copy);
+    if(pick_first && (!is_protein_coding || (is_protein_coding && hit->is_protein_coding))){
+      gt_filter_add_from_hit(template_dst, hit);
+      break;
+    }else{
+
+      if((is_protein_coding && hit->is_protein_coding) || !is_protein_coding){
+        // pick all protein coding hits or all hits
+        gt_filter_add_from_hit(template_dst, hit);
+      }
     }
   }
   gt_gtf_hits_delete(hits);
-  printf("\n\n");
+  gt_shash_delete(transcripts, true);
 }
 
 
@@ -1530,7 +1527,7 @@ void usage(const bool print_hidden) {
                   "           --output|-o <file>\n"
                   "           --reference|-r <file> (MultiFASTA/FASTA)\n"
                   "           --gem-index|-I <file> (GEM2-Index)\n"
-                  "           --annotation <file> (GTF Annotation)\n"
+               // "           --annotation <file> (GTF Annotation)\n"
                // "           --mmap-input\n"
                   "           --paired-end|p\n"
                   "           --output-format 'FASTA'|'MAP'|'SAM' (default='InputFormat')\n"
@@ -1543,7 +1540,7 @@ void usage(const bool print_hidden) {
                   "         [Reduce alignments]\n"
                   "           --reduce-to-level <unique-level>\n"
                   "           --reduce-by-quality <diff>\n"
-                  "           --reduce-by-annotation <gtf>\n"
+                //"           --reduce-by-annotation <gtf>\n"
                   "         [Filter Read/Qualities]\n"
                   "           --hard-trim <left>,<right>\n"
                // "           --quality-trim <quality-threshold>,<min-read-length>\n" // TODO

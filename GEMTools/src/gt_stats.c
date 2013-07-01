@@ -1458,7 +1458,7 @@ GT_INLINE void gt_stats_print_maps_stats(FILE* stream,gt_stats* const stats,cons
   if (num_reads==0) {
     fprintf(stream,"Total.Maps \t 0\n"); return;
   }
-  const uint64_t num_templates = paired_end ? num_reads*2 : num_reads;
+  const uint64_t num_templates = paired_end ? num_reads/2 : num_reads;
   // Total bases (aligned/trimmed/unaligned)
   const gt_maps_profile* const maps_profile = stats->maps_profile;
   fprintf(stream,"  --> Total.Bases %" PRIu64 " (%2.3f per map) \n",

@@ -28,6 +28,7 @@ typedef struct {
   bool optional_field_NH;
   bool optional_field_NM;
   bool optional_field_XT;
+  bool optional_field_XS;
   bool optional_field_md;
   /* Misc */
   uint64_t num_threads;
@@ -53,6 +54,7 @@ gt_stats_args parameters = {
   .optional_field_NH=false,
   .optional_field_NM=false,
   .optional_field_XT=false,
+  .optional_field_XS=false,
   .optional_field_md=false,
   /* Misc */
   .num_threads=1,
@@ -114,6 +116,7 @@ void gt_map2sam_read__write() {
     if (parameters.optional_field_NM) gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
+    if (parameters.optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
     gt_template* template = gt_template_new();
     while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
       if (error_code!=GT_IMP_OK) {
@@ -158,6 +161,7 @@ void usage() {
                   "           --NH\n"
                   "           --NM\n"
                   "           --XT\n"
+                  "           --XS\n"
                   "           --md\n"
                   "         [Misc]\n"
                   "           --threads|-t\n"
@@ -195,6 +199,7 @@ void parse_arguments(int argc,char** argv) {
     { "NM", no_argument, 0, 51 },
     { "XT", no_argument, 0, 52 },
     { "md", no_argument, 0, 53 },
+    { "XS", no_argument, 0, 54 },
     /* Misc */
     { "threads", required_argument, 0, 't' },
     { "verbose", no_argument, 0, 'v' },
@@ -254,7 +259,10 @@ void parse_arguments(int argc,char** argv) {
     case 53: // md
       parameters.optional_field_md = true;
       break;
-    /* Misc */
+    case 54: // XS
+      parameters.optional_field_XS = true;
+      break;
+      /* Misc */
     case 't':
       parameters.num_threads = atol(optarg);
       break;
@@ -275,6 +283,9 @@ void parse_arguments(int argc,char** argv) {
    */
   if (parameters.load_index && parameters.name_reference_file==NULL && parameters.name_gem_index_file==NULL) {
     gt_fatal_error_msg("Reference file required");
+  }
+  if(!parameters.load_index && parameters.optional_field_XS){
+    gt_fatal_error_msg("Reference file required to compute XS field in SAM");
   }
 }
 

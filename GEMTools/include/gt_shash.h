@@ -79,7 +79,7 @@ GT_INLINE void gt_shash_copy(gt_shash* const shash_dst,gt_shash* const shash_src
   HASH_ITER(hh,shash->shash_head,shash_##sh_element,shash_##tmp) { \
     type* const it_element = (type*)(shash_##sh_element->element);
 
-#define GT_SHASH_BEGIN_KEY_ITERATE(shash,it_skey,type) { \
+#define GT_SHASH_BEGIN_KEY_ITERATE(shash,it_skey) { \
   gt_shash_element *shash_##sh_element, *shash_##tmp; \
   HASH_ITER(hh,shash->shash_head,shash_##sh_element,shash_##tmp) { \
     char* const it_skey = shash_##sh_element->key;

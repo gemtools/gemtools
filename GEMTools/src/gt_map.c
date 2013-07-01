@@ -146,7 +146,7 @@ GT_INLINE uint64_t gt_map_get_begin_mapping_position(gt_map* const map) {
   return map->position-gt_map_get_left_trim_length(map);
 }
 GT_INLINE uint64_t gt_map_get_end_mapping_position(gt_map* const map) {
-  return map->position+gt_map_get_length(map);
+  return map->position+gt_map_get_length(map) - 1;
 }
 /*
  * Mismatch Handlers

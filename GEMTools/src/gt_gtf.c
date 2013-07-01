@@ -2,6 +2,7 @@
 
 GT_INLINE gt_gtf_entry* gt_gtf_entry_new(const uint64_t start, const uint64_t end, const gt_strand strand, gt_string* const type){
   gt_gtf_entry* entry = malloc(sizeof(gt_gtf_entry));
+  entry->uid = 0;
   entry->start = start;
   entry->end = end;
   entry->type = type;
@@ -48,27 +49,21 @@ GT_INLINE void gt_gtf_delete(gt_gtf* const gtf){
 
 GT_INLINE gt_gtf_hits* gt_gtf_hits_new(void){
   gt_gtf_hits* hits = malloc(sizeof(gt_gtf_hits));
-  hits->ids = gt_vector_new(16, sizeof(gt_string*));
-  hits->transcript_ids = gt_vector_new(16, sizeof(gt_string*));
-  hits->types = gt_vector_new(16, sizeof(gt_string*));
-  hits->scores = gt_vector_new(16, sizeof(float));
-  hits->exonic = gt_vector_new(16, sizeof(bool));
+  hits->exon_hits = gt_vector_new(16, sizeof(gt_gtf_hit*));
   return hits;
 }
 GT_INLINE void gt_gtf_hits_delete(gt_gtf_hits* const hits){
-  gt_vector_delete(hits->ids);
-  gt_vector_delete(hits->transcript_ids);
-  gt_vector_delete(hits->scores);
-  gt_vector_delete(hits->types);
-  gt_vector_delete(hits->exonic);
+  gt_gtf_hits_clear(hits);
+  gt_vector_delete(hits->exon_hits);
   free(hits);
 }
 GT_INLINE void gt_gtf_hits_clear(gt_gtf_hits* const hits){
-  gt_vector_clear(hits->ids);
-  gt_vector_clear(hits->transcript_ids);
-  gt_vector_clear(hits->scores);
-  gt_vector_clear(hits->types);
-  gt_vector_clear(hits->exonic);
+  uint64_t i = 0;
+  for(i=0; i<gt_vector_get_used(hits->exon_hits); i++){
+    gt_gtf_hit* hit = *gt_vector_get_elm(hits->exon_hits, i, gt_gtf_hit*);
+    gt_gtf_hit_delete(hit);
+  }
+  gt_vector_clear(hits->exon_hits);
 }
 
 
@@ -217,18 +212,19 @@ GT_INLINE gt_gtf_node* gt_gtf_create_node(gt_vector* entries){
 /**
  * Parse a single GTF line
  */
-GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf){
+GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t counter){
   // skip comments
   if(line[0] == '#'){
     return;
   }
-  char* ref;
-  char* type;
-  char* gene_id;
-  char* transcript_id;
-  char* gene_type;
+  char* ref = NULL;
+  char* type = NULL;
+  char* gene_id = NULL;
+  char* transcript_id = NULL;
+  char* gene_type = NULL;
   uint64_t start = 0;
   uint64_t end = 0;
+
   gt_strand strand = UNKNOWN;
 
   char * pch;
@@ -359,17 +355,117 @@ GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf){
 
   // get the ref or create it
   gt_gtf_ref* gtref = gt_gtf_get_ref(gtf, ref);
+  e->uid = counter;
   gt_vector_insert(gtref->entries, e, gt_gtf_entry*);
 }
+
+bool gt_gtf_hits_junction(gt_map* map, gt_gtf_entry* e){
+  uint64_t rs = gt_map_get_begin_mapping_position(map);
+  uint64_t re = gt_map_get_end_mapping_position(map);
+  bool hit = (rs==e->start) || (rs==e->end) || (re == e->end) || (re == e->start);
+  return hit;
+}
+
+void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map){
+  if(map != NULL){
+    gt_output_map_fprint_map(stdout, map, NULL);
+    printf(" ==> ");
+  }
+  printf("%s : %"PRIu64" - %"PRIu64" (%d)", e->type->buffer, e->start, e->end, e->strand);
+  if(e->gene_id != NULL){
+    printf(" GID:%s", e->gene_id->buffer);
+  }
+  if(e->transcript_id != NULL){
+    printf(" TID:%s", e->transcript_id->buffer);
+  }
+
+  if(e->type != NULL){
+    printf(" [%s]", e->type->buffer);
+  }
+  if(map != NULL && gt_gtf_hits_junction(map, e)){
+    printf(" [Hits JS]");
+  }
+  printf("\n");
+}
+
+
+
+GT_INLINE gt_gtf_hit* gt_gtf_hit_new(void){
+  gt_gtf_hit* hit = malloc(sizeof(gt_gtf_hit));
+  hit->exon_overlap = 0.0;
+  hit->intron_length = 0.0;
+  hit->is_protein_coding = false;
+  hit->junction_hits = 0.0;
+  hit->map = NULL;
+  hit->num_junctions = 0;
+  hit->pairs_transcript = false;
+  hit->pairs_splits = false;
+  hit->pairs_gene = false;
+  hit->num_template_blocks = 0;
+  hit->transcripts = NULL;
+  hit->genes = NULL;
+  return hit;
+}
+
+GT_INLINE void gt_gtf_hit_delete(gt_gtf_hit* hit){
+  if(hit->transcripts != NULL){
+    gt_shash_delete(hit->transcripts, true);
+  }
+  if(hit->genes != NULL){
+    gt_shash_delete(hit->genes, true);
+  }
+  free(hit);
+}
+
 
 GT_INLINE gt_gtf* gt_gtf_read(FILE* input){
   gt_gtf* gtf = gt_gtf_new();
   char line[GTF_MAX_LINE_LENGTH];
+  uint64_t counter = 0;
   while ( fgets(line, GTF_MAX_LINE_LENGTH, input) != NULL ){
-    gt_gtf_read_line(line, gtf);
+    gt_gtf_read_line(line, gtf, counter);
+    counter++;
   }
+  gt_string* const exon_t = gt_string_set_new("exon");
+  gt_string* const intron_t = gt_string_set_new("intron");
   // sort the refs
   GT_SHASH_BEGIN_ELEMENT_ITERATE(gtf->refs,shash_element,gt_gtf_ref) {
+    // sort by start position
+    gt_gtf_sort_by_start(shash_element->entries);
+    uint64_t size = gt_vector_get_used(shash_element->entries);
+    uint64_t i = 0;
+    gt_shash* last_exons = gt_shash_new();
+
+    for(i=0; i<size; i++){
+      gt_gtf_entry* entry = *gt_vector_get_elm(shash_element->entries, i, gt_gtf_entry*);
+      if(entry->type != NULL && gt_string_equals(exon_t, entry->type)){
+        gt_string* transcript_id = entry->transcript_id;
+        if(transcript_id != NULL){
+          if(!gt_shash_is_contained(last_exons, gt_string_get_string(transcript_id))){
+            gt_shash_insert(last_exons, gt_string_get_string(transcript_id), entry, gt_gtf_entry*);
+          }else{
+            gt_gtf_entry* prev_exon = gt_shash_get_element(last_exons, gt_string_get_string(transcript_id));
+            gt_gtf_entry* intron = gt_gtf_entry_new(prev_exon->end+1,
+                                                    entry->start-1,
+                                                    prev_exon->strand,
+                                                    intron_t);
+            intron->transcript_id = transcript_id;
+            intron->gene_id = prev_exon->gene_id;
+            intron->uid = counter++;
+            gt_vector_insert(shash_element->entries, intron, gt_gtf_entry*);
+            gt_shash_remove(last_exons, gt_string_get_string(transcript_id),false);
+            gt_shash_insert(last_exons, gt_string_get_string(transcript_id), entry, gt_gtf_entry*);
+//            gt_gtf_print_entry_(prev_exon);
+//            gt_gtf_print_entry_(intron);
+//            gt_gtf_print_entry_(entry);
+          }
+        }
+
+      }
+    }
+    gt_shash_delete(last_exons, false);
+
+
     // create a interval tree node for each ref
     shash_element->node = gt_gtf_create_node(shash_element->entries);
   } GT_SHASH_END_ITERATE
@@ -412,7 +508,12 @@ GT_INLINE void gt_gtf_search_node_(gt_gtf_node* node, const uint64_t start, cons
     if((*element)->start > end){
       break;
     }
-    if((*element)->start <= start && (*element)->end >= end){
+    gt_gtf_entry* e = *element;
+    //if((*element)->start <= start && (*element)->end >= end){
+    if((start < e->end && end > e->start)
+      || (start >= e->start && end <=e->end)
+      || (start < e->end && end >= e->end)
+      || (start < e->start && end > e->end)){
       gt_vector_insert(target, (*element), gt_gtf_entry*);
     }
   }
@@ -439,12 +540,91 @@ GT_INLINE void gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, 
   }
   const gt_gtf_ref* const source_ref = gt_gtf_get_ref(gtf, ref);
   gt_gtf_search_node_(source_ref->node, start, end, target);
+}
 
 
-//  GT_VECTOR_ITERATE(target, element, counter, gt_gtf_entry*){
-//    printf("\t(%s %s %d %d) (%d-%d)\n",gt_string_get_string((*element)->type),
-//        gt_string_get_string((*element)->gene_id), (*element)->start, (*element)->end, start, end);
-//  }
+GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search_hits,const gt_gtf* const gtf, gt_string* exon_type, gt_string* protein_coding){
+  bool collect_transcripts = true;
+  GT_MAP_ITERATE(map, map_it) {
+    uint64_t start = gt_map_get_begin_mapping_position(map_it);
+    uint64_t end   = gt_map_get_end_mapping_position(map_it);
+
+    // clear search hits
+    // and search for this block
+    gt_vector_clear(search_hits);
+    gt_gtf_search(gtf, search_hits, gt_map_get_seq_name(map_it), start, end);
+
+    float local_overlap = 0;
+    if(gt_map_has_next_block(map_it)){
+      hit->intron_length += gt_map_get_junction_size(map_it);
+    }
+    gt_shash* local_genes = gt_shash_new();
+
+    bool hit_junction = false;
+    // get all the exons with same gene id
+    GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
+      gt_gtf_entry* entry = *element;
+      if(!gt_string_equals(exon_type, entry->type) || !gt_string_equals(protein_coding, entry->gene_type)){
+        continue;
+      }
+      //gt_gtf_print_entry_(entry, map_it);
+      // we hit something protein coding
+      hit->is_protein_coding = true;
+      // calculate the overlap
+      float read_length = (end - start) + 1;
+      uint64_t tran_length = (entry->end - entry->start) + 1;
+      uint64_t s = entry->start < start ? start - entry->start : 0;
+      uint64_t e = entry->end > end ? entry->end - end : 0;
+      float over = ((tran_length - s - e) / read_length);
+      if(over >= local_overlap){
+        local_overlap = over;
+      }
+      if(hit->num_junctions > 0 && !hit_junction){
+        hit->junction_hits += gt_gtf_hits_junction(map_it, entry) ? 1 : 0;
+        hit_junction = true;
+      }
+      // fill initial transcripts
+      if(entry->transcript_id != NULL){
+        if(collect_transcripts){
+          if(!gt_shash_is_contained(hit->transcripts, gt_string_get_string(entry->transcript_id))){
+            uint64_t* v = gt_malloc_uint64();
+            *v = 1;
+            gt_shash_insert(hit->transcripts, gt_string_get_string(entry->transcript_id), v, uint64_t);
+          }else{
+            uint64_t* v = gt_shash_get(hit->transcripts,gt_string_get_string(entry->transcript_id),uint64_t);
+            ++(*v);
+          }
+        }else{
+          if(gt_shash_is_contained(hit->transcripts, gt_string_get_string(entry->transcript_id))){
+            uint64_t* v = gt_shash_get(hit->transcripts,gt_string_get_string(entry->transcript_id),uint64_t);
+            ++(*v);
+          }
+        }
+      }
+      // fill initial transcripts
+      if(entry->gene_id != NULL){
+        // count if the gene is not in the local gene list and we counted it
+        // for this hit set already
+        char* gene_id = gt_string_get_string(entry->gene_id);
+        if(!gt_shash_is_contained(local_genes, gene_id)){
+          // insert into local list and count
+          gt_shash_insert(local_genes, gene_id, true, bool);
+          if(!gt_shash_is_contained(hit->genes, gene_id)){
+            uint64_t* v = gt_malloc_uint64();
+            *v = 1;
+            gt_shash_insert(hit->genes, gene_id, v, uint64_t);
+          }else{
+            uint64_t* v = gt_shash_get(hit->genes,gene_id,uint64_t);
+            ++(*v);
+          }
+        }
+      }
+    }
+    hit->exon_overlap += local_overlap;
+    gt_shash_delete(local_genes, false);
+  }
+
+
 }
 
 
@@ -452,10 +632,8 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
   if(!gt_gtf_contains_type(gtf, "exon")){
     return;
   }
-
-  // paired end alignments
   gt_string* const exon_type = gt_gtf_get_type(gtf, "exon");
-  gt_string* const gene_type = gt_gtf_get_type(gtf, "gene");
+  gt_string* const protein_coding = gt_string_set_new("protein_coding");
   // stores hits
   gt_vector* const search_hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
   // clear the hits
@@ -464,202 +642,131 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
   // process single alignments
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
     GT_ALIGNMENT_ITERATE(alignment_src,map) {
-      // iterate the map blocks
-      uint64_t num_map_blocks = 0;
-      bool multiple_genes = false;
-      bool multiple_transcripts = false;
-      gt_string* alignment_gene_id = NULL;
-      gt_string* alignment_transcript_id = NULL;
-      gt_string* alignment_gene_type = NULL;
-      bool exon_found = false;
-      float overlap = 0;
-      GT_MAP_ITERATE(map, map_it) {
-        gt_vector_clear(search_hits);
-        num_map_blocks++;
+      gt_gtf_hit* hit = gt_gtf_hit_new();
+      hit->map = map;
+      hit->num_junctions = gt_map_get_num_blocks(map) - 1;
+      hit->transcripts = gt_shash_new();
+      hit->genes = gt_shash_new();
 
-        uint64_t start = gt_map_get_begin_mapping_position(map_it);
-        uint64_t end   = gt_map_get_end_mapping_position(map_it);
-        char* const ref = gt_map_get_seq_name(map_it);
-        // search for this block
-        gt_gtf_search(gtf, search_hits, ref, start, end);
-        float local_overlap = 0;
+      gt_gtf_create_hit(hit, map, search_hits, gtf, exon_type, protein_coding);
 
-        // get all the exons with same gene id
-        GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
-          const gt_gtf_entry* const entry = *element;
-          // check that the entry has a gene_id and is an exon
-          if(entry->gene_id != NULL && gt_string_equals(exon_type, entry->type)){
-            exon_found = true;
-            if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
-              // calculate the overlap
-              float read_length = end - start;
-              uint64_t tran_length = entry->end - entry->start;
-              uint64_t s = entry->start < start ? start - entry->start : 0;
-              uint64_t e = entry->end > end ? entry->end - end : 0;
-              float over = ((tran_length - s - e) / read_length);
-              if(over > local_overlap){
-                local_overlap = over;
-              }
-              alignment_gene_id = entry->gene_id;
-              alignment_gene_type = entry->gene_type;
-            }else{
-              if(alignment_gene_id != NULL){
-                multiple_genes = true;
-              }
-            }
-          }
 
-          if(alignment_transcript_id == NULL){
-            alignment_transcript_id = entry->transcript_id;
-          }else{
-            if(entry->transcript_id != NULL && alignment_transcript_id != entry->transcript_id){
-              multiple_transcripts = true;
-            }
-          }
-        }
-        if(!exon_found){
-          // search for gene overlaps to mark intronic regions
-          GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
-            const gt_gtf_entry* const entry = *element;
-            // check that the enry has a gene_id and is an exon
-            if(entry->gene_id != NULL && gt_string_equals(gene_type, entry->type)){
-              if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
-                // calculate the overlap
-                float read_length = end - start;
-                uint64_t tran_length = entry->end - entry->start;
-                uint64_t s = entry->start < start ? start - entry->start : 0;
-                uint64_t e = entry->end > end ? entry->end - end : 0;
-                float over = ((tran_length - s - e) / read_length);
-                if(over > local_overlap){
-                  local_overlap = over;
-                }
-                alignment_gene_id = entry->gene_id;
-                alignment_gene_type = entry->gene_type;
-              }else{
-                if(alignment_gene_id != NULL){
-                  multiple_genes = true;
-                }
-              }
-            }
-          }
-        }
-        overlap += local_overlap;
+      hit->exon_overlap = hit->exon_overlap / gt_map_get_num_blocks(map);
+      if(hit->num_junctions > 0){
+        hit->junction_hits = hit->junction_hits / hit->num_junctions;
       }
 
-      // add a hit if we found a good gene_id
-      if(alignment_gene_id != NULL && !multiple_genes){
-        gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
-        gt_vector_insert(hits->transcript_ids, multiple_transcripts ? NULL : alignment_transcript_id, gt_string*);
-        gt_vector_insert(hits->types, alignment_gene_type, gt_string*);
-        gt_vector_insert(hits->scores, (overlap / num_map_blocks), float);
-        gt_vector_insert(hits->exonic, exon_found, bool);
+      GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->transcripts, count, uint64_t){
+        if((*count) > 1 && (*count) == gt_map_get_num_blocks(map)){
+          hit->pairs_splits = true;
+        }
+      }GT_SHASH_END_ITERATE;
+      if(gt_map_get_num_blocks(map) >0){
+        GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->genes, count, uint64_t){
+          if((*count) == gt_map_get_num_blocks(map)){
+            hit->pairs_gene = true;
+          }
+        }GT_SHASH_END_ITERATE;
       }else{
-        gt_vector_insert(hits->ids, NULL, gt_string*);
-        gt_vector_insert(hits->transcript_ids, NULL, gt_string*);
-        gt_vector_insert(hits->types, NULL, gt_string*);
-        gt_vector_insert(hits->scores, 0, float);
-        gt_vector_insert(hits->exonic, false, bool);
+        // always mark as pairing if we dont know better
+        hit->pairs_gene = true;
       }
+
+
+      gt_vector_insert(hits->exon_hits, hit, gt_gtf_hit*);
     }
+    gt_string_delete(protein_coding);
+    gt_vector_delete(search_hits);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
 
 
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
-    gt_string* alignment_gene_id = NULL;
-    gt_string* alignment_transcript_id = NULL;
-    gt_string* alignment_gene_type = NULL;
-    float overlap = 0;
-    uint64_t num_map_blocks = 0;
-    bool multiple_genes = false;
-    bool multiple_transcripts = false;
-    bool exon_found = false;
+    gt_gtf_hit* template_hit = gt_gtf_hit_new();
+    template_hit->mmap = mmap;
+    template_hit->map_attributes = mmap_attr;
+    template_hit->num_template_blocks = gt_template_get_num_blocks(template_src);
     GT_MMAP_ITERATE(mmap, map, end_position){
-      GT_MAP_ITERATE(map, map_it){
-        gt_vector_clear(search_hits);
-        num_map_blocks++;
+      gt_gtf_hit* hit = NULL;
+      if(end_position == 0){
+        hit = template_hit;
+      }else{
+        hit = gt_gtf_hit_new();
+      }
 
-        uint64_t start = gt_map_get_begin_mapping_position(map_it);
-        uint64_t end   = gt_map_get_end_mapping_position(map_it);
-        char* const ref = gt_map_get_seq_name(map_it);
-        // search for this block
-        gt_gtf_search(gtf, search_hits, ref, start, end);
-        float local_overlap = 0;
-        // get all the exons with same gene id
-        GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
-          const gt_gtf_entry* const entry = *element;
-//          printf("\tSearch hit : %s %d-%d\n", gt_string_get_string(entry->type), entry->start, entry->end);
-          // check that the enry has a gene_id and is an exon
-          if(entry->gene_id != NULL && gt_string_equals(exon_type, entry->type)){
-            exon_found = true;
-            if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
-              // calculate the overlap
-              float read_length = end - start;
-              uint64_t tran_length = entry->end - entry->start;
-              uint64_t s = entry->start < start ? start - entry->start : 0;
-              uint64_t e = entry->end > end ? entry->end - end : 0;
-              float over = ((tran_length - s - e) / read_length);
-              if(over > local_overlap){
-                local_overlap = over;
-              }
-              alignment_gene_id = entry->gene_id;
-              alignment_gene_type = entry->gene_type;
-            }else{
-              if(alignment_gene_id != NULL){
-                multiple_genes = true;
-              }
-            }
-            if(alignment_transcript_id == NULL){
-              alignment_transcript_id = entry->transcript_id;
-            }else{
-              if(entry->transcript_id != NULL && alignment_transcript_id != entry->transcript_id){
-                multiple_transcripts = true;
-              }
-            }
-          }
+      hit->map = map;
+      hit->num_junctions = gt_map_get_num_blocks(map) - 1;
+      hit->transcripts = gt_shash_new();
+      hit->genes = gt_shash_new();
+
+      gt_gtf_create_hit(hit, map, search_hits, gtf, exon_type, protein_coding);
+
+
+      hit->exon_overlap = hit->exon_overlap / gt_map_get_num_blocks(map);
+      if(hit->num_junctions > 0){
+        hit->junction_hits = hit->junction_hits / (hit->num_junctions*2.0);
+      }
+      GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->transcripts, count, uint64_t){
+        if((*count) > 1 && (*count) == gt_map_get_num_blocks(map)){
+          hit->pairs_splits = true;
         }
-        if(!exon_found && gt_vector_get_used(search_hits) > 0){
-          GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
-            const gt_gtf_entry* const entry = *element;
-            // check that the enry has a gene_id and is an exon
-            if(entry->gene_id != NULL && gt_string_equals(gene_type, entry->type)){
-              if(alignment_gene_id == NULL || alignment_gene_id == entry->gene_id){
-                // calculate the overlap
-                float read_length = end - start;
-                uint64_t tran_length = entry->end - entry->start;
-                uint64_t s = entry->start < start ? start - entry->start : 0;
-                uint64_t e = entry->end > end ? entry->end - end : 0;
-                float over = ((tran_length - s - e) / read_length);
-                if(over > local_overlap){
-                  local_overlap = over;
-                }
-                alignment_gene_id = entry->gene_id;
-                alignment_gene_type = entry->gene_type;
-              }else{
-                if(alignment_gene_id != NULL){
-                  multiple_genes = true;
-                }
-              }
-            }
-          }
+      }GT_SHASH_END_ITERATE;
+
+      if(end_position > 0){
+        // merge and remove
+        template_hit->exon_overlap = (template_hit->exon_overlap+hit->exon_overlap)/2.0;
+        if(template_hit->num_junctions > 0 && hit->num_junctions > 0){
+          template_hit->pairs_splits = template_hit->pairs_splits & hit->pairs_splits;
+        }else{
+          template_hit->pairs_splits = template_hit->num_junctions > 0 ? template_hit->pairs_splits : hit->pairs_splits;
         }
-        overlap += local_overlap;
+
+
+        template_hit->is_protein_coding = template_hit->is_protein_coding & hit->is_protein_coding;
+        template_hit->intron_length += hit->intron_length;
+        template_hit->num_junctions += hit->num_junctions;
+
+
+        GT_SHASH_BEGIN_KEY_ITERATE(hit->transcripts, key){
+          if(gt_shash_is_contained(template_hit->transcripts, key)){
+            uint64_t* v = gt_shash_get(hit->transcripts, key, uint64_t);
+            uint64_t* u = gt_shash_get(template_hit->transcripts, key, uint64_t);
+            *u += (*v);
+          }else{
+            // remove
+            gt_shash_remove(template_hit->transcripts, key, true);
+          }
+
+        }GT_SHASH_END_ITERATE;
+        GT_SHASH_BEGIN_KEY_ITERATE(hit->genes, key){
+          if(gt_shash_is_contained(template_hit->genes, key)){
+            uint64_t* v = gt_shash_get(hit->genes, key, uint64_t);
+            uint64_t* u = gt_shash_get(template_hit->genes, key, uint64_t);
+            *u += (*v);
+          }else{
+            // remove
+            gt_shash_remove(template_hit->genes, key, true);
+          }
+        }GT_SHASH_END_ITERATE;
+
+        template_hit->junction_hits = (template_hit->junction_hits + hit->junction_hits) / 2.0;
+        GT_SHASH_BEGIN_ELEMENT_ITERATE(template_hit->transcripts, count, uint64_t){
+          if((*count) > 1 && (*count) == gt_map_get_num_blocks(mmap[1]) + gt_map_get_num_blocks(mmap[0])){
+            hit->pairs_transcript = true;
+          }
+        }GT_SHASH_END_ITERATE;
+
+        GT_SHASH_BEGIN_ELEMENT_ITERATE(template_hit->genes, count, uint64_t){
+          if((*count) > 1 && (*count) == gt_map_get_num_blocks(mmap[1]) + gt_map_get_num_blocks(mmap[0])){
+            template_hit->pairs_gene = true;
+          }
+        }GT_SHASH_END_ITERATE;
+
+        gt_vector_insert(hits->exon_hits, template_hit, gt_gtf_hit*);
+        gt_gtf_hit_delete(hit);
       }
     }
-    // add a hit if we found a good gene_id
-    if(alignment_gene_id != NULL && !multiple_genes){
-      gt_vector_insert(hits->ids, alignment_gene_id, gt_string*);
-      gt_vector_insert(hits->transcript_ids, multiple_transcripts ? NULL : alignment_transcript_id, gt_string*);
-      gt_vector_insert(hits->types, alignment_gene_type, gt_string*);
-      gt_vector_insert(hits->scores, (overlap / num_map_blocks), float);
-      gt_vector_insert(hits->exonic, exon_found, bool);
-    }else{
-      gt_vector_insert(hits->ids, NULL, gt_string*);
-      gt_vector_insert(hits->transcript_ids, NULL, gt_string*);
-      gt_vector_insert(hits->types, NULL, gt_string*);
-      gt_vector_insert(hits->scores, 0, float);
-      gt_vector_insert(hits->exonic, false, bool);
-    }
   }
+  gt_string_delete(protein_coding);
   gt_vector_delete(search_hits);
 }
 
