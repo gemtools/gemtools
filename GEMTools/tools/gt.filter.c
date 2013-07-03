@@ -521,8 +521,8 @@ void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_temp
   // and we pick the first mapping
   //bool paired = gt_template_get_num_blocks(template_src) == 2;
 
-  float_t max_junction_hits = 0;
-  float_t max_overlap = 0;
+  float max_junction_hits = 0;
+  float max_overlap = 0;
   uint64_t all_hits = 0;
   uint64_t protein_coding_hits = 0;
   gt_shash* transcripts = gt_shash_new();
