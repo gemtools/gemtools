@@ -345,24 +345,40 @@ GT_INLINE bool gt_filter_has_junction(gt_map* const map,const uint64_t start,con
   }
   return false;
 }
+
+GT_INLINE uint64_t gt_filter_count_junctions_in_region(gt_map* const map,const uint64_t start,const uint64_t end) {
+  uint64_t count = 0;
+  GT_MAP_ITERATE(map,map_block) {
+    if (gt_map_has_next_block(map_block)) {
+      const bool forward = (gt_map_get_strand(map_block) == FORWARD);
+      // Is the junction in the overlap ?
+      const uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map_block: gt_map_get_next_block(map_block)) + 1;
+      const uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map_block): map_block) - 1;
+      if (junctions_start >= start && junctions_end <= end) count++;
+    }
+  }
+  return count;
+}
 GT_INLINE bool gt_filter_are_overlapping_pairs_coherent(gt_map** const mmap) {
   if (!gt_map_has_next_block(mmap[0]) && !gt_map_has_next_block(mmap[1])) return true;
   // Check overlap
   uint64_t overlap_start, overlap_end;
   if (gt_map_block_overlap(mmap[0],mmap[1],&overlap_start,&overlap_end)) {
+    uint64_t junctions_in_1 = gt_filter_count_junctions_in_region(mmap[0], overlap_start, overlap_end);
+    uint64_t junctions_in_2 = gt_filter_count_junctions_in_region(mmap[1], overlap_start, overlap_end);
+    if(junctions_in_1 != junctions_in_2) return false;
+
     GT_MAP_ITERATE(mmap[0],map_block) {
       if (gt_map_has_next_block(map_block)) {
         const bool forward = (gt_map_get_strand(map_block) == FORWARD);
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
         // Is the junction in the overlap ?
-        const uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map_block: gt_map_get_next_block(map_block));
-        const uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map_block): map_block);
+        const uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map_block: gt_map_get_next_block(map_block)) + 1;
+        const uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map_block): map_block) - 1;
         // Find the junctions start in the other map
         if (junctions_start >= overlap_start && junctions_start < overlap_end &&
             !gt_filter_has_junction(mmap[1],junctions_start,junctions_end)) {
           return false; // Start not found, not overlapping split maps
         }
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
       }
     }
   }
