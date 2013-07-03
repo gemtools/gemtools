@@ -1049,29 +1049,31 @@ def _merge_two(master, slave, output, tmpdir, count,
     """Helper function to merge to files. Return the merging
     process.
     """
-    pa = [executables['gt.mapset'], 'merge-map', '-t', str(threads)]
+    pa = [executables['gt.mapset'], '-C', 'merge-map', '-t', str(threads)]
     if paired:
         pa.append('-p')
     if same_content:
         pa.append('-s')
 
-    instream = master
-    if isinstance(instream, basestring):
-        instream = open(instream, 'rb')
-    elif hasattr(instream, 'stdout'):
-        instream = instream.stdout
-    elif isinstance(instream, gt.InputFile):
-        ## assume we have a gt.Inputfile
-        instream = instream.raw_stream()
+
+    inmaster = master
+    if isinstance(inmaster, basestring):  # from string
+        inmaster = gem.files.open_file(inmaster)
+    elif hasattr(inmaster, 'stdout'):  # from process
+        inmaster = inmaster.stdout
+    elif isinstance(inmaster, gt.InputFile):  # from gt input file
+        inmaster = inmaster.raw_stream()
 
     inslave = slave
+    fifo_in = None
+    fifo_out = None
     if not isinstance(inslave, basestring):
         # create a fifo and
         filename = os.path.join(tmpdir, "%d" % count)
         os.mkfifo(filename)
         if not hasattr(inslave, 'stdout'):
             inslave = inslave.raw_stream()
-        subprocess.Popen(['cat'], stdin=inslave, stdout=open(filename, 'wb'))
+        fifo_in = inslave
         inslave = filename
 
     if output is None:
@@ -1082,7 +1084,11 @@ def _merge_two(master, slave, output, tmpdir, count,
     pa.append('--i1')
     pa.append(inslave)
 
-    return subprocess.Popen(pa, stdin=instream, stdout=output)
+    p = subprocess.Popen(pa, stdin=inmaster, stdout=output)
+    if fifo_in is not None:
+        fifo_out = open(filename, 'wb')
+        subprocess.Popen(['cat'], stdin=fifo_in, stdout=fifo_out)
+    return p
 
 
 def _is_i3_compliant(stream):

@@ -43,7 +43,6 @@ class Merge(Command):
         output = args.output
         if output is None:
             output = sys.stdout
-
         gem.merge(files[0], files[1:], output,
                   threads=int(args.threads), same_content=args.same,
                   paired=args.paired, compress=args.compress)

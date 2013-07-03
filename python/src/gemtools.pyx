@@ -68,7 +68,7 @@ cdef class filter_trim(TemplateFilter):
         self.min_length = min_length
         self.set_extra = set_extra
 
-    cpdef bool filter(self, Template template):        
+    cpdef bool filter(self, Template template):
         gt_template_hard_trim(template.template, self.left, self.right)
         #gt_template_trim(template.template, self.left, self.right, self.min_length, self.set_extra)
         return True
@@ -408,7 +408,8 @@ cdef class InputFile(object):
         if self.filename is None:
             return self.source
         else:
-            return open(self.filename, "rb")
+            import gem.files
+            return gem.files.open_file(self.filename)
 
     def __iter__(self):
         """Initialize buffers and prepare for iterating"""
@@ -1185,7 +1186,7 @@ cdef class StatsMapProfile(object):
                 "total_bases": self.total_bases,
                 "total_bases_matching": self.total_bases_matching,
                 "total_bases_trimmed": self.total_bases_trimmed,
-                "inss": self.inss,                
+                "inss": self.inss,
                 "inss_description": self.inss_description,
                 "misms_transition": self.misms_transition,
                 "qual_score_misms": self.qual_score_misms,

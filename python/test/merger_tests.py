@@ -38,7 +38,9 @@ def test_file_merge_async():
 def test_file_merge_pairwise_same():
     reads_1 = files.open(testfiles["test.map"])
     reads_2 = files.open(testfiles["test.map"])
-    merged = gem.merge(reads_1, [reads_2], output=results_dir + "/merge_result.map", threads=8)
+    merged = gem.merge(reads_1, [reads_2],
+                       output=results_dir + "/merge_result.map",
+                       threads=8, paired=True)
     num_reads = sum(1 for r in merged)
     assert num_reads == 10
 
@@ -60,8 +62,8 @@ def test_file_merge_pairwise_same_content_big_uncompressed():
     reads_1 = files.open(results_dir + "/20t.map")
     reads_2 = files.open(results_dir + "/20t.map")
     merged = gem.merge(reads_1, [reads_2],
-                        output=results_dir + "/merge_result.map",
-                        threads=8, same_content=True)
+                       output=results_dir + "/merge_result.map",
+                       threads=8, same_content=True)
     num_reads = sum(1 for r in merged)
     assert num_reads == 20000
 
@@ -71,6 +73,7 @@ def test_file_merge_pairwise_same_content_big_sub():
     reads_1 = files.open(testfiles["20t.map.gz"])
     reads_2 = files.open(testfiles["20t_sub.map.gz"])
     merged = gem.merge(reads_1, [reads_2],
-                        output=results_dir + "/merge_result.map", threads=8)
+                       output=results_dir + "/merge_result.map",
+                       threads=8, paired=True)
     num_reads = sum(1 for r in merged)
     assert num_reads == 20000
