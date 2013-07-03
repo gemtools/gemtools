@@ -75,8 +75,8 @@ typedef struct {
   gt_mmap_attributes* map_attributes;
   gt_shash* transcripts;
   gt_shash* genes;
-  float_t exon_overlap;
-  float_t junction_hits;
+  float exon_overlap;
+  float junction_hits;
   uint64_t num_junctions;
   uint64_t intron_length;
   uint64_t num_template_blocks;
