@@ -389,8 +389,7 @@ cdef extern from "gt_stats.h":
     cdef int GT_STATS_INDEL_2_CONTEXT
 
 
-cdef extern from "gemtools_binding.h" nogil:
-    void gt_merge_files_synch(gt_output_file* output_file, uint64_t threads, uint64_t num_files, gt_input_file** files)
+cdef extern from "gemtools_binding.h" nogil:    
     void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map, bool remove_scores)
     void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_stats* target_best_stats, uint64_t num_threads, bool paired_end)
     void gt_stats_print_stats(FILE* output, gt_stats* stats, bool paired_end)

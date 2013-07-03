@@ -176,7 +176,7 @@ def _install_bundle(install_dir, base=None):
             if not os.path.exists(target):
                 download(type, dirpath)
 
-    tar = subprocess.Popen("tar xzvf %s --exclude \"._*\"" % (os.path.abspath(target)), shell=True, cwd=dirpath)
+    tar = subprocess.Popen("tar xzf %s --exclude \"._*\"" % (os.path.abspath(target)), shell=True, cwd=dirpath)
     if tar.wait() != 0:
         print "Error while extracting gem bundle"
         exit(1)
@@ -192,6 +192,17 @@ def _install_bundle(install_dir, base=None):
                 os.remove(result_file)
             shutil.move("%s/%s" % (dirpath, file), install_dir)
             os.chmod(result_file, 0755)
+    # copy gt.* binaries
+    bins = [x for x in os.listdir("GEMTools/bin")]
+    for file in bins:
+        if not file.endswith("gz") and file != "gt.construct":
+            print "Copy binary library: %s to %s" % (file, install_dir)
+            result_file = "%s/%s" % (install_dir, file)
+            if os.path.exists(result_file):
+                os.remove(result_file)
+            shutil.copy("%s/%s" % ("GEMTools/bin", file), install_dir)
+            os.chmod(result_file, 0755)
+
 
     # remove temp directory
     if base is None:
@@ -224,11 +235,7 @@ class install(_install):
             _install_bundle(install_dir)
 
 
-class build_ext(_build_ext):
-    """Custom implementation of the extension builder to make sure that
-    libgemtools is build and to trigger the cython build AFTER cython dependency
-    was installed."""
-    def run(self):
+def compile_gemtools():
         process = subprocess.Popen(['make'], shell=True, cwd='GEMTools')
         if process.wait() != 0:
             print >> sys.stderr, """
@@ -253,6 +260,13 @@ sudo apt-get install make gcc python-dev libbz2-dev
 
 """
             exit(1)
+
+class build_ext(_build_ext):
+    """Custom implementation of the extension builder to make sure that
+    libgemtools is build and to trigger the cython build AFTER cython dependency
+    was installed."""
+    def run(self):
+        compile_gemtools()
         try:
             """Fix the extensions, the .pyx file extensions are changed
             to .c somewhere along the line. This is a DIRTY hack and
@@ -285,10 +299,11 @@ sudo apt-get install make gcc python-dev libbz2-dev
 
 class build_py(_build_py):
     def run(self):
-        _build_py.run(self)
+        compile_gemtools()
         parent_dir = os.path.split(os.path.abspath(__file__))[0]
         target_dir = "%s/%s" % (parent_dir, "python/gem/gembinaries")
         _install_bundle(target_dir, base=parent_dir + "/downloads")
+        _build_py.run(self)
 
 
 _commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package': package, 'package_static': package_static, 'build_py': build_py}

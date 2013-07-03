@@ -6,13 +6,15 @@ import subprocess
 import __builtin__
 import gem.gemtools as gt
 from utils import which
-
+import shutil
+import os
 
 __author__ = 'Thasso Griebel'
 __zcat_path = None
 
 __open_iterators = []
 
+delete_on_exit = []
 
 def open(input, quality=None):
     """
@@ -74,6 +76,14 @@ def open_bam_stream(input):
 def _cleanup():
     for r in __open_iterators:
         r.close()
+    if delete_on_exit is not None:
+        for f in delete_on_exit:
+            if os.path.exists(f):
+                if os.path.isfile(f):
+                    os.remove(f)
+                else:
+                    shutil.rmtree(f)
+
 
 
 def open_file(file):

@@ -28,17 +28,25 @@ class Merge(Command):
         parser.add_argument('-i', '--input', dest="input", nargs="+", help='List of files to merge', required=True)
         parser.add_argument('-t', '--threads', dest="threads", default=1, help='Number of threads')
         parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
-        parser.add_argument('--same', dest="same", action="store_true", default=False, help="File contain the same reads")
+        parser.add_argument('-s', '--same', dest="same", action="store_true", default=False, help="File contain the same reads")
+        parser.add_argument('-p', '--paired', dest="paired", action="store_true", default=False,
+                            help="Content is paired")
+        parser.add_argument('-c', '--compress', dest='compress',
+                            action="store_true", default=False,
+                            help="Write gzip compressed output if a output "
+                            "file is specified")
 
     def run(self, args):
         if len(args.input) < 2:
             logging.error("You have to specify at least 2 files")
+        files = args.input
+        output = args.output
+        if output is None:
+            output = sys.stdout
 
-        files = []
-        for f in args.input:
-            files.append(gem.files.open(f))
-
-        gem.merger(files[0], files[1:]).merge(args.output, threads=int(args.threads), same_content=args.same)
+        gem.merge(files[0], files[1:], output,
+                  threads=int(args.threads), same_content=args.same,
+                  paired=args.paired, compress=args.compress)
 
 
 class Stats(Command):

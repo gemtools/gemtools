@@ -137,6 +137,10 @@ executables = execs_dict({
     "gem-retriever": "gem-retriever",
     "compute-transcriptome": "compute-transcriptome",
     "transcriptome-2-genome": "transcriptome-2-genome",
+    "gt.filter": "gt.filter",
+    "gt.map.2.sam": "gt.map.2.sam",
+    "gt.mapset": "gt.mapset",
+    "gt.stats": "gt.stats"
     })
 
 
@@ -160,6 +164,14 @@ def loglevel(level):
     logging.getLogger().setLevel(numeric_level)
     logging.gemtools.level = numeric_level
 
+
+# cleanup functions
+def _cleanup_on_shutdown():
+    gem.utils.terminate_processes()
+    gem.files._cleanup()
+
+import atexit
+atexit.register(_cleanup_on_shutdown)
 
 def _prepare_index_parameter(index, gem_suffix=True):
     """Prepares the index file and checks that the index
@@ -485,9 +497,9 @@ def transcript_mapper(input, indices, key_files, output=None,
            )
         )
     if len(indices) > 1:
-        merged = merger(outputs[0], outputs[1:])
+        merged = merge(outputs[0], outputs[1:], paired=False, threads=threads,
+                       same_content=True, output=output)
         if(output is not None):
-            merged.merge(output, threads=threads, same_content=True)
             for f in output_files:
                 os.remove(f)
             return _prepare_output(None, output=output, quality=quality)
@@ -994,100 +1006,83 @@ def _compressor(threads=1):
         return [pigz, "-p", str(threads), "-"]
 
 
-class merger(object):
-    """Merge all mappings from the source files into the target file.
-    The target file must contain all available mappings and the sort order
-    of all files must be the same.
+def merge(master, slaves, output=None, paired=False, same_content=False,
+          compress=False, threads=1):
+    """Merge the content of the master with the content
+    of the salve(s).
 
-    target -- either an open file descriptor or a file name.
-    source -- an open file descriptor to a single source file, a file name or a
-              list of file names
-    exclusive - if set the True, the next mappings are take
-                exlusively if the reads is not mapped at all. The default
-                is False, where all mappings are merged
-    paired -- merging paried reads
     """
-
-    def __init__(self, target, source, paired=False):
-        if target is None:
-            raise ValueError("No target file specified")
-        if source is None:
-            raise ValueError("No source file specified")
-
-        self.target = target
-        self.source = source
-        self.paired = paired
-        self._output = None
-        self._input = None
-
-    def __iter__(self):
-        files = [self.target]
-        files.extend(self.source)
-        m = gt.merge(files)
-        return m.__iter__()
-
-    def __async_merge(self, threads):
-        of = gt.OutputFile(self._output, clean_id=False, append_extra=True)
-        files = [self.target]
-        files.extend(self.source)
-        gt.merge(files).write_stream(of, write_map=True, threads=threads)
-        of.close()
-        self._output.close()
-
-    def merge_async(self, threads=1, paired=False, same_content=False):
-        (r, w) = os.pipe()
-        self._input = os.fdopen(r, 'r')
-        self._output = os.fdopen(w, 'w')
-        process = mp.Process(target=merger.__async_merge, args=(self, threads))
-        gem.utils.register_process(process)
-
-        def ww():
-            process.join()
-        process.wait = ww
-        process.start()
-        self._output.close()
-        return gt.InputFile(self._input, process=process)
-
-    def merge(self, output, threads=1, paired=False, same_content=False, compress=False):
-        if same_content:
-            if output is None:
-                (r, w) = os.pipe()
-                self._input = os.fdopen(r, 'r')
-                self._output = os.fdopen(w, 'w')
-                of = gt.OutputFile(self._output, clean_id=False, append_extra=True)
-                files = [self.target]
-                files.extend(self.source)
-                process = gt.merge(files).write_stream(of, write_map=True, threads=threads, async=True)
-                self._output.close()
-                return gt.InputFile(self._input, process=process)
-                #return self.merge_async(threads=threads, paired=paired, same_content=same_content)
-
-            p = None
-            out = output
-            if compress and not output.endswith(".gz"):
-                output += ".gz"
-            if compress:
-                p = subprocess.Popen(_compressor(threads=max(1, threads / 2)), stdout=open(output, 'wb'), stdin=subprocess.PIPE, close_fds=True)
-                out = p.stdin
-
-            logging.debug("Using merger with %d threads and same content" % (threads))
-            files = [self.target]
-            files.extend(self.source)
-            merger = gt.merge(files)
-            out = gt.OutputFile(output)
-
-            merger.write_stream(out, write_map=True, threads=threads)
-            return gt.InputFile(output)
+    merge_out = subprocess.PIPE
+    if output is not None:
+        if output == sys.stdout:
+            merge_out = output
+            output = None
         else:
-            logging.debug("Using unpaired merger")
-            files = [self.target]
-            files.extend(self.source)
-            merger = gt.merge(files)
-            of = gt.OutputFile(output, clean_id=False, append_extra=True)
-            for m in merger:
-                of.write(m, write_map=True)
-            of.close()
-        return gt.InputFile(output)
+            if not compress:
+                merge_out = output
+                if isinstance(output, basestring):
+                    merge_out = open(output, 'wb')
+            else:
+                p = subprocess.Popen(_compressor(threads=max(1, threads / 2)),
+                                     stdout=open(output, 'wb'),
+                                     stdin=subprocess.PIPE, close_fds=True)
+                merge_out = p.stdin
+
+    # create tmpdir for the fifos
+    tmpdir = tempfile.mkdtemp()
+    gem.files.delete_on_exit.append(tmpdir)
+    current_master = master
+    current_process = None
+    for i, slave in enumerate(slaves):
+        current_output = None
+        if i == (len(slaves) - 1):
+            # last one
+            current_output = merge_out
+        current_process = _merge_two(current_master, slave, current_output,
+                                     tmpdir, i, paired, same_content, threads)
+        current_master = current_process.stdout
+    return _prepare_output(current_process, output=output)
+
+
+def _merge_two(master, slave, output, tmpdir, count,
+               paired=False, same_content=False, threads=1):
+    """Helper function to merge to files. Return the merging
+    process.
+    """
+    pa = [executables['gt.mapset'], 'merge-map', '-t', str(threads)]
+    if paired:
+        pa.append('-p')
+    if same_content:
+        pa.append('-s')
+
+    instream = master
+    if isinstance(instream, basestring):
+        instream = open(instream, 'rb')
+    elif hasattr(instream, 'stdout'):
+        instream = instream.stdout
+    elif isinstance(instream, gt.InputFile):
+        ## assume we have a gt.Inputfile
+        instream = instream.raw_stream()
+
+    inslave = slave
+    if not isinstance(inslave, basestring):
+        # create a fifo and
+        filename = os.path.join(tmpdir, "%d" % count)
+        os.mkfifo(filename)
+        if not hasattr(inslave, 'stdout'):
+            inslave = inslave.raw_stream()
+        subprocess.Popen(['cat'], stdin=inslave, stdout=open(filename, 'wb'))
+        inslave = filename
+
+    if output is None:
+        output = subprocess.PIPE
+    elif isinstance(output, basestring):
+        output = open(output, 'wb')
+
+    pa.append('--i1')
+    pa.append(inslave)
+
+    return subprocess.Popen(pa, stdin=instream, stdout=output)
 
 
 def _is_i3_compliant(stream):

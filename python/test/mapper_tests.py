@@ -34,7 +34,7 @@ def test_merging_maps():
     source_1 = files.open(testfiles["test_merge_source_1.map"])
     source_2 = files.open(testfiles["test_merge_source_2.map"])
     #result = gem.mapper(input, index, results_dir + "/merged.mapping")
-    merger = gem.merger(input, [source_1, source_2])
+    merger = gem.merge(input, [source_1, source_2])
 
     count = 0
     for read in merger:
@@ -62,7 +62,7 @@ def test_merging_maps_chr21():
     fs = []
     for f in s:
         fs.append(files.open(testfiles[f]))
-    m = gem.merger(fs[0], fs[1:])
+    m = gem.merge(fs[0], fs[1:])
     count = 0
     ms = 0
     for read in m:
@@ -77,7 +77,7 @@ def test_merging_maps_to_file():
     source_1 = files.open(testfiles["test_merge_source_1.map"])
     source_2 = files.open(testfiles["test_merge_source_2.map"])
     result = results_dir + "/merged.mapping"
-    merger = gem.merger(input, [source_1, source_2])
+    merger = gem.merge(input, [source_1, source_2])
     count = 0
     for read in merger.merge(result):
         count += 1
