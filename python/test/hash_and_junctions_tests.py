@@ -26,17 +26,10 @@ def cleanup():
 
 
 @with_setup(setup_func, cleanup)
-def test_create_hash():
-    result = results_dir + "/test_xs.hash"
-    hash = gem.hash(testfiles["test_xs.fa"], result)
-    assert hash == os.path.abspath(result)
-    assert os.path.exists(result)
-
-@with_setup(setup_func, cleanup)
 def test_junction_filter():
-    result = results_dir + "/test_xs.hash"
-    hash = gem.hash(testfiles["test_xs.fa"], result)
-    jf = gem.splits.append_xs_filter(hash)
+    result = results_dir + "/test_xs.gem"
+    index = gem.index(testfiles["test_xs.fa"], result)
+    jf = gem.splits.append_xs_filter(index)
     of = open(testfiles["test_xs.sam"])
 
     def get_xs(l):

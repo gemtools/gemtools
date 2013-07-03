@@ -162,12 +162,19 @@ def _install_bundle(install_dir, base=None):
 
     target = "%s/%s" % (dirpath, file_name)
     keep = False
-    if os.path.exists(file_name):
-        target = file_name
+
+    # check jenksin currents
+    jenkins_src = "%s/current-%s.tar.gz" % (dirpath, type)
+    if os.path.exists(jenkins_src):
+        target = jenkins_src
         keep = True
     else:
-        if not os.path.exists(target):
-            download(type, dirpath)
+        if os.path.exists(file_name):
+            target = file_name
+            keep = True
+        else:
+            if not os.path.exists(target):
+                download(type, dirpath)
 
     tar = subprocess.Popen("tar xzvf %s --exclude \"._*\"" % (os.path.abspath(target)), shell=True, cwd=dirpath)
     if tar.wait() != 0:

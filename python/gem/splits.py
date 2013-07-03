@@ -129,11 +129,11 @@ class append_xs_filter(object):
     # pattern to identify split maps
     split_re = re.compile(".*N.*")
 
-    def __init__(self, index_hash):
+    def __init__(self, index):
         """Create a new filter providing the .hash file
         of the genome reference
         """
-        self.retriever = gem.utils.retriever(index_hash)
+        self.retriever = gem.utils.retriever(index)
 
     def filter(self, input):
         if input[0] == "@":
