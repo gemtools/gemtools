@@ -321,4 +321,9 @@ GT_INLINE gt_map** gt_mmap_array_copy(gt_map** mmap,const uint64_t num_blocks);
  */
 #include "gt_map_metrics.h"
 
+/*
+ * Map Utils
+ */
+#include "gt_map_utils.h"
+
 #endif /* GT_MAP_H_ */

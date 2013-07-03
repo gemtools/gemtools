@@ -11,15 +11,16 @@
 
 #include "gem_tools.h"
 
-typedef enum { GT_MAP_SET_INTERSECTION, GT_MAP_SET_UNION, GT_MAP_SET_DIFFERENCE,
+typedef enum { GT_MAP_SET_UNKNOWN,
+               GT_MAP_SET_INTERSECTION, GT_MAP_SET_UNION, GT_MAP_SET_DIFFERENCE,
                GT_MAP_SET_JOIN, GT_MAP_SET_COMPARE,
                GT_MERGE_MAP, GT_DISPLAY_COMPACT_MAP} gt_operation;
 
 typedef struct {
+  gt_operation operation;
   char* name_input_file_1;
   char* name_input_file_2;
   char* name_output_file;
-  gt_operation operation;
   bool mmap_input;
   bool paired_end;
   bool files_contain_same_reads;
@@ -30,6 +31,7 @@ typedef struct {
 } gt_stats_args;
 
 gt_stats_args parameters = {
+    .operation=GT_MAP_SET_UNKNOWN,
     .name_input_file_1=NULL,
     .name_input_file_2=NULL,
     .name_output_file=NULL,
@@ -344,131 +346,99 @@ void gt_mapset_display_compact_map() {
   gt_input_file_close(input_file);
   gt_output_file_close(output_file);
 }
-void usage() {
-  fprintf(stderr, "USE: ./gt.mapset [OPERATION] [ARGS]...\n"
-                  "       {OPERATION}\n"
-                  "         [Set Operators]\n"
-                  "           union\n"
-                  "           intersection\n"
-                  "           difference\n"
-                  "         [Compare/Display Files]\n"
-                  "           compare\n"
-                  "           join\n"
-                  "           display-compact\n"
-                  "         [Map Specific]\n"
-                  "           merge-map\n"
-                  "       {ARGS}\n"
-                  "         [I/O]\n"
-                  "           --i1 [FILE]\n"
-                  "           --i2 [FILE]\n"
-                  "           --mmap-input\n"
-                  "           --output|-o [FILE]\n"
-                  "           --paired-end|p\n"
-                  "           --files-same-reads|-s\n"
-                  "         [Compare Function]\n"
-                  "           --eq-th <number>|<float>\n"
-                  "           --strict\n"
-                  "         [Misc]\n"
-                  "           --threads|t\n"
-                  "           --verbose|v\n"
-                  "           --help|h\n");
-}
 
-void parse_arguments(int argc,char** argv) {
 #define GT_MAPSET_OPERATIONS "union,intersection,difference,compare,join,merge-map,display-compact"
-  // Parse operation
-  if (argc<=1) gt_fatal_error_msg("Please specify operation {"GT_MAPSET_OPERATIONS"}");
-  if (gt_streq(argv[1],"INTERSECCTION") || gt_streq(argv[1],"Intersection") || gt_streq(argv[1],"intersection")) {
+
+void gt_filter_parse_operation(char* const string_operation) {
+  if (gt_streq(string_operation,"INTERSECCTION") || gt_streq(string_operation,"Intersection") || gt_streq(string_operation,"intersection")) {
     parameters.operation = GT_MAP_SET_INTERSECTION;
-  } else if (gt_streq(argv[1],"UNION") || gt_streq(argv[1],"Union") || gt_streq(argv[1],"union")) {
+  } else if (gt_streq(string_operation,"UNION") || gt_streq(string_operation,"Union") || gt_streq(string_operation,"union")) {
     parameters.operation = GT_MAP_SET_UNION;
-  } else if (gt_streq(argv[1],"DIFFERENCE") || gt_streq(argv[1],"Difference") || gt_streq(argv[1],"difference")) {
+  } else if (gt_streq(string_operation,"DIFFERENCE") || gt_streq(string_operation,"Difference") || gt_streq(string_operation,"difference")) {
     parameters.operation = GT_MAP_SET_DIFFERENCE;
-  } else if (gt_streq(argv[1],"COMPARE") || gt_streq(argv[1],"Compare") || gt_streq(argv[1],"compare")) {
+  } else if (gt_streq(string_operation,"COMPARE") || gt_streq(string_operation,"Compare") || gt_streq(string_operation,"compare")) {
     parameters.operation = GT_MAP_SET_COMPARE;
-  } else if (gt_streq(argv[1],"JOIN") || gt_streq(argv[1],"Join") || gt_streq(argv[1],"join")) {
+  } else if (gt_streq(string_operation,"JOIN") || gt_streq(string_operation,"Join") || gt_streq(string_operation,"join")) {
     parameters.operation = GT_MAP_SET_JOIN;
-  } else if (gt_streq(argv[1],"MERGE-MAP") || gt_streq(argv[1],"Merge-map") || gt_streq(argv[1],"merge-map")) {
+  } else if (gt_streq(string_operation,"MERGE-MAP") || gt_streq(string_operation,"Merge-map") || gt_streq(string_operation,"merge-map")) {
     parameters.operation = GT_MERGE_MAP;
-  } else if (gt_streq(argv[1],"DISPLAY-COMPACT") || gt_streq(argv[1],"Display-compact") || gt_streq(argv[1],"display-compact")) {
+  } else if (gt_streq(string_operation,"DISPLAY-COMPACT") || gt_streq(string_operation,"Display-compact") || gt_streq(string_operation,"display-compact")) {
     parameters.operation = GT_DISPLAY_COMPACT_MAP;
   } else {
-    if (argv[1][0]=='I' || argv[1][0]=='i') {
+    if (string_operation[0]=='I' || string_operation[0]=='i') {
       fprintf(stderr,"\tAssuming 'Intersection' ...\n");
       parameters.operation = GT_MAP_SET_INTERSECTION;
-    } else if (argv[1][0]=='U' || argv[1][0]=='u') {
+    } else if (string_operation[0]=='U' || string_operation[0]=='u') {
       fprintf(stderr,"\tAssuming 'Union' ...\n");
       parameters.operation = GT_MAP_SET_UNION;
-    } else if (argv[1][0]=='D' || argv[1][0]=='d') {
+    } else if (string_operation[0]=='D' || string_operation[0]=='d') {
       fprintf(stderr,"\tAssuming 'Difference' ...\n");
       parameters.operation = GT_MAP_SET_DIFFERENCE;
-    } else if (argv[1][0]=='C' || argv[1][0]=='c') {
+    } else if (string_operation[0]=='C' || string_operation[0]=='c') {
       fprintf(stderr,"\tAssuming 'Compare' ...\n");
       parameters.operation = GT_MAP_SET_COMPARE;
-    } else if (argv[1][0]=='P' || argv[1][0]=='p') {
+    } else if (string_operation[0]=='P' || string_operation[0]=='p') {
       fprintf(stderr,"\tAssuming 'Join' ...\n");
       parameters.operation = GT_MAP_SET_JOIN;
-    } else if (argv[1][0]=='M' || argv[1][0]=='m') {
+    } else if (string_operation[0]=='M' || string_operation[0]=='m') {
       fprintf(stderr,"\tAssuming 'Merge-map' ...\n");
       parameters.operation = GT_MERGE_MAP;
     } else {
-      gt_fatal_error_msg("Unknown operation '%s' in {"GT_MAPSET_OPERATIONS"}",argv[1]);
+      gt_fatal_error_msg("Unknown operation '%s' in {"GT_MAPSET_OPERATIONS"}",string_operation);
     }
   }
-  argc--; argv++;
-  // Parse arguments
-  struct option long_options[] = {
-    { "i1", required_argument, 0, 1 },
-    { "i2", required_argument, 0, 2 },
-    { "mmap-input", no_argument, 0, 3 },
-    { "output", required_argument, 0, 'o' },
-    { "paired-end", no_argument, 0, 'p' },
-    { "files-same-reads", no_argument, 0, 's' },
-    /* CMP */
-    { "eq-th", required_argument, 0, 4 },
-    { "strict", no_argument, 0, 5 },
-    /* MISC */
-    { "threads", required_argument, 0, 't' },
-    { "verbose", no_argument, 0, 'v' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 } };
-  int c,option_index;
-  while (1) {
-    c=getopt_long(argc,argv,"i:o:psht:v",long_options,&option_index);
-    if (c==-1) break;
-    switch (c) {
-    case 1:
+}
+
+void parse_arguments(int argc,char** argv) {
+  struct option* gt_mapset_getopt = gt_options_adaptor_getopt(gt_mapset_options);
+  gt_string* const gt_mapset_short_getopt = gt_options_adaptor_getopt_short(gt_mapset_options);
+  int option, option_index;
+  while (true) {
+    // Get option & Select case
+    if ((option=getopt_long(argc,argv,
+        gt_string_get_string(gt_mapset_short_getopt),gt_mapset_getopt,&option_index))==-1) break;
+    switch (option) {
+    /* Operations */
+    case 'C':
+      gt_filter_parse_operation(optarg);
+      break;
+    /* I/O */
+    case 300:
       parameters.name_input_file_1 = optarg;
       break;
-    case 2:
+    case 301:
       parameters.name_input_file_2 = optarg;
-      break;
-    case 'o':
-      parameters.name_output_file = optarg;
-      break;
-    case 3:
-      parameters.mmap_input = true;
       break;
     case 'p':
       parameters.paired_end = true;
       break;
-    case 's':
+    case 302:
+      parameters.mmap_input = true;
+      gt_fatal_error(NOT_IMPLEMENTED);
+      break;
+    case 'o':
+      parameters.name_output_file = optarg;
+      break;
+    /* Compare Function */
+    case 's': // files-with-same-reads
       parameters.files_contain_same_reads = true;
       break;
-    case 4:
+    case 400: // eq-th
       parameters.eq_threshold = atof(optarg);
       break;
-    case 5:
+    case 401: // strict
       parameters.strict = true;
+      break;
+    /* Misc */
+    case 'v':
+      parameters.verbose = true;
       break;
     case 't':
       parameters.num_threads = atol(optarg);
       break;
-    case 'v':
-      parameters.verbose = true;
-      break;
     case 'h':
-      usage();
+      fprintf(stderr, "USE: ./gt.mapset [OPERATION] [ARGS]...\n");
+      gt_options_fprint_menu(stderr,gt_mapset_options,gt_mapset_groups,false,false);
       exit(1);
     case '?':
     default:
@@ -476,9 +446,14 @@ void parse_arguments(int argc,char** argv) {
     }
   }
   // Check parameters
+  if (parameters.operation==GT_MAP_SET_UNKNOWN) {
+    gt_fatal_error_msg("Please specify operation {"GT_MAPSET_OPERATIONS"}");
+  }
   if (parameters.operation!=GT_DISPLAY_COMPACT_MAP && !parameters.name_input_file_1) {
     gt_fatal_error_msg("Input file 1 required (--i1)\n");
   }
+  // Free
+  gt_string_delete(gt_mapset_short_getopt);
 }
 
 int main(int argc,char** argv) {
@@ -488,7 +463,7 @@ int main(int argc,char** argv) {
   // Parsing command-line options
   parse_arguments(argc,argv);
 
-  // Filter !
+  // Do it !
   if (parameters.operation==GT_MERGE_MAP) {
     gt_mapset_perform_merge_map();
   } else if (parameters.operation==GT_DISPLAY_COMPACT_MAP) {

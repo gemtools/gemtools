@@ -77,8 +77,16 @@ GT_INLINE bool gt_template_get_next_matching_strata(
     gt_template* const template,const uint64_t begin_strata,
     uint64_t* const next_matching_strata,uint64_t* const num_maps);
 
+/*
+ * Template's Maps Sorting
+ */
 GT_INLINE void gt_template_sort_by_distance__score(gt_template* const template);
 GT_INLINE void gt_template_sort_by_distance__score_no_split(gt_template* const template);
+
+/*
+ * Template's MMaps Utils
+ */
+GT_INLINE uint64_t gt_template_sum_mismatch_qualities(gt_template* const template,gt_map** const mmap);
 
 /*
  * Template Set operators

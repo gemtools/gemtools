@@ -32,7 +32,7 @@ typedef struct {
   bool use_only_decoded_maps;
   /* [Output] */
   bool verbose;
-  bool compact;
+  bool compact; // FIXME Deleteme
   /* [Misc] */
   uint64_t num_threads;
 } gt_stats_args;
@@ -227,136 +227,105 @@ void gt_stats_parallel_generate_stats() {
   gt_input_file_close(input_file);
 }
 
-void usage(const bool print_hidden) {
-  fprintf(stderr, "USE: ./gt.stats [ARGS]...\n"
-                  "         [Input]\n"
-                  "           --input|-i [FILE]\n"
-               // "           --reference|-r [FILE]\n"
-               // "           --mmap-input\n"
-                  "           --paired-end|p\n"
-                  "           --num-reads|n\n"
-                  "         [Tests]\n"
-                  "           --first-map|--all-maps (default, --all-maps)\n"
-                  "           --all-tests|a\n"
-                  "           --maps-profile|M\n"
-                  "           --mismatch-transitions|T\n"
-                  "           --mismatch-quality|Q\n"
-                  "           --splitmaps-profile|S\n"
-                  "           --population-profile|P\n"
-               // "           --indel-profile|I\n"
-                  "         [MAP Specific]\n"
-                  "           --use-only-decoded-maps (instead of counters)\n"
-                  "         [Output]\n"
-                  "           --verbose|v\n"
-                  "         [Misc]\n"
-                  "           --threads|t\n"
-                  "           --help|h\n");
-  if (print_hidden) {
-  fprintf(stderr, "         [Output]\n"
-                  "           --compact|c\n");
-  }
-}
+
+//{ // TODO
+//      "Image": {
+//          "Width":  800,
+//          "Height": 600,
+//          "Title":  "View from 15th Floor",
+//          "Thumbnail": {
+//              "Url":    "http://www.example.com/image/481989943",
+//              "Height": 125,
+//              "Width":  "100"
+//          },
+//          "IDs": [116, 943, 234, 38793]
+//}
 
 void parse_arguments(int argc,char** argv) {
-  struct option long_options[] = {
-    /* [Input] */
-    { "input", required_argument, 0, 'i' },
-    { "reference", required_argument, 0, 'r' },
-    { "mmap-input", no_argument, 0, 1 },
-    { "paired-end", no_argument, 0, 'p' },
-    { "num-reads", required_argument, 0, 'n' },
-    /* [Tests] */
-    { "first-map", no_argument, 0, 2 },
-    { "all-maps", no_argument, 0, 3 },
-    { "all-tests", no_argument, 0, 'a' },
-    { "maps-profile", no_argument, 0, 'M' },
-    { "mismatch-transitions", no_argument, 0, 'T' },
-    { "mismatch-quality", no_argument, 0, 'Q' },
-    { "splitmaps-profile", no_argument, 0, 'S' },
-    { "indel-profile", no_argument, 0, 'I' },
-    { "population-profile", no_argument, 0, 'P' },
-    /* [MAP Specific] */
-    { "use-only-decoded-maps", no_argument, 0, 10 },
-    /* [Output] */
-    { "compact", no_argument, 0, 'c' },
-    { "verbose", no_argument, 0, 'v' },
-    /* [Misc] */
-    { "threads", required_argument, 0, 't' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 } };
-  int c,option_index;
-  while (1) {
-    c=getopt_long(argc,argv,"i:r:pn:aMTQSIcvqt:hH",long_options,&option_index);
-    if (c==-1) break;
-    switch (c) {
-    /* [Input] */
-    case 'i':
+  struct option* gt_stats_getopt = gt_options_adaptor_getopt(gt_stats_options);
+  gt_string* const gt_stats_short_getopt = gt_options_adaptor_getopt_short(gt_stats_options);
+  int option, option_index;
+  while (true) {
+    // Get option &  Select case
+    if ((option=getopt_long(argc,argv,
+        gt_string_get_string(gt_stats_short_getopt),gt_stats_getopt,&option_index))==-1) break;
+    switch (option) {
+    /* I/O */
+    case 'i': // input
       parameters.name_input_file = optarg;
       break;
-    case 'r':
-      parameters.name_reference_file = optarg;
-      break;
-    case 1:
+    case 200: // mmap-input
       parameters.mmap_input = true;
+      gt_fatal_error(NOT_IMPLEMENTED);
       break;
-    case 'p':
+    case 'r': // reference
+      parameters.name_reference_file = optarg;
+      gt_fatal_error(NOT_IMPLEMENTED);
+      break;
+    case 'I': // gem-index
+      gt_fatal_error(NOT_IMPLEMENTED);
+      break;
+    case 'p': // paired-end
       parameters.paired_end = true;
       break;
-    case 'n':
+    case 'n': // num-reads
       parameters.num_reads = atol(optarg);
       break;
-    case 2: // --first-map
+    case 'o': // output
+      gt_fatal_error(NOT_IMPLEMENTED);
+      // parameters.name_output_file = optarg;
+      break;
+    case 'f':
+      gt_fatal_error(NOT_IMPLEMENTED);
+      break;
+    /* Analysis */
+    case 300: // first-map
       parameters.first_map = true;
       break;
-    case 3: // --all-maps
-      parameters.first_map = false;
-      break;
-    /* [Tests] */
-    case 'a': // All tests
+    case 'a': // all-tests
       parameters.maps_profile = true;
       parameters.mismatch_transitions = true;
       parameters.mismatch_quality = true;
       parameters.splitmaps_profile = true;
       parameters.population_profile = true;
       break;
-    case 'M': // --maps-profile
+    case 'M': // maps-profile
       parameters.maps_profile = true;
       break;
-    case 'T': // --mismatch-transitions
+    case 'T': // mismatch-transitions
       parameters.mismatch_transitions = true;
       break;
-    case 'Q': // --mismatch-quality
+    case 'Q': // mismatch-quality
       parameters.mismatch_quality = true;
       break;
-    case 'S': // --splitmaps-profile
+    case 'R': // rna-profile // FIXME name
       parameters.splitmaps_profile = true;
       break;
-    case 'I': // --indel-profile
+    case 'P': // population-profile
+      parameters.population_profile = true;
+      break;
+    case 'D': // indel-profile
+      gt_fatal_error(NOT_IMPLEMENTED);
       parameters.indel_profile = true;
       break;
-    case 'P': // --population-profile
-      parameters.population_profile = true;
-      break;
-    /* [MAP Specific] */
-    case 10:
+    /* MAP Specific */
+    case 400:
       parameters.use_only_decoded_maps = true;
       break;
-    /* [Output] */
-    case 'c':
-      parameters.compact = true;
+    /* Misc */
+    case 't':
+      parameters.num_threads = atol(optarg);
       break;
     case 'v':
       parameters.verbose = true;
       break;
-    /* [Misc] */
-    case 't':
-      parameters.num_threads = atol(optarg);
-      break;
     case 'h':
-      usage(false);
+      fprintf(stderr, "USE: ./gt.stats [ARGS]...\n");
+      gt_options_fprint_menu(stderr,gt_stats_options,gt_stats_groups,false,false);
       exit(1);
     case 'H':
-      usage(true);
+      fprintf(stderr, "USE: ./gt.stats [ARGS]...\n");
+      gt_options_fprint_menu(stderr,gt_stats_options,gt_stats_groups,false,true);
       exit(1);
     case '?':
     default:
@@ -367,8 +336,10 @@ void parse_arguments(int argc,char** argv) {
    * Checks
    */
   if (parameters.indel_profile && parameters.name_reference_file==NULL) {
-    gt_error_msg("To generate the indel-profile, a reference file (.fa/.fasta) is required");
+    gt_error_msg("To generate the indel-profile, a reference file(.fa/.fasta) or GEMindex(.gem) is required");
   }
+  // Free
+  gt_string_delete(gt_stats_short_getopt);
 }
 
 int main(int argc,char** argv) {

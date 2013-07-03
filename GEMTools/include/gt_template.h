@@ -77,10 +77,11 @@ typedef struct {
 #define GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,reduced_alignment) \
   if (gt_expect_false(gt_template_get_num_blocks((template))==1)) { \
     GT_TEMPLATE_REDUCTION(template,reduced_alignment);
-#define GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT_(template) { \
+#define GT_TEMPLATE_IF_SE_ALINGMENT(template) \
   if (gt_expect_false(gt_template_get_num_blocks((template))==1))
 #define GT_TEMPLATE_END_REDUCTION }
 #define GT_TEMPLATE_END_REDUCTION__RETURN return;}
+#define GT_TEMPLATE_REDUCTION_ELSE } else
 
 /*
  * Setup
@@ -208,6 +209,7 @@ GT_INLINE uint64_t gt_template_next_mmap_pos(gt_template_maps_iterator* const te
   const uint64_t __##mmap##_num_blocks = gt_template_get_num_blocks(template); \
   GT_TEMPLATE_ITERATE_(template,mmap)
 #define GT_TEMPLATE_ITERATE_MMAP(template,mmap) GT_TEMPLATE_ITERATE(template,mmap) /* Just an alias */
+#define GT_TEMPLATE_ITERATE_MMAP_(template,mmap) GT_TEMPLATE_ITERATE_(template,mmap) /* Just an alias */
 #define GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attribute) \
   gt_map** mmap; \
   gt_mmap_attributes *mmap_attribute = NULL; \

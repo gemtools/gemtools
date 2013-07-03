@@ -39,6 +39,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdarg.h>
+#include <getopt.h>
 
 #include <ctype.h>
 #include <sys/types.h>
@@ -133,6 +134,9 @@
  * Is functions
  */
 #define gt_is_number(character) ('0' <= (character) && (character) <= '9')
+#define gt_is_letter(character) (('a' <= (character) && (character) <= 'z') || ('A' <= (character) && (character) <= 'Z'))
+#define gt_is_alphanumeric(character) (gt_is_number(character) || gt_is_letter(character))
+
 #define gt_get_cipher(character) ((character) - '0')
 
 /*
