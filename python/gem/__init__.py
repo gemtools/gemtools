@@ -984,21 +984,6 @@ def index(input, output, content="dna", threads=1):
     return os.path.abspath("%s.gem" % output)
 
 
-def hash(input, output):
-    """Run the gem-retriever on the given input and create a hash
-    version of a genome that can be used by the retriever to query
-    the reference by chromosome and coordinates
-    """
-    p = [
-        executables['gem-retriever'],
-        'hash', input, output
-    ]
-    process = utils.run_tools([p], name="gem-retriever")
-    if process.wait() != 0:
-        raise ValueError("Error while executing the gem-retriever")
-    return os.path.abspath(output)
-
-
 def _compressor(threads=1):
     """Returns compressor configuration
     for compressing streams"""

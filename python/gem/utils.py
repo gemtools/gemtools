@@ -589,20 +589,20 @@ class retriever(object):
     The retriever instance is open until you explicitly
     close it
     """
-    def __init__(self, index_hash):
-        """Create a new instance specifying the index hash
+    def __init__(self, index):
+        """Create a new instance specifying the index
         that should be used.
         """
-        self.index_hash = index_hash
+        self.index = index
         self.__process = None
-        if not os.path.exists(self.index_hash):
-            raise ValueError("Index hash %s not found", self.index_hash)
+        if not os.path.exists(self.index):
+            raise ValueError("Index %s not found", self.index)
 
     def __initialize_process(self):
         """Initialize the retriever instance"""
         if self.__process is not None:
             raise ValueError("Retriever instance is running already")
-        pa = [gem.executables['gem-retriever'], 'query', self.index_hash]
+        pa = [gem.executables['gem-retriever'], self.index]
         self.__process = subprocess.Popen(pa,
                                           stdin=subprocess.PIPE,
                                           stdout=subprocess.PIPE,

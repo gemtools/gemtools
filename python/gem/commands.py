@@ -21,7 +21,6 @@ def gemtools():
 
         commands = {
             "index": gem.production.Index,
-            "hash": gem.production.Hash,
             "rna-pipeline": gem.production.RnaPipeline,
             "t-index": gem.production.TranscriptIndex,
             "merge": gem.production.Merge,
