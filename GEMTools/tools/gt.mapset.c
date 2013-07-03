@@ -397,6 +397,7 @@ void parse_arguments(int argc,char** argv) {
     // Get option & Select case
     if ((option=getopt_long(argc,argv,
         gt_string_get_string(gt_mapset_short_getopt),gt_mapset_getopt,&option_index))==-1) break;
+    // c=getopt_long(argc,argv,"i:o:psht:v",long_options,&option_index);
     switch (option) {
     /* Operations */
     case 'C':
