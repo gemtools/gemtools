@@ -145,7 +145,6 @@ GT_INLINE bool gt_alignment_is_thresholded_mapped(gt_alignment* const alignment,
   }
   return false;
 }
-
 GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_vector_clear(gt_alignment_get_counters_vector(alignment));
@@ -157,7 +156,6 @@ GT_INLINE void gt_alignment_recalculate_counters(gt_alignment* const alignment) 
     gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
   }
 }
-
 GT_INLINE void gt_alignment_recalculate_counters_no_splits(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   gt_vector_clear(gt_alignment_get_counters_vector(alignment));
@@ -169,17 +167,6 @@ GT_INLINE void gt_alignment_recalculate_counters_no_splits(gt_alignment* const a
     gt_alignment_inc_counter(alignment, gt_map_get_no_split_distance(map));
   }
 }
-
-GT_INLINE int64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const alignment, gt_map* const map){
-  int64_t qv = 0;
-  GT_MISMS_ITERATE(map, misms){
-    if(misms->misms_type == MISMS){
-      qv =+ gt_alignment_get_qualities(alignment)[misms->position];
-    }
-  }
-  return qv;
-}
-
 GT_INLINE int64_t gt_alignment_get_uniq_degree(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   return gt_counters_get_uniq_degree(gt_alignment_get_counters_vector(alignment));
@@ -195,7 +182,6 @@ GT_INLINE bool gt_alignment_get_next_matching_strata(
   return gt_counters_get_next_matching_strata(
       gt_alignment_get_counters_vector(alignment),begin_strata,next_matching_strata,num_maps);
 }
-
 /*
  * Sort maps by score _> (int (*)(const void *,const void *))
  * i.e. (Sorting from smaller to bigger, <) := a-b
@@ -207,7 +193,6 @@ int gt_alignment_cmp_distance__score(gt_map** const map_a,gt_map** const map_b) 
   // Sort by distance
   const int64_t distance_a = gt_map_get_global_distance(*map_a);
   const int64_t distance_b = gt_map_get_global_distance(*map_b);
-
   if (distance_a != distance_b) return distance_a-distance_b;
   // Sort by score (here we cannot do the trick as gt_score fills the whole uint64_t range)
   const uint64_t score_a = (*map_a)->gt_score;
@@ -218,25 +203,35 @@ int gt_alignment_cmp_distance__score_no_split(gt_map** const map_a,gt_map** cons
   // Sort by distance
   const int64_t distance_a = gt_map_get_no_split_distance(*map_a);
   const int64_t distance_b = gt_map_get_no_split_distance(*map_b);
-
   if (distance_a != distance_b) return distance_a-distance_b;
-
   // Sort by score (here we cannot do the trick as gt_score fills the whole uint64_t range)
   const uint64_t score_a = (*map_a)->gt_score;
   const uint64_t score_b = (*map_b)->gt_score;
   return (score_a > score_b) ? -1 : (score_a < score_b ? 1 : 0);
 }
-
 GT_INLINE void gt_alignment_sort_by_distance__score(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   qsort(gt_vector_get_mem(alignment->maps,gt_map*),gt_vector_get_used(alignment->maps),
       sizeof(gt_map*),(int (*)(const void *,const void *))gt_alignment_cmp_distance__score);
 }
-
 GT_INLINE void gt_alignment_sort_by_distance__score_no_split(gt_alignment* const alignment) {
   GT_ALIGNMENT_CHECK(alignment);
   qsort(gt_vector_get_mem(alignment->maps,gt_map*),gt_vector_get_used(alignment->maps),
       sizeof(gt_map*),(int (*)(const void *,const void *))gt_alignment_cmp_distance__score_no_split);
+}
+
+/*
+ * Alignment's Maps Utils
+ */
+GT_INLINE uint64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const alignment,gt_map* const map) {
+  const char* const qualities = gt_alignment_get_qualities(alignment);
+  uint64_t qv = 0;
+  GT_MISMS_ITERATE(map, misms) {
+    if (misms->misms_type == MISMS) {
+      qv =+ qualities[misms->position];
+    }
+  }
+  return qv;
 }
 
 /*

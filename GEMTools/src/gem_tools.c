@@ -9,206 +9,292 @@
 #include "gem_tools.h"
 
 /*
- * Parsers Helpers
+ * gt.filter menu options
  */
-GT_INLINE gt_status gt_merge_map_read_template_sync(
-    pthread_mutex_t* const input_mutex,gt_buffered_input_file* const buffered_input_master,gt_buffered_input_file* const buffered_input_slave,
-    gt_map_parser_attributes* const map_parser_attr,gt_template* const template_master,gt_template* const template_slave,
-    gt_buffered_output_file* buffered_output) {
-  gt_status error_code_master, error_code_slave;
-  gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
-  do {
-    // Read Synch blocks
-    error_code_master=gt_input_map_parser_synch_blocks_by_subset(
-        input_mutex,map_parser_attr,buffered_input_master,buffered_input_slave);
-    if (error_code_master==GT_IMP_EOF) return GT_IMP_EOF;
-    if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error synchronizing files");
-    // Read master (always guaranteed)
-    if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master,NULL))==GT_IMP_FAIL) {
-      gt_fatal_error_msg("Fatal error parsing file <<Master>>");
+gt_option gt_filter_options[] = {
+  /* I/O */
+  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (MultiFASTA/FASTA)" , "" },
+  { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GEM2-Index)" , "" },
+  { 200, "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , false, "<file> (GTF Annotation)" , "" },
+  { 201, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , false, "" , "" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 202, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'FASTA'|'MAP'|'SAM' (default='InputFormat')" , "" },
+  { 203, "discarded-output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "" , "" },
+  { 204, "no-output", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  /* Filter Read/Qualities */
+  { 300, "hard-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , true, "<left>,<right>" , "" },
+  { 301, "quality-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , false, "<quality-threshold>,<min-read-length>" , "" },
+  { 302, "restore-trim", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "(Previously annotated in the read)" , "" },
+  { 303, "uniform-read", GT_OPT_OPTIONAL, GT_OPT_STRING, 3 , true, "['strict']" , "" },
+  { 304, "qualities-to-offset-33", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 305, "qualities-to-offset-64", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 306, "remove-qualities", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 307, "add-qualities", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  /* Filter Template/Alignments */
+  { 400, "mapped", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "" , "" },
+  { 401, "unmapped", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "" , "" },
+  { 402, "unique-level", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "<number>|<float>" , "" },
+  { 403, "min-length", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
+  { 404, "max-length", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
+  { 405, "min-maps", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
+  { 406, "max-maps", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
+  /* Filter SE-Maps */
+  { 500, "first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 'k', "keep-first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 'd', "max-decoded-matches", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (stratum-wise)" , "" },
+  { 'D', "min-decoded-strata", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (stratum-wise)" , "" },
+  { 501, "max-output-matches", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (to be output, NOT-stratum-wise)" , "" },
+  { 502, "max-input-matches", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (to be read, stratum-wise)" , "" },
+  { 503, "max-strata-after-map", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "" , "" },
+  { 504, "make-counters", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 505, "min-strata", GT_OPT_REQUIRED, GT_OPT_FLOAT, 5 , true, "<number>|<float>" , "" },
+  { 506, "max-strata", GT_OPT_REQUIRED, GT_OPT_FLOAT, 5 , true, "<number>|<float>" , "" },
+  { 507, "min-levenshtein-error", GT_OPT_REQUIRED, GT_OPT_FLOAT, 5 , true, "<number>|<float>" , "" },
+  { 508, "max-levenshtein-error", GT_OPT_REQUIRED, GT_OPT_FLOAT, 5 , true, "<number>|<float>" , "" },
+  { 509, "map-id", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<SequenceId>[,...] (Eg 'Chr1','Chr2')" , "" },
+  { 510, "strandedness", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "'R'|'F' (default='F,R')" , "" },
+  { 511, "filter-quality", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<min-quality>,<max-quality>" , "" },
+  { 512, "reduce-to-unique-strata", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number>" , "" },
+  { 513, "reduce-by-quality", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (Quality difference)" , "" },
+  { 514, "reduce-by-annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<gtf>" , "" },
+  /* Filter RNA-Maps */
+  { 600, "no-split-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },
+  { 601, "only-split-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },
+  { 's', "no-penalty-for-splitmaps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },
+  { 603, "min-intron-length", GT_OPT_REQUIRED, GT_OPT_INT, 6 , true, "<number>" , "" },
+  { 604, "min-block-length", GT_OPT_REQUIRED, GT_OPT_INT, 6 , true, "<number>" , "" },
+  /* Filter PE-Maps */
+  { 700, "pair-strandedness", GT_OPT_REQUIRED, GT_OPT_STRING, 7 , true, "<STRAND>[,...] ('FR'|'RF'|'FF'|'RR')" , "" },
+  { 701, "min-inss", GT_OPT_REQUIRED, GT_OPT_STRING, 7 , true, "<number>" , "" },
+  { 702, "max-inss", GT_OPT_REQUIRED, GT_OPT_STRING, 7 , true, "<number>" , "" },
+  /* Realign/Check */
+  { 800, "mismatch-recovery", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8 , true, "" , "" },
+  { 801, "hamming-realign", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8 , true, "" , "" },
+  { 802, "levenshtein-realign", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8 , true, "" , "" },
+  { 'c', "check", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8 , true, "" , "" },
+  { 'C', "check-only", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8 , false, "(check only, no output)" , "" },
+  { 803, "check-format", GT_OPT_REQUIRED, GT_OPT_STRING, 8 , true, "" , "" },
+  /* Split/Grouping */
+  { 900, "split-reads", GT_OPT_REQUIRED, GT_OPT_NONE, 9 , true, "<number>[,'lines'|'files'] (default=files)" , "" },
+  { 901, "sample-read", GT_OPT_REQUIRED, GT_OPT_STRING, 9 , true, "<chunk_size>,<step_size>,<left_trim>,<right_trim>[,<min_remainder>]" , "" },
+  { 902, "group-read-chunks", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 9 , true, "" , "" },
+  /* Display/Information */
+  { 1000, "error-plot", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 10 , false, "" , "" },
+  { 1001, "insert-size-plot", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 10 , false, "" , "" },
+  { 1002, "sequence-list", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 10 , true, "" , "" },
+  { 1003, "display-pretty", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 10 , true, "" , "" },
+  /* Misc */
+  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_NONE, 11 , true, "" , "" },
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
+  { 'H', "full-help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , false, "" , "" },
+  {  0, "", 0, 0, 0, false, "", ""}
+};
+char* gt_filter_options_short = "i:o:r:I:pd:D:Ckst:hHv";
+char* gt_filter_groups[] = {
+  /*  0 */ "Null",
+  /*  1 */ "Unclassified",
+  /*  2 */ "I/O",
+  /*  3 */ "Filter Read/Qualities",
+  /*  4 */ "Filter Alignments",
+  /*  5 */ "Filter SE-maps",
+  /*  6 */ "Filter RNA-Maps",
+  /*  7 */ "Filter PE-maps",
+  /*  8 */ "Realign/Check",
+  /*  9 */ "Split/Grouping",
+  /* 10 */ "Display/Information",
+  /* 11 */ "Misc"
+};
+
+/*
+ * gt.stats menu options
+ */
+gt_option gt_stats_options[] = {
+  /* I/O */
+  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 200, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , false, "" , "" },
+  { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , false, "<file> (MultiFASTA/FASTA)" , "" },
+  { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , false, "<file> (GEM2-Index)" , "" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 'n', "num-reads", GT_OPT_REQUIRED, GT_OPT_INT, 2 , true, "<number>" , "" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'f', "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'report'|'JSON' (default='report')" , "" },
+  /* Analysis */
+  { 300, "first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  { 'a', "all-tests", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  { 'M', "maps-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  { 'T', "mismatch-transitions", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  { 'Q', "mismatch-quality", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  { 'R', "rna-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  { 'P', "population-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  { 'D', "indel-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  /* MAP Specific */
+  { 400, "use-only-decoded-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "(instead of counters)", ""},
+  /* Misc */
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 't', "threads", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 'H', "full-help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
+  {  0, "", 0, 0, 0, false, "", ""}
+};
+char* gt_stats_options_short = "i:r:I:pn:o:f:aMTQRPDvt:hH";
+char* gt_stats_groups[] = {
+  /*  0 */ "Null",
+  /*  1 */ "Unclassified",
+  /*  2 */ "I/O",
+  /*  3 */ "Analysis",
+  /*  4 */ "Misc"
+};
+
+/*
+ * gt.mapset menu options
+ */
+gt_option gt_mapset_options[] = {
+  /* Operations */
+  { 'C', "operation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true,
+      "<operation>\n"
+      "     [Set Operators]\n"
+      "        union\n"
+      "        intersection\n"
+      "        difference\n"
+      "     [Compare/Display Files]\n"
+      "        compare\n"
+      "        join\n"
+      "        display-compact\n"
+      "     [Map Specific]\n"
+      "        merge-map\n" , "" },
+  /* I/O */
+  { 300, "i1", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 301, "i2", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 302, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  /* Compare Function */
+  { 's', "files-with-same-reads", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "" , "" },
+  { 400, "eq-th", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "<integer>|<float> (Difference tolerated between positions)" , "" },
+  { 401, "strict", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "(Strict comparison of mappings)" , "" },
+  /* Misc */
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 't', "threads", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  {  0, "", 0, 0, 0, false, "", ""}
+};
+char* gt_mapset_options_short = "C:po:svt:h";
+char* gt_mapset_groups[] = {
+  /*  0 */ "Null",
+  /*  1 */ "Unclassified",
+  /*  2 */ "Operations",
+  /*  3 */ "I/O",
+  /*  4 */ "Compare Function",
+  /*  5 */ "Misc"
+};
+
+/*
+ * gt.map2sam menu options
+ */
+gt_option gt_map2sam_options[] = {
+  /* I/O */
+  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (MultiFASTA/FASTA)" , "" },
+  { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GEM2-Index)" , "" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 200, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
+  /* Headers */
+  // { 300, "", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
+  /* Alignments */
+  { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , false, "'offset-33'|'offset-64'" , "" },
+  /* Optional Fields */
+  { 500, "NH", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 501, "NM", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 502, "XT", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 503, "XS", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 504, "md", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+//  { 500, "", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  /* Format */
+  { 'c', "compact", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , false, "" , "" },
+  /* Misc */
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
+  { 't', "threads", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
+  { 'H', "full-help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
+  {  0, "", 0, 0, 0, false, "", ""}
+};
+char* gt_map2sam_options_short = "i:o:r:I:pq:ct:hHv";
+char* gt_map2sam_groups[] = {
+  /*  0 */ "Null",
+  /*  1 */ "Unclassified",
+  /*  2 */ "I/O",
+  /*  3 */ "Headers",
+  /*  4 */ "Alignments",
+  /*  5 */ "Optional Fields",
+  /*  6 */ "Format",
+  /*  7 */ "Misc",
+};
+
+GT_INLINE uint64_t gt_options_get_num_options(const gt_option* const options) {
+  uint64_t num_options = 0, i = 0;
+  while (options[i++].option_id != 0) ++num_options;
+  return num_options;
+}
+GT_INLINE struct option* gt_options_adaptor_getopt(const gt_option* const options) {
+  const uint64_t num_options = gt_options_get_num_options(options);
+  struct option* menu_options = gt_malloc(sizeof(struct option)*num_options);
+  // Adapt all the records
+  uint64_t i = 0;
+  for (i=0;i<num_options;++i) {
+    menu_options[i].name = options[i].long_option;
+    menu_options[i].has_arg = options[i].argument_type;
+    menu_options[i].flag = 0;
+    menu_options[i].val = options[i].option_id;
+  }
+  return menu_options;
+}
+GT_INLINE gt_string* gt_options_adaptor_getopt_short(const gt_option* const options) {
+  const uint64_t num_options = gt_options_get_num_options(options);
+  gt_string* const options_short = gt_string_new(2*num_options);
+  // Adapt all the short options
+  uint64_t i = 0;
+  for (i=0;i<num_options;++i) {
+    const char short_option = options[i].option_id;
+    if (options[i].option_id<128 && gt_is_alphanumeric(short_option)) {
+      gt_string_append_char(options_short,short_option);
+      if (options[i].type==GT_OPT_REQUIRED || options[i].type==GT_OPT_OPTIONAL) {
+        gt_string_append_char(options_short,COLON);
+      }
     }
-    // Check slave
-    if (gt_buffered_input_file_eob(buffered_input_slave)) { // Slave exhausted. Dump master & return EOF
-      gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
-      while ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master,NULL))) {
-        if (error_code_master==GT_IMP_FAIL) gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-        gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
-      }
-    } else {
-      // Read slave
-      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_slave,template_slave,NULL))==GT_IMP_FAIL) {
-        gt_fatal_error_msg("Fatal error parsing file <<Slave>>");
-      }
-      // Synch loop
-      while (!gt_streq(gt_template_get_tag(template_master),gt_template_get_tag(template_slave))) {
-        // Print non correlative master's template
-        gt_output_map_bofprint_template(buffered_output,template_master,&output_attributes);
-        // Fetch next master's template
-        if (gt_buffered_input_file_eob(buffered_input_master)) gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>");
-        if ((error_code_master=gt_input_map_parser_get_template(buffered_input_master,template_master,NULL))!=GT_IMP_OK) {
-          gt_fatal_error_msg("Fatal error parsing file <<Master>>");
-        }
-      }
-      return GT_IMP_OK;
+  }
+  gt_string_append_eos(options_short);
+  return options_short;
+}
+GT_INLINE void gt_options_fprint_menu(
+    FILE* const stream,const gt_option* const options,char* groups[],
+    const bool print_description,const bool print_inactive) {
+  const uint64_t num_options = gt_options_get_num_options(options);
+  int64_t i, last_group = -1;
+  for (i=0;i<num_options;++i) {
+    if (!print_inactive && !options[i].active) continue;
+    // Print group (if not printed yet)
+    if (last_group!=options[i].group_id) {
+      fprintf(stream,"    [%s]\n",groups[options[i].group_id]);
+      last_group=options[i].group_id;
     }
-  } while (true);
-}
-
-GT_INLINE void gt_merge_synch_map_files_(
-    pthread_mutex_t* const input_mutex,const bool paired_end,gt_buffered_output_file* const buffered_output_file,
-    gt_buffered_input_file** const buffered_input_file,const uint64_t num_files) {
-  GT_NULL_CHECK(input_mutex);
-  GT_BUFFERED_OUTPUT_FILE_CHECK(buffered_output_file);
-  GT_NULL_CHECK(buffered_input_file);
-  GT_ZERO_CHECK(num_files);
-  // Attach the writing to the first buffered_input_file
-  gt_buffered_input_file_attach_buffered_output(buffered_input_file[0],buffered_output_file);
-  // Init templates
-  uint64_t i;
-  gt_template** template = gt_calloc(num_files,gt_template*,false);
-  for (i=0;i<num_files;++i) {
-    template[i] = gt_template_new(); // Allocate template
-  }
-  // Merge loop
-  gt_map_parser_attributes map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
-  gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
-  gt_status error_code_master, error_code_slave;
-  while (gt_input_map_parser_synch_blocks_a(input_mutex,buffered_input_file,num_files,&map_parser_attr)) {
-    // Read master (always guaranteed)
-    if ((error_code_master=gt_input_map_parser_get_template(buffered_input_file[0],template[0],NULL))==GT_IMP_FAIL) {
-      gt_fatal_error_msg("Fatal error parsing file Master::%s",buffered_input_file[0]->input_file->file_name);
+    // Print Long Option
+    fprintf(stream,"      --%s",options[i].long_option);
+    // Print Short Option (if it has)
+    const char short_option = options[i].option_id;
+    if (options[i].option_id<128 && gt_is_alphanumeric(short_option)) {
+      fprintf(stream,"|-%c",short_option);
     }
-    for (i=1;i<num_files;++i) {
-      // Read slave
-      if ((error_code_slave=gt_input_map_parser_get_template(buffered_input_file[i],template[i],NULL))==GT_IMP_FAIL) {
-        gt_fatal_error_msg("Fatal error parsing file Slave::%s",buffered_input_file[i]->input_file->file_name);
-      }
-      if (error_code_master!=error_code_slave) {
-        gt_fatal_error_msg("<<Slave>> contains more/different reads from <<Master>>, ('%s','%s')",
-            buffered_input_file[0]->input_file->file_name,buffered_input_file[i]->input_file->file_name);
-      }
-      // Check tags
-      if (!gt_string_equals(template[0]->tag,template[i]->tag)) {
-        gt_fatal_error_msg("Files are not synchronized ('%s','%s')\n"
-            "\tDifferent TAGs found '"PRIgts"' '"PRIgts"' ",
-            buffered_input_file[0]->input_file->file_name,buffered_input_file[i]->input_file->file_name,
-            PRIgts_content(template[0]->tag),PRIgts_content(template[i]->tag));
-      }
+    // Print extra command line syntax info
+    fprintf(stream," %s\n",options[i].command_info);
+    // Print description (@print_description)
+    if (print_description && !gt_streq(options[i].description,"")) {
+      fprintf(stream,"%s",options[i].command_info);
     }
-    // Merge maps
-    gt_template *ptemplate = gt_template_union_template_mmaps_a(template,num_files);
-    gt_output_map_bofprint_template(buffered_output_file,ptemplate,&output_attributes); // Print template
-    gt_template_delete(ptemplate); // Delete template
   }
-  // Free
-  for (i=0;i<num_files;++i) {
-    gt_template_delete(template[i]);
-  }
-  gt_free(template);
 }
 
-GT_INLINE void gt_merge_synch_map_files_a(
-    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
-    gt_input_file** const input_map_files,const uint64_t num_files) {
-  GT_NULL_CHECK(input_mutex);
-  GT_OUTPUT_FILE_CHECK(output_file);
-  GT_NULL_CHECK(input_map_files);
-  GT_ZERO_CHECK(num_files);
-  // Init Buffered Output File
-  gt_buffered_output_file* const buffered_output_file = gt_buffered_output_file_new(output_file);
-  // Init Buffered Input Files
-  uint64_t i;
-  gt_buffered_input_file** buffered_input_file = gt_calloc(num_files,gt_buffered_input_file*,false);
-  for (i=0;i<num_files;++i) {
-    GT_INPUT_FILE_CHECK(input_map_files[i]);
-    // Open buffered input file
-    buffered_input_file[i] = gt_buffered_input_file_new(input_map_files[i]);
-  }
-  // Buffered Reading+process
-  gt_merge_synch_map_files_(input_mutex,paired_end,buffered_output_file,buffered_input_file,num_files);
-  // Clean & free
-  for (i=0;i<num_files;++i) {
-    gt_buffered_input_file_close(buffered_input_file[i]);
-  }
-  gt_free(buffered_input_file);
-  gt_buffered_output_file_close(buffered_output_file);
-}
 
-GT_INLINE void gt_merge_synch_map_files_v(
-    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
-    gt_input_file* const input_map_master,const uint64_t num_slaves,va_list v_args) {
-  GT_NULL_CHECK(input_mutex);
-  GT_OUTPUT_FILE_CHECK(output_file);
-  GT_INPUT_FILE_CHECK(input_map_master);
-  // Setup master
-  gt_buffered_output_file* const buffered_output_file = gt_buffered_output_file_new(output_file);
-  // Setup slaves
-  uint64_t i;
-  const uint64_t num_files = num_slaves+1;
-  gt_buffered_input_file** buffered_input_file = gt_calloc(num_files,gt_buffered_input_file*,false);
-  // Init master (i=0)
-  GT_INPUT_FILE_CHECK(input_map_master);
-  buffered_input_file[0] = gt_buffered_input_file_new(input_map_master);
-  // Init slaves
-  for (i=1;i<num_files;++i) {
-    // Get input file slave
-    gt_input_file* input_map_file = va_arg(v_args,gt_input_file*);
-    GT_INPUT_FILE_CHECK(input_map_file);
-    // Open buffered input slave
-    buffered_input_file[i] = gt_buffered_input_file_new(input_map_file);
-  }
-  // Buffered Reading+process
-  gt_merge_synch_map_files_(input_mutex,paired_end,buffered_output_file,buffered_input_file,num_files);
-  // Clean
-  for (i=0;i<num_files;++i) {
-    gt_buffered_input_file_close(buffered_input_file[i]);
-  }
-  gt_free(buffered_input_file);
-  gt_buffered_output_file_close(buffered_output_file);
-}
-
-GT_INLINE void gt_merge_synch_map_files_va(
-    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
-    gt_input_file* const input_map_master,const uint64_t num_slaves,...) {
-  GT_NULL_CHECK(input_mutex);
-  GT_OUTPUT_FILE_CHECK(output_file);
-  GT_INPUT_FILE_CHECK(input_map_master);
-  va_list v_args;
-  va_start(v_args,num_slaves);
-  gt_merge_synch_map_files_v(input_mutex,paired_end,output_file,input_map_master,num_slaves,v_args);
-  va_end(v_args);
-}
-
-GT_INLINE void gt_merge_unsynch_map_files(
-    pthread_mutex_t* const input_mutex,gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
-    const bool paired_end,gt_output_file* const output_file) {
-  // Reading+process
-  gt_buffered_input_file* buffered_input_master = gt_buffered_input_file_new(input_map_master);
-  gt_buffered_input_file* buffered_input_slave  = gt_buffered_input_file_new(input_map_slave);
-  gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
-  gt_buffered_input_file_attach_buffered_output(buffered_input_master,buffered_output);
-
-  gt_template *template_master = gt_template_new();
-  gt_template *template_slave = gt_template_new();
-
-  gt_map_parser_attributes map_parser_attr = GT_MAP_PARSER_ATTR_DEFAULT(paired_end);
-  gt_output_map_attributes output_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
-
-  while (gt_merge_map_read_template_sync(input_mutex,buffered_input_master,buffered_input_slave,
-      &map_parser_attr,template_master,template_slave,buffered_output)) {
-    // Merge maps
-    // gt_template *ptemplate = gt_template_union_template_mmaps_fx_va(gt_mmap_cmp,gt_map_cmp,2,template_master,template_slave);
-    gt_template *ptemplate = gt_template_union_template_mmaps(template_master,template_slave);
-    // Print template
-    gt_output_map_bofprint_template(buffered_output,ptemplate,&output_attributes);
-    // Delete template
-    gt_template_delete(ptemplate);
-  }
-
-  // Clean
-  gt_template_delete(template_master);
-  gt_template_delete(template_slave);
-  gt_buffered_input_file_close(buffered_input_master);
-  gt_buffered_input_file_close(buffered_input_slave);
-  gt_buffered_output_file_close(buffered_output);
-}

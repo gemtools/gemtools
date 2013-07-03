@@ -60,10 +60,16 @@ GT_INLINE bool gt_alignment_get_next_matching_strata(
     gt_alignment* const alignment,const uint64_t begin_strata,
     uint64_t* const next_matching_strata,uint64_t* const num_maps);
 
+/*
+ * Alignment's Maps Sorting
+ */
 GT_INLINE void gt_alignment_sort_by_distance__score(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_sort_by_distance__score_no_split(gt_alignment* const alignment);
 
-GT_INLINE int64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const alignment, gt_map* const map);
+/*
+ * Alignment's Maps Utils
+ */
+GT_INLINE uint64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const alignment,gt_map* const map);
 
 /*
  * Alignment's Maps set-operators

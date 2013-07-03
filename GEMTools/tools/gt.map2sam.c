@@ -1,6 +1,6 @@
 /*
  * PROJECT: GEM-Tools library
- * FILE: gt.map.2.sam.c
+ * FILE: gt.map2sam.c
  * DATE: 02/02/2013
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: Converter from MAP to SAM
@@ -143,73 +143,27 @@ void gt_map2sam_read__write() {
   gt_output_file_close(output_file);
 }
 
-void usage() {
-  fprintf(stderr, "USE: ./gt.map.2.sam [ARGS]...\n"
-                  "         [I/O]\n"
-                  "           --input|-i [FILE]\n"
-                  "           --output|-o [FILE]\n"
-                  "           --reference|-r [FILE] (MultiFASTA/FASTA)\n"
-                  "           --gem-index|-I [FILE] (GEM2-Index)\n"
-               // "           --mmap-input\n"
-                  "           --paired-end|-p\n"
-                  "           --quality-format|-q 'offset-33'|'offset-64'\n"
-                  "         [Headers]\n"
-               // "           --comment <string>"
-                  "         [SAM format]\n"
-                  "           --compact|-c\n"
-                  "         [Optional Fields]\n"
-                  "           --NH\n"
-                  "           --NM\n"
-                  "           --XT\n"
-                  "           --XS\n"
-                  "           --md\n"
-                  "         [Misc]\n"
-                  "           --threads|-t\n"
-                  "           --verbose|-v\n"
-                  "           --help|-h\n");
+void usage(const gt_option* const options,char* groups[],const bool print_inactive) {
+  fprintf(stderr, "USE: ./gt.map2sam [ARGS]...\n");
+  gt_options_fprint_menu(stderr,options,groups,false,print_inactive);
   /*
    * Pending ...
    *        --score-alignments|s"
-   *
-   *
    */
   //                  "           --RG \n" // TODO: Bufff RG:Z:0 NH:i:16 XT:A:U
-
   // "           --headers [FILE] (Only {@RG,@PG,@CO} lines)\n"
   // "           --sorting 'unknown'|'unsorted'|'queryname'|'coordinate'\n"
 }
 
 void parse_arguments(int argc,char** argv) {
-  struct option long_options[] = {
-    /* I/O */
-    { "input", required_argument, 0, 'i' },
-    { "output", required_argument, 0, 'o' },
-    { "reference", required_argument, 0, 'r' },
-    { "gem-index", required_argument, 0, 'I' },
-    { "mmap-input", no_argument, 0, 1 },
-    { "paired-end", no_argument, 0, 'p' },
-    { "quality-format", no_argument, 0, 'q' },
-    /* Headers */
-
-    /* SAM format */
-    { "compact", no_argument, 0, 'c' },
-
-    /* Optional Fields */
-    { "NH", no_argument, 0, 50 },
-    { "NM", no_argument, 0, 51 },
-    { "XT", no_argument, 0, 52 },
-    { "md", no_argument, 0, 53 },
-    { "XS", no_argument, 0, 54 },
-    /* Misc */
-    { "threads", required_argument, 0, 't' },
-    { "verbose", no_argument, 0, 'v' },
-    { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 } };
-  int c,option_index;
-  while (1) {
-    c=getopt_long(argc,argv,"i:o:r:I:pq:ct:hHv",long_options,&option_index);
-    if (c==-1) break;
-    switch (c) {
+  struct option* gt_map2sam_getopt = gt_options_adaptor_getopt(gt_map2sam_options);
+  gt_string* const gt_map2sam_short_getopt = gt_options_adaptor_getopt_short(gt_map2sam_options);
+  int option, option_index;
+  while (true) {
+    // Get option &  Select case
+    if ((option=getopt_long(argc,argv,
+        gt_string_get_string(gt_map2sam_short_getopt),gt_map2sam_getopt,&option_index))==-1) break;
+    switch (option) {
     /* I/O */
     case 'i':
       parameters.name_input_file = optarg;
@@ -225,12 +179,16 @@ void parse_arguments(int argc,char** argv) {
       parameters.name_gem_index_file = optarg;
       parameters.load_index = true;
       break;
-    case 1:
-      parameters.mmap_input = true;
-      break;
     case 'p':
       parameters.paired_end = true;
       break;
+    case 200:
+      parameters.mmap_input = true;
+      gt_fatal_error(NOT_IMPLEMENTED);
+      break;
+    /* Headers */
+      // TODO
+    /* Alignments */
     case 'q':
       if (gt_streq(optarg,"offset-64")) {
         parameters.quality_format=GT_QUALS_OFFSET_64;
@@ -240,38 +198,39 @@ void parse_arguments(int argc,char** argv) {
         gt_fatal_error_msg("Quality format not recognized: '%s'",optarg);
       }
       break;
-    /* Headers */
-
-    /* SAM format */
+    /* Optional Fields */
+    case 500: // NH
+      parameters.optional_field_NH = true;
+      break;
+    case 501: // NM
+      parameters.optional_field_NM = true;
+      break;
+    case 502: // XT
+      parameters.optional_field_XT = true;
+      break;
+    case 503: // XS
+      parameters.optional_field_XS = true;
+      break;
+    case 504: // md
+      parameters.optional_field_md = true;
+      break;
+    /* Format */
     case 'c':
       parameters.compact_format = true;
       break;
-    /* Optional Fields */
-    case 50: // NH
-      parameters.optional_field_NH = true;
-      break;
-    case 51: // NM
-      parameters.optional_field_NM = true;
-      break;
-    case 52: // XT
-      parameters.optional_field_XT = true;
-      break;
-    case 53: // md
-      parameters.optional_field_md = true;
-      break;
-    case 54: // XS
-      parameters.optional_field_XS = true;
-      break;
       /* Misc */
-    case 't':
-      parameters.num_threads = atol(optarg);
-      break;
     case 'v':
       parameters.verbose = true;
       break;
+    case 't':
+      parameters.num_threads = atol(optarg);
+      break;
     case 'h':
+      usage(gt_map2sam_options,gt_map2sam_groups,false);
+      exit(1);
+      break;
     case 'H':
-      usage();
+      usage(gt_map2sam_options,gt_map2sam_groups,true);
       exit(1);
     case '?':
     default:
@@ -287,6 +246,8 @@ void parse_arguments(int argc,char** argv) {
   if(!parameters.load_index && parameters.optional_field_XS){
     gt_fatal_error_msg("Reference file required to compute XS field in SAM");
   }
+  // Free
+  gt_string_delete(gt_map2sam_short_getopt);
 }
 
 int main(int argc,char** argv) {

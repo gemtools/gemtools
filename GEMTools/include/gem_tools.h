@@ -16,9 +16,10 @@
 // Input handlers
 #include "gt_input_file.h"
 #include "gt_buffered_input_file.h"
-// Input parsers
+// Input parsers/utils
 #include "gt_input_parser.h"
 #include "gt_input_map_parser.h"
+#include "gt_input_map_utils.h"
 #include "gt_input_sam_parser.h"
 #include "gt_input_fasta_parser.h"
 #include "gt_input_generic_parser.h"
@@ -52,25 +53,9 @@
 // GEM Idx Loader
 #include "gt_gemIdx_loader.h"
 
-// Merge functions (synch files)
-#define gt_merge_synch_map_files(input_mutex,paired_end,output_file,input_map_master,input_map_slave) \
-  gt_merge_synch_map_files_va(input_mutex,paired_end,output_file,input_map_master,1,input_map_slave)
-GT_INLINE void gt_merge_synch_map_files_a(
-    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
-    gt_input_file** const input_map_files,const uint64_t num_input_map_files);
-GT_INLINE void gt_merge_synch_map_files_v(
-    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
-    gt_input_file* const input_map_master,const uint64_t num_slaves,va_list v_args);
-GT_INLINE void gt_merge_synch_map_files_va(
-    pthread_mutex_t* const input_mutex,const bool paired_end,gt_output_file* const output_file,
-    gt_input_file* const input_map_master,const uint64_t num_slaves,...);
-
-// Merge functions (unsynch files)
-GT_INLINE void gt_merge_unsynch_map_files(
-    pthread_mutex_t* const input_mutex,gt_input_file* const input_map_master,gt_input_file* const input_map_slave,
-    const bool paired_end,gt_output_file* const output_file);
-
-// General generic I/O loop (overkilling, but useful)
+/*
+ * General generic I/O loop (overkilling, but useful)
+ */
 #define GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,paired_end,buffered_output,template) \
   /* Prepare IN/OUT buffers & printers */ \
   gt_status __error_code; \
@@ -93,6 +78,41 @@ GT_INLINE void gt_merge_unsynch_map_files(
   gt_buffered_input_file_close(__buffered_input); \
   gt_buffered_output_file_close(buffered_output); \
   gt_input_generic_parser_attributes_delete(__gparser_attr); \
-  gt_template_delete(template); \
+  gt_template_delete(template)
+
+/*
+ * Options (Tools Menu)
+ */
+typedef enum { GT_OPT_NO_ARGUMENT=no_argument, GT_OPT_REQUIRED=required_argument, GT_OPT_OPTIONAL=optional_argument } gt_option_t;
+typedef enum { GT_OPT_NONE, GT_OPT_INT, GT_OPT_FLOAT, GT_OPT_CHAR, GT_OPT_STRING, GT_OPT_BOOL } gt_option_argument_t;
+typedef struct {
+  int option_id;       // Integer ID or short character option
+  char* long_option;   // Long string option
+  gt_option_t type;    // Option type
+  gt_option_argument_t argument_type; // Type of the argument
+  uint64_t group_id;   // Label of the group it belongs to (zero if none)
+  bool active;         // Enable/Disable option
+  char* command_info;  // Extra command line syntax info
+  char* description;   // Brief description
+} gt_option;
+
+extern gt_option gt_filter_options[];
+extern char* gt_filter_groups[];
+
+extern gt_option gt_stats_options[];
+extern char* gt_stats_groups[];
+
+extern gt_option gt_mapset_options[];
+extern char* gt_mapset_groups[];
+
+extern gt_option gt_map2sam_options[];
+extern char* gt_map2sam_groups[];
+
+GT_INLINE uint64_t gt_options_get_num_options(const gt_option* const options);
+GT_INLINE struct option* gt_options_adaptor_getopt(const gt_option* const options);
+GT_INLINE gt_string* gt_options_adaptor_getopt_short(const gt_option* const options);
+GT_INLINE void gt_options_fprint_menu(
+    FILE* const stream,const gt_option* const options,char* gt_filter_groups[],
+    const bool print_description,const bool print_inactive);
 
 #endif /* GEM_TOOLS_H_ */

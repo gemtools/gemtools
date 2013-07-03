@@ -359,7 +359,9 @@ int gt_mmap_cmp_distance__score(gt_mmap* const mmap_a,gt_mmap* const mmap_b) {
   const uint64_t score_b = mmap_b->attributes.gt_score;
   return (score_a > score_b) ? -1 : (score_a < score_b ? 1 : 0);
 }
-
+/*
+ * Template's Maps Sorting
+ */
 GT_INLINE void gt_template_sort_by_distance__score(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
@@ -381,7 +383,17 @@ GT_INLINE void gt_template_sort_by_distance__score_no_split(gt_template* const t
   qsort(gt_vector_get_mem(template->mmaps,gt_mmap),num_mmap,sizeof(gt_mmap),
       (int (*)(const void *,const void *))gt_mmap_cmp_distance__score);
 }
-
+/*
+ * Template's MMaps Utils
+ */
+GT_INLINE uint64_t gt_template_sum_mismatch_qualities(gt_template* const template,gt_map** const mmap) {
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_sum_mismatch_qualities(alignment,mmap[0]);
+  } GT_TEMPLATE_END_REDUCTION;
+  return gt_alignment_sum_mismatch_qualities(gt_template_get_block(template,0),mmap[0]) +
+         gt_alignment_sum_mismatch_qualities(gt_template_get_block(template,1),mmap[1]);
+}
 /*
  * Template Set operators
  */
