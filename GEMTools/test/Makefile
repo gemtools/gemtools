@@ -19,7 +19,7 @@ GT_ITESTS=gt_itest_map_parser
 GT_UTESTS_FLAGS=$(ARCH_FLAGS) $(DEBUG_FLAGS)
 GT_COVERAGE_FLAGS=-g -Wall -fprofile-arcs -ftest-coverage $(GT_TESTS_FLAGS)
 
-LIBS=-lpthread -lgemtools -lcheck -lz -lbz2
+LIBS=-lpthread -lgemtools -lcheck -lz -lbz2 -fopenmp
 
 all: check coverage
 

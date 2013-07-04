@@ -20,7 +20,7 @@ void gt_ihash_teardown(void) {
 START_TEST(gt_test_ihash_basic_insertions)
 {
   // Insert integer
-  uint64_t* integer = gt_malloc(uint64_t);
+  uint64_t* integer = gt_alloc(uint64_t);
   *integer = 9000;
   gt_ihash_insert(ihash,200,integer,uint64_t);
   fail_unless(*gt_ihash_get(ihash,200,uint64_t)==9000,"Failed inserting integer into ihash");
