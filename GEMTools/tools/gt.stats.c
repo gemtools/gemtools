@@ -328,7 +328,7 @@ void parse_arguments(int argc,char** argv) {
       gt_options_fprint_menu(stderr,gt_stats_options,gt_stats_groups,false,true);
       exit(1);
     case 'J':
-      gt_options_fprint_json_menu(stderr,gt_stats_options,gt_stats_groups,false,true);
+      gt_options_fprint_json_menu(stderr,gt_stats_options,gt_stats_groups,true,false);
       exit(1);
       break;
     case '?':

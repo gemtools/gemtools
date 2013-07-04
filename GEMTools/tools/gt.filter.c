@@ -1749,7 +1749,7 @@ void parse_arguments(int argc,char** argv) {
       gt_options_fprint_menu(stderr,gt_filter_options,gt_filter_groups,false,true);
       exit(1);
     case 'J':
-      gt_options_fprint_json_menu(stderr,gt_filter_options,gt_filter_groups,false,true);
+      gt_options_fprint_json_menu(stderr,gt_filter_options,gt_filter_groups,true,false);
       exit(1);
       break;
     case '?':
