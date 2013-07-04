@@ -18,6 +18,8 @@ import datetime
 import time
 import tempfile
 import multiprocessing as mp
+import json
+import subprocess
 
 
 # clobal process registry
@@ -105,6 +107,83 @@ class Command(object):
 
         args -- the parsed arguments"""
         pass
+    def add_options(self, tool, parser):
+        """Reads the tools JSON options and adds them to the
+        command line parser. The commands 'tool_options' dict is
+        set after execution and the parsed args can be translated to
+        a command argument with get_command()
+        """
+        ## required parameters
+        # read the json
+
+        output = subprocess.Popen([gem.executables[tool], '-J'],
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE).communicate()[1]
+
+        args = json.loads(output)
+        groups = {}
+        self.tool = tool
+        self.tool_opts = {}
+        if "options" in args:
+            options = args['options']
+            opt_parser = parser
+            for opt in options:
+                if opt.get('shortOption', "") == "h":
+                    continue
+                # get the group parser or create it
+                if "group" in opt:
+                    group = opt['group']
+                    if len(group) > 0:
+                        if group not in groups:
+                            opt_parser = parser.add_argument_group(group)
+                            groups[group] = opt_parser
+                        else:
+                            opt_parser = groups[group]
+
+                shortOption = opt.get('shortOption', None)
+                longOption = opt.get('longOption', None)
+                optionType = opt.get('optionType', "")
+                metaVar = opt.get("commandInfo", None)
+                description = opt.get("description", None)
+                all_options = []
+
+                if shortOption is not None:
+                    all_options.append("-" + shortOption)
+                if longOption is not None:
+                    all_options.append("--" + longOption)
+
+                if metaVar is not None:
+                    metaVar = metaVar.split(" ")[0]
+                kwargs = {"dest": longOption,
+                          "metavar": metaVar,
+                          "help": description
+                          }
+
+                if opt.get('argumentType', None) is not None:
+                    t = opt['argumentType']
+                    if t == "int":
+                        kwargs['type'] = int
+                    elif t == "float":
+                        kwargs['type'] = float
+
+                if optionType == "noArgument":
+                    kwargs['action'] = "store_true"
+                    del kwargs['metavar']
+                opt_parser.add_argument(*all_options, **kwargs)
+                self.tool_opts[longOption] = kwargs
+
+    def get_command(self, args):
+        cmd = [gem.executables[self.tool]]
+        dargs = vars(args)
+        for k, v in dargs.items():
+            if k in self.tool_opts and v is not None:
+                if not isinstance(v, bool):
+                    cmd.append("--" + k)
+                    cmd.append(str(v))
+                elif v:
+                    cmd.append("--" + k)
+        return cmd
+
 
 
 # complement translation
