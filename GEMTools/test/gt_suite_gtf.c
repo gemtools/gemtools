@@ -78,26 +78,6 @@ START_TEST(gt_test_gtf_read)
 END_TEST
 
 
-START_TEST(gt_test_gtf_read_sort)
-{
-    FILE* fp = fopen("testdata/chr1.gtf", "r");
-    gt_gtf* gtf =  gt_gtf_read(fp);
-	fclose(fp);
-	fail_unless(gt_shash_get_num_elements(gtf->types)==4, "Not all types inserted");
-	
-	gt_gtf_ref* ref_1 = gt_gtf_get_ref(gtf, "chr1");
-	gt_gtf_ref* ref_2 = gt_gtf_get_ref(gtf, "chr2");
-	uint64_t s = 0;
-	GT_VECTOR_ITERATE(ref_1->entries,element,counter,gt_gtf_entry*) 
-	{
-		fail_unless(s <= (*element)->start, "Not sorted");
-		s = (*element)->start;
-	}
-
-	gt_gtf_delete(gtf);
-}
-END_TEST
-
 START_TEST(gt_test_gtf_search)
 {
   FILE* fp = fopen("testdata/chr1.gtf", "r");
@@ -210,7 +190,6 @@ Suite *gt_gtf_suite(void) {
   tcase_add_test(tc_core,gt_test_gtf_entry_create);
   tcase_add_test(tc_core,gt_test_gtf_read_line);
   tcase_add_test(tc_core,gt_test_gtf_read);
-  tcase_add_test(tc_core,gt_test_gtf_read_sort);
   tcase_add_test(tc_core,gt_test_gtf_search);
   tcase_add_test(tc_core,gt_test_gtf_find_matches);
   suite_add_tcase(s,tc_core);
