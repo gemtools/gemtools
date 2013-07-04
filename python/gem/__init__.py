@@ -279,9 +279,10 @@ def _prepare_output(process, output=None, quality=None, bam=False):
                 if p is not None and p.wait() != 0:
                     raise gem.utils.ProcessError("Execution failed!")
                 # close streams next process in
-                if k < len(process) - 1:
+                if (k + 1) < len(process):
                     next_process = process[k + 1]
-                    if next_process.stdin is not None:
+                    if next_process is not None and \
+                       next_process.stdin is not None:
                         next_process.stdin.close()
         logging.debug("Opening output file %s" % (output))
         if output.endswith(".bam") or bam:

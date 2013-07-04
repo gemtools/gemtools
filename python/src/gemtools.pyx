@@ -1192,7 +1192,6 @@ cdef class StatsMapProfile(object):
                 "qual_score_misms": self.qual_score_misms,
                 "qual_score_errors": self.qual_score_errors,
                 "misms_1context": self.misms_1context,
-                "misms_2context": self.misms_2context,
                 "indel_transition_1": self.indel_transition_1,
                 "indel_transition_2": self.indel_transition_2,
                 "indel_transition_3": self.indel_transition_3,
