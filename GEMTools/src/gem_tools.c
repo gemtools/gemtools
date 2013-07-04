@@ -312,7 +312,7 @@ GT_INLINE void gt_options_fprint_json_menu(
     if (!print_inactive && !options[i].active) continue;
     fprintf(stream,"\t{ \n");
     // Print ID/Short Option
-    fprintf(stream,"\t  \"ID\": \"%d\",\n",options[i].option_id);
+    fprintf(stream,"\t  \"ID\": %d,\n",options[i].option_id);
     // Print Long Option
     fprintf(stream,"\t  \"longOption\": \"%s\",\n",options[i].long_option);
     // Print Short Option
