@@ -71,6 +71,7 @@ typedef struct {
   /* Filter SE-Maps */
   bool first_map;
   bool keep_first_map;
+  bool keep_unique;
   bool matches_pruning;
   uint64_t max_decoded_matches;
   uint64_t min_decoded_strata;
@@ -175,6 +176,7 @@ gt_filter_args parameters = {
     /* Filter SE-Maps */
     .first_map=false,
     .keep_first_map=false,
+    .keep_unique=false,
     .matches_pruning=false,
     .max_decoded_matches=GT_ALL,
     .min_decoded_strata=0,
@@ -361,6 +363,7 @@ GT_INLINE uint64_t gt_filter_count_junctions_in_region(gt_map* const map,const u
 }
 GT_INLINE bool gt_filter_are_overlapping_pairs_coherent(gt_map** const mmap) {
   if (!gt_map_has_next_block(mmap[0]) && !gt_map_has_next_block(mmap[1])) return true;
+
   // Check overlap
   uint64_t overlap_start, overlap_end;
   if (gt_map_block_overlap(mmap[0],mmap[1],&overlap_start,&overlap_end)) {
@@ -835,7 +838,8 @@ GT_INLINE bool gt_filter_apply_filters(
   }
 
   // Map DNA-filtering
-  if (parameters.perform_dna_map_filter) {
+  uint64_t num_maps = gt_template_get_num_mmaps(template);
+  if (parameters.perform_dna_map_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_dna_filter(template_filtered,template,file_format);
     gt_template_swap(template,template_filtered);
@@ -843,7 +847,7 @@ GT_INLINE bool gt_filter_apply_filters(
     gt_template_recalculate_counters(template);
   }
   // Map RNA-filtering
-  if (parameters.perform_rna_map_filter) {
+  if (parameters.perform_rna_map_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_rna_filter(template_filtered,template,file_format);
     gt_template_swap(template,template_filtered);
@@ -851,7 +855,7 @@ GT_INLINE bool gt_filter_apply_filters(
     gt_template_recalculate_counters(template);
   }
   // Map Annotation-filtering
-  if (parameters.gtf != NULL && parameters.perform_annotation_filter) {
+  if (parameters.gtf != NULL && parameters.perform_annotation_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_filter_make_reduce_by_annotation(template_filtered,template);
     gt_template_swap(template,template_filtered);
@@ -1544,6 +1548,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'k': // keep-first-map
       parameters.keep_first_map = true;
+      break;
+    case 'u': // keep-unique
+      parameters.keep_unique = true;
       break;
     case 'd': // max-decoded-matches
       parameters.matches_pruning = true;

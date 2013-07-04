@@ -43,6 +43,7 @@ gt_option gt_filter_options[] = {
   /* Filter SE-Maps */
   { 500, "first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 'k', "keep-first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 'u', "keep-unique", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 'd', "max-decoded-matches", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (stratum-wise)" , "" },
   { 'D', "min-decoded-strata", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (stratum-wise)" , "" },
   { 501, "max-output-matches", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (to be output, NOT-stratum-wise)" , "" },
