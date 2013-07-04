@@ -71,6 +71,7 @@ typedef struct {
   /* Filter SE-Maps */
   bool first_map;
   bool keep_first_map;
+  bool keep_unique;
   bool matches_pruning;
   uint64_t max_decoded_matches;
   uint64_t min_decoded_strata;
@@ -175,6 +176,7 @@ gt_filter_args parameters = {
     /* Filter SE-Maps */
     .first_map=false,
     .keep_first_map=false,
+    .keep_unique=false,
     .matches_pruning=false,
     .max_decoded_matches=GT_ALL,
     .min_decoded_strata=0,
@@ -345,24 +347,41 @@ GT_INLINE bool gt_filter_has_junction(gt_map* const map,const uint64_t start,con
   }
   return false;
 }
+
+GT_INLINE uint64_t gt_filter_count_junctions_in_region(gt_map* const map,const uint64_t start,const uint64_t end) {
+  uint64_t count = 0;
+  GT_MAP_ITERATE(map,map_block) {
+    if (gt_map_has_next_block(map_block)) {
+      const bool forward = (gt_map_get_strand(map_block) == FORWARD);
+      // Is the junction in the overlap ?
+      const uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map_block: gt_map_get_next_block(map_block)) + 1;
+      const uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map_block): map_block) - 1;
+      if (junctions_start >= start && junctions_end <= end) count++;
+    }
+  }
+  return count;
+}
 GT_INLINE bool gt_filter_are_overlapping_pairs_coherent(gt_map** const mmap) {
   if (!gt_map_has_next_block(mmap[0]) && !gt_map_has_next_block(mmap[1])) return true;
+
   // Check overlap
   uint64_t overlap_start, overlap_end;
   if (gt_map_block_overlap(mmap[0],mmap[1],&overlap_start,&overlap_end)) {
+    uint64_t junctions_in_1 = gt_filter_count_junctions_in_region(mmap[0], overlap_start, overlap_end);
+    uint64_t junctions_in_2 = gt_filter_count_junctions_in_region(mmap[1], overlap_start, overlap_end);
+    if(junctions_in_1 != junctions_in_2) return false;
+
     GT_MAP_ITERATE(mmap[0],map_block) {
       if (gt_map_has_next_block(map_block)) {
         const bool forward = (gt_map_get_strand(map_block) == FORWARD);
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
         // Is the junction in the overlap ?
-        const uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map_block: gt_map_get_next_block(map_block));
-        const uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map_block): map_block);
+        const uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map_block: gt_map_get_next_block(map_block)) + 1;
+        const uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map_block): map_block) - 1;
         // Find the junctions start in the other map
         if (junctions_start >= overlap_start && junctions_start < overlap_end &&
             !gt_filter_has_junction(mmap[1],junctions_start,junctions_end)) {
           return false; // Start not found, not overlapping split maps
         }
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
       }
     }
   }
@@ -819,7 +838,8 @@ GT_INLINE bool gt_filter_apply_filters(
   }
 
   // Map DNA-filtering
-  if (parameters.perform_dna_map_filter) {
+  uint64_t num_maps = gt_template_get_num_mmaps(template);
+  if (parameters.perform_dna_map_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_dna_filter(template_filtered,template,file_format);
     gt_template_swap(template,template_filtered);
@@ -827,7 +847,7 @@ GT_INLINE bool gt_filter_apply_filters(
     gt_template_recalculate_counters(template);
   }
   // Map RNA-filtering
-  if (parameters.perform_rna_map_filter) {
+  if (parameters.perform_rna_map_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_rna_filter(template_filtered,template,file_format);
     gt_template_swap(template,template_filtered);
@@ -835,7 +855,7 @@ GT_INLINE bool gt_filter_apply_filters(
     gt_template_recalculate_counters(template);
   }
   // Map Annotation-filtering
-  if (parameters.gtf != NULL && parameters.perform_annotation_filter) {
+  if (parameters.gtf != NULL && parameters.perform_annotation_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_filter_make_reduce_by_annotation(template_filtered,template);
     gt_template_swap(template,template_filtered);
@@ -1528,6 +1548,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'k': // keep-first-map
       parameters.keep_first_map = true;
+      break;
+    case 'u': // keep-unique
+      parameters.keep_unique = true;
       break;
     case 'd': // max-decoded-matches
       parameters.matches_pruning = true;

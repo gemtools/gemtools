@@ -32,7 +32,7 @@ def register_process(process):
     _process_registry.add(process)
 
 
-def teminate_processes():
+def terminate_processes():
     """Do a hard cleanup and terminata all registered
     processes.
     """

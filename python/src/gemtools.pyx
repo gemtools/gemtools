@@ -68,7 +68,7 @@ cdef class filter_trim(TemplateFilter):
         self.min_length = min_length
         self.set_extra = set_extra
 
-    cpdef bool filter(self, Template template):        
+    cpdef bool filter(self, Template template):
         gt_template_hard_trim(template.template, self.left, self.right)
         #gt_template_trim(template.template, self.left, self.right, self.min_length, self.set_extra)
         return True
@@ -200,69 +200,6 @@ cdef class cat(interleave):
 
     def __init__(self, files, uint64_t threads=1):
         interleave.__init__(self, files, interleave=False, threads=threads)
-
-
-cdef class merge(object):
-    """Merge a master stream with a list of child streams"""
-    cdef object inputs
-    cdef object buffers
-
-    def __init__(self, inputs):
-        self.inputs = inputs
-        self.buffers = []
-
-    def __iter__(self):
-        self.inputs = [s.__iter__() for s in self.inputs]
-        for i, t in enumerate(self.inputs[1:]):
-            self.buffers.append(t.__next__())
-        return self
-
-    def __next__(self):
-        cdef Template m = self.inputs[0].__next__()
-        cdef Template o
-        cdef buffers = self.buffers
-        for i, t in enumerate(self.inputs[1:]):
-            o = buffers[i]
-            if o is None:
-                try:
-                    buffers[i] = t.__next__()
-                except:
-                    pass
-            if o is not None and o.same(m):
-                m.merge(o)
-                try:
-                    buffers[i] = t.__next__()
-                except:
-                    pass
-        return m
-
-    cpdef write_stream(self, OutputFile output, bool write_map=False, uint64_t threads=1, bool async=False):
-        """Write the content of this input stream to the output file
-        file.
-
-        output   -- the output file
-        write_map     -- if true, write map, otherwise write fasta/q sequence
-        interleave    -- interleave muliple inputs
-        threads       -- number of threads to use (if supported by the iterator)
-        """
-        # cdef gt_output_file* output_file = output.output_file
-        # cdef uint64_t num_inputs = len(self.inputs)
-        # cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-        # cdef bool clean_id = output.clean_id
-        # cdef bool append_extra = output.append_extra
-        # for i in range(num_inputs):
-        #     inputs[i] = (<InputFile> self.inputs[i])._open()
-
-        # with nogil:
-        #     gt_merge_files_synch(output_file, threads, num_inputs, inputs);
-
-        # output.close()
-        # for i in range(num_inputs):
-        #     gt_input_file_close(inputs[i])
-        # free(inputs)
-        __run_write_stream(self.inputs, output, write_map, threads, False, None, __write_merge_stream, async)
-
-
 
 
 cdef class OutputFile:
@@ -471,7 +408,8 @@ cdef class InputFile(object):
         if self.filename is None:
             return self.source
         else:
-            return open(self.filename, "rb")
+            import gem.files
+            return gem.files.open_file(self.filename)
 
     def __iter__(self):
         """Initialize buffers and prepare for iterating"""
@@ -545,22 +483,6 @@ cpdef __write_stream(source, OutputFile output, bool write_map=False, uint64_t t
     with nogil:
         gt_write_stream(output_file, inputs, num_inputs, append_extra, clean_id, interleave, use_threads, write_map, remove_scores)
 
-    output.close()
-    for i in range(num_inputs):
-        gt_input_file_close(inputs[i])
-    free(inputs)
-
-cpdef __write_merge_stream(source, OutputFile output, bool write_map=False, uint64_t threads=1, bool interleave=True, bool remove_scores=False):
-    cdef gt_output_file* output_file = output.output_file
-    cdef uint64_t num_inputs = len(source)
-    cdef gt_input_file** inputs = <gt_input_file**>malloc( num_inputs *sizeof(gt_input_file*))
-    cdef uint64_t use_threads = threads
-
-    for i in range(num_inputs):
-        inputs[i] = (<InputFile> source[i])._open()
-
-    with nogil:
-        gt_merge_files_synch(output_file, threads, num_inputs, inputs);
     output.close()
     for i in range(num_inputs):
         gt_input_file_close(inputs[i])
@@ -1264,7 +1186,7 @@ cdef class StatsMapProfile(object):
                 "total_bases": self.total_bases,
                 "total_bases_matching": self.total_bases_matching,
                 "total_bases_trimmed": self.total_bases_trimmed,
-                "inss": self.inss,                
+                "inss": self.inss,
                 "inss_description": self.inss_description,
                 "misms_transition": self.misms_transition,
                 "qual_score_misms": self.qual_score_misms,

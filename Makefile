@@ -6,6 +6,10 @@ all:
 	$(MAKE) -C GEMTools
 	python setup.py build
 
+static:
+	$(MAKE) -C GEMTools static
+	python setup.py build
+
 gemtools:
 	$(MAKE) -C GEMTools release
 

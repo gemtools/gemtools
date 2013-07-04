@@ -43,30 +43,15 @@ def gemtools():
         if args.loglevel is not None:
             gem.loglevel(args.loglevel)
 
-        # register cleanup signal handler
-        def cleanup_in_signal(signal, frame):
-            # cleanup
-            gem.utils.teminate_processes()
-            gem.files._cleanup()
-
-        signal.signal(signal.SIGINT, cleanup_in_signal)
-        signal.signal(signal.SIGQUIT, cleanup_in_signal)
-        signal.signal(signal.SIGHUP, cleanup_in_signal)
-        signal.signal(signal.SIGTERM, cleanup_in_signal)
-
         try:
             instances[args.command].run(args)
         except gem.utils.CommandException, e:
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
     except KeyboardInterrupt:
-        gem.utils.teminate_processes()
-        gem.files._cleanup()
         exit(1)
     finally:
-        # cleanup
-        gem.utils.teminate_processes()
-        gem.files._cleanup()
+        pass
 
 if __name__ == "__main__":
     gemtools()

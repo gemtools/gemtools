@@ -29,7 +29,7 @@ def cleanup():
 def test_file_merge_async():
     reads_1 = files.open(testfiles["test.map"])
     reads_2 = files.open(testfiles["test.map"])
-    merged = gem.merger(reads_1, [reads_2])
+    merged = gem.merge(reads_1, [reads_2])
     num_reads = sum(1 for r in merged)
     assert num_reads == 10
 
@@ -38,7 +38,9 @@ def test_file_merge_async():
 def test_file_merge_pairwise_same():
     reads_1 = files.open(testfiles["test.map"])
     reads_2 = files.open(testfiles["test.map"])
-    merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map", threads=8)
+    merged = gem.merge(reads_1, [reads_2],
+                       output=results_dir + "/merge_result.map",
+                       threads=8, paired=True)
     num_reads = sum(1 for r in merged)
     assert num_reads == 10
 
@@ -47,7 +49,9 @@ def test_file_merge_pairwise_same():
 def test_file_merge_pairwise_same_content_big():
     reads_1 = files.open(testfiles["20t.map.gz"])
     reads_2 = files.open(testfiles["20t.map.gz"])
-    merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map", threads=8, same_content=True)
+    merged = gem.merge(reads_1, [reads_2],
+                       output=results_dir + "/merge_result.map",
+                       threads=8, same_content=True)
     num_reads = sum(1 for r in merged)
     assert num_reads == 20000
 
@@ -57,7 +61,9 @@ def test_file_merge_pairwise_same_content_big_uncompressed():
     subprocess.call("cp %s %s; gunzip %s;" % (testfiles["20t.map.gz"], results_dir, results_dir + "/20t.map.gz"), shell=True)
     reads_1 = files.open(results_dir + "/20t.map")
     reads_2 = files.open(results_dir + "/20t.map")
-    merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map", threads=8, same_content=True)
+    merged = gem.merge(reads_1, [reads_2],
+                       output=results_dir + "/merge_result.map",
+                       threads=8, same_content=True)
     num_reads = sum(1 for r in merged)
     assert num_reads == 20000
 
@@ -66,6 +72,8 @@ def test_file_merge_pairwise_same_content_big_uncompressed():
 def test_file_merge_pairwise_same_content_big_sub():
     reads_1 = files.open(testfiles["20t.map.gz"])
     reads_2 = files.open(testfiles["20t_sub.map.gz"])
-    merged = gem.merger(reads_1, [reads_2]).merge(results_dir + "/merge_result.map", threads=8)
+    merged = gem.merge(reads_1, [reads_2],
+                       output=results_dir + "/merge_result.map",
+                       threads=8, paired=True)
     num_reads = sum(1 for r in merged)
     assert num_reads == 20000

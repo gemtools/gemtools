@@ -160,7 +160,11 @@ class MergeStep(PipelineStep):
         inputs = self._input()
         master = inputs[0]
         slaves = inputs[1:]
-        mapping = gem.merger(master, slaves).merge(self._output(), self.pipeline.threads, same_content=same_content, compress=self._compress())
+        mapping = gem.merge(master, slaves, output=self._output(),
+                            threads=self.pipeline.threads,
+                            same_content=same_content,
+                            paired=False,
+                            compress=self._compress())
 
         if self.final:
             gem.score(mapping, self.configuration["index"], self._final_output(),
@@ -187,7 +191,11 @@ class MergeAndPairStep(PipelineStep):
         master = inputs[0]
         slaves = inputs[1:]
 
-        mapping = gem.merger(master, slaves).merge(None, threads=self.pipeline.threads, same_content=same_content, compress=False)
+        mapping = gem.merge(master, slaves, output=None,
+                            threads=self.pipeline.threads,
+                            same_content=same_content,
+                            paired=False,
+                            compress=self._compress())
 
         pair_mapping = gem.pairalign(
             mapping,

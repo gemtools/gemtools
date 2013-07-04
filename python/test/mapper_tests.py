@@ -27,6 +27,27 @@ def setup_func():
 def cleanup():
     shutil.rmtree(results_dir, ignore_errors=True)
 
+@with_setup(setup_func, cleanup)
+def test_merging_maps_files():
+    input = testfiles["test_merge_target.map"]
+    source_1 = testfiles["test_merge_source_1.map"]
+    source_2 = testfiles["test_merge_source_2.map"]
+    #result = gem.mapper(input, index, results_dir + "/merged.mapping")
+    merger = gem.merge(input, [source_1, source_2])
+    count = 0
+    for read in merger:
+        count += 1
+        if read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13866:124450":
+            assert read.to_map().split("\t")[3] == "0+1", read.to_map()
+            assert read.to_map().split("\t")[4] == "chr2:-:162359617:74G"
+        elif read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13753:124452":
+            assert read.to_map().split("\t")[3] == "0+1", read.to_map()
+            assert read.to_map().split("\t")[4] == "chr9:+:38397301:54G20"
+        elif read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:14211:124259":
+            assert read.to_map().split("\t")[3] == "1", read.to_map()
+            assert read.to_map().split("\t")[4] == "chr15:+:72492866:75"
+    assert count == 10
+
 
 @with_setup(setup_func, cleanup)
 def test_merging_maps():
@@ -34,8 +55,7 @@ def test_merging_maps():
     source_1 = files.open(testfiles["test_merge_source_1.map"])
     source_2 = files.open(testfiles["test_merge_source_2.map"])
     #result = gem.mapper(input, index, results_dir + "/merged.mapping")
-    merger = gem.merger(input, [source_1, source_2])
-
+    merger = gem.merge(input, [source_1, source_2])
     count = 0
     for read in merger:
         count += 1
@@ -62,7 +82,7 @@ def test_merging_maps_chr21():
     fs = []
     for f in s:
         fs.append(files.open(testfiles[f]))
-    m = gem.merger(fs[0], fs[1:])
+    m = gem.merge(fs[0], fs[1:])
     count = 0
     ms = 0
     for read in m:
@@ -77,9 +97,9 @@ def test_merging_maps_to_file():
     source_1 = files.open(testfiles["test_merge_source_1.map"])
     source_2 = files.open(testfiles["test_merge_source_2.map"])
     result = results_dir + "/merged.mapping"
-    merger = gem.merger(input, [source_1, source_2])
+    merger = gem.merge(input, [source_1, source_2], output=result)
     count = 0
-    for read in merger.merge(result):
+    for read in merger:
         count += 1
         if read.tag == "HWI-ST661:153:D0FTJACXX:2:1102:13866:124450 1:N:0:GCCAAT":
             assert read.to_map().split("\t")[3] == "0+1"

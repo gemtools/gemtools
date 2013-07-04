@@ -17,9 +17,9 @@ GT_INLINE bool gt_map_block_overlap(
   uint64_t map_1_end = map_1_start + gt_map_get_global_length(map_block_1);
   uint64_t map_2_end = map_2_start + gt_map_get_global_length(map_block_2);
   // Check overlap
-  if (map_1_start < map_2_start) {
+  if (map_1_start <= map_2_start) {
     if (map_1_end < map_2_start) return false;
-  } else if (map_2_start < map_1_start) {
+  } else if (map_2_start <= map_1_start) {
     if (map_2_end < map_1_start) return false;
   } else { // map_1_start == map_2_start
     return false;
