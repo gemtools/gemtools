@@ -90,7 +90,8 @@ gt_option gt_filter_options[] = {
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 11 , true, "" , "" },
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
-  { 'H', "full-help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , false, "" , "" },
+  { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , false, "" , "" },
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
 };
 char* gt_filter_options_short = "i:o:r:I:pd:D:Ckst:hHv";
@@ -130,14 +131,15 @@ gt_option gt_stats_options[] = {
   { 'Q', "mismatch-quality", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
   { 'R', "rna-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
   { 'P', "population-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
-  { 'D', "indel-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  // { 'D', "indel-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
   /* MAP Specific */
   { 400, "use-only-decoded-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "(instead of counters)", ""},
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
-  { 'H', "full-help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
+  { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
 };
 char* gt_stats_options_short = "i:r:I:pn:o:f:aMTQRPDvt:hH";
@@ -180,6 +182,7 @@ gt_option gt_mapset_options[] = {
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
 };
 char* gt_mapset_options_short = "C:po:svt:h";
@@ -220,7 +223,8 @@ gt_option gt_map2sam_options[] = {
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 7, true, "", ""},
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
-  { 'H', "full-help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
+  { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
 };
 char* gt_map2sam_options_short = "i:o:r:I:pq:ct:hHv";
@@ -247,7 +251,7 @@ GT_INLINE struct option* gt_options_adaptor_getopt(const gt_option* const option
   uint64_t i = 0;
   for (i=0;i<num_options;++i) {
     menu_options[i].name = options[i].long_option;
-    menu_options[i].has_arg = options[i].type;
+    menu_options[i].has_arg = options[i].option_type;
     menu_options[i].flag = 0;
     menu_options[i].val = options[i].option_id;
   }
@@ -262,7 +266,7 @@ GT_INLINE gt_string* gt_options_adaptor_getopt_short(const gt_option* const opti
     const char short_option = options[i].option_id;
     if (options[i].option_id<128 && gt_is_alphanumeric(short_option)) {
       gt_string_append_char(options_short,short_option);
-      if (options[i].type==GT_OPT_REQUIRED || options[i].type==GT_OPT_OPTIONAL) {
+      if (options[i].option_type==GT_OPT_REQUIRED || options[i].option_type==GT_OPT_OPTIONAL) {
         gt_string_append_char(options_short,COLON);
       }
     }
@@ -293,9 +297,63 @@ GT_INLINE void gt_options_fprint_menu(
     fprintf(stream," %s\n",options[i].command_info);
     // Print description (@print_description)
     if (print_description && !gt_streq(options[i].description,"")) {
-      fprintf(stream,"%s",options[i].command_info);
+      fprintf(stream,"%s",options[i].description);
     }
   }
+}
+GT_INLINE void gt_options_fprint_json_menu(
+    FILE* const stream,const gt_option* const options,char* groups[],
+    const bool print_description,const bool print_inactive) {
+  const uint64_t num_options = gt_options_get_num_options(options);
+  int64_t i;
+  fprintf(stream,"{ \n"); // Begin JSON record
+  fprintf(stream,"\"numOptions\": %lu,\n",num_options);
+  fprintf(stream,"\"options\": [ \n");
+  for (i=0;i<num_options;++i) {
+    if (!print_inactive && !options[i].active) continue;
+    fprintf(stream,"\t{ \n");
+    // Print ID/Short Option
+    fprintf(stream,"\t  \"ID\": %d,\n",options[i].option_id);
+    // Print Long Option
+    fprintf(stream,"\t  \"longOption\": \"%s\",\n",options[i].long_option);
+    // Print Short Option
+    const char short_option = options[i].option_id;
+    if (options[i].option_id<128 && gt_is_alphanumeric(short_option)) {
+      fprintf(stream,"\t  \"shortOption\": \"%c\",\n",short_option);
+    } else {
+      fprintf(stream,"\t  \"shortOption\": null,\n");
+    }
+    // Group
+    fprintf(stream,"\t  \"group\": \"%s\",\n",groups[options[i].group_id]);
+    // Option Type
+    switch (options[i].option_type) {
+      case GT_OPT_NO_ARGUMENT: fprintf(stream,"\t  \"optionType\": \"noArgument\",\n"); break;
+      case GT_OPT_REQUIRED: fprintf(stream,"\t  \"optionType\": \"required\",\n"); break;
+      case GT_OPT_OPTIONAL: fprintf(stream,"\t  \"optionType\": \"optional\",\n"); break;
+    }
+    // Argument Type
+    switch (options[i].argument_type) {
+      case GT_OPT_NONE: fprintf(stream,"\t  \"argumentType\": null,\n"); break;
+      case GT_OPT_INT: fprintf(stream,"\t  \"argumentType\": \"int\",\n"); break;
+      case GT_OPT_FLOAT: fprintf(stream,"\t  \"argumentType\": \"float\",\n"); break;
+      case GT_OPT_CHAR: fprintf(stream,"\t  \"argumentType\": \"char\",\n"); break;
+      case GT_OPT_STRING: fprintf(stream,"\t  \"argumentType\": \"string\",\n"); break;
+      case GT_OPT_BOOL: fprintf(stream,"\t  \"argumentType\": \"bool\",\n"); break;
+    }
+    // Print extra command line syntax info
+    fprintf(stream,"\t  \"commandInfo\": \"%s\"\n",options[i].command_info);
+    // Print description (@print_description)
+    if (print_description && !gt_streq(options[i].description,"")) {
+      fprintf(stream,"\t  \"description\": \"%s\"\n",options[i].description);
+    }
+    if (i+1 < num_options) {
+      fprintf(stream,"\t},\n");
+    } else {
+      fprintf(stream,"\t}\n");
+    }
+  }
+  fprintf(stream,"    ]\n");
+  fprintf(stream,"}\n");
 }
 
 

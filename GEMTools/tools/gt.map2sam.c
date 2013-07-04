@@ -232,6 +232,10 @@ void parse_arguments(int argc,char** argv) {
     case 'H':
       usage(gt_map2sam_options,gt_map2sam_groups,true);
       exit(1);
+    case 'J':
+      gt_options_fprint_json_menu(stderr,gt_map2sam_options,gt_map2sam_groups,false,true);
+      exit(1);
+      break;
     case '?':
     default:
       gt_fatal_error_msg("Option not recognized");
