@@ -157,7 +157,7 @@ GT_INLINE bool gt_gtf_contains_gene_type(const gt_gtf* const gtf, char* const na
  * Search for annotation that overlap with the specified region. The matching entries will be added to the target
  * vector. Note that the target vector is cleared at the beginning of the method!
  */
-GT_INLINE void gt_gtf_search(const gt_gtf* const gtf, gt_vector* const target, char* const ref, const uint64_t start, const uint64_t end);
+GT_INLINE uint64_t gt_gtf_search(const gt_gtf* const gtf, gt_vector* const target, char* const ref, const uint64_t start, const uint64_t end);
 /**
  * Search for exons that overlap with the given template mappings.
  */

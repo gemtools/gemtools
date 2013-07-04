@@ -85,6 +85,18 @@ def _cleanup():
                     shutil.rmtree(f)
 
 
+def get_stream(input):
+    """Checks the input and returns a raw stream. The input can be either
+    a path to a file, a gemtools.IntputFile, or an already opend stream
+    """
+    if isinstance(input, basestring):
+        return open_file(input)
+    if isinstance(input, gt.InputFile):
+        return input.raw_stream()
+    if hasattr(input, "reads"):
+        return input
+    raise ValueError("Unable to open a stream on the given input")
+
 
 def open_file(file):
     """

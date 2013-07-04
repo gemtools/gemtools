@@ -10,7 +10,7 @@ import traceback
 
 from gem.utils import Timer
 import gem.gemtools as gt
-
+import gem.filter
 
 class dotdict(dict):
     def __getattr__(self, attr):
@@ -540,10 +540,11 @@ class TranscriptMapStep(PipelineStep):
             cfg["index"] = step.index_denovo_out
             cfg["keys"] = step.denovo_keys
 
-        gem.mapper(
+        outfile = self.files()[0]
+        mapping = gem.mapper(
             self._input(),
             cfg["index"],
-            self.files()[0],
+            None,  # None as we pipe through the filter
             mismatches=cfg["mismatches"],
             quality_threshold=cfg["quality_threshold"],
             max_decoded_matches=cfg["max_decoded_matches"],
@@ -558,6 +559,13 @@ class TranscriptMapStep(PipelineStep):
             quality=self.pipeline.quality,
             threads=self.pipeline.threads
         )
+        # filter for only split maps
+        gem.filter.only_split_maps(mapping,
+                                   outfile,
+                                   threads=self.pipeline.threads,
+                                   compress=self._compress())
+
+
 
     def _input(self, raw=False):
         """Return pipeline input if this step

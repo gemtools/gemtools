@@ -317,12 +317,11 @@ cdef extern from "gt_stats.h":
         uint64_t total_bases_matching
         uint64_t total_bases_trimmed
 
-        uint64_t *inss        
+        uint64_t *inss
 
         uint64_t *misms_transition
         uint64_t *qual_score_misms
         uint64_t *misms_1context
-        uint64_t *misms_2context
         uint64_t *indel_transition_1
         uint64_t *indel_transition_2
         uint64_t *indel_transition_3
@@ -380,7 +379,7 @@ cdef extern from "gt_stats.h":
     cdef int GT_STATS_QUAL_SCORE_RANGE
     cdef int GT_STATS_NUM_JUNCTION_RANGE
     cdef int GT_STATS_LEN_JUNCTION_RANGE
-    cdef int GT_STATS_MISMS_1_CONTEXT_RANGE    
+    cdef int GT_STATS_MISMS_1_CONTEXT_RANGE
     cdef int GT_STATS_INDEL_TRANSITION_1_RANGE
     cdef int GT_STATS_INDEL_TRANSITION_2_RANGE
     cdef int GT_STATS_INDEL_TRANSITION_3_RANGE
@@ -389,7 +388,7 @@ cdef extern from "gt_stats.h":
     cdef int GT_STATS_INDEL_2_CONTEXT
 
 
-cdef extern from "gemtools_binding.h" nogil:    
+cdef extern from "gemtools_binding.h" nogil:
     void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t num_inputs, bool append_extra, bool clean_id, bool interleave, uint64_t threads, bool write_map, bool remove_scores)
     void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_stats* target_best_stats, uint64_t num_threads, bool paired_end)
     void gt_stats_print_stats(FILE* output, gt_stats* stats, bool paired_end)

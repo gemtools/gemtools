@@ -111,6 +111,7 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
   // Add pair info and chomp /1/2/3 info (if any)
   const int64_t tag_pair = gt_input_parse_tag_chomp_pairend_info(tag);
   gt_attributes_add(attributes,GT_ATTR_ID_TAG_PAIR,&tag_pair,int64_t);
+  gt_string_append_eos(tag);
   /*
    * Parse all extra TAG-info
    */
@@ -201,7 +202,7 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
       if (attribute_extra_string==NULL) {
         gt_attributes_add_string(attributes,GT_ATTR_ID_TAG_EXTRA,extra_string);
       } else {
-        gt_string_append_char(tag,SPACE);
+        gt_string_append_char(attribute_extra_string,SPACE);
         gt_string_append_gt_string(attribute_extra_string,extra_string);
         gt_string_delete(extra_string);
       }

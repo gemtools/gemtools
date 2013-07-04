@@ -532,14 +532,15 @@ GT_INLINE void gt_gtf_search_node_(gt_gtf_node* node, const uint64_t start, cons
 
 
 
-GT_INLINE void gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, char* const ref, const uint64_t start, const uint64_t end){
+GT_INLINE uint64_t gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, char* const ref, const uint64_t start, const uint64_t end){
   gt_vector_clear(target);
   // make sure the target ref is contained
   if (! gt_shash_is_contained(gtf->refs, ref)){
-    return;
+    return 0;
   }
   const gt_gtf_ref* const source_ref = gt_gtf_get_ref(gtf, ref);
   gt_gtf_search_node_(source_ref->node, start, end, target);
+  return gt_vector_get_used(target);
 }
 
 

@@ -267,23 +267,34 @@ def _prepare_output(process, output=None, quality=None, bam=False):
     output  -- output file name or None when process stdout should be used
     quality -- optional quality that is passed to the InputFile
     """
+    # wrap process list
+    if not isinstance(process, (list, tuple)):
+        process = [process]
+
     if output is not None:
         # we are writing to a file
         # wait for the process to finish
-        if process is not None and process.wait() != 0:
-            #raise ValueError("Execution failed!")
-            raise gem.utils.ProcessError("Execution failed!")
+        if process is not None:
+            for k, p in enumerate(process):
+                if p is not None and p.wait() != 0:
+                    raise gem.utils.ProcessError("Execution failed!")
+                # close streams next process in
+                if (k + 1) < len(process):
+                    next_process = process[k + 1]
+                    if next_process is not None and \
+                       next_process.stdin is not None:
+                        next_process.stdin.close()
         logging.debug("Opening output file %s" % (output))
         if output.endswith(".bam") or bam:
-            return gt.InputFile(gem.files.open_bam(output), quality=quality, process=process)
-        return gt.InputFile(output, quality=quality, process=process)
+            return gt.InputFile(gem.files.open_bam(output), quality=quality, process=process[0])
+        return gt.InputFile(output, quality=quality, process=process[0])
     else:
         logging.debug("Opening output stream")
         if bam:
-            return gt.InputFile(gem.files.open_bam(process.stdout), quality=quality, process=process)
+            return gt.InputFile(gem.files.open_bam(process[0].stdout), quality=quality, process=process[0])
         ## running in async mode, return iterator on
         ## the output stream
-        return gt.InputFile(process.stdout, quality=quality, process=process)
+        return gt.InputFile(process[0].stdout, quality=quality, process=process[0])
 
 
 def validate_executables():
