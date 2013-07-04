@@ -130,7 +130,7 @@ gt_option gt_stats_options[] = {
   { 'Q', "mismatch-quality", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
   { 'R', "rna-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
   { 'P', "population-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
-  { 'D', "indel-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
+  // { 'D', "indel-profile", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
   /* MAP Specific */
   { 400, "use-only-decoded-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "(instead of counters)", ""},
   /* Misc */
