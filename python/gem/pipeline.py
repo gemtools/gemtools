@@ -560,10 +560,9 @@ class TranscriptMapStep(PipelineStep):
             threads=self.pipeline.threads
         )
         # filter for only split maps
-        logging.gemtools.gt("Filtering for splits")
         gem.filter.only_split_maps(mapping,
                                    outfile,
-                                   threads=self.pipeline.threads
+                                   threads=self.pipeline.threads,
                                    compress=self._compress())
 
 
