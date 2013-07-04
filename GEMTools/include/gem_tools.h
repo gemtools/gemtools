@@ -88,7 +88,7 @@ typedef enum { GT_OPT_NONE, GT_OPT_INT, GT_OPT_FLOAT, GT_OPT_CHAR, GT_OPT_STRING
 typedef struct {
   int option_id;       // Integer ID or short character option
   char* long_option;   // Long string option
-  gt_option_t type;    // Option type
+  gt_option_t option_type;            // Option type
   gt_option_argument_t argument_type; // Type of the argument
   uint64_t group_id;   // Label of the group it belongs to (zero if none)
   bool active;         // Enable/Disable option
@@ -113,6 +113,9 @@ GT_INLINE struct option* gt_options_adaptor_getopt(const gt_option* const option
 GT_INLINE gt_string* gt_options_adaptor_getopt_short(const gt_option* const options);
 GT_INLINE void gt_options_fprint_menu(
     FILE* const stream,const gt_option* const options,char* gt_filter_groups[],
+    const bool print_description,const bool print_inactive);
+GT_INLINE void gt_options_fprint_json_menu(
+    FILE* const stream,const gt_option* const options,char* groups[],
     const bool print_description,const bool print_inactive);
 
 #endif /* GEM_TOOLS_H_ */

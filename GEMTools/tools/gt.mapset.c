@@ -441,6 +441,10 @@ void parse_arguments(int argc,char** argv) {
       fprintf(stderr, "USE: ./gt.mapset [OPERATION] [ARGS]...\n");
       gt_options_fprint_menu(stderr,gt_mapset_options,gt_mapset_groups,false,false);
       exit(1);
+    case 'J':
+      gt_options_fprint_json_menu(stderr,gt_mapset_options,gt_mapset_groups,false,true);
+      exit(1);
+      break;
     case '?':
     default:
       gt_fatal_error_msg("Option not recognized");
