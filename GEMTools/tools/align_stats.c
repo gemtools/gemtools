@@ -541,8 +541,8 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			stats->paired_mapped++;
 			if(nmaps[2]==1 && (nmaps[0]<=gt_alignment_get_num_maps(al[0])) && (nmaps[1]<=gt_alignment_get_num_maps(al[1]))) {
 				stats->paired_unique++;
-				maps=gt_template_get_mmap(template,0,NULL);
-				uint64_t gt_err;
+				maps=gt_template_get_mmap_array(template,0,NULL);
+				gt_status gt_err;
 				int64_t ins_size=gt_template_get_insert_size(maps,&gt_err,0,0);
 				if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
 					dist_element* de=as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_PAIRED,ins_size);
@@ -553,7 +553,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		}
 		// Track insert sizes for all pairs where single end reads are uniquely mapping
 		if(nmaps[0]==1 && nmaps[1]==1) {
-			uint64_t gt_err;
+			gt_status gt_err;
 			gt_map *tmaps[2];
 			tmaps[0]=gt_alignment_get_map(al[0],0);
 			tmaps[1]=gt_alignment_get_map(al[1],0);
@@ -702,7 +702,7 @@ static void *as_calc_duplicate_rate(void *ss)
 	}
 	double z1,z2,z3,z4,z5,z6;
 	z1=z2=z3=z4=z5=z6=0.0;
-	int k=0;
+  int k=0;
 	for(i=0;i<=DUP_LIMIT;i++) {
 		z1+=(double)dup_cnt[0][i];
 		z2+=(double)dup_cnt[0][i]*(i+1);
@@ -1226,7 +1226,7 @@ int main(int argc,char *argv[])
 			.phage_lambda=NULL,
 			.phix174=NULL,
 			.mmap_input=false,
-			.parser_attr=GENERIC_PARSER_ATTR_DEFAULT(false),
+			.parser_attr=*(gt_input_generic_parser_attributes_new(false)),
 			.ignore_id=false,
 			.min_insert=0,
 			.max_insert=DEFAULT_MAX_INSERT,
@@ -1378,7 +1378,7 @@ int main(int argc,char *argv[])
 					mmap[0]=map1;
 					GT_ALIGNMENT_ITERATE(alignment2,map2) {
 						mmap[1]=map2;
-						uint64_t gt_err;
+						gt_status gt_err;
 						int64_t x=gt_template_get_insert_size(mmap,&gt_err,0,0);
 						if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param.min_insert && x<=param.max_insert) {
 							attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);

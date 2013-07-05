@@ -10,21 +10,22 @@
 ROOT_PATH=..
 include ../Makefile.mk
 
-SRCS=gem_tools.c \
-     gt_commons.c gt_error.c gt_mm.c gt_fm.c gt_profiler.c \
-     gt_ihash.c gt_shash.c gt_vector.c gt_string.c \
-     gt_attributes.c gt_dna_string.c gt_dna_read.c gt_compact_dna_string.c \
-     gt_template.c gt_alignment.c gt_map.c gt_misms.c \
-     gt_template_utils.c gt_alignment_utils.c gt_counters_utils.c \
-     gt_map_metrics.c gt_map_align.c gt_map_score.c gt_map_utils.c \
-     gt_sequence_archive.c gt_segmented_sequence.c \
-     gt_input_file.c gt_buffered_input_file.c \
-     gt_input_parser.c gt_input_map_parser.c gt_input_fasta_parser.c gt_input_generic_parser.c \
-     gt_input_map_utils.c \
-     gt_input_sam_parser.c gt_sam_attributes.c \
-     gt_buffered_output_file.c gt_output_file.c gt_generic_printer.c gt_output_buffer.c \
-     gt_output_printer.c gt_output_map.c gt_output_fasta.c gt_output_sam.c gt_output_generic_printer.c \
-     gt_stats.c gt_gemIdx_loader.c gt_gtf.c
+MODULES=gem_tools \
+        gt_commons gt_error gt_mm gt_fm gt_profiler \
+        gt_ihash gt_shash gt_vector gt_string \
+        gt_attributes gt_dna_string gt_dna_read gt_compact_dna_string \
+        gt_template gt_alignment gt_map gt_misms \
+        gt_template_utils gt_alignment_utils gt_counters_utils \
+        gt_map_metrics gt_map_align gt_map_score gt_map_utils \
+        gt_sequence_archive gt_segmented_sequence \
+        gt_input_file gt_buffered_input_file \
+        gt_input_parser gt_input_map_parser gt_input_fasta_parser gt_input_generic_parser \
+        gt_input_map_utils \
+        gt_input_sam_parser gt_sam_attributes \
+        gt_buffered_output_file gt_output_file gt_generic_printer gt_output_buffer \
+        gt_output_printer gt_output_map gt_output_fasta gt_output_sam gt_output_generic_printer \
+        gt_stats gt_gemIdx_loader gt_gtf
+SRCS=$(addsuffix .c, $(MODULES))
 OBJS=$(addprefix $(FOLDER_BUILD)/, $(SRCS:.c=.o))
 GT_LIB=$(FOLDER_LIB)/libgemtools.a
 
