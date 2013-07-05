@@ -54,28 +54,12 @@ class Stats(Command):
     description = """Calculate stats on a map file"""
 
     def register(self, parser):
-        ## required parameters
-        parser.add_argument('-i', '--input', dest="input", help='Input map file', required=True)
-        parser.add_argument('-t', '--threads', dest="threads", type=int, default=1, help='Number of threads')
-        parser.add_argument('-o', '--output', dest="output", help='Output file name, prints to stdout if nothing is specified')
-        parser.add_argument('-p', '--paired', dest="paired", action="store_true", default=False, help="Paired end reads")
-        parser.add_argument('-b', '--best', dest="best", action="store_true", default=False, help="Calculates stats only for the best maps")
-        parser.add_argument('--json', dest="json", default=None, help='Output stats as json to specified file')
+        self.add_options('gt.stats', parser)
 
     def run(self, args):
-        infile = gem.files.open(args.input)
-        stats = gt.Stats(args.best, args.paired)
-        stats.read(infile, args.threads)
-
-        if args.json is not None:
-            with open(args.json, 'w') as f:
-                json.dump(stats.__dict__, f)
-
-        of = sys.stdout
-        if args.output is not None:
-            of = open(args.output, 'w')
-        stats.write(of)
-        of.close()
+        cmd = self.get_command(args)
+        p = subprocess.Popen(cmd)
+        sys.exit(p.wait())
 
 
 class Filter(Command):
