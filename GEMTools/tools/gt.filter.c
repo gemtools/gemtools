@@ -179,7 +179,7 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src) {
     // Check inss
     if (parameters.min_inss > INT64_MIN || parameters.max_inss < INT64_MAX) {
       uint64_t gt_err;
-      register const int64_t inss = gt_template_get_insert_size(mmap,&gt_err);
+      register const int64_t inss = gt_template_get_insert_size(mmap,&gt_err,0,0);
       if (parameters.min_inss > inss || inss > parameters.max_inss) continue;
     }
     // Check strandness
@@ -191,7 +191,7 @@ void gt_template_filter(gt_template* template_dst,gt_template* template_src) {
     }
     // Add the mmap
     register gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-    gt_template_insert_mmap(template_dst,mmap_copy,mmap_attr);
+    gt_template_add_mmap(template_dst,mmap_copy,mmap_attr);
     free(mmap_copy);
     // Skip the rest if best
     if (parameters.best_map) return;
@@ -206,16 +206,16 @@ void gt_filter_hidden_options(gt_template* const template) {
         register const uint64_t dist = gt_map_get_global_levenshtein_distance(*mmap);
         if (dist < best_distance) best_distance = dist;
       }
-      if (best_distance < UINT64_MAX) fprintf(stdout,"%lu\n",best_distance);
+      if (best_distance < UINT64_MAX) fprintf(stdout,"%"PRIu64"\n",best_distance);
     } else {
       GT_TEMPLATE_ITERATE_(template,mmap) {
-        fprintf(stdout,"%lu\n",gt_map_get_global_levenshtein_distance(*mmap));
+        fprintf(stdout,"%"PRIu64"\n",gt_map_get_global_levenshtein_distance(*mmap));
       }
     }
   } else if (parameters.insert_size_plot && gt_template_get_num_blocks(template)>1) {
     uint64_t error_code;
     GT_TEMPLATE_ITERATE_(template,mmap) {
-      fprintf(stdout,"%lu\n",gt_template_get_insert_size(mmap,&error_code));
+      fprintf(stdout,"%"PRIu64"\n",gt_template_get_insert_size(mmap,&error_code,0,0));
       if (parameters.best_map) break;
     }
   }

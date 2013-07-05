@@ -78,6 +78,7 @@ GT_INLINE bool gt_string_nequals(gt_string* const string_a,gt_string* const stri
 GT_INLINE gt_string* gt_string_dup(gt_string* const sequence);
 GT_INLINE void gt_string_copy(gt_string* const sequence_dst,gt_string* const sequence_src);
 GT_INLINE void gt_string_reverse_copy(gt_string* const sequence_dst,gt_string* const sequence_src);
+GT_INLINE uint64_t gt_string_copy_substr(gt_string * const sequence_dst,gt_string * const sequence_src,uint64_t off,uint64_t len);
 GT_INLINE void gt_string_reverse(gt_string* const sequence);
 
 /*

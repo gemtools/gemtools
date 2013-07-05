@@ -230,6 +230,17 @@ GT_INLINE void gt_string_reverse_copy(gt_string* const sequence_dst,gt_string* c
   buffer_dst[string_length] = EOS;
   sequence_dst->length = string_length;
 }
+GT_INLINE uint64_t gt_string_copy_substr(gt_string * const sequence_dst,gt_string * const sequence_src,uint64_t off,uint64_t len)
+{
+	GT_STRING_CHECK_NO_STATIC(sequence_dst);
+	GT_STRING_CHECK(sequence_src);
+	if(off+len>sequence_src->length) len=0;
+	gt_string_resize(sequence_dst,len+1);
+	if(!len) sequence_dst->buffer[0]=EOS;
+	else gt_strncpy(sequence_dst->buffer,sequence_src->buffer+off,len);
+	sequence_dst->length=len;
+	return len;
+}
 GT_INLINE void gt_string_reverse(gt_string* const sequence) {
   GT_STRING_CHECK(sequence);
   register const uint64_t string_length = sequence->length;

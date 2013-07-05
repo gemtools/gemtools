@@ -294,7 +294,7 @@ GT_INLINE void gt_map_realign_dp_matrix_print(
   register uint64_t i, j;
   for (j=0;j<pattern_limit;++j) {
     for (i=0;i<sequence_limit;++i) {
-      fprintf(stderr,"%02lu ",GT_DP(i,j));
+      fprintf(stderr,"%02"PRIu64" ",GT_DP(i,j));
     }
     fprintf(stderr,"\n");
   }

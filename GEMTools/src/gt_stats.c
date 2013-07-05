@@ -622,7 +622,7 @@ GT_INLINE void gt_stats_make_mmaps_profile(
      */
     if (paired_map) {
       uint64_t gt_err;
-      int64_t ins_size = gt_template_get_insert_size(mmap,&gt_err);
+      int64_t ins_size = gt_template_get_insert_size(mmap,&gt_err,0,0);
       if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
         gt_stats_get_inss_distribution(maps_error_profile->inss,ins_size);
         gt_stats_get_inss_fg_distribution(maps_error_profile->inss_fine_grain,ins_size);
@@ -824,13 +824,13 @@ GT_INLINE void gt_stats_print_inss_fg_distribution(FILE* stream,uint64_t* const 
   register int64_t current_bucket, current_inf=GT_STATS_INSS_FG_MIN;
   for (current_bucket=0;current_bucket<GT_STATS_INSS_FG_RANGE;++current_bucket) {
     if (current_inf==GT_STATS_INSS_FG_MIN) {
-      fprintf(stream,"  -->   (-inf,%5ld) \t=> "GT_STATS_PRINT_INSS_FG_FORMAT,
+      fprintf(stream,"  -->   (-inf,%5"PRId64") \t=> "GT_STATS_PRINT_INSS_FG_FORMAT,
           current_inf+GT_STATS_INSS_FG_STEP,GT_STATS_PRINT_INSS_FG(0));
     } else if (current_bucket==GT_STATS_INSS_FG_RANGE-1) {
-      fprintf(stream,"  -->   [%5ld,+inf) \t=> "GT_STATS_PRINT_INSS_FG_FORMAT,
+      fprintf(stream,"  -->   [%5"PRId64",+inf) \t=> "GT_STATS_PRINT_INSS_FG_FORMAT,
           current_inf,GT_STATS_PRINT_INSS_FG(current_bucket));
     } else {
-      fprintf(stream,"  -->   [%5ld,%5ld) \t=> "GT_STATS_PRINT_INSS_FG_FORMAT,
+      fprintf(stream,"  -->   [%5"PRId64",%5"PRId64") \t=> "GT_STATS_PRINT_INSS_FG_FORMAT,
           current_inf,current_inf+GT_STATS_INSS_FG_STEP,GT_STATS_PRINT_INSS_FG(current_bucket));
     }
     current_inf+=GT_STATS_INSS_FG_STEP;
@@ -903,11 +903,11 @@ GT_INLINE void gt_stats_print_qualities_error_distribution(FILE* stream,uint64_t
   if(!total_error) return;
   // Print Header
   fprintf(stream,"    ");
-  for (j=0;j<16;++j) fprintf(stream,"[%4lu]",j);
+  for (j=0;j<16;++j) fprintf(stream,"[%4"PRIu64"]",j);
   fprintf(stream,"\n");
   // Print Values
   for (i=0,qual=0;i<16;++i) {
-    fprintf(stream,"%3lu ",qual);
+    fprintf(stream,"%3"PRIu64" ",qual);
     for (j=0;j<16;++j,++qual) {
       fprintf(stream,"[%4.1f]",100.0*((double)qualities_error[qual]/(double)total_error));
     }

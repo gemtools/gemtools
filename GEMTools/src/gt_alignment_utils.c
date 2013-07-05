@@ -204,7 +204,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
         found_vector_position = *((uint64_t*)ihash_element_e->element);
         map_found = gt_alignment_get_map(alignment_dst,found_vector_position);
         if (gt_map_cmp(map_src,map_found)==0 && gt_map_less_than(map_src,map_found)) {
-          found_candidate = true;
+        	found_candidate = true;
         }
       }
       if (found_candidate) { // Is the same map !!
@@ -234,7 +234,7 @@ GT_INLINE void gt_alignment_merge_alignment_maps(gt_alignment* const alignment_d
                 alg_dicc_elem,ihash_element_b,ihash_element_e,found_vector_position);
           }
         } else {
-          // Add new map
+        	// Add new map
           register gt_map* const map_src_cp = gt_map_copy(map_src);
           gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
           gt_alignment_add_map(alignment_dst,map_src_cp);
