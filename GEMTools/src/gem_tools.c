@@ -306,11 +306,16 @@ GT_INLINE void gt_options_fprint_json_menu(
     const bool print_description,const bool print_inactive) {
   const uint64_t num_options = gt_options_get_num_options(options);
   int64_t i;
+  bool at_least_one_printed = false;
   fprintf(stream,"{ \n"); // Begin JSON record
-  fprintf(stream,"\"numOptions\": %lu,\n",num_options);
+  fprintf(stream,"\"numOptions\": %"PRIu64",\n",num_options);
   fprintf(stream,"\"options\": [ \n");
   for (i=0;i<num_options;++i) {
     if (!print_inactive && !options[i].active) continue;
+    if(at_least_one_printed){
+      fprintf(stream,",\n");
+    }
+    at_least_one_printed = true;
     fprintf(stream,"\t{ \n");
     // Print ID/Short Option
     fprintf(stream,"\t  \"ID\": %d,\n",options[i].option_id);
@@ -346,13 +351,9 @@ GT_INLINE void gt_options_fprint_json_menu(
     if (print_description && !gt_streq(options[i].description,"")) {
       fprintf(stream,"\t  \"description\": \"%s\"\n",options[i].description);
     }
-    if (i+1 < num_options) {
-      fprintf(stream,"\t},\n");
-    } else {
-      fprintf(stream,"\t}\n");
-    }
+    fprintf(stream,"\t}");
   }
-  fprintf(stream,"    ]\n");
+  fprintf(stream,"\n    ]\n");
   fprintf(stream,"}\n");
 }
 
