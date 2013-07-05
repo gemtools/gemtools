@@ -77,4 +77,6 @@ def test_only_split_maps_filter_paired_compress_file():
     assert subprocess.Popen(['gunzip', '-f', target]).wait() == 0
     assert os.path.exists(target_uncompressed)
     with open(target_uncompressed) as f:
-        assert len(f.readlines()) == 2
+        lines = f.readlines()
+        print lines
+        assert len(lines) == 3
