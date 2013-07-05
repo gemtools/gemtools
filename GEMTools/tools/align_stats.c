@@ -428,7 +428,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 	stats->nreads++;
 	uint64_t nrd;
 	bool paired_file=false; // Was the input file from a paired mapping
-	if(gt_input_generic_parser_attributes_is_paired(&param->parser_attr)) {
+	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
 		if(gt_template_get_num_blocks(template)!=2) {
 			gt_fatal_error_msg("Fatal error: Expecting paired reads\n");
 		}
@@ -541,8 +541,8 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			stats->paired_mapped++;
 			if(nmaps[2]==1 && (nmaps[0]<=gt_alignment_get_num_maps(al[0])) && (nmaps[1]<=gt_alignment_get_num_maps(al[1]))) {
 				stats->paired_unique++;
-				maps=gt_template_get_mmap(template,0,NULL);
-				uint64_t gt_err;
+				maps=gt_template_get_mmap_array(template,0,NULL);
+				gt_status gt_err;
 				int64_t ins_size=gt_template_get_insert_size(maps,&gt_err,0,0);
 				if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
 					dist_element* de=as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_PAIRED,ins_size);
@@ -553,7 +553,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		}
 		// Track insert sizes for all pairs where single end reads are uniquely mapping
 		if(nmaps[0]==1 && nmaps[1]==1) {
-			uint64_t gt_err;
+			gt_status gt_err;
 			gt_map *tmaps[2];
 			tmaps[0]=gt_alignment_get_map(al[0],0);
 			tmaps[1]=gt_alignment_get_map(al[1],0);
@@ -743,7 +743,7 @@ static void *as_merge_stats(void *ss)
 	as_param* param=ss;
 	as_stats** st=param->stats;
 	uint64_t nt=param->num_threads;
-	bool paired=gt_input_generic_parser_attributes_is_paired(&param->parser_attr);
+	bool paired=gt_input_generic_parser_attributes_is_paired(param->parser_attr);
 	nr=paired?2:1;
 	for(j=0;j<nr;j++) {
 		len[j]=st[0]->max_read_length[j];
@@ -822,7 +822,7 @@ static void *as_merge_stats(void *ss)
 
 static void as_print_yield_summary(FILE *f,as_param *param)
 {
-	bool paired=gt_input_generic_parser_attributes_is_paired(&param->parser_attr);
+	bool paired=gt_input_generic_parser_attributes_is_paired(param->parser_attr);
 	as_stats* st=param->stats[0];
 	uint64_t trimmed[2]={0,0},yield[2]={0,0},min_rl[2],i,j,k;
 	fputs("Yield summary\n\n",f);
@@ -876,7 +876,7 @@ static void as_print_yield_summary(FILE *f,as_param *param)
 
 static void as_print_mapping_summary(FILE *f,as_param *param)
 {
-	bool paired=gt_input_generic_parser_attributes_is_paired(&param->parser_attr);
+	bool paired=gt_input_generic_parser_attributes_is_paired(param->parser_attr);
 	as_stats *st=param->stats[0];
 	bool paired_file=false; // Was the input file from a paired mapping
 	if(paired==true && !param->input_files[1]) paired_file=true;
@@ -978,7 +978,7 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 static void as_print_read_lengths(FILE *f,as_param *param)
 {
 	as_stats *st=param->stats[0];
-	bool paired=gt_input_generic_parser_attributes_is_paired(&param->parser_attr);
+	bool paired=gt_input_generic_parser_attributes_is_paired(param->parser_attr);
 	if(!st->max_read_length[0]) return;
 	fprintf(f,"\n\nDistribution of reads lengths after trimming\n");
 	uint64_t i,l,j,k;
@@ -1074,7 +1074,7 @@ static void as_print_mismatch_report(FILE *fp,as_param *param)
 {
   const double ln10=log(10.0);
 	as_stats* st=param->stats[0];
-	bool paired=gt_input_generic_parser_attributes_is_paired(&param->parser_attr);
+	bool paired=gt_input_generic_parser_attributes_is_paired(param->parser_attr);
 	// Collect overall error stats
 	uint64_t mm_stats[2][MAX_QUAL+1],qual_stats[2][MAX_QUAL+1];
 	uint64_t mm_total[2]={0,0};
@@ -1180,7 +1180,7 @@ static void as_print_stats(as_param *param)
 	} else {
 		fout=stdout;
 	}
-	if(gt_input_generic_parser_attributes_is_paired(&param->parser_attr)) as_print_distance_file(param);
+	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) as_print_distance_file(param);
 	as_print_yield_summary(fout,param);
 	as_print_mapping_summary(fout,param);
 	as_print_duplicate_summary(fout,param);
@@ -1226,7 +1226,7 @@ int main(int argc,char *argv[])
 			.phage_lambda=NULL,
 			.phix174=NULL,
 			.mmap_input=false,
-			.parser_attr=GENERIC_PARSER_ATTR_DEFAULT(false),
+			.parser_attr=gt_input_generic_parser_attributes_new(false),
 			.ignore_id=false,
 			.min_insert=0,
 			.max_insert=DEFAULT_MAX_INSERT,
@@ -1243,7 +1243,7 @@ int main(int argc,char *argv[])
 			set_opt("insert_dist",&param.dist_file,optarg);
 			break;
 		case 'p':
-			gt_input_generic_parser_attributes_set_paired(&param.parser_attr,true);
+			gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
 			break;
 		case 'o':
 			set_opt("output",&param.output_file,optarg);
@@ -1326,7 +1326,7 @@ int main(int argc,char *argv[])
 	loc_hash *lh=0;
 	// Do we have two map files as input (one for each read)?
 	if(param.input_files[1]) {
-		gt_input_generic_parser_attributes_set_paired(&param.parser_attr,true);
+		gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
 		pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 		gt_input_file* input_file1=gt_input_file_open(param.input_files[0],param.mmap_input);
 		gt_input_file* input_file2=gt_input_file_open(param.input_files[1],param.mmap_input);
@@ -1341,7 +1341,7 @@ int main(int argc,char *argv[])
 			gt_status error_code;
 			gt_template *template=gt_template_new();
 			id_tag *idt=new_id_tag();
-			stats[tid]=as_stats_new(gt_input_generic_parser_attributes_is_paired(&param.parser_attr));
+			stats[tid]=as_stats_new(gt_input_generic_parser_attributes_is_paired(param.parser_attr));
 			stats[tid]->loc_hash=&lh;
 			while(gt_input_map_parser_synch_blocks(buffered_input1,buffered_input2,&mutex)) {
 				error_code=gt_input_map_parser_get_template(buffered_input1,template,NULL);
@@ -1378,7 +1378,7 @@ int main(int argc,char *argv[])
 					mmap[0]=map1;
 					GT_ALIGNMENT_ITERATE(alignment2,map2) {
 						mmap[1]=map2;
-						uint64_t gt_err;
+						gt_status gt_err;
 						int64_t x=gt_template_get_insert_size(mmap,&gt_err,0,0);
 						if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param.min_insert && x<=param.max_insert) {
 							attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
@@ -1405,16 +1405,16 @@ int main(int argc,char *argv[])
 			gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
 			gt_status error_code;
 			gt_template *template=gt_template_new();
-			stats[tid]=as_stats_new(gt_input_generic_parser_attributes_is_paired(&param.parser_attr));
+			stats[tid]=as_stats_new(gt_input_generic_parser_attributes_is_paired(param.parser_attr));
 			stats[tid]->loc_hash=&lh;
 			id_tag *idt=new_id_tag();
-			while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,&param.parser_attr))) {
+			while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param.parser_attr))) {
 				if (error_code!=GT_IMP_OK) {
 					gt_error_msg("Error parsing file '%s'\n",param.input_files[0]);
 					continue;
 				}
 				// For paired reads, insert single end mappings into alignments
-				if(gt_input_generic_parser_attributes_is_paired(&param.parser_attr)) {
+				if(gt_input_generic_parser_attributes_is_paired(param.parser_attr)) {
 					if(gt_template_get_num_blocks(template)!=2) {
 						gt_fatal_error_msg("Fatal error: Expecting paired reads\n");
 					}
