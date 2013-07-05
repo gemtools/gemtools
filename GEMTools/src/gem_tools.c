@@ -59,7 +59,8 @@ gt_option gt_filter_options[] = {
   { 511, "filter-quality", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<min-quality>,<max-quality>" , "" },
   { 512, "reduce-to-unique-strata", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number>" , "" },
   { 513, "reduce-by-quality", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (Quality difference)" , "" },
-  { 514, "reduce-by-annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<gtf>" , "" },
+  { 514, "reduce-by-annotation", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 515, "reduce-to-unique", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   /* Filter RNA-Maps */
   { 600, "no-split-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },
   { 601, "only-split-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },

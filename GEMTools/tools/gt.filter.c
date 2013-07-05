@@ -62,6 +62,7 @@ typedef struct {
   /* Make templates unique */
   int64_t reduce_to_unique_strata;
   int64_t reduce_by_quality;
+  bool reduce_to_unique;
   /* RNA Seq to recalculate counters */
   bool no_split_maps;
   bool only_split_maps;
@@ -166,6 +167,7 @@ gt_filter_args parameters = {
     .max_maps=-1,
     /* Make templates unique */
     .reduce_to_unique_strata=-1,
+    .reduce_to_unique=false,
     .reduce_by_quality=-1,
     /* RNA Seq */
     .no_split_maps=false,
@@ -395,7 +397,7 @@ GT_INLINE void gt_filter_add_from_hit(gt_template* const template,gt_gtf_hit* hi
     gt_alignment_insert_map(alignment_dst,gt_map_copy(hit->map));
   }
 }
-GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
+GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
   gt_gtf_hits* hits = gt_gtf_hits_new();
   gt_gtf_search_template_for_exons(parameters.gtf, hits, template_src);
 
@@ -412,6 +414,8 @@ GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_d
   bool pairs_transcripts = false;
   bool is_protein_coding = false;
   bool pick_first = false;
+  // prefer protein coding hits over others (i.e. pseudogenes)
+  bool prefer_protein_coding = false;
 
   uint64_t counter;
   gt_gtf_hit* hit = NULL;
@@ -421,7 +425,9 @@ GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_d
     if(!hit->pairs_gene){
       continue;
     }
-    is_protein_coding |= hit->is_protein_coding;
+    if(prefer_protein_coding){
+      is_protein_coding |= hit->is_protein_coding;
+    }
     pairs_transcripts |= hit->pairs_transcript;
     if (hit->junction_hits > max_junction_hits) {
       max_junction_hits = hit->junction_hits;
@@ -458,31 +464,37 @@ GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_d
     } GT_SHASH_END_ITERATE;
   }
   // iterate again and pick the hits
+  uint64_t added = 0;
   for (counter=0;counter<gt_vector_get_used(exon_hits);++counter) {
     hit = *gt_vector_get_elm(exon_hits,counter,gt_gtf_hit*);
     if (!hit->pairs_gene) continue;
     if (pick_first && (!is_protein_coding || (is_protein_coding && hit->is_protein_coding))) {
       gt_filter_add_from_hit(template_dst, hit);
+      added++;
       break;
     } else {
       if ((is_protein_coding && hit->is_protein_coding) || !is_protein_coding) {
         // pick all protein coding hits or all hits
         gt_filter_add_from_hit(template_dst, hit);
+        added++;
       }
     }
   }
   gt_gtf_hits_delete(hits);
   gt_shash_delete(transcripts,true);
+  return (added > 0);
 }
 
 void gt_alignment_reduction_filter(gt_alignment* const alignment_dst,gt_alignment* const alignment_src,const gt_file_format file_format) {
   // Reduction by unique level (can be calculated beforehand)
   GT_ALIGNMENT_ITERATE(alignment_src,map) {
-    gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
     if (parameters.reduce_to_unique_strata >= 0 &&
        (gt_alignment_get_uniq_degree(alignment_src) >= parameters.reduce_to_unique_strata)) {
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
       break;
     }
+    if(parameters.reduce_to_unique) break;
+    gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
   }
 }
 
@@ -576,12 +588,17 @@ void gt_template_reduction_filter(gt_template* const template_dst,gt_template* c
       gt_alignment_reduction_filter(alignment_dst_end2,alignment_src_end2,file_format);
     } else {
       GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attributes) {
+        if (parameters.reduce_to_unique_strata >= 0 && (gt_template_get_uniq_degree(template_src) >= parameters.reduce_to_unique_strata)) {
+          gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
+          gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+          free(mmap_copy);
+          break;
+        }
+        if(parameters.reduce_to_unique) break;
         gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
         gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
         free(mmap_copy);
-        if (parameters.reduce_to_unique_strata >= 0 && (gt_template_get_uniq_degree(template_src) >= parameters.reduce_to_unique_strata)) {
-          break;
-        }
+
       }
     }
   }
@@ -937,36 +954,24 @@ GT_INLINE bool gt_filter_apply_filters(
 
   // Map Annotation-filtering
   num_maps = gt_template_get_num_mmaps(template);
-  if (parameters.gtf != NULL && parameters.perform_annotation_filter && (!parameters.keep_unique || num_maps > 1)) {
+  if (parameters.gtf != NULL && parameters.perform_annotation_filter && num_maps > 1) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
-    gt_filter_make_reduce_by_annotation(template_filtered,template);
-    gt_template_swap(template,template_filtered);
+    if(gt_filter_make_reduce_by_annotation(template_filtered,template)){
+      gt_template_swap(template,template_filtered);
+      gt_template_recalculate_counters(template);
+    }
     gt_template_delete(template_filtered);
-    gt_template_recalculate_counters(template);
   }
 
   // reduce by level filter
   num_maps = gt_template_get_num_mmaps(template);
-  if (parameters.reduce_to_unique_strata >= 0 && (num_maps > 1)) {
+  if ((parameters.reduce_to_unique_strata >= 0 || parameters.reduce_to_unique)&& (num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_reduction_filter(template_filtered,template,file_format);
     gt_template_swap(template,template_filtered);
     gt_template_delete(template_filtered);
     gt_template_recalculate_counters(template);
   }
-
-
-//    // re-reduce // TODO
-//    if (parameters.reduce_to_unique_strata >= 0 && (
-//        (parameters.gtf != NULL && parameters.perform_annotation_filter)
-//        || parameters.reduce_by_quality >= 0)) {
-//      if (parameters.rna_seq) gt_template_recalculate_counters_no_splits(template);
-//      template_filtered = gt_template_dup(template,false,false);
-//      gt_filter_make_reduce_to_unique_strata(template_filtered, template);
-//      gt_template_swap(template,template_filtered);
-//      gt_template_delete(template_filtered);
-//      gt_template_recalculate_counters(template);
-//    }
 
   // Map pruning
   if (parameters.matches_pruning) gt_filter_prune_matches(template);
@@ -1717,8 +1722,11 @@ void parse_arguments(int argc,char** argv) {
       parameters.reduce_by_quality = atol(optarg);
       break;
     case 514: // reduce-by-annotation
-      gt_filter_get_argument_gtf_type(optarg);
+      //gt_filter_get_argument_gtf_type(optarg);
       parameters.perform_annotation_filter = true;
+      break;
+    case 515: // reduce-by-annotation
+      parameters.reduce_to_unique = true;
       break;
     /* Filter RNA-Maps */
     case 600: // no-split-maps
