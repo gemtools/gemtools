@@ -88,7 +88,7 @@ GT_INLINE gt_status gt_output_generic_gprint_template(gt_generic_printer* const 
       break;
     case MAP:
     default:
-      gt_output_map_gprint_template(gprinter,template,attributes->output_map_attributes);
+      gt_output_map_gprint_gem_template(gprinter,template,attributes->output_map_attributes);
       break;
   }
   return 0;
