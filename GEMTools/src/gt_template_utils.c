@@ -22,11 +22,11 @@ GT_INLINE void gt_template_setup_pair_attributes_to_alignments(gt_template* cons
   // Setup all alignments' tags + attr
   for (i=0;i<num_blocks;i++) {
     gt_alignment* const alignment = gt_template_get_block(template,i);
+    // Copy all attributes
+    gt_attributes_copy(alignment->attributes,template->attributes);
     if (copy_tags) gt_string_copy(alignment->tag,template->tag);
     p = (num_blocks>1) ? i+1 : *((int64_t*)gt_attributes_get(template->attributes,GT_ATTR_ID_TAG_PAIR));
     gt_attributes_add(alignment->attributes,GT_ATTR_ID_TAG_PAIR,&p,int64_t);
-    // Copy all attributes
-    gt_attributes_copy(alignment->attributes,template->attributes);
   }
   // Clear template's pair info
   if (num_blocks > 1) {
