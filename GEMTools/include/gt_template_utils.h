@@ -87,6 +87,7 @@ GT_INLINE void gt_template_sort_by_distance__score_no_split(gt_template* const t
  * Template's MMaps Utils
  */
 GT_INLINE uint64_t gt_template_sum_mismatch_qualities(gt_template* const template,gt_map** const mmap);
+GT_INLINE uint64_t gt_template_get_max_mismatch_quality(gt_template* const template);
 
 /*
  * Template Set operators

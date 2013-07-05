@@ -224,6 +224,7 @@ GT_INLINE void gt_alignment_sort_by_distance__score_no_split(gt_alignment* const
  * Alignment's Maps Utils
  */
 GT_INLINE uint64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const alignment,gt_map* const map) {
+  GT_ALIGNMENT_CHECK(alignment);
   const char* const qualities = gt_alignment_get_qualities(alignment);
   uint64_t qv = 0;
   GT_MISMS_ITERATE(map, misms) {
@@ -232,6 +233,15 @@ GT_INLINE uint64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const align
     }
   }
   return qv;
+}
+GT_INLINE uint64_t gt_alignment_get_max_mismatch_quality(gt_alignment* const alignment) {
+  GT_ALIGNMENT_CHECK(alignment);
+  uint64_t max_qual = 0;
+  GT_ALIGNMENT_ITERATE(alignment,map) {
+    const uint64_t q = gt_alignment_sum_mismatch_qualities(alignment,map);
+    if (q > max_qual) max_qual = q;
+  }
+  return max_qual;
 }
 
 /*

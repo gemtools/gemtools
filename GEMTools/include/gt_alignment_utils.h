@@ -70,6 +70,7 @@ GT_INLINE void gt_alignment_sort_by_distance__score_no_split(gt_alignment* const
  * Alignment's Maps Utils
  */
 GT_INLINE uint64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const alignment,gt_map* const map);
+GT_INLINE uint64_t gt_alignment_get_max_mismatch_quality(gt_alignment* const alignment);
 
 /*
  * Alignment's Maps set-operators

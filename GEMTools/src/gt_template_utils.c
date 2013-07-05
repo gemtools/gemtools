@@ -394,6 +394,18 @@ GT_INLINE uint64_t gt_template_sum_mismatch_qualities(gt_template* const templat
   return gt_alignment_sum_mismatch_qualities(gt_template_get_block(template,0),mmap[0]) +
          gt_alignment_sum_mismatch_qualities(gt_template_get_block(template,1),mmap[1]);
 }
+GT_INLINE uint64_t gt_template_get_max_mismatch_quality(gt_template* const template) {
+  GT_TEMPLATE_CHECK(template);
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+    return gt_alignment_get_max_mismatch_quality(alignment);
+  } GT_TEMPLATE_END_REDUCTION;
+  uint64_t max_qual = 0;
+  GT_TEMPLATE_ITERATE_MMAP_(template,mmap) {
+    const uint64_t q = gt_template_sum_mismatch_qualities(template,mmap);
+    if (q > max_qual) max_qual = q;
+  }
+  return max_qual;
+}
 /*
  * Template Set operators
  */

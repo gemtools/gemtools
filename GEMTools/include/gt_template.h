@@ -83,6 +83,10 @@ typedef struct {
 #define GT_TEMPLATE_END_REDUCTION__RETURN return;}
 #define GT_TEMPLATE_REDUCTION_ELSE } else
 
+#define GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_end1,alignment_end2) \
+    gt_alignment* const alignment_end1 = gt_template_get_block((template),0); \
+    gt_alignment* const alignment_end2 = gt_template_get_block((template),1)
+
 /*
  * Setup
  */

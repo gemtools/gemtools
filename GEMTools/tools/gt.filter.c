@@ -312,14 +312,6 @@ GT_INLINE bool gt_filter_is_quality_value_allowed(const uint64_t quality_score) 
   }
   return false;
 }
-GT_INLINE uint64_t gt_filter_get_max_mismatch_quality(gt_template* const template) {
-  uint64_t max_qual = 0;
-  GT_TEMPLATE_ITERATE_MMAP_(template,mmap) {
-    const uint64_t q = gt_template_sum_mismatch_qualities(template,mmap);
-    if (q > max_qual) max_qual = q;
-  }
-  return max_qual;
-}
 GT_INLINE void gt_filter_prune_matches(gt_template* const template) {
   uint64_t max_num_matches = GT_ALL;
   if (parameters.max_decoded_matches!=GT_ALL || parameters.min_decoded_strata!=0) {
@@ -477,14 +469,88 @@ GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_d
   gt_gtf_hits_delete(hits);
   gt_shash_delete(transcripts,true);
 }
-void gt_template_dna_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
-  const uint64_t first_matching_strata = gt_counters_get_min_matching_strata(gt_template_get_counters_vector(template_src));
-  const uint64_t max_mismatch_quality = gt_filter_get_max_mismatch_quality(template_src);
+
+void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* const alignment_src,const gt_file_format file_format) {
+  const uint64_t first_matching_strata = gt_counters_get_min_matching_strata(gt_alignment_get_counters_vector(alignment_src));
+  const uint64_t max_mismatch_quality = gt_alignment_get_max_mismatch_quality(alignment_src);
   // Reduction by unique level (can be calculated beforehand)
   bool pick_only_first_map = false;
   if (parameters.reduce_to_unique_strata >= 0) {
-    pick_only_first_map = (gt_template_get_uniq_degree(template_src) >= parameters.reduce_to_unique_strata);
+    pick_only_first_map = (gt_alignment_get_uniq_degree(alignment_src) >= parameters.reduce_to_unique_strata);
   }
+  /*
+   * (1) Pre-filtering steps
+   */
+  gt_map* first_map = NULL;
+  if (parameters.keep_first_map && gt_alignment_get_num_maps(alignment_src)>0) {
+    first_map = gt_map_copy(gt_alignment_get_map(alignment_src,0));
+  }
+  /*
+   * (2) Filtering of maps
+   */
+  GT_ALIGNMENT_ITERATE(alignment_src,map) {
+    // Check sequence name
+    if (parameters.map_ids!=NULL) {
+      if (!gt_filter_is_sequence_name_allowed(map->seq_name)) continue;
+    }
+    // Filter strata beyond first mapping
+    const int64_t current_stratum = parameters.no_penalty_for_splitmaps ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
+    if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_strata) > parameters.max_strata_after_map) break;
+    // Check strata
+    if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
+      const uint64_t total_distance = parameters.no_penalty_for_splitmaps ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
+      if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
+        if (total_distance < gt_alignment_get_read_proportion(alignment_src,parameters.min_event_distance)) continue;
+      }
+      if (parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
+        if (total_distance > gt_alignment_get_read_proportion(alignment_src,parameters.max_event_distance)) continue;
+      }
+    }
+    // Check levenshtein distance
+    if (parameters.min_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
+      const uint64_t total_distance = gt_map_get_global_levenshtein_distance(map);
+      if (parameters.min_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
+        if (total_distance < gt_alignment_get_read_proportion(alignment_src,parameters.min_levenshtein_distance)) continue;
+      }
+      if (parameters.max_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
+        if (total_distance > gt_alignment_get_read_proportion(alignment_src,parameters.max_levenshtein_distance)) continue;
+      }
+    }
+    // Filter strand
+    if (parameters.filter_by_strand_se) {
+      if (map->strand==FORWARD && !parameters.allow_strand_f) continue;
+      if (map->strand==REVERSE && !parameters.allow_strand_r) continue;
+    }
+    // Filter quality scores
+    if (parameters.quality_score_ranges!=NULL) {
+      if (!gt_filter_is_quality_value_allowed((file_format==SAM) ? map->phred_score : map->gt_score)) continue;
+    }
+    /*
+     * (3) Reduction of all maps
+     */
+    if (parameters.reduce_by_quality >= 0) {
+      const int64_t q = gt_alignment_sum_mismatch_qualities(alignment_src,map);
+      if (q!=0 && q!=max_mismatch_quality && abs(max_mismatch_quality-q)<=parameters.reduce_by_quality) continue;
+    }
+    /*
+     * Insert the map
+     */
+    gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+    // Skip the rest if first map is enabled
+    if (parameters.first_map || pick_only_first_map) break;
+  }
+  /*
+   * (4) Post-filtering steps
+   */
+  if (parameters.keep_first_map) {
+    if (gt_alignment_get_num_maps(alignment_dst)==0) {
+      gt_alignment_insert_map(alignment_dst,first_map);
+    } else {
+      gt_map_delete(first_map);
+    }
+  }
+}
+void gt_template_dna_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
   /*
    * Filtering workflow
    *   (1) Pre-filtering steps
@@ -495,170 +561,142 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
   GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
     GT_TEMPLATE_REDUCTION(template_src,alignment_src);
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
-    /*
-     * (1) Pre-filtering steps
-     */
-    gt_map* first_map = NULL;
-    if (parameters.keep_first_map && gt_alignment_get_num_maps(alignment_src)>0) {
-      first_map = gt_map_copy(gt_alignment_get_map(alignment_src,0));
-    }
-    /*
-     * (2) Filtering of maps
-     */
-    GT_ALIGNMENT_ITERATE(alignment_src,map) {
-      // Check sequence name
-      if (parameters.map_ids!=NULL) {
-        if (!gt_filter_is_sequence_name_allowed(map->seq_name)) continue;
-      }
-      // Filter strata beyond first mapping
-      const int64_t current_stratum = parameters.no_penalty_for_splitmaps ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
-      if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_strata) > parameters.max_strata_after_map) break;
-      // Check strata
-      if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
-        const uint64_t total_distance = parameters.no_penalty_for_splitmaps ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
-        if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
-          if (total_distance < gt_alignment_get_read_proportion(alignment_src,parameters.min_event_distance)) continue;
-        }
-        if (parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
-          if (total_distance > gt_alignment_get_read_proportion(alignment_src,parameters.max_event_distance)) continue;
-        }
-      }
-      // Check levenshtein distance
-      if (parameters.min_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
-        const uint64_t total_distance = gt_map_get_global_levenshtein_distance(map);
-        if (parameters.min_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
-          if (total_distance < gt_alignment_get_read_proportion(alignment_src,parameters.min_levenshtein_distance)) continue;
-        }
-        if (parameters.max_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
-          if (total_distance > gt_alignment_get_read_proportion(alignment_src,parameters.max_levenshtein_distance)) continue;
-        }
-      }
-      // Filter strand
-      if (parameters.filter_by_strand_se) {
-        if (map->strand==FORWARD && !parameters.allow_strand_f) continue;
-        if (map->strand==REVERSE && !parameters.allow_strand_r) continue;
-      }
-      // Filter quality scores
-      if (parameters.quality_score_ranges!=NULL) {
-        if (!gt_filter_is_quality_value_allowed((file_format==SAM) ? map->phred_score : map->gt_score)) continue;
-      }
-      /*
-       * (3) Reduction of all maps
-       */
-      if (parameters.reduce_by_quality >= 0) {
-        const int64_t q = gt_alignment_sum_mismatch_qualities(alignment_src,map);
-        if (q!=0 && q!=max_mismatch_quality && abs(max_mismatch_quality-q)<=parameters.reduce_by_quality) continue;
-      }
-      /*
-       * Insert the map
-       */
-      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
-      // Skip the rest if first map is enabled
-      if (parameters.first_map || pick_only_first_map) break;
-    }
-    /*
-     * (4) Post-filtering steps
-     */
-    if (parameters.keep_first_map) {
-      if (gt_alignment_get_num_maps(alignment_dst)==0) {
-        gt_alignment_insert_map(alignment_dst,first_map);
-      } else {
-        gt_map_delete(first_map);
-      }
-    }
+    gt_alignment_dna_filter(alignment_dst,alignment_src,file_format);
   } else {
-    /*
-     * (1) Pre-filtering steps
-     */
-    gt_map** first_mmap = NULL;
-    gt_mmap_attributes first_mmap_attributes = {0, 0, 0};
-    if (parameters.keep_first_map && gt_template_get_num_mmaps(template_src)>0) {
-      gt_mmap* const mmap = gt_template_get_mmap(template_src,0);
-      first_mmap = gt_mmap_array_copy(mmap->mmap,gt_template_get_num_blocks(template_src));
-      first_mmap_attributes = mmap->attributes;
-    }
-    /*
-     * (2) Filtering of maps
-     */
-    GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attributes) {
-      const int64_t current_stratum = parameters.no_penalty_for_splitmaps ?
-          gt_map_get_no_split_distance(mmap[0]) + gt_map_get_no_split_distance(mmap[1]):
-          gt_map_get_global_distance(mmap[0]) + gt_map_get_global_distance(mmap[1]);
-      if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_strata) > parameters.max_strata_after_map) break;
-      // Check sequence name
-      if (parameters.map_ids!=NULL) {
-        if (!gt_filter_is_sequence_name_allowed(mmap[0]->seq_name)) continue;
-        if (!gt_filter_is_sequence_name_allowed(mmap[1]->seq_name)) continue;
+    if (!gt_template_is_mapped(template_src)) {
+      GT_TEMPLATE_REDUCE_BOTH_ENDS(template_src,alignment_src_end1,alignment_src_end2);
+      GT_TEMPLATE_REDUCE_BOTH_ENDS(template_dst,alignment_dst_end1,alignment_dst_end2);
+      gt_alignment_dna_filter(alignment_dst_end1,alignment_src_end1,file_format);
+      gt_alignment_dna_filter(alignment_dst_end2,alignment_src_end2,file_format);
+    } else {
+      const uint64_t first_matching_strata = gt_counters_get_min_matching_strata(gt_template_get_counters_vector(template_src));
+      const uint64_t max_mismatch_quality = gt_template_get_max_mismatch_quality(template_src);
+      // Reduction by unique level (can be calculated beforehand)
+      bool pick_only_first_map = false;
+      if (parameters.reduce_to_unique_strata >= 0) {
+        pick_only_first_map = (gt_template_get_uniq_degree(template_src) >= parameters.reduce_to_unique_strata);
       }
-      // Check strata
-      if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
-        const int64_t total_distance = parameters.no_penalty_for_splitmaps ?
+      /*
+       * (1) Pre-filtering steps
+       */
+      gt_map** first_mmap = NULL;
+      gt_mmap_attributes first_mmap_attributes = {0, 0, 0};
+      if (parameters.keep_first_map && gt_template_get_num_mmaps(template_src)>0) {
+        gt_mmap* const mmap = gt_template_get_mmap(template_src,0);
+        first_mmap = gt_mmap_array_copy(mmap->mmap,gt_template_get_num_blocks(template_src));
+        first_mmap_attributes = mmap->attributes;
+      }
+      /*
+       * (2) Filtering of maps
+       */
+      GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attributes) {
+        const int64_t current_stratum = parameters.no_penalty_for_splitmaps ?
             gt_map_get_no_split_distance(mmap[0]) + gt_map_get_no_split_distance(mmap[1]):
             gt_map_get_global_distance(mmap[0]) + gt_map_get_global_distance(mmap[1]);
-        if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
-          if (total_distance < gt_template_get_read_proportion(template_src,parameters.min_event_distance)) continue;
+        if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_strata) > parameters.max_strata_after_map) break;
+        // Check sequence name
+        if (parameters.map_ids!=NULL) {
+          if (!gt_filter_is_sequence_name_allowed(mmap[0]->seq_name)) continue;
+          if (!gt_filter_is_sequence_name_allowed(mmap[1]->seq_name)) continue;
         }
-        if (parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
-          if (total_distance > gt_template_get_read_proportion(template_src,parameters.max_event_distance)) continue;
+        // Check strata
+        if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
+          const int64_t total_distance = parameters.no_penalty_for_splitmaps ?
+              gt_map_get_no_split_distance(mmap[0]) + gt_map_get_no_split_distance(mmap[1]):
+              gt_map_get_global_distance(mmap[0]) + gt_map_get_global_distance(mmap[1]);
+          if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
+            if (total_distance < gt_template_get_read_proportion(template_src,parameters.min_event_distance)) continue;
+          }
+          if (parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
+            if (total_distance > gt_template_get_read_proportion(template_src,parameters.max_event_distance)) continue;
+          }
         }
-      }
-      // Check levenshtein distance
-      if (parameters.min_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
-        const int64_t total_distance = gt_map_get_global_levenshtein_distance(mmap[0])+gt_map_get_global_levenshtein_distance(mmap[1]);
-        if (parameters.min_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
-          if (total_distance < gt_template_get_read_proportion(template_src,parameters.min_levenshtein_distance)) continue;
+        // Check levenshtein distance
+        if (parameters.min_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
+          const int64_t total_distance = gt_map_get_global_levenshtein_distance(mmap[0])+gt_map_get_global_levenshtein_distance(mmap[1]);
+          if (parameters.min_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
+            if (total_distance < gt_template_get_read_proportion(template_src,parameters.min_levenshtein_distance)) continue;
+          }
+          if (parameters.max_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
+            if (total_distance > gt_template_get_read_proportion(template_src,parameters.max_levenshtein_distance)) continue;
+          }
         }
-        if (parameters.max_levenshtein_distance != GT_FILTER_FLOAT_NO_VALUE) {
-          if (total_distance > gt_template_get_read_proportion(template_src,parameters.max_levenshtein_distance)) continue;
+        // Check inss
+        if (parameters.min_inss > INT64_MIN || parameters.max_inss < INT64_MAX) {
+          gt_status error_code;
+          const int64_t inss = gt_template_get_insert_size(mmap,&error_code);
+          if (parameters.min_inss > inss || inss > parameters.max_inss) continue;
         }
-      }
-      // Check inss
-      if (parameters.min_inss > INT64_MIN || parameters.max_inss < INT64_MAX) {
-        gt_status error_code;
-        const int64_t inss = gt_template_get_insert_size(mmap,&error_code);
-        if (parameters.min_inss > inss || inss > parameters.max_inss) continue;
-      }
-      // Check strandness
-      if (parameters.filter_by_strand_se) {
-        if (!parameters.allow_strand_f && (mmap[0]->strand==FORWARD || mmap[1]->strand==FORWARD)) continue;
-        if (!parameters.allow_strand_r && (mmap[0]->strand==REVERSE || mmap[1]->strand==REVERSE)) continue;
-      }
-      if (parameters.filter_by_strand_pe) {
-        if (mmap[0]->strand==FORWARD && mmap[1]->strand==REVERSE && !parameters.allow_strand_fr) continue;
-        if (mmap[0]->strand==REVERSE && mmap[1]->strand==FORWARD && !parameters.allow_strand_rf) continue;
-        if (mmap[0]->strand==FORWARD && mmap[1]->strand==FORWARD && !parameters.allow_strand_ff) continue;
-        if (mmap[0]->strand==REVERSE && mmap[1]->strand==REVERSE && !parameters.allow_strand_rr) continue;
-      }
-      // Filter quality scores
-      if (parameters.quality_score_ranges!=NULL) {
-        if (!gt_filter_is_quality_value_allowed((file_format==SAM) ? mmap_attributes->phred_score : mmap_attributes->gt_score)) continue;
+        // Check strandness
+        if (parameters.filter_by_strand_se) {
+          if (!parameters.allow_strand_f && (mmap[0]->strand==FORWARD || mmap[1]->strand==FORWARD)) continue;
+          if (!parameters.allow_strand_r && (mmap[0]->strand==REVERSE || mmap[1]->strand==REVERSE)) continue;
+        }
+        if (parameters.filter_by_strand_pe) {
+          if (mmap[0]->strand==FORWARD && mmap[1]->strand==REVERSE && !parameters.allow_strand_fr) continue;
+          if (mmap[0]->strand==REVERSE && mmap[1]->strand==FORWARD && !parameters.allow_strand_rf) continue;
+          if (mmap[0]->strand==FORWARD && mmap[1]->strand==FORWARD && !parameters.allow_strand_ff) continue;
+          if (mmap[0]->strand==REVERSE && mmap[1]->strand==REVERSE && !parameters.allow_strand_rr) continue;
+        }
+        // Filter quality scores
+        if (parameters.quality_score_ranges!=NULL) {
+          if (!gt_filter_is_quality_value_allowed((file_format==SAM) ? mmap_attributes->phred_score : mmap_attributes->gt_score)) continue;
+        }
+        /*
+         * (3) Reduction of all maps
+         */
+        if (parameters.reduce_by_quality >= 0) {
+          const int64_t q = gt_alignment_sum_mismatch_qualities(gt_template_get_block(template_src,0), mmap[0]) +
+                            gt_alignment_sum_mismatch_qualities(gt_template_get_block(template_src,1), mmap[1]);
+          if (q!=0 && q!=max_mismatch_quality && abs(max_mismatch_quality-q)<=parameters.reduce_by_quality) continue;
+        }
+        /*
+         * Insert the map
+         */
+        gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
+        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+        free(mmap_copy);
+        // Skip the rest if first map is enabled
+        if (parameters.first_map || pick_only_first_map) break;
       }
       /*
-       * (3) Reduction of all maps
+       * (4) Post-filtering steps
        */
-      if (parameters.reduce_by_quality >= 0) {
-        const int64_t q = gt_alignment_sum_mismatch_qualities(gt_template_get_block(template_src,0), mmap[0]) +
-                          gt_alignment_sum_mismatch_qualities(gt_template_get_block(template_src,1), mmap[1]);
-        if (q!=0 && q!=max_mismatch_quality && abs(max_mismatch_quality-q)<=parameters.reduce_by_quality) continue;
+      if (parameters.keep_first_map) {
+        if (gt_template_get_num_mmaps(template_dst)==0) {
+          gt_template_insert_mmap(template_dst,first_mmap,&first_mmap_attributes);
+        }
+        free(first_mmap);
       }
-      /*
-       * Insert the map
-       */
-      gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
-      gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
-      free(mmap_copy);
-      // Skip the rest if first map is enabled
-      if (parameters.first_map || pick_only_first_map) break;
     }
-    /*
-     * (4) Post-filtering steps
-     */
-    if (parameters.keep_first_map) {
-      if (gt_template_get_num_mmaps(template_dst)==0) {
-        gt_template_insert_mmap(template_dst,first_mmap,&first_mmap_attributes);
+  }
+}
+void gt_alignment_rna_filter(gt_alignment* const alignment_dst,gt_alignment* const alignment_src,const gt_file_format file_format) {
+  GT_ALIGNMENT_ITERATE(alignment_src,map) {
+    // Check sequence name
+    if (parameters.map_ids!=NULL) {
+      if (!gt_filter_is_sequence_name_allowed(map->seq_name)) continue;
+    }
+    // Check SM contained
+    const uint64_t num_blocks = gt_map_get_num_blocks(map);
+    if (parameters.no_split_maps && num_blocks>1) continue;
+    if (parameters.only_split_maps && num_blocks==1) continue;
+    // Filter intron length
+    if (parameters.min_intron_length > 0) {
+      if (gt_map_get_num_blocks(map) > 1) {
+        if(gt_map_get_min_intron_length(map) < parameters.min_intron_length) continue;
       }
-      free(first_mmap);
     }
+    // Filter block length
+    if (parameters.min_block_length > 0) {
+      if (gt_map_get_num_blocks(map) > 1) {
+        if (gt_map_get_min_block_length(map) < parameters.min_block_length) continue;
+      }
+    }
+    // Insert the map
+    gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+    // Skip the rest if best
+    if (parameters.first_map) return;
   }
 }
 void gt_template_rna_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
@@ -668,70 +706,52 @@ void gt_template_rna_filter(gt_template* const template_dst,gt_template* const t
     /*
      * SE
      */
-    GT_ALIGNMENT_ITERATE(alignment_src,map) {
-      // Check sequence name
-      if (parameters.map_ids!=NULL) {
-        if (!gt_filter_is_sequence_name_allowed(map->seq_name)) continue;
-      }
-      // Check SM contained
-      const uint64_t num_blocks = gt_map_get_num_blocks(map);
-      if (parameters.no_split_maps && num_blocks>1) continue;
-      if (parameters.only_split_maps && num_blocks==1) continue;
-      // Filter intron length
-      if (parameters.min_intron_length > 0) {
-        if (gt_map_get_num_blocks(map) > 1) {
-          if(gt_map_get_min_intron_length(map) < parameters.min_intron_length) continue;
-        }
-      }
-      // Filter block length
-      if (parameters.min_block_length > 0) {
-        if (gt_map_get_num_blocks(map) > 1) {
-          if (gt_map_get_min_block_length(map) < parameters.min_block_length) continue;
-        }
-      }
-      // Insert the map
-      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
-      // Skip the rest if best
-      if (parameters.first_map) return;
-    }
+    gt_alignment_rna_filter(alignment_dst,alignment_src,file_format);
   } else {
     /*
      * PE
      */
-    const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
-    GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attributes) {
-      // Check SM contained and get minimum intron length
-      uint64_t has_sm = false;
-      uint64_t min_intron_length = UINT64_MAX, min_block_length = UINT64_MAX;
-      if (parameters.no_split_maps || parameters.only_split_maps || parameters.min_intron_length >= 0) {
-        GT_MMAP_ITERATE(mmap,map,end_p) {
-          if (gt_map_get_num_blocks(map) > 1) {
-            const uint64_t mil = gt_map_get_min_intron_length(map);
-            const uint64_t mbl = gt_map_get_min_block_length(map);
-            has_sm = true;
-            if (mil >= 0 && mil < min_intron_length) min_intron_length = mil;
-            if (mbl >= 0 && mbl < min_block_length) min_block_length = mil;
+    if (!gt_template_is_mapped(template_src)) {
+      GT_TEMPLATE_REDUCE_BOTH_ENDS(template_src,alignment_src_end1,alignment_src_end2);
+      GT_TEMPLATE_REDUCE_BOTH_ENDS(template_dst,alignment_dst_end1,alignment_dst_end2);
+      gt_alignment_rna_filter(alignment_dst_end1,alignment_src_end1,file_format);
+      gt_alignment_rna_filter(alignment_dst_end2,alignment_src_end2,file_format);
+    } else {
+      const uint64_t num_blocks = gt_template_get_num_blocks(template_src);
+      GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attributes) {
+        // Check SM contained and get minimum intron length
+        uint64_t has_sm = false;
+        uint64_t min_intron_length = UINT64_MAX, min_block_length = UINT64_MAX;
+        if (parameters.no_split_maps || parameters.only_split_maps || parameters.min_intron_length >= 0) {
+          GT_MMAP_ITERATE(mmap,map,end_p) {
+            if (gt_map_get_num_blocks(map) > 1) {
+              const uint64_t mil = gt_map_get_min_intron_length(map);
+              const uint64_t mbl = gt_map_get_min_block_length(map);
+              has_sm = true;
+              if (mil >= 0 && mil < min_intron_length) min_intron_length = mil;
+              if (mbl >= 0 && mbl < min_block_length) min_block_length = mil;
+            }
           }
         }
+        if (parameters.no_split_maps && has_sm) continue;
+        if (parameters.only_split_maps && !has_sm) continue;
+        // Filter intron length
+        if (parameters.min_intron_length > 0 && min_intron_length != UINT64_MAX){
+          if(min_intron_length < parameters.min_intron_length) continue;
+        }
+        // Filter block length
+        if (parameters.min_block_length > 0 && min_block_length != UINT64_MAX){
+          if(min_block_length < parameters.min_block_length) continue;
+        }
+        // Filter pairs that aren't coherent at overlapping chunk (if overlapping and SM contained)
+        if (!gt_filter_are_overlapping_pairs_coherent(mmap)) continue;
+        // Add the mmap
+        gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+        free(mmap_copy);
+        // Skip the rest if best
+        if (parameters.first_map) return;
       }
-      if (parameters.no_split_maps && has_sm) continue;
-      if (parameters.only_split_maps && !has_sm) continue;
-      // Filter intron length
-      if (parameters.min_intron_length > 0 && min_intron_length != UINT64_MAX){
-        if(min_intron_length < parameters.min_intron_length) continue;
-      }
-      // Filter block length
-      if (parameters.min_block_length > 0 && min_block_length != UINT64_MAX){
-        if(min_block_length < parameters.min_block_length) continue;
-      }
-      // Filter pairs that aren't coherent at overlapping chunk (if overlapping and SM contained)
-      if (!gt_filter_are_overlapping_pairs_coherent(mmap)) continue;
-      // Add the mmap
-      gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-      gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
-      free(mmap_copy);
-      // Skip the rest if best
-      if (parameters.first_map) return;
     }
   }
 }
