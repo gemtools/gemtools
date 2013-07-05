@@ -624,7 +624,7 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
         // Check inss
         if (parameters.min_inss > INT64_MIN || parameters.max_inss < INT64_MAX) {
           gt_status error_code;
-          const int64_t inss = gt_template_get_insert_size(mmap,&error_code);
+          const int64_t inss = gt_template_get_insert_size(mmap,&error_code,0,0);
           if (parameters.min_inss > inss || inss > parameters.max_inss) continue;
         }
         // Check strandness
@@ -1136,7 +1136,7 @@ GT_INLINE void gt_filter_print_insert_size_distribution() {
       if (gt_template_get_num_blocks(template)!=2) continue;
       GT_TEMPLATE_ITERATE_(template,mmap) {
         gt_status error_code;
-        gt_bofprintf(buffered_output,"%"PRIu64"\n",gt_template_get_insert_size(mmap,&error_code));
+        gt_bofprintf(buffered_output,"%"PRIu64"\n",gt_template_get_insert_size(mmap,&error_code,0,0));
         if (parameters.first_map) break;
       }
     } GT_END_READING_WRITING_LOOP(input_file,output_file,template);

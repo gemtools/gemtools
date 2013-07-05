@@ -205,47 +205,52 @@ GT_INLINE void gt_template_reduce_mmaps(gt_template* const template,const uint64
 }
 
 /*
- * Template's Insert Size
+ * Insert size should be and estimate of the original fragment size that was sequenced.  We can get this from the following:
  *
- *   Insert size should be and estimate of the original fragment size that was sequenced.
- *   We can get this from the following:
- *     position of rightmost read + no. bases in rightmost read - position of leftmost read
+ * position of rightmost read + no. bases in rightmost read - position of leftmost read
+ * 
+ * If the read has been trimmed from the start of the read then we can't get the original size, but this is a relatively
+ * rare event.  Trimming from the end of the read does not effect the calculation as the rightmost read will be on the
+ * negative strand so trimming x bases from the end of the read will shift the mapped position of the read by x.
  *
- *   If the read has been trimmed from the start of the read then we can't get the original size, but this is a relatively rare event.
- *   Trimming from the end of the read does not effect the calculation as the rightmost read will be on the
- *   negative strand so trimming x bases from the end of the read will shift the mapped position of the read by x.
+ * Split mappings require special handling in that we need to consider the number of bases read + the distance between the 
+ * last block in each mapping as follows:
  *
- *   Split mappings require special handling in that we need to consider the number of bases read + the distance between the
- *   last block in each mapping as follows:
- *     position of last block of rightmost read + no. bases in rightmost read - (position of last block of leftmost read + no. bases)
- *   in all other blocks of leftmost read
+ * Position of last block of rightmost read + no. bases in rightmost read - (position of last block of leftmost read + no. bases)
+ * in all other blocks of leftmost read
+ *
+ * if start_x is non-zero then *start_x will be set to the start position of the left block before the insert
+ *
  */
-GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,gt_status* const error_code) {
+GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,uint64_t *gt_error,uint64_t *start_x,gt_string **ctg) {
   // Get last block of each map
   gt_map *block[2]={0,0};
   uint64_t length[2]={0,0};
   int64_t x=0;
-  if (gt_string_equals(mmap[0]->seq_name,mmap[1]->seq_name)) {
-    *error_code=GT_TEMPLATE_INSERT_SIZE_OK;
-    GT_MAP_SEGMENT_ITERATE(mmap[0],map_end1) {
-      block[0]=map_end1;
-      length[0]+=gt_map_get_base_length(map_end1);
-    }
-    GT_MAP_SEGMENT_ITERATE(mmap[1],map_end2) {
-      block[1]=map_end2;
-      length[1]+=gt_map_get_base_length(map_end2);
-    }
-    if (mmap[0]->strand!=mmap[1]->strand) {
-      if (block[0]->strand==FORWARD) {
-        x=1+block[1]->position+length[1]-(block[0]->position+length[0]-gt_map_get_base_length(block[0]));
+  *gt_error=GT_TEMPLATE_INSERT_SIZE_OK;
+  GT_MAP_ITERATE(mmap[0],map_it) {
+    block[0]=map_it;
+    length[0]+=gt_map_get_base_length(block[0]);
+  } 
+  GT_MAP_ITERATE(mmap[1],map_it2) {
+    block[1]=map_it2;
+    length[1]+=gt_map_get_base_length(block[1]);
+  } 
+  if(gt_string_equals(block[0]->seq_name,block[1]->seq_name)) {
+    if(block[0]->strand!=block[1]->strand) {
+      if(block[0]->strand==FORWARD) {
+      		x=1+block[1]->position+length[1]-(block[0]->position+length[0]-gt_map_get_base_length(block[0]));
+      		if(start_x) *start_x=block[0]->position;
       } else {
-        x=1+block[0]->position+length[0]-(block[1]->position+length[1]-gt_map_get_base_length(block[1]));
+      	x=1+block[0]->position+length[0]-(block[1]->position+length[1]-gt_map_get_base_length(block[1]));
+    		if(start_x) *start_x=block[1]->position;
       }
+      if(ctg) *ctg=block[0]->seq_name;
     } else {
-      *error_code=GT_TEMPLATE_INSERT_SIZE_SAME_STRAND;
+      *gt_error=GT_TEMPLATE_INSERT_SIZE_SAME_STRAND;
     }
   } else {
-    *error_code=GT_TEMPLATE_INSERT_SIZE_DIFFERENT_CONTIGS;
+    *gt_error=GT_TEMPLATE_INSERT_SIZE_DIFFERENT_CONTIGS;
   }
   return x;
 }

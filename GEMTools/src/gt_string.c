@@ -298,7 +298,12 @@ GT_INLINE void gt_string_reverse(gt_string* const sequence) {
     buffer[string_length-i-1] = aux;
   }
 }
-
+GT_INLINE gt_string* gt_string_reverse_dup(gt_string* const sequence) {
+  GT_STRING_CHECK(sequence);
+  gt_string* const sequence_dst = gt_string_new(gt_string_get_length(sequence)+1);
+  gt_string_reverse_copy(sequence_dst,sequence);
+  return sequence_dst;
+}
 GT_INLINE gt_string* gt_string_dup(gt_string* const sequence) {
   GT_STRING_CHECK(sequence);
   gt_string* sequence_cpy = gt_string_new(sequence->length+1);
@@ -327,13 +332,17 @@ GT_INLINE void gt_string_reverse_copy(gt_string* const sequence_dst,gt_string* c
   buffer_dst[string_length] = EOS;
   sequence_dst->length = string_length;
 }
-GT_INLINE gt_string* gt_string_reverse_dup(gt_string* const sequence) {
-  GT_STRING_CHECK(sequence);
-  gt_string* const sequence_dst = gt_string_new(gt_string_get_length(sequence)+1);
-  gt_string_reverse_copy(sequence_dst,sequence);
-  return sequence_dst;
+GT_INLINE uint64_t gt_string_copy_substr(gt_string * const sequence_dst,gt_string * const sequence_src,uint64_t off,uint64_t len)
+{
+	GT_STRING_CHECK_NO_STATIC(sequence_dst);
+	GT_STRING_CHECK(sequence_src);
+	if(off+len>sequence_src->length) len=0;
+	gt_string_resize(sequence_dst,len+1);
+	if(!len) sequence_dst->buffer[0]=EOS;
+	else gt_strncpy(sequence_dst->buffer,sequence_src->buffer+off,len);
+	sequence_dst->length=len;
+	return len;
 }
-
 /*
  * String Printers
  */

@@ -61,7 +61,7 @@ GT_INLINE void gt_template_reduce_mmaps(gt_template* const template,const uint64
 #define GT_TEMPLATE_INSERT_SIZE_OK 0
 #define GT_TEMPLATE_INSERT_SIZE_DIFFERENT_CONTIGS 1
 #define GT_TEMPLATE_INSERT_SIZE_SAME_STRAND 2
-GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,gt_status* const error_code);
+GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,uint64_t* gt_error,uint64_t *start_x,gt_string **ctg);
 
 /*
  * Template's Counters operators
