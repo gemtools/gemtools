@@ -130,6 +130,9 @@
 // Macro Stringify
 #define GT_QUOTE(value) #value
 
+// Size of an static array
+#define GT_CONST_ARRAY_SIZE(array,type) (sizeof(array)/sizeof(type))
+
 /*
  * Is functions
  */
