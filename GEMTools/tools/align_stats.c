@@ -26,7 +26,7 @@ static void usage(FILE *f)
 	fputs("  -V|--variable  Variable length reads\n",f);
 	fputs("  -p|--paired    Paired mapping input file\n",f);
 	fputs("  -i|--ignore_id Do not attempt to parse read IDs\n",f);
-	fputs("  -m|--mmap      Mmap input files\n",f);
+	fputs("  -w|--mmap      mmap input files\n",f);
 	fprintf(f,"  -P|--phage_lambda <identifier for phage lambda>    (default='%s')\n",PHAGE_LAMBDA);
 	fprintf(f,"  -X|--phix174 <identifier for phiX174>    (default='%s')\n",PHIX174);
 	fprintf(f,"  -L|--max_read_length <maximum valid read length>   (default=%u)\n",MAX_READ_LENGTH);
@@ -1206,7 +1206,7 @@ int main(int argc,char *argv[])
 			{"paired",no_argument,0,'p'},
 			{"variable",no_argument,0,'V'},
 			{"ignore_id",no_argument,0,'i'},
-			{"mmap",no_argument,0,'m'},
+			{"mmap",no_argument,0,'w'},
 			{"fastq",no_argument,0,'F'},
 			{"solexa",no_argument,0,'S'},
 			{"threads",required_argument,0,'t'},
@@ -1237,7 +1237,7 @@ int main(int argc,char *argv[])
 			.qual_offset=DEFAULT_QUAL_OFFSET,
 	};
 
-	while(!err && (c=getopt_long(argc,argv,"d:t:r:o:q:m:M:l:L:x:P:X:FSVpi?",longopts,0))!=-1) {
+	while(!err && (c=getopt_long(argc,argv,"d:t:r:o:q:m:M:l:L:x:P:X:FSVwpi?",longopts,0))!=-1) {
 		switch(c) {
 		case 'd':
 			set_opt("insert_dist",&param.dist_file,optarg);
@@ -1283,6 +1283,9 @@ int main(int argc,char *argv[])
 			break;
 		case 'V':
 			param.variable_read_length=true;
+			break;
+		case 'w':
+			param.mmap_input=true;
 			break;
 		case 'i':
 			param.ignore_id=true;
