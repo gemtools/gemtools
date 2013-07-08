@@ -779,7 +779,7 @@ GT_INLINE void gt_stats_make_mmaps_profile(
      * Insert Size Distribution
      */
     if (paired_map) {
-      uint64_t gt_err;
+      gt_status gt_err;
       int64_t ins_size = gt_template_get_insert_size(mmap,&gt_err,0,0);
       if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
         gt_stats_get_inss_distribution(maps_error_profile->inss,ins_size);

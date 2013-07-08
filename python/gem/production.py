@@ -49,6 +49,68 @@ class Merge(Command):
                   paired=args.paired, compress=args.compress)
 
 
+class Convert(Command):
+    title = "Convert .map to .bam"
+    description = """Take a .map file or reads from stdin and converts
+    to .bam.
+    """
+
+    def register(self, parser):
+        parser.add_argument("-i", "--input", dest="input",
+                            help="The .map file. Defaults to stdin")
+        parser.add_argument("-I", "--index", dest="index",
+                            help="The GEM index", required=True)
+        parser.add_argument("-o", "--output", dest="output",
+                            help="Output .bam file", required=True)
+        parser.add_argument("-q", "--quality", dest="quality",
+                            help="Quality offset (33,64,ignore)")
+        parser.add_argument("-t", "--threads", dest="threads", type=int,
+                            default=1,
+                            help="Number of threads")
+        parser.add_argument("-m", "--memory", dest="sort_memory",
+                            default="768M",
+                            help="Memory to use per sorting threads. "
+                            "Default 768M")
+        parser.add_argument("--no-xs", action="store_true", default=False,
+                            dest="no_xs",
+                            help="Disable computation of XS field")
+        parser.add_argument("-p", "--paired", action="store_true", default=False,
+                            dest="paired",
+                            help="Paired-end reads")
+        parser.add_argument("--no-sort", action="store_true", default=False,
+                            dest="no_sort",
+                            help="Disable sorting")
+        parser.add_argument("--no-index", action="store_true", default=False,
+                            dest="no_index",
+                            help="Disable indexing the bam file")
+
+
+    def run(self, args):
+        quality = gem._prepare_quality_parameter(args.quality)
+        raw = False
+        if args.input is not None:
+            map_file = gem.files.open(args.input, quality=quality)
+        else:
+            map_file = gem.files.open(sys.stdin, quality=quality)
+            raw = True
+        cons = gem.extended_splice_consensus
+        if args.no_xs:
+            cons = None
+        sam = gem.gem2sam(map_file,
+                            index=args.index,
+                            threads=args.threads,
+                            quality=args.quality,
+                            consensus=cons,
+                            raw=raw
+                            )
+        gem.sam2bam(sam, output=args.output,
+                    sorted=not args.no_sort,
+                    threads=args.threads,
+                    sort_memory=str(args.sort_memory))
+        if not args.no_index:
+            gem.bamIndex(args.output)
+
+
 class Stats(Command):
     title = "Create .map stats"
     description = """Calculate stats on a map file"""

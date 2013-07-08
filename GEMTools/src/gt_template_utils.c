@@ -222,7 +222,7 @@ GT_INLINE void gt_template_reduce_mmaps(gt_template* const template,const uint64
  * if start_x is non-zero then *start_x will be set to the start position of the left block before the insert
  *
  */
-GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,gt_status *gt_error,uint64_t *start_x,gt_string **ctg) {
+GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,gt_status* gt_error,uint64_t* start_x,gt_string** ctg) {
   // Get last block of each map
   gt_map *block[2]={0,0};
   uint64_t length[2]={0,0};

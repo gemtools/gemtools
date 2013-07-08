@@ -825,7 +825,7 @@ def score(input,
 def gem2sam(input, index=None, output=None,
     single_end=False, compact=False, threads=1,
     quality=None, check_ids=True, add_length=True, consensus=None,
-    exclude_header=False, calc_xs=True):
+    exclude_header=False, calc_xs=True, raw=False):
 
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
@@ -853,7 +853,7 @@ def gem2sam(input, index=None, output=None,
         gem_2_sam_p.append("-c")
 
     # GT-25 transform id's
-    process = utils.run_tool(gem_2_sam_p, input=input, output=output, name="GEM-2-sam", write_map=True, clean_id=True, append_extra=False)
+    process = utils.run_tool(gem_2_sam_p, input=input, output=output, name="GEM-2-sam", write_map=True, clean_id=True, append_extra=False, raw=raw)
     return _prepare_output(process, output=output, quality=quality)
 
 

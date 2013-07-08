@@ -24,6 +24,7 @@ def gemtools():
             "rna-pipeline": gem.production.RnaPipeline,
             "t-index": gem.production.TranscriptIndex,
             "merge": gem.production.Merge,
+            "convert": gem.production.Convert,
             "gtf-junctions": gem.production.Junctions,
             "denovo-junctions": gem.production.JunctionExtraction,
             "stats": gem.production.Stats,

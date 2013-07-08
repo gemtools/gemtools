@@ -62,6 +62,7 @@ typedef struct {
   /* Make templates unique */
   int64_t reduce_to_unique_strata;
   int64_t reduce_by_quality;
+  bool reduce_to_unique;
   /* RNA Seq to recalculate counters */
   bool no_split_maps;
   bool only_split_maps;
@@ -166,6 +167,7 @@ gt_filter_args parameters = {
     .max_maps=-1,
     /* Make templates unique */
     .reduce_to_unique_strata=-1,
+    .reduce_to_unique=false,
     .reduce_by_quality=-1,
     /* RNA Seq */
     .no_split_maps=false,
@@ -348,7 +350,11 @@ GT_INLINE uint64_t gt_filter_count_junctions_in_region(gt_map* const map,const u
       // Is the junction in the overlap ?
       const uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map_block: gt_map_get_next_block(map_block)) + 1;
       const uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map_block): map_block) - 1;
-      if (junctions_start >= start && junctions_end <= end) count++;
+
+
+      if ((junctions_end >= start) && (junctions_start <= end)){
+        count++;
+      }
     }
   }
   return count;
@@ -359,6 +365,7 @@ GT_INLINE bool gt_filter_are_overlapping_pairs_coherent(gt_map** const mmap) {
   // Check overlap
   uint64_t overlap_start, overlap_end;
   if (gt_map_block_overlap(mmap[0],mmap[1],&overlap_start,&overlap_end)) {
+
     uint64_t junctions_in_1 = gt_filter_count_junctions_in_region(mmap[0], overlap_start, overlap_end);
     uint64_t junctions_in_2 = gt_filter_count_junctions_in_region(mmap[1], overlap_start, overlap_end);
     if(junctions_in_1 != junctions_in_2) return false;
@@ -390,7 +397,7 @@ GT_INLINE void gt_filter_add_from_hit(gt_template* const template,gt_gtf_hit* hi
     gt_alignment_insert_map(alignment_dst,gt_map_copy(hit->map));
   }
 }
-GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
+GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
   gt_gtf_hits* hits = gt_gtf_hits_new();
   gt_gtf_search_template_for_exons(parameters.gtf, hits, template_src);
 
@@ -407,6 +414,8 @@ GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_d
   bool pairs_transcripts = false;
   bool is_protein_coding = false;
   bool pick_first = false;
+  // prefer protein coding hits over others (i.e. pseudogenes)
+  bool prefer_protein_coding = false;
 
   uint64_t counter;
   gt_gtf_hit* hit = NULL;
@@ -416,7 +425,9 @@ GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_d
     if(!hit->pairs_gene){
       continue;
     }
-    is_protein_coding |= hit->is_protein_coding;
+    if(prefer_protein_coding){
+      is_protein_coding |= hit->is_protein_coding;
+    }
     pairs_transcripts |= hit->pairs_transcript;
     if (hit->junction_hits > max_junction_hits) {
       max_junction_hits = hit->junction_hits;
@@ -453,21 +464,38 @@ GT_INLINE void gt_filter_make_reduce_by_annotation(gt_template* const template_d
     } GT_SHASH_END_ITERATE;
   }
   // iterate again and pick the hits
+  uint64_t added = 0;
   for (counter=0;counter<gt_vector_get_used(exon_hits);++counter) {
     hit = *gt_vector_get_elm(exon_hits,counter,gt_gtf_hit*);
     if (!hit->pairs_gene) continue;
     if (pick_first && (!is_protein_coding || (is_protein_coding && hit->is_protein_coding))) {
       gt_filter_add_from_hit(template_dst, hit);
+      added++;
       break;
     } else {
       if ((is_protein_coding && hit->is_protein_coding) || !is_protein_coding) {
         // pick all protein coding hits or all hits
         gt_filter_add_from_hit(template_dst, hit);
+        added++;
       }
     }
   }
   gt_gtf_hits_delete(hits);
   gt_shash_delete(transcripts,true);
+  return (added > 0);
+}
+
+void gt_alignment_reduction_filter(gt_alignment* const alignment_dst,gt_alignment* const alignment_src,const gt_file_format file_format) {
+  // Reduction by unique level (can be calculated beforehand)
+  GT_ALIGNMENT_ITERATE(alignment_src,map) {
+    if (parameters.reduce_to_unique_strata >= 0 &&
+       (gt_alignment_get_uniq_degree(alignment_src) >= parameters.reduce_to_unique_strata)) {
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      break;
+    }
+    if(parameters.reduce_to_unique) break;
+    gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+  }
 }
 
 void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* const alignment_src,const gt_file_format file_format) {
@@ -475,9 +503,6 @@ void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* con
   const uint64_t max_mismatch_quality = gt_alignment_get_max_mismatch_quality(alignment_src);
   // Reduction by unique level (can be calculated beforehand)
   bool pick_only_first_map = false;
-  if (parameters.reduce_to_unique_strata >= 0) {
-    pick_only_first_map = (gt_alignment_get_uniq_degree(alignment_src) >= parameters.reduce_to_unique_strata);
-  }
   /*
    * (1) Pre-filtering steps
    */
@@ -550,6 +575,34 @@ void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* con
     }
   }
 }
+void gt_template_reduction_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
+  GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
+    GT_TEMPLATE_REDUCTION(template_src,alignment_src);
+    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+    gt_alignment_reduction_filter(alignment_dst,alignment_src,file_format);
+  } else {
+    if (!gt_template_is_mapped(template_src)) {
+      GT_TEMPLATE_REDUCE_BOTH_ENDS(template_src,alignment_src_end1,alignment_src_end2);
+      GT_TEMPLATE_REDUCE_BOTH_ENDS(template_dst,alignment_dst_end1,alignment_dst_end2);
+      gt_alignment_reduction_filter(alignment_dst_end1,alignment_src_end1,file_format);
+      gt_alignment_reduction_filter(alignment_dst_end2,alignment_src_end2,file_format);
+    } else {
+      GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attributes) {
+        if (parameters.reduce_to_unique_strata >= 0 && (gt_template_get_uniq_degree(template_src) >= parameters.reduce_to_unique_strata)) {
+          gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
+          gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+          free(mmap_copy);
+          break;
+        }
+        if(parameters.reduce_to_unique) break;
+        gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
+        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+        free(mmap_copy);
+
+      }
+    }
+  }
+}
 void gt_template_dna_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
   /*
    * Filtering workflow
@@ -573,9 +626,6 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
       const uint64_t max_mismatch_quality = gt_template_get_max_mismatch_quality(template_src);
       // Reduction by unique level (can be calculated beforehand)
       bool pick_only_first_map = false;
-      if (parameters.reduce_to_unique_strata >= 0) {
-        pick_only_first_map = (gt_template_get_uniq_degree(template_src) >= parameters.reduce_to_unique_strata);
-      }
       /*
        * (1) Pre-filtering steps
        */
@@ -684,7 +734,9 @@ void gt_alignment_rna_filter(gt_alignment* const alignment_dst,gt_alignment* con
     // Filter intron length
     if (parameters.min_intron_length > 0) {
       if (gt_map_get_num_blocks(map) > 1) {
-        if(gt_map_get_min_intron_length(map) < parameters.min_intron_length) continue;
+        if(gt_map_get_min_intron_length(map) < parameters.min_intron_length){
+          continue;
+        }
       }
     }
     // Filter block length
@@ -699,6 +751,7 @@ void gt_alignment_rna_filter(gt_alignment* const alignment_dst,gt_alignment* con
     if (parameters.first_map) return;
   }
 }
+
 void gt_template_rna_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
   GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
     GT_TEMPLATE_REDUCTION(template_src,alignment_src);
@@ -729,7 +782,7 @@ void gt_template_rna_filter(gt_template* const template_dst,gt_template* const t
               const uint64_t mbl = gt_map_get_min_block_length(map);
               has_sm = true;
               if (mil >= 0 && mil < min_intron_length) min_intron_length = mil;
-              if (mbl >= 0 && mbl < min_block_length) min_block_length = mil;
+              if (mbl >= 0 && mbl < min_block_length) min_block_length = mbl;
             }
           }
         }
@@ -737,14 +790,18 @@ void gt_template_rna_filter(gt_template* const template_dst,gt_template* const t
         if (parameters.only_split_maps && !has_sm) continue;
         // Filter intron length
         if (parameters.min_intron_length > 0 && min_intron_length != UINT64_MAX){
-          if(min_intron_length < parameters.min_intron_length) continue;
+          if(min_intron_length < parameters.min_intron_length){
+            continue;
+          }
         }
         // Filter block length
         if (parameters.min_block_length > 0 && min_block_length != UINT64_MAX){
           if(min_block_length < parameters.min_block_length) continue;
         }
         // Filter pairs that aren't coherent at overlapping chunk (if overlapping and SM contained)
-        if (!gt_filter_are_overlapping_pairs_coherent(mmap)) continue;
+        if (!gt_filter_are_overlapping_pairs_coherent(mmap)){
+          continue;
+        }
         // Add the mmap
         gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
         gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
@@ -866,34 +923,55 @@ GT_INLINE bool gt_filter_apply_filters(
     gt_template_delete(template_filtered);
     gt_template_recalculate_counters(template);
   }
+
   // Map RNA-filtering
+  num_maps = gt_template_get_num_mmaps(template);
   if (parameters.perform_rna_map_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_rna_filter(template_filtered,template,file_format);
     gt_template_swap(template,template_filtered);
     gt_template_delete(template_filtered);
     gt_template_recalculate_counters(template);
+  }else if(parameters.perform_rna_map_filter && (parameters.keep_unique || num_maps == 1)){
+    // in case of unique, we always want to ensure pair-splits are check for coherence
+    // Filter pairs that aren't coherent at overlapping chunk (if overlapping and SM contained)
+    if(gt_template_get_num_blocks(template) == 2 && gt_template_is_mapped(template)){
+      gt_template *template_filtered = gt_template_dup(template,false,false);
+      const uint64_t num_blocks = gt_template_get_num_blocks(template);
+      GT_TEMPLATE_ITERATE_MMAP__ATTR(template,mmap,mmap_attributes) {
+        if (!gt_filter_are_overlapping_pairs_coherent(mmap)){
+          continue;
+        }
+        gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
+        gt_template_insert_mmap(template_filtered,mmap_copy,mmap_attributes);
+        free(mmap_copy);
+      }
+      gt_template_swap(template,template_filtered);
+      gt_template_delete(template_filtered);
+      gt_template_recalculate_counters(template);
+    }
   }
+
   // Map Annotation-filtering
-  if (parameters.gtf != NULL && parameters.perform_annotation_filter && (!parameters.keep_unique || num_maps > 1)) {
+  num_maps = gt_template_get_num_mmaps(template);
+  if (parameters.gtf != NULL && parameters.perform_annotation_filter && num_maps > 1) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
-    gt_filter_make_reduce_by_annotation(template_filtered,template);
+    if(gt_filter_make_reduce_by_annotation(template_filtered,template)){
+      gt_template_swap(template,template_filtered);
+      gt_template_recalculate_counters(template);
+    }
+    gt_template_delete(template_filtered);
+  }
+
+  // reduce by level filter
+  num_maps = gt_template_get_num_mmaps(template);
+  if ((parameters.reduce_to_unique_strata >= 0 || parameters.reduce_to_unique)&& (num_maps > 1)) {
+    gt_template *template_filtered = gt_template_dup(template,false,false);
+    gt_template_reduction_filter(template_filtered,template,file_format);
     gt_template_swap(template,template_filtered);
     gt_template_delete(template_filtered);
     gt_template_recalculate_counters(template);
   }
-
-//    // re-reduce // TODO
-//    if (parameters.reduce_to_unique_strata >= 0 && (
-//        (parameters.gtf != NULL && parameters.perform_annotation_filter)
-//        || parameters.reduce_by_quality >= 0)) {
-//      if (parameters.rna_seq) gt_template_recalculate_counters_no_splits(template);
-//      template_filtered = gt_template_dup(template,false,false);
-//      gt_filter_make_reduce_to_unique_strata(template_filtered, template);
-//      gt_template_swap(template,template_filtered);
-//      gt_template_delete(template_filtered);
-//      gt_template_recalculate_counters(template);
-//    }
 
   // Map pruning
   if (parameters.matches_pruning) gt_filter_prune_matches(template);
@@ -1644,8 +1722,11 @@ void parse_arguments(int argc,char** argv) {
       parameters.reduce_by_quality = atol(optarg);
       break;
     case 514: // reduce-by-annotation
-      gt_filter_get_argument_gtf_type(optarg);
+      //gt_filter_get_argument_gtf_type(optarg);
       parameters.perform_annotation_filter = true;
+      break;
+    case 515: // reduce-by-annotation
+      parameters.reduce_to_unique = true;
       break;
     /* Filter RNA-Maps */
     case 600: // no-split-maps
