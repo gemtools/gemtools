@@ -42,7 +42,7 @@ GT_INLINE uint64_t gt_map_get_global_length(gt_map* const map) {
   GT_MAP_CHECK(map);
   uint64_t length = 0;
   GT_MAP_ITERATE(map,map_it) {
-    length += gt_map_get_length(map_it) + (gt_map_has_next_block(map_it) ? gt_map_get_junction_size(map_it) : 0);
+    length += gt_map_get_length(map_it) + gt_map_get_junction_size(map_it);
   }
   return length;
 }
