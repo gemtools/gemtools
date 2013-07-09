@@ -17,7 +17,7 @@ gt_option gt_filter_options[] = {
   { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
   { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (MultiFASTA/FASTA)" , "" },
   { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GEM2-Index)" , "" },
-  { 200, "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , false, "<file> (GTF Annotation)" , "" },
+  { 200, "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GTF Annotation)" , "" },
   { 201, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , false, "" , "" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
   { 202, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'FASTA'|'MAP'|'SAM' (default='InputFormat')" , "" },
