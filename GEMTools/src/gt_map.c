@@ -427,7 +427,7 @@ GT_INLINE gt_junction_t gt_map_get_junction(gt_map* const map) {
 }
 GT_INLINE int64_t gt_map_get_junction_size(gt_map* const map) {
   GT_MAP_CHECK(map);
-  return map->next_block.junction_size;
+  return (gt_map_has_next_block(map)) ? map->next_block.junction_size : 0;
 }
 // Reverse Blocks / Mismatches-Within-Block
 GT_INLINE uint64_t gt_map_reverse_blocks_positions_(gt_map* const map,const uint64_t start_position) {
