@@ -234,6 +234,26 @@ gt_filter_args parameters = {
     .perform_annotation_filter=false,
     .load_index=false
 };
+
+/*
+ * Helper to get num maps correctly also for unpaired 
+ * mapped pairs
+ */
+GT_INLINE uint64_t gt_filter_get_num_maps(gt_template* template){
+  GT_TEMPLATE_IF_SE_ALINGMENT(template) {
+    return gt_template_get_num_mmaps(template);
+  } else {
+    if (!gt_template_is_mapped(template)) {
+      GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_end1,alignment_end2);
+      return gt_alignment_get_num_maps(alignment_end1) + gt_alignment_get_num_maps(alignment_end2);
+    } else {
+      return gt_template_get_num_mmaps(template);
+    }
+  }
+}
+
+
+
 /*
  * Checking/(Re)Aligning/MismsRecovery
  */
@@ -493,7 +513,7 @@ void gt_alignment_reduction_filter(gt_alignment* const alignment_dst,gt_alignmen
       gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
       break;
     }
-    if(parameters.reduce_to_unique) break;
+    if(gt_alignment_get_num_maps(alignment_src) != 1 && parameters.reduce_to_unique) break;
     gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
   }
 }
@@ -594,7 +614,7 @@ void gt_template_reduction_filter(gt_template* const template_dst,gt_template* c
           free(mmap_copy);
           break;
         }
-        if(parameters.reduce_to_unique) break;
+        if(gt_template_get_num_mmaps(template_src) != 1 && parameters.reduce_to_unique) break;
         gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
         gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
         free(mmap_copy);
@@ -915,7 +935,7 @@ GT_INLINE bool gt_filter_apply_filters(
   }
 
   // Map DNA-filtering
-  uint64_t num_maps = gt_template_get_num_mmaps(template);
+  uint64_t num_maps = gt_filter_get_num_maps(template);
   if (parameters.perform_dna_map_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_dna_filter(template_filtered,template,file_format);
@@ -925,7 +945,7 @@ GT_INLINE bool gt_filter_apply_filters(
   }
 
   // Map RNA-filtering
-  num_maps = gt_template_get_num_mmaps(template);
+  num_maps = gt_filter_get_num_maps(template);
   if (parameters.perform_rna_map_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_rna_filter(template_filtered,template,file_format);
@@ -953,7 +973,7 @@ GT_INLINE bool gt_filter_apply_filters(
   }
 
   // Map Annotation-filtering
-  num_maps = gt_template_get_num_mmaps(template);
+  num_maps = gt_filter_get_num_maps(template);
   if (parameters.gtf != NULL && parameters.perform_annotation_filter && num_maps > 1) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     if(gt_filter_make_reduce_by_annotation(template_filtered,template)){
@@ -964,7 +984,7 @@ GT_INLINE bool gt_filter_apply_filters(
   }
 
   // reduce by level filter
-  num_maps = gt_template_get_num_mmaps(template);
+  num_maps = gt_filter_get_num_maps(template);
   if ((parameters.reduce_to_unique_strata >= 0 || parameters.reduce_to_unique)&& (num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_reduction_filter(template_filtered,template,file_format);
