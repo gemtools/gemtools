@@ -239,6 +239,32 @@ char* gt_map2sam_groups[] = {
   /*  6 */ "Format",
   /*  7 */ "Misc",
 };
+/*
+ * gt.gtfcount menu options
+ */
+gt_option gt_gtfcount_options[] = {
+  /* I/O */
+  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'a', "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GTF annotation" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  /* Misc */
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
+  {  0, "", 0, 0, 0, false, "", ""}
+};
+char* gt_gtfcount_options_short = "i:o:a:p:t:hHv";
+char* gt_gtfcount_groups[] = {
+  /*  0 */ "Null",
+  /*  1 */ "Unclassified",
+  /*  2 */ "I/O",
+  /*  3 */ "Optional Fields",
+  /*  4 */ "Format",
+  /*  5 */ "Misc",
+};
 
 GT_INLINE uint64_t gt_options_get_num_options(const gt_option* const options) {
   uint64_t num_options = 0, i = 0;

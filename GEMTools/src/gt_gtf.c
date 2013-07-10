@@ -771,3 +771,152 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
   gt_vector_delete(search_hits);
 }
 
+GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element){
+  if(!gt_shash_is_contained(table, element)){
+    uint64_t* v = gt_malloc_uint64();
+    *v = 1;
+    gt_shash_insert(table, element, v, uint64_t);
+  }else{
+    uint64_t* v = gt_shash_get(table,element,uint64_t);
+    ++(*v);
+  }
+}
+
+GT_INLINE uint64_t gt_gtf_get_count_(gt_shash* const table, char* const element){
+  if(!gt_shash_is_contained(table, element)){
+    return 0;
+  }
+  uint64_t* v = gt_shash_get(table,element,uint64_t);
+  return *v;
+}
+
+GT_INLINE void gt_gtf_count_add_(gt_shash* const source, gt_shash* const target){
+  GT_SHASH_BEGIN_ITERATE(source, key, value, uint64_t){
+    if(!gt_shash_is_contained(target, key)){
+      uint64_t* v = gt_malloc_uint64();
+      *v = *value;
+      gt_shash_insert(target, key, v, uint64_t);
+    }else{
+      uint64_t* v = gt_shash_get(target,key,uint64_t);
+      *v += (*value);
+    }
+  }GT_SHASH_END_ITERATE;
+}
+
+
+GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts){
+  uint64_t start = gt_map_get_begin_mapping_position(map);
+  uint64_t end   = gt_map_get_end_mapping_position(map);
+  gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
+  gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end);
+
+  gt_shash* const local_type_counts = gt_shash_new();
+  gt_shash* const local_gene_counts = gt_shash_new();
+
+  GT_VECTOR_ITERATE(hits, e, i, gt_gtf_entry*){
+    gt_gtf_entry* hit = *e;
+    gt_gtf_count_(local_type_counts, gt_string_get_string(hit->type));
+    gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
+  }
+
+  // count types
+  if(gt_gtf_get_count_(local_type_counts, "exon") > 0){
+    gt_gtf_count_(type_counts, "exon");
+  }else if(gt_gtf_get_count_(local_type_counts, "intron") > 0){
+    gt_gtf_count_(type_counts, "intron");
+  }else{
+    gt_gtf_count_(type_counts, "unknown");
+  }
+
+  if(gt_shash_get_num_elements(local_gene_counts) == 1){
+    // add gene count
+    GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
+      gt_gtf_count_(gene_counts, key);
+      break;
+    }GT_SHASH_END_ITERATE;
+  }
+
+  gt_shash_delete(local_gene_counts, true);
+  gt_shash_delete(local_type_counts, true);
+  gt_vector_delete(hits);
+}
+
+GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts){
+  uint64_t blocks = gt_map_get_num_blocks(map);
+  if(blocks == 1){
+    // single block
+    gt_gtf_count_map_(gtf, map, type_counts, gene_counts);
+  }else{
+    // splitmap with multiple blocks
+    gt_shash* const local_type_counts = gt_shash_new();
+    gt_shash* const local_gene_counts = gt_shash_new();
+    GT_MAP_ITERATE(map, map_block){
+      gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts);
+    }
+    // count type
+    // count types
+    uint64_t exons = gt_gtf_get_count_(local_type_counts, "exon");
+    uint64_t introns = gt_gtf_get_count_(local_type_counts, "intron");
+    uint64_t unknown = gt_gtf_get_count_(local_type_counts, "unknown");
+    if(exons == blocks){
+      gt_gtf_count_(type_counts, "exon");
+    }else if(introns == "blocks"){
+      gt_gtf_count_(type_counts, "intron");
+    }else if(unknown == blocks){
+      gt_gtf_count_(type_counts, "unknown");
+    }else{
+      // construct type
+      gt_string* t = gt_string_new(16);
+      uint64_t total = exons + introns + unknown;
+      if(exons > 0){
+
+        gt_string_append_char(t, "exon");
+        total -= exons;
+        if(total > 0) gt_string_append_char(t, '|');
+
+        gt_string_append_char(t, "intron");
+        total -= exons;
+        if(total > 0) gt_string_append_char(t, '|');
+
+        gt_string_append_char(t, "unknown");
+        total -= exons;
+        if(total > 0) gt_string_append_char(t, '|');
+      }
+      gt_gtf_count_(type_counts, gt_string_get_string(t));
+      gt_string_delete(t);
+    }
+
+    // count genes
+    // only count if the split is within a single gene
+    if(gt_shash_get_num_elements(local_gene_counts) == blocks){
+      // add gene count
+      GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
+        gt_gtf_count_(gene_counts, key);
+        break;
+      }GT_SHASH_END_ITERATE;
+    }
+    gt_shash_delete(local_gene_counts, true);
+    gt_shash_delete(local_type_counts, true);
+  }
+}
+
+GT_INLINE void gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const type_count, gt_shash* const gene_counts){
+  if(gt_alignment_get_num_maps(alignment) != 1) return; // count only unique
+  GT_ALIGNMENT_ITERATE(alignment,map) {
+    gt_gtf_count_map(gtf, map,type_count, gene_counts);
+  }
+}
+
+GT_INLINE void gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const type_counts, gt_shash* const gene_counts){
+  // process single alignments
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+      gt_gtf_count_alignment(gtf, alignment, type_counts, gene_counts);
+  } GT_TEMPLATE_END_REDUCTION__RETURN;
+
+  // process templates
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
+    if(gt_template_get_num_mmaps(template) != 1) continue; // count only unique
+    gt_gtf_count_map(gtf, mmap[0],type_counts, gene_counts);
+    gt_gtf_count_map(gtf, mmap[1],type_counts, gene_counts);
+  }
+}

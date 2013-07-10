@@ -163,4 +163,8 @@ GT_INLINE uint64_t gt_gtf_search(const gt_gtf* const gtf, gt_vector* const targe
  */
 GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_hits* const hits, gt_template* const template_src);
 
+GT_INLINE void gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const type_count, gt_shash* const gene_counts);
+GT_INLINE void gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const type_count, gt_shash* const gene_counts);
+
+
 #endif /* GT_GTF_H_ */
