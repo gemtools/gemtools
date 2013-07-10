@@ -126,7 +126,6 @@ typedef struct {
   gt_generic_parser_attributes *parser_attr;
   bool variable_read_length;
   bool ignore_id;
-  gt_output_file_compression compress;
   uint64_t read_length[2]; // Untrimmed read length for both reads
   uint64_t max_read_length; // For sanity checking
   uint64_t min_insert;
