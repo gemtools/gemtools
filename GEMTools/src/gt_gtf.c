@@ -411,22 +411,35 @@ GT_INLINE void gt_gtf_hit_delete(gt_gtf_hit* hit){
 }
 
 
+GT_INLINE gt_status gt_gtf_reload_buffer(gt_buffered_input_file* const buffered_fasta_input) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_fasta_input);
+  // Dump buffer if BOF it attached to input, and get new out block (always FIRST)
+  gt_buffered_input_file_dump_attached_buffers(buffered_fasta_input->attached_buffered_output_file);
+  // Read new input block
+  const uint64_t read_lines =
+      gt_buffered_input_file_get_block(buffered_fasta_input, GT_NUM_LINES_1K);
+  if (gt_expect_false(read_lines==0)) return GT_INPUT_FILE_EOF;
+  // Assign block ID
+  gt_buffered_input_file_set_id_attached_buffers(buffered_fasta_input->attached_buffered_output_file,buffered_fasta_input->block_id);
+  return GT_STATUS_OK;
+}
 
 
-GT_INLINE gt_status gt_gtf_get_line(gt_buffered_input_file* const buffered_map_input, gt_string* const line) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
+
+GT_INLINE gt_status gt_gtf_get_line(gt_buffered_input_file* const buffered_input, gt_string* const line) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input);
   GT_STRING_CHECK(line);
 
   gt_status error_code;
   // Check the end_of_block. Reload buffer if needed
-  if (gt_buffered_input_file_eob(buffered_map_input)) {
-    if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,false,100))!=GT_IMP_OK) return error_code;
+  if (gt_buffered_input_file_eob(buffered_input)) {
+    if ((error_code=gt_gtf_reload_buffer(buffered_input))!=GT_IMP_OK) return error_code;
   }
   // Prepare the template
-  char* const line_start = buffered_map_input->cursor;
+  char* const line_start = buffered_input->cursor;
   gt_string_clear(line);
-  GT_INPUT_FILE_SKIP_LINE(buffered_map_input);
-  gt_string_set_nstring_static(line, line_start, (buffered_map_input->cursor - line_start)-1);
+  GT_INPUT_FILE_SKIP_LINE(buffered_input);
+  gt_string_set_nstring_static(line, line_start, (buffered_input->cursor - line_start));
   return GT_IMP_OK;
 }
 
@@ -476,7 +489,7 @@ GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads)
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
     gt_string* buffered_line = gt_string_new(GTF_MAX_LINE_LENGTH);
     gt_gtf* thread_gtf = gtfs[tid];
-    while(gt_gtf_get_line(buffered_input, buffered_line) == GT_IMP_OK){
+    while(gt_gtf_get_line(buffered_input, buffered_line)){
       gt_gtf_read_line(buffered_line->buffer, thread_gtf, buffered_input->current_line_num);
       counter++;
     }
@@ -486,7 +499,7 @@ GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads)
   gt_input_file_close(input_file);
 
   counter = 0;
-  gt_gtf* gtf = gt_gtf_new();
+  const gt_gtf* const gtf = gt_gtf_new();
   // merge all the thread gtfs into a single one
   for(i=0; i<threads; i++){
     counter = gt_gtf_merge_(gtf, gtfs[i], counter);
@@ -887,9 +900,10 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
     gt_gtf_count_(local_type_counts, gt_string_get_string(hit->type));
     gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
   }
-
   // count types
-  if(gt_gtf_get_count_(local_type_counts, "exon") > 0){
+  if(gt_vector_get_used(hits) == 0){
+	gt_gtf_count_(type_counts, "not annotated");
+  }else if(gt_gtf_get_count_(local_type_counts, "exon") > 0){
     gt_gtf_count_(type_counts, "exon");
   }else if(gt_gtf_get_count_(local_type_counts, "intron") > 0){
     gt_gtf_count_(type_counts, "intron");
@@ -927,12 +941,15 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     uint64_t exons = gt_gtf_get_count_(local_type_counts, "exon");
     uint64_t introns = gt_gtf_get_count_(local_type_counts, "intron");
     uint64_t unknown = gt_gtf_get_count_(local_type_counts, "unknown");
+    uint64_t not_annotated = gt_gtf_get_count_(local_type_counts, "not annotated");
     if(exons == blocks){
       gt_gtf_count_(type_counts, "exon");
     }else if(introns == blocks){
       gt_gtf_count_(type_counts, "intron");
     }else if(unknown == blocks){
       gt_gtf_count_(type_counts, "unknown");
+    }else if(not_annotated == blocks){
+        gt_gtf_count_(type_counts, "not annotated");
     }else{
       // construct type
       gt_string* t = gt_string_new(16);
@@ -953,7 +970,14 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
       if(unknown > 0){
         gt_string_right_append_string(t, "unknown", 7);
         total -= unknown;
+        if(total > 0) gt_string_append_char(t, '|');
       }
+
+      if(not_annotated > 0){
+        gt_string_right_append_string(t, "not annotated", 13);
+        total -= unknown;
+      }
+
       gt_gtf_count_(type_counts, gt_string_get_string(t));
       gt_string_delete(t);
     }

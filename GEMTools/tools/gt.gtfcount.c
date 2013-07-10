@@ -140,7 +140,7 @@ void parse_arguments(int argc,char** argv) {
       parameters.num_threads = atol(optarg);
       break;
     case 'h':
-      fprintf(stderr, "USE: ./gt.gtfcount [OPERATION] [ARGS]...\n");
+      fprintf(stderr, "USE: gt.gtfcount [OPERATION] [ARGS]...\n");
       gt_options_fprint_menu(stderr,gt_gtfcount_options,gt_gtfcount_groups,false,false);
       exit(1);
     case 'J':
