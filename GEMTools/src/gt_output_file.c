@@ -94,12 +94,12 @@ gt_output_file* gt_output_file_new_compress(char* const file_name,const gt_outpu
   	  gt_cond_fatal_error(pthread_create(&output_file->pth,NULL,gt_output_file_pipe_gzip,output_file),SYS_THREAD);
   	  gt_cond_fatal_error(!(output_file->file=fdopen(output_file->pipe_fd[1],"w")),FILE_FDOPEN);
   	  break;
-  	case BZIP2:
+  	case BZIP:
   		gt_cond_fatal_error(pipe(output_file->pipe_fd)<0,SYS_PIPE);
   	  gt_cond_fatal_error(!(output_file->file=fopen(file_name,"w")),FILE_OPEN,file_name);
   	  int er;
   	  output_file->cfile=BZ2_bzWriteOpen(&er,output_file->file,1,0,0);
-  	  gt_cond_fatal_error(er!=BZ_OK,FILE_BZIP2_OPEN,file_name);
+  	  gt_cond_fatal_error(er!=BZ_OK,FILE_BZIP_OPEN,file_name);
   	  gt_cond_fatal_error(pthread_create(&output_file->pth,NULL,gt_output_file_pipe_bzip,output_file),SYS_THREAD);
   	  gt_cond_fatal_error(!(output_file->file=fdopen(output_file->pipe_fd[1],"w")),FILE_FDOPEN);
   	  break;
@@ -120,7 +120,7 @@ gt_status gt_output_file_close(gt_output_file* const output_file) {
   	error_code|=fclose(output_file->file);
 	  switch(output_file->compression_type) {
 	  case GZIP:
-	  case BZIP2:
+	  case BZIP:
 	  	pthread_join(output_file->pth,NULL);
 	  	break;
 	  default:
