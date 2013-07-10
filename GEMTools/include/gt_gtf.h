@@ -11,9 +11,11 @@
 #include "gt_shash.h"
 #include "gt_template.h"
 #include "gt_output_map.h"
+#include "gt_input_map_parser.h"
+#include <omp.h>
 
 
-#define GTF_DEFAULT_ENTRIES 10000
+#define GTF_DEFAULT_ENTRIES 1000
 #define GTF_MAX_LINE_LENGTH 2048
 
 /*
@@ -118,7 +120,9 @@ GT_INLINE void gt_gtf_ref_delete(gt_gtf_ref* const ref);
  * Parse GTF files and return a new gt_gtf*. The ref entries
  * will be sorted by star,end,type
  */
-GT_INLINE gt_gtf* gt_gtf_read(FILE* input);
+GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input, uint64_t threads);
+GT_INLINE gt_gtf* gt_gtf_read_from_stream(FILE* input, uint64_t threads);
+GT_INLINE gt_gtf* gt_gtf_read_from_file(char* input, uint64_t threads);
 
 /**
  * Access the chromosome refs

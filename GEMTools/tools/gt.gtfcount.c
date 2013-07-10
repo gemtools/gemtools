@@ -86,7 +86,6 @@ void gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* 
       } else {
         if (!gt_template_is_mapped(template)) {
           GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_end1,alignment_end2);
-          printf("Count unpaired\n");
           gt_gtf_count_alignment(gtf, alignment_end1, l_type_counts, l_gene_counts);
           gt_gtf_count_alignment(gtf, alignment_end2, l_type_counts, l_gene_counts);
         } else {
@@ -182,10 +181,7 @@ int main(int argc,char** argv) {
 
   // read gtf file
   gt_gtfcount_warn("Reading GTF...");
-  FILE* of = fopen(parameters.annotation, "r");
-  gt_cond_fatal_error((of == NULL), FILE_OPEN, parameters.annotation);
-  gt_gtf* const gtf = gt_gtf_read(of);
-  fclose(of);
+  gt_gtf* const gtf = gt_gtf_read_from_file(parameters.annotation, parameters.num_threads);
   gt_gtfcount_warn("Done\n");
 
   // local maps
@@ -196,11 +192,8 @@ int main(int argc,char** argv) {
   gt_gtfcount_warn("Done\n");
 
   printf("Types::\n");
-//  printf("\tExon   : %"PRIu64"\n", gt_gtfcount_get_count_(type_counts, "exon"));
-//  printf("\tIntron : %"PRIu64"\n", gt_gtfcount_get_count_(type_counts, "intron"));
-//  printf("\tOther  : %"PRIu64"\n", gt_gtfcount_get_count_(type_counts, "unknown"));
   GT_SHASH_BEGIN_ITERATE(type_counts, key, e, uint64_t){
-    printf("\t%s\t\t: %"PRIu64"\n", key, *e);
+    printf("  %s\t\t\t: %"PRIu64"\n", key, *e);
   }GT_SHASH_END_ITERATE
 
   gt_shash_delete(gene_counts, true);

@@ -1341,13 +1341,7 @@ void gt_filter_read__write() {
 
   // read annotaiton if specified
   if (parameters.annotation != NULL && parameters.perform_annotation_filter) {
-    FILE* of = fopen(parameters.annotation, "r");
-    if (of == NULL) {
-      printf("ERROR opening annotation !\n");
-      return;
-    }
-    parameters.gtf = gt_gtf_read(of);
-    fclose(of);
+    parameters.gtf = gt_gtf_read_from_file(parameters.annotation, parameters.num_threads);
   }
 
   // Parallel reading+process

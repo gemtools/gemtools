@@ -64,7 +64,7 @@ END_TEST
 START_TEST(gt_test_gtf_read)
 {
     FILE* fp = fopen("testdata/chr1.gtf", "r");
-    gt_gtf* gtf =  gt_gtf_read(fp);
+    gt_gtf* gtf =  gt_gtf_read_from_stream(fp, 1);
 	fclose(fp);
 	fail_unless(gt_shash_get_num_elements(gtf->types)==4, "Not all types inserted");
 	
@@ -81,7 +81,7 @@ END_TEST
 START_TEST(gt_test_gtf_search)
 {
   FILE* fp = fopen("testdata/chr1.gtf", "r");
-  gt_gtf* gtf =  gt_gtf_read(fp);
+  gt_gtf* gtf =  gt_gtf_read_from_stream(fp, 1);
   fclose(fp);
 //	gt_vector* entries = gt_vector_new(10, sizeof(gt_gtf_entry*));
 //
@@ -127,7 +127,7 @@ END_TEST
 START_TEST(gt_test_gtf_find_matches)
 {
     FILE* fp = fopen("testdata/chr1.gtf", "r");
-    gt_gtf* gtf =  gt_gtf_read(fp);
+    gt_gtf* gtf =  gt_gtf_read_from_stream(fp, 1);
 	fclose(fp);
 	gt_vector* target = gt_vector_new(5, sizeof(gt_gtf_entry*));	
 	gt_gtf_entry* e;

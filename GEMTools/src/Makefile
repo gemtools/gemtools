@@ -40,6 +40,8 @@ $(GT_LIB): $(OBJS)
 
 $(FOLDER_BUILD)/gt_fm.o : gt_fm.c
 	$(CC) $(GEM_TOOLS_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@ -fopenmp
+$(FOLDER_BUILD)/gt_gtf.o : gt_gtf.c
+	$(CC) $(GEM_TOOLS_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@ -fopenmp
 $(FOLDER_BUILD)/gt_mm.o : gt_mm.c
 	$(CC) $(GEM_TOOLS_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@ -fopenmp
 

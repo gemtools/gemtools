@@ -69,8 +69,7 @@ GT_INLINE void gt_gtf_hits_clear(gt_gtf_hits* const hits){
 
 GT_INLINE gt_string* gt_gtf_get_type(const gt_gtf* const gtf, char* const type){
   if(!gt_gtf_contains_type(gtf, type)){
-    gt_string* s = gt_string_new(strlen(type) + 1);
-    gt_string_set_string(s, type);
+    gt_string* s = gt_string_set_new(type);
     gt_shash_insert_string(gtf->types, type, s);
   }
   return gt_shash_get(gtf->types, type, gt_string);
@@ -92,9 +91,7 @@ GT_INLINE bool gt_gtf_contains_ref(const gt_gtf* const gtf, char* const name){
 
 GT_INLINE gt_string* gt_gtf_get_gene_id(const gt_gtf* const gtf, char* const name){
   if(!gt_gtf_contains_gene_id(gtf, name)){
-    const uint64_t len = strlen(name);
-    gt_string* const gene_id = gt_string_new(len + 1);
-    gt_string_set_nstring(gene_id, name, len);
+    gt_string* const gene_id = gt_string_set_new(name);
     gt_shash_insert(gtf->gene_ids, name, gene_id, gt_string*);
   }
   return gt_shash_get(gtf->gene_ids, name, gt_string);
@@ -105,9 +102,7 @@ GT_INLINE bool gt_gtf_contains_gene_id(const gt_gtf* const gtf, char* const name
 
 GT_INLINE gt_string* gt_gtf_get_transcript_id(const gt_gtf* const gtf, char* const name){
   if(!gt_gtf_contains_transcript_id(gtf, name)){
-    const uint64_t len = strlen(name);
-    gt_string* const gene_id = gt_string_new(len + 1);
-    gt_string_set_nstring(gene_id, name, len);
+    gt_string* const gene_id = gt_string_set_new(name);
     gt_shash_insert(gtf->transcript_ids, name, gene_id, gt_string*);
   }
   return gt_shash_get(gtf->transcript_ids, name, gt_string);
@@ -118,9 +113,7 @@ GT_INLINE bool gt_gtf_contains_transcript_id(const gt_gtf* const gtf, char* cons
 
 GT_INLINE gt_string* gt_gtf_get_gene_type(const gt_gtf* const gtf, char* const name){
   if(!gt_gtf_contains_gene_type(gtf, name)){
-    const uint64_t len = strlen(name);
-    gt_string* const gene_type = gt_string_new(len + 1);
-    gt_string_set_nstring(gene_type, name, len);
+    gt_string* const gene_type = gt_string_set_new(name);
     gt_shash_insert(gtf->gene_types, name, gene_type, gt_string*);
   }
   return gt_shash_get(gtf->gene_types, name, gt_string);
@@ -418,14 +411,90 @@ GT_INLINE void gt_gtf_hit_delete(gt_gtf_hit* hit){
 }
 
 
-GT_INLINE gt_gtf* gt_gtf_read(FILE* input){
-  gt_gtf* gtf = gt_gtf_new();
-  char line[GTF_MAX_LINE_LENGTH];
-  uint64_t counter = 0;
-  while ( fgets(line, GTF_MAX_LINE_LENGTH, input) != NULL ){
-    gt_gtf_read_line(line, gtf, counter);
-    counter++;
+
+
+GT_INLINE gt_status gt_gtf_get_line(gt_buffered_input_file* const buffered_map_input, gt_string* const line) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_map_input);
+  GT_STRING_CHECK(line);
+
+  gt_status error_code;
+  // Check the end_of_block. Reload buffer if needed
+  if (gt_buffered_input_file_eob(buffered_map_input)) {
+    if ((error_code=gt_input_map_parser_reload_buffer(buffered_map_input,false,100))!=GT_IMP_OK) return error_code;
   }
+  // Prepare the template
+  char* const line_start = buffered_map_input->cursor;
+  gt_string_clear(line);
+  GT_INPUT_FILE_SKIP_LINE(buffered_map_input);
+  gt_string_set_nstring_static(line, line_start, (buffered_map_input->cursor - line_start)-1);
+  return GT_IMP_OK;
+}
+
+GT_INLINE uint64_t gt_gtf_merge_(const gt_gtf* const target, gt_gtf* source, uint64_t counter){
+  // get the type or create it
+  GT_SHASH_BEGIN_KEY_ITERATE(source->refs, key){
+    gt_gtf_ref* source_ref = gt_gtf_get_ref(source, key);
+    gt_gtf_ref* target_ref = gt_gtf_get_ref(target, key);
+    GT_VECTOR_ITERATE(source_ref->entries, value, c, gt_gtf_entry*){
+      gt_gtf_entry* e = *value;
+      e->uid = counter++;
+      if(e->gene_id != NULL){
+        e->gene_id = gt_gtf_get_gene_id(target, gt_string_get_string(e->gene_id));
+      }
+      if(e->transcript_id != NULL){
+        e->transcript_id = gt_gtf_get_transcript_id(target, gt_string_get_string(e->transcript_id));
+      }
+      if(e->type != NULL)e->type = gt_gtf_get_type(target, gt_string_get_string(e->type));
+      if(e->gene_type != NULL)e->gene_type = gt_gtf_get_gene_type(target, gt_string_get_string(e->gene_type));
+      gt_vector_insert(target_ref->entries, e, gt_gtf_entry*);
+    }
+  }GT_SHASH_END_ITERATE;
+  return counter;
+}
+
+
+GT_INLINE gt_gtf* gt_gtf_read_from_stream(FILE* input, uint64_t threads){
+  gt_input_file* input_file = gt_input_stream_open(input);
+  return gt_gtf_read(input_file, threads);
+}
+GT_INLINE gt_gtf* gt_gtf_read_from_file(char* input, uint64_t threads){
+  gt_input_file* input_file = gt_input_file_open(input, false);
+  return gt_gtf_read(input_file, threads);
+}
+
+GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads){
+  uint64_t counter = 0;
+  uint64_t i = 0;
+  gt_gtf** gtfs = gt_calloc(threads, gt_gtf*, true);
+  for(i=0; i<threads; i++){
+    gtfs[i] = gt_gtf_new();
+  }
+
+  #pragma omp parallel num_threads(threads)
+  {
+    uint64_t tid = omp_get_thread_num();
+    gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
+    gt_string* buffered_line = gt_string_new(GTF_MAX_LINE_LENGTH);
+    gt_gtf* thread_gtf = gtfs[tid];
+    while(gt_gtf_get_line(buffered_input, buffered_line) == GT_IMP_OK){
+      gt_gtf_read_line(buffered_line->buffer, thread_gtf, buffered_input->current_line_num);
+      counter++;
+    }
+    gt_buffered_input_file_close(buffered_input);
+    gt_string_delete(buffered_line);
+  }
+  gt_input_file_close(input_file);
+
+  counter = 0;
+  gt_gtf* gtf = gt_gtf_new();
+  // merge all the thread gtfs into a single one
+  for(i=0; i<threads; i++){
+    counter = gt_gtf_merge_(gtf, gtfs[i], counter);
+    gt_gtf_delete(gtfs[i]);
+  }
+  free(gtfs);
+
+
   gt_string* const exon_t = gt_string_set_new("exon");
   gt_string* const intron_t = gt_string_set_new("intron");
   // sort the refs
@@ -860,7 +929,7 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     uint64_t unknown = gt_gtf_get_count_(local_type_counts, "unknown");
     if(exons == blocks){
       gt_gtf_count_(type_counts, "exon");
-    }else if(introns == "blocks"){
+    }else if(introns == blocks){
       gt_gtf_count_(type_counts, "intron");
     }else if(unknown == blocks){
       gt_gtf_count_(type_counts, "unknown");
@@ -868,19 +937,22 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
       // construct type
       gt_string* t = gt_string_new(16);
       uint64_t total = exons + introns + unknown;
+
       if(exons > 0){
-
-        gt_string_append_char(t, "exon");
+        gt_string_right_append_string(t, "exon", 4);
         total -= exons;
         if(total > 0) gt_string_append_char(t, '|');
+      }
 
-        gt_string_append_char(t, "intron");
-        total -= exons;
+      if(introns > 0){
+        gt_string_right_append_string(t, "intron", 6);
+        total -= introns;
         if(total > 0) gt_string_append_char(t, '|');
+      }
 
-        gt_string_append_char(t, "unknown");
-        total -= exons;
-        if(total > 0) gt_string_append_char(t, '|');
+      if(unknown > 0){
+        gt_string_right_append_string(t, "unknown", 7);
+        total -= unknown;
       }
       gt_gtf_count_(type_counts, gt_string_get_string(t));
       gt_string_delete(t);
