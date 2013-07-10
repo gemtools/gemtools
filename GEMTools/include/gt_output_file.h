@@ -16,7 +16,7 @@
 #define GT_OUTPUT_COMPRESS_BUFFER_SIZE 16384
 
 typedef enum { SORTED_FILE, UNSORTED_FILE } gt_output_file_type;
-typedef enum { NONE, GZIP, BZIP } gt_output_file_compression;
+typedef enum { NONE, GZIP, BZIP2 } gt_output_file_compression;
 
 typedef struct {
   /* Output file */

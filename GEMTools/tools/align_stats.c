@@ -85,7 +85,7 @@ static void as_set_output_files(as_param *param)
 		case GZIP:
 			cs=csuff[1];
 			break;
-		case BZIP:
+		case BZIP2:
 			cs=csuff[2];
 			break;
 		default:
@@ -1288,7 +1288,7 @@ int main(int argc,char *argv[])
 			param.compress=GZIP;
 			break;
 		case 'j':
-			param.compress=BZIP;
+			param.compress=BZIP2;
 			break;
 		case 'Z':
 			param.compress=NONE;

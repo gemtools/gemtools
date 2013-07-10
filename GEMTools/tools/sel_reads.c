@@ -302,7 +302,7 @@ int main(int argc,char *argv[])
 			param.compress=GZIP;
 			break;
 		case 'j':
-			param.compress=BZIP;
+			param.compress=BZIP2;
 			break;
 		case 'Z':
 			param.compress=NONE;

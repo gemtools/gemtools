@@ -305,7 +305,7 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_FILE_CLOSE "Could not close file '%s'"
 #define GT_ERROR_FILE_FORMAT "Could not determine file format"
 #define GT_ERROR_FILE_GZIP_OPEN "Could not open GZIPPED file '%s'"
-#define GT_ERROR_FILE_BZIP_OPEN "Could not open BZIPPED file '%s'"
+#define GT_ERROR_FILE_BZIP2_OPEN "Could not open BZIPPED file '%s'"
 #define GT_ERROR_FILE_FDOPEN "Could not fdopen file descriptor"
 
 // Output errors
