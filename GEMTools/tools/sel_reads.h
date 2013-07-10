@@ -8,7 +8,7 @@
 #ifndef SEL_READS_H_
 #define SEL_READS_H_
 
-#define DEFAULT_INS_CUTOFF 0.05 /* Insert sizes in the upper or lower cutoff percentiles will not be used */
+#define DEFAULT_INS_CUTOFF 0.01 /* Insert sizes in the upper or lower cutoff percentiles will not be used */
 #define MAP_THRESHOLD 3
 #define AP_BUF_SIZE 16384
 #define QUAL_FASTQ 33
@@ -34,9 +34,14 @@ typedef struct {
   char *dist_file;
   double ins_cutoff;
   bool mmap_input;
-  bool compress;
+  gt_output_file_compression compress;
   bool combined;
   gt_generic_parser_attributes *parser_attr;
+  gt_generic_printer_attributes *printer_attr;
+  gt_buffered_output_file *buf_output[2];
+  int64_t min_insert;
+  int64_t max_insert;
+  double *ins_dist;
   int num_threads;
   int qual_offset; // quality offset (33 for FASTQ, 64 for Illumina)
   int bad_qual; // Normally 2 for Illumina
