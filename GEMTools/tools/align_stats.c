@@ -22,6 +22,9 @@ static void usage(FILE *f)
 	fputs("  -M|--min_insert <minimum insert size> (for pairing of single end files: default=0)\n",f);
 	fprintf(f,"  -m|--max_insert <maximum insert size> (for pairing of single end files: default=%d)\n",DEFAULT_MAX_INSERT);
 	fputs("  -t|--threads <number of threads>\n",f);
+	fputs("  -z|--gzip (compress output files with gzip\n",f);
+	fputs("  -j|--bzip2 (compress output files with bzip2\n",f);
+	fputs("  -Z|--no=compress (default)\n",f);
 	fputs("  -l|--read_length <untrimmed read length>\n",f);
 	fputs("  -V|--variable  Variable length reads\n",f);
 	fputs("  -p|--paired    Paired mapping input file\n",f);
@@ -74,10 +77,26 @@ static void *as_realloc(void *ptr,size_t s)
 
 static void as_set_output_files(as_param *param)
 {
+	char *csuff[3]={"",".gz",".bz2"};
+	char *cs;
+
 	if(!(param->output_file && param->dist_file)) {
+		switch(param->compress) {
+		case GZIP:
+			cs=csuff[1];
+			break;
+		case BZIP2:
+			cs=csuff[2];
+			break;
+		default:
+			cs=csuff[0];
+			break;
+		}
 		if(param->input_files[0]) {
 			char *root=strdup(param->input_files[0]);
-			char *p=strchr(root,'.');
+			char *p=strrchr(root,'/');
+			if(p) root=p+1;
+			p=strchr(root,'.');
 			if(p) *p=0;
 			if(param->input_files[1]) {
 				if(p-root>2 && (p[-1]=='1' || p[-1]=='2')) {
@@ -88,14 +107,11 @@ static void as_set_output_files(as_param *param)
 			} else {
 				if(p-root>4 && !strncmp(p-4,"_map",4)) p[-4]=0;
 			}
-			p=strrchr(root,'/');
-			if(p) p++;
-			else p=root;
-			if(!param->output_file) asprintf(&param->output_file,"%s_report.txt",p);
-			if(!param->dist_file) asprintf(&param->dist_file,"%s_frag_dist.txt",p);
+			if(!param->output_file) asprintf(&param->output_file,"%s_report.txt%s",root,cs);
+			if(!param->dist_file) asprintf(&param->dist_file,"%s_frag_dist.txt%s",root,cs);
 		} else {
-			if(!param->output_file) param->output_file=strdup("align_stats_report.txt");
-			if(!param->dist_file) param->dist_file=strdup("align_stats_frag_dist.txt");
+			if(!param->output_file) asprintf(&param->output_file,"align_stats_report.txt%s",cs);
+			if(!param->dist_file) asprintf(&param->dist_file,"align_stats_frag_dist.txt%s",cs);
 		}
 	}
 	if(!strcmp(param->output_file,"-")) param->output_file=0;
@@ -1013,15 +1029,16 @@ static void as_print_read_lengths(FILE *f,as_param *param)
 static void as_print_distance_file(as_param *param)
 {
 	as_stats* st=param->stats[0];
-	char* fname=param->dist_file;
-	FILE *fp;
+	gt_output_file *file;
 
-	if(fname) {
-		fp=fopen(fname,"w");
-		gt_cond_fatal_error(!fp,FILE_OPEN,fname);
+	if(param->dist_file) {
+		file=gt_output_file_new_compress(param->dist_file,UNSORTED_FILE,param->compress);
 	} else {
-		fp=stdout;
+		file=gt_output_stream_new(stdout,UNSORTED_FILE);
 	}
+	gt_cond_fatal_error(!file,FILE_OPEN,param->dist_file);
+	FILE *fp=file->file;
+
 	uint64_t counts[4]={0,0,0,0};
 	dist_element *de;
 	int j;
@@ -1037,7 +1054,7 @@ static void as_print_distance_file(as_param *param)
 				de->x,de->ct[0],de->ct[1],de->ct[2],de->ct[3],
 				(double)de->ct[0]/zcounts[0],(double)de->ct[1]/zcounts[1],(double)de->ct[2]/zcounts[2],(double)de->ct[3]/zcounts[3]);
 	}
-	if(fname) fclose(fp);
+	gt_output_file_close(file);
 }
 
 static void as_print_duplicate_summary(FILE *fp,as_param *param)
@@ -1173,21 +1190,22 @@ static void as_print_mismatch_report(FILE *fp,as_param *param)
 
 static void as_print_stats(as_param *param)
 {
-	FILE *fout;
+	gt_output_file *file;
 	if(param->output_file) {
-		fout=fopen(param->output_file,"w");
-		gt_cond_fatal_error(!fout,FILE_OPEN,param->output_file);
+		file=gt_output_file_new_compress(param->output_file,UNSORTED_FILE,param->compress);
 	} else {
-		fout=stdout;
+		file=gt_output_stream_new(stdout,UNSORTED_FILE);
 	}
+	gt_cond_fatal_error(!file,FILE_OPEN,param->output_file);
+	FILE *fp=file->file;
 	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) as_print_distance_file(param);
-	as_print_yield_summary(fout,param);
-	as_print_mapping_summary(fout,param);
-	as_print_duplicate_summary(fout,param);
-	as_print_mismatch_report(fout,param);
-	as_print_read_lengths(fout,param);
-	as_print_detailed_duplicate_report(fout,param);
-	if(param->output_file) fclose(fout);
+	as_print_yield_summary(fp,param);
+	as_print_mapping_summary(fp,param);
+	as_print_duplicate_summary(fp,param);
+	as_print_mismatch_report(fp,param);
+	as_print_read_lengths(fp,param);
+	as_print_detailed_duplicate_report(fp,param);
+	gt_output_file_close(file);
 }
 
 int main(int argc,char *argv[])
@@ -1209,6 +1227,9 @@ int main(int argc,char *argv[])
 			{"mmap",no_argument,0,'w'},
 			{"fastq",no_argument,0,'F'},
 			{"solexa",no_argument,0,'S'},
+			{"gzip",no_argument,0,'z'},
+			{"bzip2",no_argument,0,'j'},
+			{"no-compress",no_argument,0,'Z'},
 			{"threads",required_argument,0,'t'},
 			{"qual_off",required_argument,0,'q'},
 			{"output",required_argument,0,'o'},
@@ -1228,6 +1249,7 @@ int main(int argc,char *argv[])
 			.mmap_input=false,
 			.parser_attr=gt_input_generic_parser_attributes_new(false),
 			.ignore_id=false,
+			.compress=NONE,
 			.min_insert=0,
 			.max_insert=DEFAULT_MAX_INSERT,
 			.variable_read_length=false,
@@ -1237,7 +1259,7 @@ int main(int argc,char *argv[])
 			.qual_offset=DEFAULT_QUAL_OFFSET,
 	};
 
-	while(!err && (c=getopt_long(argc,argv,"d:t:r:o:q:m:M:l:L:x:P:X:FSVwpi?",longopts,0))!=-1) {
+	while(!err && (c=getopt_long(argc,argv,"d:t:r:o:q:m:M:l:L:x:P:X:FSVzjZwpi?",longopts,0))!=-1) {
 		switch(c) {
 		case 'd':
 			set_opt("insert_dist",&param.dist_file,optarg);
@@ -1261,6 +1283,15 @@ int main(int argc,char *argv[])
 			param.read_length[0]=(uint64_t)strtoul(optarg,&p,10);
 			if(*p==',') param.read_length[1]=(uint64_t)strtoul(p+1,&p1,10);
 			else param.read_length[1]=param.read_length[0];
+			break;
+		case 'z':
+			param.compress=GZIP;
+			break;
+		case 'j':
+			param.compress=BZIP2;
+			break;
+		case 'Z':
+			param.compress=NONE;
 			break;
 		case 'q':
 			param.qual_offset=(int)strtol(optarg,&p,10);

@@ -282,6 +282,7 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_SYS_MMAP_FILE "Could not map file '%s' to memory"
 #define GT_ERROR_SYS_UNMAP "Could not unmap memory"
 #define GT_ERROR_SYS_THREAD "Could not create thread"
+#define GT_ERROR_SYS_PIPE "Could not create pipe"
 #define GT_ERROR_SYS_MUTEX "Mutex call error"
 #define GT_ERROR_SYS_MUTEX_INIT "Mutex initialization error"
 #define GT_ERROR_SYS_MUTEX_DESTROY "Mutex destroy call error"
@@ -304,7 +305,8 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_FILE_CLOSE "Could not close file '%s'"
 #define GT_ERROR_FILE_FORMAT "Could not determine file format"
 #define GT_ERROR_FILE_GZIP_OPEN "Could not open GZIPPED file '%s'"
-#define GT_ERROR_FILE_BZIP_OPEN "Could not open BZIPPED file '%s'"
+#define GT_ERROR_FILE_BZIP2_OPEN "Could not open BZIPPED file '%s'"
+#define GT_ERROR_FILE_FDOPEN "Could not fdopen file descriptor"
 
 // Output errors
 #define GT_ERROR_FPRINTF "Printing output. 'fprintf' call failed"
