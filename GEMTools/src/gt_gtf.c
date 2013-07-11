@@ -416,8 +416,7 @@ GT_INLINE gt_status gt_gtf_reload_buffer(gt_buffered_input_file* const buffered_
   // Dump buffer if BOF it attached to input, and get new out block (always FIRST)
   gt_buffered_input_file_dump_attached_buffers(buffered_fasta_input->attached_buffered_output_file);
   // Read new input block
-  const uint64_t read_lines =
-      gt_buffered_input_file_get_block(buffered_fasta_input, GT_NUM_LINES_1K);
+  const uint64_t read_lines = gt_buffered_input_file_get_block(buffered_fasta_input, GT_NUM_LINES_1K);
   if (gt_expect_false(read_lines==0)) return GT_INPUT_FILE_EOF;
   // Assign block ID
   gt_buffered_input_file_set_id_attached_buffers(buffered_fasta_input->attached_buffered_output_file,buffered_fasta_input->block_id);
