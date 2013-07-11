@@ -1034,7 +1034,7 @@ static void as_print_distance_file(as_param *param)
 	if(param->dist_file) {
 		file=gt_output_file_new_compress(param->dist_file,UNSORTED_FILE,param->compress);
 	} else {
-		file=gt_output_stream_new(stdout,UNSORTED_FILE);
+		file=gt_output_stream_new_compress(stdout,UNSORTED_FILE,param->compress);
 	}
 	gt_cond_fatal_error(!file,FILE_OPEN,param->dist_file);
 	FILE *fp=file->file;
@@ -1194,7 +1194,7 @@ static void as_print_stats(as_param *param)
 	if(param->output_file) {
 		file=gt_output_file_new_compress(param->output_file,UNSORTED_FILE,param->compress);
 	} else {
-		file=gt_output_stream_new(stdout,UNSORTED_FILE);
+		file=gt_output_stream_new_compress(stdout,UNSORTED_FILE,param->compress);
 	}
 	gt_cond_fatal_error(!file,FILE_OPEN,param->output_file);
 	FILE *fp=file->file;

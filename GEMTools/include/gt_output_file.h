@@ -64,9 +64,10 @@ typedef struct {
 /*
  * Output File Setup
  */
-gt_output_file* gt_output_stream_new(FILE* const file,const gt_output_file_type output_file_type);
+gt_output_file* gt_output_stream_new_compress(FILE* const file,const gt_output_file_type output_file_type,gt_output_file_compression compression_type);
 gt_output_file* gt_output_file_new_compress(char* const file_name,const gt_output_file_type output_file_type,gt_output_file_compression compression_type);
 #define gt_output_file_new(file_name,output_file_type) gt_output_file_new_compress(file_name,output_file_type,NONE)
+#define gt_output_stream_new(file_name,output_file_type) gt_output_stream_new_compress(file_name,output_file_type,NONE)
 gt_status gt_output_file_close(gt_output_file* const output_file);
 
 /*
