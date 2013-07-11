@@ -45,7 +45,7 @@ GT_INLINE void gt_gtfcount_merge_counts_(gt_shash* const source, gt_shash* const
 
 
 
-void gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* const type_counts) {
+uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* const type_counts) {
   // Open file IN/OUT
   gt_input_file* input_file = NULL;
   uint64_t i = 0;
@@ -61,7 +61,10 @@ void gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* 
     gene_counts_list[i] = gt_shash_new();
     type_counts_list[i] = gt_shash_new();
   }
-
+  uint64_t* read_counts = malloc(parameters.num_threads*sizeof(uint64_t));
+  for(i=0; i<parameters.num_threads; i++){
+    read_counts[i] = 0;
+  }
   // Parallel reading+process
   #pragma omp parallel num_threads(parameters.num_threads)
   {
@@ -82,13 +85,18 @@ void gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* 
 
       if (gt_template_get_num_blocks(template)==1){
         GT_TEMPLATE_REDUCTION(template,alignment);
+        if(gt_alignment_is_mapped(alignment) && gt_alignment_get_num_maps(alignment) == 1) read_counts[tid]++;
         gt_gtf_count_alignment(gtf, alignment, l_type_counts, l_gene_counts);
       } else {
         if (!gt_template_is_mapped(template)) {
           GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_end1,alignment_end2);
+
+          if(gt_alignment_is_mapped(alignment_end1)&& gt_alignment_get_num_maps(alignment_end1) == 1) read_counts[tid]++;
           gt_gtf_count_alignment(gtf, alignment_end1, l_type_counts, l_gene_counts);
+          if(gt_alignment_is_mapped(alignment_end2)&& gt_alignment_get_num_maps(alignment_end2) == 1) read_counts[tid]++;
           gt_gtf_count_alignment(gtf, alignment_end2, l_type_counts, l_gene_counts);
         } else {
+          if(gt_template_is_mapped(template) && gt_template_get_num_mmaps(template) == 1) read_counts[tid] += 2;
           gt_gtf_count_template(gtf, template, l_type_counts, l_gene_counts);
         }
       }
@@ -97,15 +105,18 @@ void gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* 
     gt_template_delete(template);
     gt_buffered_input_file_close(buffered_input);
   }
+  uint64_t total_counts =0;
   // merge the count tables and delete them
   for(i=0; i<parameters.num_threads; i++){
     gt_gtfcount_merge_counts_(gene_counts_list[i], gene_counts);
     gt_gtfcount_merge_counts_(type_counts_list[i], type_counts);
     gt_shash_delete(gene_counts_list[i], true);
     gt_shash_delete(type_counts_list[i], true);
+    total_counts += read_counts[i];
   }
   // Clean
   gt_input_file_close(input_file);
+  return total_counts;
 }
 
 
@@ -188,13 +199,22 @@ int main(int argc,char** argv) {
   gt_shash* gene_counts = gt_shash_new();
   gt_shash* type_counts = gt_shash_new();
   gt_gtfcount_warn("Counting...");
-  gt_gtfcount_read(gtf, gene_counts, type_counts);
+  uint64_t total_counts = gt_gtfcount_read(gtf, gene_counts, type_counts);
   gt_gtfcount_warn("Done\n");
 
-  printf("Types::\n");
+  printf("Annotation type counts\n");
+  printf("----------------------\n");
   GT_SHASH_BEGIN_ITERATE(type_counts, key, e, uint64_t){
-    printf("  %s\t\t\t: %"PRIu64"\n", key, *e);
+    printf("  %15s: %"PRIu64" (%.2f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
   }GT_SHASH_END_ITERATE
+  printf("----------------------\n");
+  printf("Total counts: %"PRIu64"\n", total_counts);
+
+  FILE* output = stdout;
+  GT_SHASH_BEGIN_ITERATE(gene_counts, key, e, uint64_t){
+    fprintf(output, "%s\t%"PRIu64"\n", key, *e );
+  }GT_SHASH_END_ITERATE
+
 
   gt_shash_delete(gene_counts, true);
   gt_shash_delete(type_counts, true);

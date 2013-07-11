@@ -18,6 +18,17 @@
 #define GTF_DEFAULT_ENTRIES 1000
 #define GTF_MAX_LINE_LENGTH 2048
 
+#define GT_GTF_INVALID_LINE 10
+#define GT_GTF_INVALID_ATTRIBUTES 20
+
+#define GT_GTF_IS_EOL(text_line) gt_expect_false((*text_line)==EOL || (*text_line)==EOS)
+#define GT_GTF_NEXT_CHAR(text_line) ++(text_line)
+#define GT_GTF_READ_UNTIL(text_line,test) \
+  while (gt_expect_true(!(test) && !GT_GTF_IS_EOL(text_line))) { \
+    GT_GTF_NEXT_CHAR(text_line); \
+  }
+
+
 /*
  * Single gtf entry
  */

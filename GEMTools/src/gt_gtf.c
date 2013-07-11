@@ -202,154 +202,136 @@ GT_INLINE gt_gtf_node* gt_gtf_create_node(gt_vector* entries){
   return node;
 }
 
+/*
+ * Read next tab separated field from line or return NULL if no such field exists
+ */
+GT_INLINE char* gt_gtf_read_gtf_field_(char** line){
+  char* current = *line;
+  GT_READ_UNTIL(line, **line=='\t');
+  if(GT_IS_EOL(line)) return NULL;
+  **line = EOS;
+  GT_NEXT_CHAR(line);
+  return current;
+}
+
+GT_INLINE gt_status gt_gtf_read_attributes_(char** line, gt_shash* attrs){
+  gt_shash_clear(attrs, false);
+  while(!GT_IS_EOL(line)){
+    while(**line == ' ') GT_NEXT_CHAR(line);
+    // get the attribute name
+    char* name = *line;
+    GT_READ_UNTIL(line, **line==' ')
+    if(GT_IS_EOL(line)) return GT_GTF_INVALID_LINE;
+    **line = EOS;
+    GT_NEXT_CHAR(line);
+
+    // skip to attribute start
+    while(**line == ' ') GT_NEXT_CHAR(line);
+    // remove starting quote
+    if(**line == '"') GT_NEXT_CHAR(line);
+    char* attr = *line;
+    // skip until the closing ;
+    while(**line != ';') GT_NEXT_CHAR(line);
+    if(GT_IS_EOL(line)) return GT_GTF_INVALID_LINE;
+    // remove trailing quotes and add EOS
+    if(*(*line-1) == '"') *(*line-1) = EOS;
+    else **line = EOS;
+    GT_NEXT_CHAR(line);
+
+    // add attribute
+    if(gt_shash_is_contained(attrs, name)){
+      gt_shash_remove(attrs, name, false);
+    }
+    gt_shash_insert(attrs, name, attr, char*);
+
+    if(gt_shash_is_contained(attrs, "gene_id") &&
+       gt_shash_is_contained(attrs, "gene_type") &&
+       gt_shash_is_contained(attrs, "transcript_id")){
+        return GT_STATUS_OK;
+    }
+
+  }
+  return GT_STATUS_OK;
+}
 /**
  * Parse a single GTF line
  */
-GT_INLINE void gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t counter){
+GT_INLINE gt_status gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t counter, gt_shash* attrs){
   // skip comments
   if(line[0] == '#'){
-    return;
+    return GT_STATUS_OK;
   }
+
+
   char* ref = NULL;
   char* type = NULL;
-  char* gene_id = NULL;
-  char* transcript_id = NULL;
-  char* gene_type = NULL;
   uint64_t start = 0;
   uint64_t end = 0;
-
   gt_strand strand = UNKNOWN;
+  char* current = line;
 
-  char * pch;
-  // name
-  pch = strtok(line, "\t");
-  if(pch == NULL){
-    return;
-  }
-  ref = pch;
-  // source
-  pch = strtok(NULL, "\t");
-  if(pch == NULL){
-    return;
-  }
+  ref = gt_gtf_read_gtf_field_(&line);
+  if(ref == NULL) return GT_GTF_INVALID_LINE;
+
+  // SKIP source
+  current = gt_gtf_read_gtf_field_(&line);
+  if(current == NULL) return GT_GTF_INVALID_LINE;
+
   // type
-  pch = strtok(NULL, "\t");
-  if(pch == NULL){
-    return;
-  }
-  type = pch;
+  type = gt_gtf_read_gtf_field_(&line);
+  if(type == NULL) return GT_GTF_INVALID_LINE;
+
   // start
-  pch = strtok(NULL, "\t");
-  if(pch == NULL){
-    return;
-  }
-  start = atol(pch);
+  current = gt_gtf_read_gtf_field_(&line);
+  if(current == NULL) return GT_GTF_INVALID_LINE;
+  start = atol(current);
+
   // end
-  pch = strtok(NULL, "\t");
-  if(pch == NULL){
-    return;
-  }
-  end = atol(pch);
-  // score
-  pch = strtok(NULL, "\t");
-  if(pch == NULL){
-    return;
-  }
+  current = gt_gtf_read_gtf_field_(&line);
+  if(current == NULL) return GT_GTF_INVALID_LINE;
+  end = atol(current);
+
+  // SKIP score
+  current = gt_gtf_read_gtf_field_(&line);
+  if(current == NULL) return GT_GTF_INVALID_LINE;
+
   // strand
-  pch = strtok(NULL, "\t");
-  if(pch == NULL){
-    return;
-  }
-  if(pch[0] == '+'){
+  current = gt_gtf_read_gtf_field_(&line);
+  if(current == NULL) return GT_GTF_INVALID_LINE;
+  if(*current == '+'){
     strand = FORWARD;
-  }else if(pch[0] == '-'){
+  }else if(*current == '-'){
     strand = REVERSE;
   }
-  // last thing where i can not remember what it was
-  pch = strtok(NULL, "\t");
-  if(pch == NULL){
-    return;
+
+  // SIKP last thing where i can not remember what it was
+  current = gt_gtf_read_gtf_field_(&line);
+  if(current == NULL) return GT_GTF_INVALID_LINE;
+
+  // WARNING >>> the attribute parser stops after
+  // the currently used feels are found. If you want
+  // to add a field, also update the attribute parser
+  if(gt_gtf_read_attributes_(&line, attrs) != GT_STATUS_OK){
+    return GT_GTF_INVALID_ATTRIBUTES;
   }
-  // additional fields
-  // search for gene_id
-  register bool gid = false;
-  register bool gene_t = false;
-  register bool transcript_t = false;
-  while((pch = strtok(NULL, " ")) != NULL){
-    //printf(" PCH: %s\n", pch);
-    //if(gene_id != NULL && transcript_id != NULL && gene_type != NULL) break;
-    if(strcmp("gene_id", pch) == 0){
-      gid = true;
-    }else if(strcmp("gene_type", pch) == 0){
-      gene_t = true;
-    }else if(strcmp("transcript_id", pch) == 0){
-      transcript_t = true;
-    }else{
-      if(gid){
-        gid = false;
-        gene_id = pch;
-        register uint64_t l = strlen(gene_id);
-        register uint64_t off = 1;
-        if(gene_id[l-off] == ';'){
-          gene_id[l-off] = '\0';
-          off = 2;
-        }
-        if(gene_id[0] == '"'){
-          gene_id++;
-          gene_id[l-(off+1)] = '\0';
-        }
-      }else if(gene_t){
-        gene_t = false;
-        gene_type = pch;
-        register uint64_t l = strlen(gene_type);
-        register uint64_t off = 1;
-        if(gene_type[l-off] == ';'){
-          gene_type[l-off] = '\0';
-          off = 2;
-        }
-        if(gene_type[0] == '"'){
-          gene_type++;
-          gene_type[l-(off+1)] = '\0';
-        }
-      }else if(transcript_t){
-        transcript_t = false;
-        transcript_id = pch;
-        register uint64_t l = strlen(transcript_id);
-        register uint64_t off = 1;
-        if(transcript_id[l-off] == ';'){
-          transcript_id[l-off] = '\0';
-          off = 2;
-        }
-        if(transcript_id[0] == '"'){
-          transcript_id++;
-          transcript_id[l-(off+1)] = '\0';
-        }
-      }
-    }
-  }
+
   // get the type or create it
   gt_string* tp = gt_gtf_get_type(gtf, type);
   gt_gtf_entry* e = gt_gtf_entry_new(start, end, strand, tp);
-  if(gene_id != NULL){
-    // get the gene_id or create it
-    gt_string* gids= gt_gtf_get_gene_id(gtf, gene_id);
-    e->gene_id = gids;
+  e->uid = counter;
+  if(gt_shash_is_contained(attrs, "gene_id")){
+    e->gene_id = gt_gtf_get_gene_id(gtf, gt_shash_get(attrs, "gene_id", char));
   }
-  if(gene_type != NULL){
-    // get the gene_id or create it
-    gt_string* gt= gt_gtf_get_gene_type(gtf, gene_type);
-    e->gene_type = gt;
+  if(gt_shash_is_contained(attrs, "gene_type")){
+    e->gene_type = gt_gtf_get_gene_type(gtf, gt_shash_get(attrs, "gene_type", char));
   }
-  if(transcript_id != NULL){
-    // get the gene_id or create it
-    gt_string* gt= gt_gtf_get_transcript_id(gtf, transcript_id);
-    e->transcript_id = gt;
+  if(gt_shash_is_contained(attrs, "transcript_id")){
+    e->transcript_id = gt_gtf_get_transcript_id(gtf, gt_shash_get(attrs, "transcript_id", char));
   }
-
   // get the ref or create it
   gt_gtf_ref* gtref = gt_gtf_get_ref(gtf, ref);
-  e->uid = counter;
   gt_vector_insert(gtref->entries, e, gt_gtf_entry*);
+  return GT_STATUS_OK;
 }
 
 bool gt_gtf_hits_junction(gt_map* map, gt_gtf_entry* e){
@@ -416,7 +398,7 @@ GT_INLINE gt_status gt_gtf_reload_buffer(gt_buffered_input_file* const buffered_
   // Dump buffer if BOF it attached to input, and get new out block (always FIRST)
   gt_buffered_input_file_dump_attached_buffers(buffered_fasta_input->attached_buffered_output_file);
   // Read new input block
-  const uint64_t read_lines = gt_buffered_input_file_get_block(buffered_fasta_input, GT_NUM_LINES_1K);
+  const uint64_t read_lines = gt_buffered_input_file_get_block(buffered_fasta_input, GT_NUM_LINES_50K);
   if (gt_expect_false(read_lines==0)) return GT_INPUT_FILE_EOF;
   // Assign block ID
   gt_buffered_input_file_set_id_attached_buffers(buffered_fasta_input->attached_buffered_output_file,buffered_fasta_input->block_id);
@@ -475,10 +457,15 @@ GT_INLINE gt_gtf* gt_gtf_read_from_file(char* input, uint64_t threads){
 }
 
 GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads){
+  GT_NULL_CHECK(input_file);
+  GT_ZERO_CHECK(threads);
+
   uint64_t counter = 0;
   uint64_t i = 0;
-  gt_gtf** gtfs = gt_calloc(threads, gt_gtf*, true);
-  for(i=0; i<threads; i++){
+  gt_gtf* const gtf = gt_gtf_new();
+
+  gt_gtf** gtfs = gt_calloc(threads-1, gt_gtf*, true);
+  for(i=0; i<threads-1; i++){
     gtfs[i] = gt_gtf_new();
   }
 
@@ -487,20 +474,30 @@ GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads)
     uint64_t tid = omp_get_thread_num();
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
     gt_string* buffered_line = gt_string_new(GTF_MAX_LINE_LENGTH);
-    gt_gtf* thread_gtf = gtfs[tid];
+    gt_gtf* thread_gtf;
+    if(tid == 0){
+      thread_gtf = gtf;
+    }else{
+      thread_gtf = gtfs[tid-1];
+    }
+    gt_shash* attrs = gt_shash_new();
     while(gt_gtf_get_line(buffered_input, buffered_line)){
-      gt_gtf_read_line(buffered_line->buffer, thread_gtf, buffered_input->current_line_num);
+      if(gt_gtf_read_line(buffered_line->buffer, thread_gtf, buffered_input->current_line_num, attrs) != GT_STATUS_OK){
+        // raise error
+        gt_fatal_error_msg("Failed to parse GTF line!");
+      }
       counter++;
     }
+    gt_shash_delete(attrs, false);
     gt_buffered_input_file_close(buffered_input);
     gt_string_delete(buffered_line);
   }
   gt_input_file_close(input_file);
 
   counter = 0;
-  const gt_gtf* const gtf = gt_gtf_new();
+
   // merge all the thread gtfs into a single one
-  for(i=0; i<threads; i++){
+  for(i=0; i<threads-1; i++){
     counter = gt_gtf_merge_(gtf, gtfs[i], counter);
     gt_gtf_delete(gtfs[i]);
   }
@@ -897,7 +894,10 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
   GT_VECTOR_ITERATE(hits, e, i, gt_gtf_entry*){
     gt_gtf_entry* hit = *e;
     gt_gtf_count_(local_type_counts, gt_string_get_string(hit->type));
-    gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
+    // count gene if we find an exonic hit
+    if(strcmp(hit->type->buffer, "exon") == 0){
+      gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
+    }
   }
   // count types
   if(gt_vector_get_used(hits) == 0){
@@ -917,7 +917,6 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
       break;
     }GT_SHASH_END_ITERATE;
   }
-
   gt_shash_delete(local_gene_counts, true);
   gt_shash_delete(local_type_counts, true);
   gt_vector_delete(hits);
@@ -983,7 +982,7 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
 
     // count genes
     // only count if the split is within a single gene
-    if(gt_shash_get_num_elements(local_gene_counts) == blocks){
+    if(gt_shash_get_num_elements(local_gene_counts) == 1){
       // add gene count
       GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
         gt_gtf_count_(gene_counts, key);
