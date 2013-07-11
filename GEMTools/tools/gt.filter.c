@@ -519,7 +519,7 @@ void gt_alignment_reduction_filter(gt_alignment* const alignment_dst,gt_alignmen
 }
 
 void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* const alignment_src,const gt_file_format file_format) {
-  const uint64_t first_matching_strata = gt_counters_get_min_matching_strata(gt_alignment_get_counters_vector(alignment_src));
+  const uint64_t first_matching_distance = gt_counters_get_min_matching_strata(gt_alignment_get_counters_vector(alignment_src)) - 1;
   const uint64_t max_mismatch_quality = gt_alignment_get_max_mismatch_quality(alignment_src);
   // Reduction by unique level (can be calculated beforehand)
   bool pick_only_first_map = false;
@@ -540,7 +540,7 @@ void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* con
     }
     // Filter strata beyond first mapping
     const int64_t current_stratum = parameters.no_penalty_for_splitmaps ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
-    if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_strata) > parameters.max_strata_after_map) break;
+    if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_distance) > parameters.max_strata_after_map) break;
     // Check strata
     if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
       const uint64_t total_distance = parameters.no_penalty_for_splitmaps ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
@@ -642,7 +642,7 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
       gt_alignment_dna_filter(alignment_dst_end1,alignment_src_end1,file_format);
       gt_alignment_dna_filter(alignment_dst_end2,alignment_src_end2,file_format);
     } else {
-      const uint64_t first_matching_strata = gt_counters_get_min_matching_strata(gt_template_get_counters_vector(template_src));
+      const uint64_t first_matching_distance = gt_counters_get_min_matching_strata(gt_template_get_counters_vector(template_src))-1;
       const uint64_t max_mismatch_quality = gt_template_get_max_mismatch_quality(template_src);
       // Reduction by unique level (can be calculated beforehand)
       bool pick_only_first_map = false;
@@ -663,7 +663,7 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
         const int64_t current_stratum = parameters.no_penalty_for_splitmaps ?
             gt_map_get_no_split_distance(mmap[0]) + gt_map_get_no_split_distance(mmap[1]):
             gt_map_get_global_distance(mmap[0]) + gt_map_get_global_distance(mmap[1]);
-        if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_strata) > parameters.max_strata_after_map) break;
+        if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_distance) > parameters.max_strata_after_map) break;
         // Check sequence name
         if (parameters.map_ids!=NULL) {
           if (!gt_filter_is_sequence_name_allowed(mmap[0]->seq_name)) continue;

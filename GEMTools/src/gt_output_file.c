@@ -69,12 +69,14 @@ static void* gt_output_file_pipe_bzip(void *s)
 }
 
 gt_output_file* gt_output_stream_new_compress(FILE* const file,const gt_output_file_type output_file_type, gt_output_file_compression compression_type) {
+
   GT_NULL_CHECK(file);
   gt_output_file* output_file = gt_alloc(gt_output_file);
   /* Output file */
   output_file->file_name=GT_STREAM_FILE_NAME;
   output_file->file=file;
   output_file->file_type=output_file_type;
+
   if(compression_type!=NONE && isatty(fileno(file))) {
   	fprintf(stderr,"Will not output compressed data to a tty\n");
   	compression_type=NONE;
@@ -103,7 +105,8 @@ gt_output_file* gt_output_stream_new_compress(FILE* const file,const gt_output_f
   return output_file;
 }
 
-gt_output_file* gt_output_file_new_compress(char* const file_name,const gt_output_file_type output_file_type,const gt_output_file_compression compression_type) {
+gt_output_file* gt_output_file_new_compress(char* const file_name,const gt_output_file_type output_file_type,const gt_output_file_compression compression_type)
+{
   GT_NULL_CHECK(file_name);
   gt_output_file* output_file = gt_alloc(gt_output_file);
   /* Output file */
@@ -134,6 +137,7 @@ gt_output_file* gt_output_file_new_compress(char* const file_name,const gt_outpu
   gt_output_file_init_buffers(output_file);
   return output_file;
 }
+
 gt_status gt_output_file_close(gt_output_file* const output_file) {
   GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
   gt_status error_code = 0;
@@ -254,7 +258,8 @@ GT_INLINE gt_output_buffer* gt_output_file_write_buffer(
   gt_vector* const vbuffer = gt_output_buffer_to_vchar(output_buffer);
   GT_BEGIN_MUTEX_SECTION(output_file->out_file_mutex)
   {
-  	bytes_written = fwrite(gt_vector_get_mem(vbuffer,char),1,gt_vector_get_used(vbuffer),output_file->file);
+    bytes_written = fwrite(gt_vector_get_mem(vbuffer,char),1,
+        gt_vector_get_used(vbuffer),output_file->file);
   }
   GT_END_MUTEX_SECTION(output_file->out_file_mutex);
   gt_cond_fatal_error(bytes_written!=gt_vector_get_used(vbuffer),OUTPUT_FILE_FAIL_WRITE);
@@ -293,7 +298,8 @@ GT_INLINE gt_output_buffer* gt_output_file_sorted_write_buffer_asynchronous(
   do {
     // Write the current buffer
     gt_vector* const vbuffer = gt_output_buffer_to_vchar(output_buffer);
-    int64_t bytes_written = fwrite(gt_vector_get_mem(vbuffer,char),1,gt_vector_get_used(vbuffer),output_file->file);
+    const int64_t bytes_written =
+        fwrite(gt_vector_get_mem(vbuffer,char),1,gt_vector_get_used(vbuffer),output_file->file);
     gt_cond_fatal_error(bytes_written!=gt_vector_get_used(vbuffer),OUTPUT_FILE_FAIL_WRITE);
     // Update buffers' state
     GT_BEGIN_MUTEX_SECTION(output_file->out_file_mutex) {
@@ -336,7 +342,6 @@ GT_INLINE gt_output_buffer* gt_output_file_sorted_write_buffer_asynchronous(
     } GT_END_MUTEX_SECTION(output_file->out_file_mutex);
   } while (true);
 }
-
 GT_INLINE gt_output_buffer* gt_output_file_dump_buffer(
     gt_output_file* const output_file,gt_output_buffer* const output_buffer,const bool asynchronous) {
   GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
