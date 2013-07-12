@@ -994,7 +994,6 @@ GT_INLINE uint64_t gt_gtf_join_(gt_string* buf, char* base, bool multi_gene, uin
 
 GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
   uint64_t blocks = gt_map_get_num_blocks(map);
-  uint64_t i = 0;
   if(blocks == 1){
     // single block
     gt_gtf_count_map_(gtf, map, type_counts, gene_counts, gene_type_counts);
