@@ -1008,9 +1008,9 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     }
     // count type
     // count types
-    uint64_t exons = gt_gtf_get_count_(local_type_counts, "exon");
-    uint64_t introns = gt_gtf_get_count_(local_type_counts, "intron");
-    uint64_t unknown = gt_gtf_get_count_(local_type_counts, "unknown");
+    uint64_t exons = gt_gtf_get_count_(local_type_counts, "exon") + gt_gtf_get_count_(local_type_counts, "exon_mg");
+    uint64_t introns = gt_gtf_get_count_(local_type_counts, "intron") + gt_gtf_get_count_(local_type_counts, "intron_mg");
+    uint64_t unknown = gt_gtf_get_count_(local_type_counts, "unknown") + gt_gtf_get_count_(local_type_counts, "unknown_mg");
     uint64_t not_annotated = gt_gtf_get_count_(local_type_counts, "na");
 
     // print splitmap blocks
@@ -1025,9 +1025,8 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     }else if(unknown == blocks){
       gt_gtf_join_(t, "unknown", multi_gene, blocks);
       gt_gtf_count_(type_counts, t->buffer);
-
     }else if(not_annotated == blocks){
-      gt_gtf_join_(t, "not_annotated", multi_gene, blocks);
+      gt_gtf_join_(t, "na", multi_gene, blocks);
       gt_gtf_count_(type_counts, t->buffer);
     }else{
       // construct type
