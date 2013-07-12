@@ -14,7 +14,9 @@
 typedef struct {
   char *input_file;
   char *output_file;
+  char *gene_counts_file;
   char *annotation;
+  bool shell;
   bool paired;
   bool verbose;
   uint64_t num_threads;
@@ -23,8 +25,10 @@ typedef struct {
 gt_gtfcount_args parameters = {
     .input_file=NULL,
     .output_file=NULL,
+    .gene_counts_file=NULL,
     .annotation=NULL,
     .paired=false,
+    .shell=false,
     .verbose=false,
     .num_threads=1
 };
@@ -45,7 +49,7 @@ GT_INLINE void gt_gtfcount_merge_counts_(gt_shash* const source, gt_shash* const
 
 
 
-uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* const type_counts) {
+uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* const type_counts, gt_shash* const gene_type_counts) {
   // Open file IN/OUT
   gt_input_file* input_file = NULL;
   uint64_t i = 0;
@@ -57,9 +61,11 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_sha
   // create maps for the threads
   gt_shash** gene_counts_list = gt_calloc(parameters.num_threads, gt_shash*, true);
   gt_shash** type_counts_list = gt_calloc(parameters.num_threads, gt_shash*, true);
+  gt_shash** gene_type_counts_list = gt_calloc(parameters.num_threads, gt_shash*, true);
   for(i=0; i<parameters.num_threads; i++){
     gene_counts_list[i] = gt_shash_new();
     type_counts_list[i] = gt_shash_new();
+    gene_type_counts_list[i] = gt_shash_new();
   }
   uint64_t* read_counts = malloc(parameters.num_threads*sizeof(uint64_t));
   for(i=0; i<parameters.num_threads; i++){
@@ -77,6 +83,7 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_sha
     uint64_t tid = omp_get_thread_num();
     gt_shash* l_gene_counts = gene_counts_list[tid];
     gt_shash* l_type_counts = type_counts_list[tid];
+    gt_shash* l_gene_type_counts = gene_type_counts_list[tid];
 
     while ((error_code = gt_input_generic_parser_get_template(buffered_input,template,generic_parser_attr))) {
       if (error_code != GT_IMP_OK) {
@@ -86,18 +93,18 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_sha
       if (gt_template_get_num_blocks(template)==1){
         GT_TEMPLATE_REDUCTION(template,alignment);
         if(gt_alignment_is_mapped(alignment) && gt_alignment_get_num_maps(alignment) == 1) read_counts[tid]++;
-        gt_gtf_count_alignment(gtf, alignment, l_type_counts, l_gene_counts);
+        gt_gtf_count_alignment(gtf, alignment, l_type_counts, l_gene_counts, l_gene_type_counts);
       } else {
         if (!gt_template_is_mapped(template)) {
           GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_end1,alignment_end2);
 
           if(gt_alignment_is_mapped(alignment_end1)&& gt_alignment_get_num_maps(alignment_end1) == 1) read_counts[tid]++;
-          gt_gtf_count_alignment(gtf, alignment_end1, l_type_counts, l_gene_counts);
+          gt_gtf_count_alignment(gtf, alignment_end1, l_type_counts, l_gene_counts, l_gene_type_counts);
           if(gt_alignment_is_mapped(alignment_end2)&& gt_alignment_get_num_maps(alignment_end2) == 1) read_counts[tid]++;
-          gt_gtf_count_alignment(gtf, alignment_end2, l_type_counts, l_gene_counts);
+          gt_gtf_count_alignment(gtf, alignment_end2, l_type_counts, l_gene_counts, l_gene_type_counts);
         } else {
           if(gt_template_is_mapped(template) && gt_template_get_num_mmaps(template) == 1) read_counts[tid] += 2;
-          gt_gtf_count_template(gtf, template, l_type_counts, l_gene_counts);
+          gt_gtf_count_template(gtf, template, l_type_counts, l_gene_counts, l_gene_type_counts);
         }
       }
     }
@@ -110,8 +117,10 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_sha
   for(i=0; i<parameters.num_threads; i++){
     gt_gtfcount_merge_counts_(gene_counts_list[i], gene_counts);
     gt_gtfcount_merge_counts_(type_counts_list[i], type_counts);
+    gt_gtfcount_merge_counts_(gene_type_counts_list[i], gene_type_counts);
     gt_shash_delete(gene_counts_list[i], true);
     gt_shash_delete(type_counts_list[i], true);
+    gt_shash_delete(gene_type_counts_list[i], true);
     total_counts += read_counts[i];
   }
   // Clean
@@ -137,6 +146,9 @@ void parse_arguments(int argc,char** argv) {
     case 'o':
       parameters.output_file = optarg;
       break;
+    case 'g':
+      parameters.gene_counts_file = optarg;
+      break;
     case 'a':
       parameters.annotation = optarg;
       break;
@@ -144,6 +156,9 @@ void parse_arguments(int argc,char** argv) {
       parameters.paired = true;
       break;
     /* Misc */
+    case 500:
+      parameters.shell = true;
+      break;
     case 'v':
       parameters.verbose = true;
       break;
@@ -185,6 +200,36 @@ GT_INLINE uint64_t gt_gtfcount_get_count_(gt_shash* const table, char* const ele
   return *v;
 }
 
+GT_INLINE char* gt_gtfcount_shell_parse_ref(char** line){
+  char* ref = *line;
+  GT_READ_UNTIL(line, **line==':');
+  if(GT_IS_EOL(line))return NULL;
+  **line = EOS;
+  GT_NEXT_CHAR(line);
+  return ref;
+}
+
+GT_INLINE uint64_t gt_gtfcount_shell_parse_start(char** line){
+  char* ref = *line;
+  uint64_t n = 0;
+  GT_READ_UNTIL(line, **line=='-' || **line=='\n');
+  **line = EOS;
+  n = atol(ref);
+  GT_NEXT_CHAR(line);
+  return n;
+}
+
+GT_INLINE uint64_t gt_gtfcount_shell_parse_end(char** line){
+  if(**line == '\n') return 0;
+  char* ref = *line;
+  uint64_t n = 0;
+  GT_READ_UNTIL(line, **line=='\n');
+  **line = EOS;
+  n = atol(ref);
+  GT_NEXT_CHAR(line);
+  return n;
+}
+
 int main(int argc,char** argv) {
   // GT error handler
   gt_handle_error_signals();
@@ -195,29 +240,96 @@ int main(int argc,char** argv) {
   gt_gtf* const gtf = gt_gtf_read_from_file(parameters.annotation, parameters.num_threads);
   gt_gtfcount_warn("Done\n");
 
+  if(parameters.shell){
+    fprintf(stdout, "Search the annotation with queries like : <ref>:<start>[-<end>]\n");
+    fprintf(stdout, ">");
+    gt_vector* hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
+    size_t buf_size = 1024;
+    ssize_t read;
+    char* line = malloc(buf_size * sizeof(char));
+    uint64_t start, end=0 ;
+    while((read = getline(&line, &buf_size, stdin)) != -1){
+      // parse the line
+      char* ref = gt_gtfcount_shell_parse_ref(&line);
+      if(ref==NULL){
+        fprintf(stdout, "Unable to parse reference name.\n");
+        fprintf(stdout, ">");
+        continue;
+      }
+      start = gt_gtfcount_shell_parse_start(&line);
+      end = gt_gtfcount_shell_parse_end(&line);
+      if(end != 0 && start > end){
+        fprintf(stdout, "start > end not allowed!\n");
+        fprintf(stdout, ">");
+        continue;
+      }
+      if(end == 0) end = start;
+      uint64_t num_results = gt_gtf_search(gtf,hits, ref, start, end);
+      if(num_results == 0){
+        fprintf(stdout, "Nothing found :(\n");
+      }else{
+        GT_VECTOR_ITERATE(hits, v, c, gt_gtf_entry*){
+          gt_gtf_entry* e = *v;
+          gt_gtf_print_entry_(e, NULL);
+        }
+      }
+      fprintf(stdout, ">");
+    }
+    //free(line);
+    exit(0);
+  }
   // local maps
   gt_shash* gene_counts = gt_shash_new();
+  gt_shash* gene_type_counts = gt_shash_new();
   gt_shash* type_counts = gt_shash_new();
   gt_gtfcount_warn("Counting...");
-  uint64_t total_counts = gt_gtfcount_read(gtf, gene_counts, type_counts);
+  uint64_t total_counts = gt_gtfcount_read(gtf, gene_counts, type_counts, gene_type_counts);
   gt_gtfcount_warn("Done\n");
 
-  printf("Annotation type counts\n");
-  printf("----------------------\n");
-  GT_SHASH_BEGIN_ITERATE(type_counts, key, e, uint64_t){
-    printf("  %15s: %"PRIu64" (%.2f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
-  }GT_SHASH_END_ITERATE
-  printf("----------------------\n");
-  printf("Total counts: %"PRIu64"\n", total_counts);
-
   FILE* output = stdout;
-  GT_SHASH_BEGIN_ITERATE(gene_counts, key, e, uint64_t){
-    fprintf(output, "%s\t%"PRIu64"\n", key, *e );
+  if(parameters.output_file != NULL){
+    output = fopen(parameters.output_file, "w");
+    if(output == NULL){
+      gt_perror();
+      exit(1);
+    }
+  }
+  fprintf(output, "Annotation type counts\n");
+  fprintf(output, "----------------------\n");
+  GT_SHASH_BEGIN_ITERATE(type_counts, key, e, uint64_t){
+    fprintf(output, "  %15s: %"PRIu64" (%.2f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
   }GT_SHASH_END_ITERATE
+  fprintf(output, "----------------------\n");
+
+  fprintf(output, "Gene type counts\n");
+  fprintf(output, "----------------------\n");
+  GT_SHASH_BEGIN_ITERATE(gene_type_counts, key, e, uint64_t){
+    fprintf(output, "  %15s: %"PRIu64" (%.2f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
+  }GT_SHASH_END_ITERATE
+  fprintf(output, "----------------------\n");
+
+  fprintf(output, "Total counts: %"PRIu64"\n", total_counts);
+  if(parameters.output_file != NULL){
+    fclose(output);
+  }
+
+  if(parameters.gene_counts_file != NULL){
+    output = fopen(parameters.gene_counts_file, "w");
+    if(output == NULL){
+      gt_perror();
+      exit(1);
+    }
+    // print gene table
+    GT_SHASH_BEGIN_ITERATE(gene_counts, key, e, uint64_t){
+      fprintf(output, "%s\t%"PRIu64"\n", key, *e );
+    }GT_SHASH_END_ITERATE
+    fclose(output);
+  }
 
 
   gt_shash_delete(gene_counts, true);
   gt_shash_delete(type_counts, true);
+  gt_shash_delete(gene_type_counts, true);
   return 0;
 }
 

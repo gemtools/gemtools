@@ -246,9 +246,11 @@ gt_option gt_gtfcount_options[] = {
   /* I/O */
   { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
   { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'g', "counts", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "Output file for the gene counts" },
   { 'a', "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GTF annotation" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
   /* Misc */
+  { 500, "shell", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Interactive shell to query the annotation"},
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},

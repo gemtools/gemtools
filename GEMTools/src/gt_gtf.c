@@ -218,10 +218,14 @@ GT_INLINE gt_status gt_gtf_read_attributes_(char** line, gt_shash* attrs){
   gt_shash_clear(attrs, false);
   while(!GT_IS_EOL(line)){
     while(**line == ' ') GT_NEXT_CHAR(line);
+    if(**line == EOL || **line == EOS) return GT_STATUS_OK;
     // get the attribute name
     char* name = *line;
     GT_READ_UNTIL(line, **line==' ')
-    if(GT_IS_EOL(line)) return GT_GTF_INVALID_LINE;
+    if(GT_IS_EOL(line)){
+      gt_error_msg("Error parsing GTF attributes. Expected space but found end of line");
+      return GT_GTF_INVALID_LINE;
+    }
     **line = EOS;
     GT_NEXT_CHAR(line);
 
@@ -271,33 +275,58 @@ GT_INLINE gt_status gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t cou
   char* current = line;
 
   ref = gt_gtf_read_gtf_field_(&line);
-  if(ref == NULL) return GT_GTF_INVALID_LINE;
+  if(ref == NULL){
+    gt_error_msg("Unable to parse name: '%s'", line);
+    return GT_GTF_INVALID_LINE;
+  }
 
   // SKIP source
   current = gt_gtf_read_gtf_field_(&line);
-  if(current == NULL) return GT_GTF_INVALID_LINE;
+  if(current == NULL){
+    gt_error_msg("Unable to parse source: '%s'", line);
+    return GT_GTF_INVALID_LINE;
+  }
 
   // type
   type = gt_gtf_read_gtf_field_(&line);
-  if(type == NULL) return GT_GTF_INVALID_LINE;
+  if(type == NULL){
+    gt_error_msg("Unable to parse type: '%s'", line);
+    return GT_GTF_INVALID_LINE;
+  }
+
 
   // start
   current = gt_gtf_read_gtf_field_(&line);
-  if(current == NULL) return GT_GTF_INVALID_LINE;
+  if(current == NULL){
+    gt_error_msg("Unable to parse start: '%s'", line);
+    return GT_GTF_INVALID_LINE;
+  }
   start = atol(current);
 
   // end
   current = gt_gtf_read_gtf_field_(&line);
-  if(current == NULL) return GT_GTF_INVALID_LINE;
+  if(current == NULL){
+    gt_error_msg("Unable to parse end: '%s'", line);
+    return GT_GTF_INVALID_LINE;
+  }
   end = atol(current);
 
   // SKIP score
   current = gt_gtf_read_gtf_field_(&line);
-  if(current == NULL) return GT_GTF_INVALID_LINE;
+  if(current == NULL){
+    gt_error_msg("Unable to parse score: '%s'", line);
+    return GT_GTF_INVALID_LINE;
+  }
+
 
   // strand
   current = gt_gtf_read_gtf_field_(&line);
   if(current == NULL) return GT_GTF_INVALID_LINE;
+  if(current == NULL){
+    gt_error_msg("Unable to parse strand: '%s'", line);
+    return GT_GTF_INVALID_LINE;
+  }
+
   if(*current == '+'){
     strand = FORWARD;
   }else if(*current == '-'){
@@ -306,12 +335,17 @@ GT_INLINE gt_status gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t cou
 
   // SIKP last thing where i can not remember what it was
   current = gt_gtf_read_gtf_field_(&line);
-  if(current == NULL) return GT_GTF_INVALID_LINE;
+  if(current == NULL){
+    gt_error_msg("Unable to parse last: '%s'", line);
+    return GT_GTF_INVALID_LINE;
+  }
+
 
   // WARNING >>> the attribute parser stops after
   // the currently used feels are found. If you want
   // to add a field, also update the attribute parser
   if(gt_gtf_read_attributes_(&line, attrs) != GT_STATUS_OK){
+    gt_error_msg("Unable to parse attributes: '%s'", line);
     return GT_GTF_INVALID_ATTRIBUTES;
   }
 
@@ -346,7 +380,7 @@ void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map){
     gt_output_map_fprint_map(stdout, map, NULL);
     printf(" ==> ");
   }
-  printf("%s : %"PRIu64" - %"PRIu64" (%d)", e->type->buffer, e->start, e->end, e->strand);
+  printf("%s : %"PRIu64" - %"PRIu64" (%c)", e->type->buffer, e->start, e->end, (e->strand==FORWARD?'+':'-') );
   if(e->gene_id != NULL){
     printf(" GID:%s", e->gene_id->buffer);
   }
@@ -484,7 +518,7 @@ GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads)
     while(gt_gtf_get_line(buffered_input, buffered_line)){
       if(gt_gtf_read_line(buffered_line->buffer, thread_gtf, buffered_input->current_line_num, attrs) != GT_STATUS_OK){
         // raise error
-        gt_fatal_error_msg("Failed to parse GTF line!");
+        gt_fatal_error_msg("Failed to parse GTF line '%s'", buffered_line->buffer);
       }
       counter++;
     }
@@ -882,7 +916,7 @@ GT_INLINE void gt_gtf_count_add_(gt_shash* const source, gt_shash* const target)
 }
 
 
-GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts){
+GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
   uint64_t start = gt_map_get_begin_mapping_position(map);
   uint64_t end   = gt_map_get_end_mapping_position(map);
   gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
@@ -890,6 +924,7 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
 
   gt_shash* const local_type_counts = gt_shash_new();
   gt_shash* const local_gene_counts = gt_shash_new();
+  gt_shash* const local_gene_type_counts = gt_shash_new();
 
   GT_VECTOR_ITERATE(hits, e, i, gt_gtf_entry*){
     gt_gtf_entry* hit = *e;
@@ -897,6 +932,7 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
     // count gene if we find an exonic hit
     if(strcmp(hit->type->buffer, "exon") == 0){
       gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
+      gt_gtf_count_(local_gene_type_counts, gt_string_get_string(hit->gene_type));
     }
   }
   // count types
@@ -916,23 +952,29 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
       gt_gtf_count_(gene_counts, key);
       break;
     }GT_SHASH_END_ITERATE;
+    GT_SHASH_BEGIN_KEY_ITERATE(local_gene_type_counts, key){
+      gt_gtf_count_(gene_type_counts, key);
+      break;
+    }GT_SHASH_END_ITERATE;
   }
   gt_shash_delete(local_gene_counts, true);
   gt_shash_delete(local_type_counts, true);
+  gt_shash_delete(local_gene_type_counts, true);
   gt_vector_delete(hits);
 }
 
-GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts){
+GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
   uint64_t blocks = gt_map_get_num_blocks(map);
   if(blocks == 1){
     // single block
-    gt_gtf_count_map_(gtf, map, type_counts, gene_counts);
+    gt_gtf_count_map_(gtf, map, type_counts, gene_counts, gene_type_counts);
   }else{
     // splitmap with multiple blocks
     gt_shash* const local_type_counts = gt_shash_new();
     gt_shash* const local_gene_counts = gt_shash_new();
+    gt_shash* const local_gene_type_counts = gt_shash_new();
     GT_MAP_ITERATE(map, map_block){
-      gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts);
+      gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts, local_gene_type_counts);
     }
     // count type
     // count types
@@ -988,29 +1030,35 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
         gt_gtf_count_(gene_counts, key);
         break;
       }GT_SHASH_END_ITERATE;
+      GT_SHASH_BEGIN_KEY_ITERATE(local_gene_type_counts, key){
+        gt_gtf_count_(gene_type_counts, key);
+        break;
+      }GT_SHASH_END_ITERATE;
     }
+
     gt_shash_delete(local_gene_counts, true);
     gt_shash_delete(local_type_counts, true);
+    gt_shash_delete(local_gene_type_counts, true);
   }
 }
 
-GT_INLINE void gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const type_count, gt_shash* const gene_counts){
+GT_INLINE void gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const type_count, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
   if(gt_alignment_get_num_maps(alignment) != 1) return; // count only unique
   GT_ALIGNMENT_ITERATE(alignment,map) {
-    gt_gtf_count_map(gtf, map,type_count, gene_counts);
+    gt_gtf_count_map(gtf, map,type_count, gene_counts, gene_type_counts);
   }
 }
 
-GT_INLINE void gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const type_counts, gt_shash* const gene_counts){
+GT_INLINE void gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
   // process single alignments
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-      gt_gtf_count_alignment(gtf, alignment, type_counts, gene_counts);
+      gt_gtf_count_alignment(gtf, alignment, type_counts, gene_counts, gene_type_counts);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
 
   // process templates
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
     if(gt_template_get_num_mmaps(template) != 1) continue; // count only unique
-    gt_gtf_count_map(gtf, mmap[0],type_counts, gene_counts);
-    gt_gtf_count_map(gtf, mmap[1],type_counts, gene_counts);
+    gt_gtf_count_map(gtf, mmap[0],type_counts, gene_counts, gene_type_counts);
+    gt_gtf_count_map(gtf, mmap[1],type_counts, gene_counts, gene_type_counts);
   }
 }
