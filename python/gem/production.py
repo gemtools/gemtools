@@ -124,6 +124,24 @@ class Stats(Command):
         sys.exit(p.wait())
 
 
+class GtfCount(Command):
+    title = "Create gene counts and gtf statistics"
+    description = """This tools can be used to create GTF statistics and
+    simple gene read counts. The assumtion here is that the given annotation
+    containes a gene model (different transcript_ids belonging to the same
+    gene_id, i.e. gencode or ensemble). In addition, the GTF entries should
+    contain a gene_type attribute to count different types, for example rRNA.
+    """
+
+    def register(self, parser):
+        self.add_options('gt.gtfcount', parser)
+
+    def run(self, args):
+        cmd = self.get_command(args)
+        p = subprocess.Popen(cmd)
+        sys.exit(p.wait())
+
+
 class Filter(Command):
     title = "Filter .map files"
     description = """Filter .map files"""
