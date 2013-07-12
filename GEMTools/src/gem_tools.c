@@ -377,12 +377,12 @@ GT_INLINE void gt_options_fprint_json_menu(
       case GT_OPT_BOOL: fprintf(stream,"\t  \"argumentType\": \"bool\",\n"); break;
     }
     // Print extra command line syntax info
-    fprintf(stream,"\t  \"commandInfo\": \"%s\"\n",options[i].command_info);
+    fprintf(stream,"\t  \"commandInfo\": \"%s\"",options[i].command_info);
     // Print description (@print_description)
     if (print_description && !gt_streq(options[i].description,"")) {
-      fprintf(stream,"\t  \"description\": \"%s\"\n",options[i].description);
+      fprintf(stream,",\n\t  \"description\": \"%s\"",options[i].description);
     }
-    fprintf(stream,"\t}");
+    fprintf(stream,"\n\t}");
   }
   fprintf(stream,"\n    ]\n");
   fprintf(stream,"}\n");
