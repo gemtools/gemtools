@@ -295,18 +295,18 @@ int main(int argc,char** argv) {
     }
   }
   fprintf(output, "Annotation type counts\n");
-  fprintf(output, "---------------------------------------------\n");
+  fprintf(output, "-----------------------------------------------------------------------\n");
   GT_SHASH_BEGIN_ITERATE(type_counts, key, e, uint64_t){
-    fprintf(output, "  %30s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
+    fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
   }GT_SHASH_END_ITERATE
-  fprintf(output, "---------------------------------------------\n");
+  fprintf(output, "-----------------------------------------------------------------------\n");
 
   fprintf(output, "Gene type counts\n");
-  fprintf(output, "---------------------------------------------\n");
+  fprintf(output, "-----------------------------------------------------------------------\n");
   GT_SHASH_BEGIN_ITERATE(gene_type_counts, key, e, uint64_t){
-    fprintf(output, "  %30s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
+    fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
   }GT_SHASH_END_ITERATE
-  fprintf(output, "---------------------------------------------\n");
+  fprintf(output, "-----------------------------------------------------------------------\n");
 
   fprintf(output, "Total counts: %"PRIu64"\n", total_counts);
   if(parameters.output_file != NULL){

@@ -937,7 +937,7 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
   }
   // count types
   if(gt_vector_get_used(hits) == 0){
-	gt_gtf_count_(type_counts, "not annotated");
+    gt_gtf_count_(type_counts, "na");
   }else if(gt_gtf_get_count_(local_type_counts, "exon") > 0){
     // count exon in single gene block
     if(gt_shash_get_num_elements(local_gene_counts) == 1){
@@ -1011,7 +1011,7 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     uint64_t exons = gt_gtf_get_count_(local_type_counts, "exon");
     uint64_t introns = gt_gtf_get_count_(local_type_counts, "intron");
     uint64_t unknown = gt_gtf_get_count_(local_type_counts, "unknown");
-    uint64_t not_annotated = gt_gtf_get_count_(local_type_counts, "not annotated");
+    uint64_t not_annotated = gt_gtf_get_count_(local_type_counts, "na");
 
     // print splitmap blocks
     gt_string* t = gt_string_new(16);
@@ -1032,14 +1032,22 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     }else{
       // construct type
       uint64_t total = exons + introns + unknown + not_annotated;
-      total -= gt_gtf_join_(t, "exon", multi_gene, exons);
-      if(total > 0) gt_string_append_char(t, '|');
-      total -= gt_gtf_join_(t, "intron", multi_gene, introns);
-      if(total > 0) gt_string_append_char(t, '|');
-      total -= gt_gtf_join_(t, "unknown", multi_gene, unknown);
-      if(total > 0) gt_string_append_char(t, '|');
-      total -= gt_gtf_join_(t, "not_annotated", multi_gene, not_annotated);
-      if(total > 0) gt_string_append_char(t, '|');
+      if(exons > 0){
+        total -= gt_gtf_join_(t, "exon", multi_gene, exons);
+        if(total > 0) gt_string_append_char(t, '|');
+      }
+      if(introns > 0){
+        total -= gt_gtf_join_(t, "intron", multi_gene, introns);
+        if(total > 0) gt_string_append_char(t, '|');
+      }
+      if(unknown > 0){
+        total -= gt_gtf_join_(t, "unknown", multi_gene, unknown);
+        if(total > 0) gt_string_append_char(t, '|');
+      }
+      if(not_annotated > 0){
+        total -= gt_gtf_join_(t, "na", multi_gene, not_annotated);
+        if(total > 0) gt_string_append_char(t, '|');
+      }
       gt_gtf_count_(type_counts, gt_string_get_string(t));
 
     }
