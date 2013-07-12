@@ -22,6 +22,14 @@ typedef struct {
   uint64_t num_threads;
 } gt_gtfcount_args;
 
+typedef struct {
+  uint64_t single_genes;
+  uint64_t multi_genes;
+  uint64_t no_genes;
+  uint64_t single_reads;
+} gt_gtfcount_pair_counts;
+
+
 gt_gtfcount_args parameters = {
     .input_file=NULL,
     .output_file=NULL,
@@ -32,6 +40,8 @@ gt_gtfcount_args parameters = {
     .verbose=false,
     .num_threads=1
 };
+
+
 
 GT_INLINE void gt_gtfcount_merge_counts_(gt_shash* const source, gt_shash* const target){
   GT_SHASH_BEGIN_ITERATE(source, key, value, uint64_t){
@@ -49,7 +59,7 @@ GT_INLINE void gt_gtfcount_merge_counts_(gt_shash* const source, gt_shash* const
 
 
 
-uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* const type_counts, gt_shash* const gene_type_counts) {
+uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_shash* const type_counts, gt_shash* const gene_type_counts, gt_shash* const pair_patterns_counts, gt_gtfcount_pair_counts* pair_counts) {
   // Open file IN/OUT
   gt_input_file* input_file = NULL;
   uint64_t i = 0;
@@ -62,10 +72,21 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_sha
   gt_shash** gene_counts_list = gt_calloc(parameters.num_threads, gt_shash*, true);
   gt_shash** type_counts_list = gt_calloc(parameters.num_threads, gt_shash*, true);
   gt_shash** gene_type_counts_list = gt_calloc(parameters.num_threads, gt_shash*, true);
+  gt_shash** pair_patterns_list = gt_calloc(parameters.num_threads, gt_shash*, true);
+  uint64_t* singel_gene_pairs = malloc(parameters.num_threads * sizeof(uint64_t));
+  uint64_t* multi_gene_pairs = malloc(parameters.num_threads * sizeof(uint64_t));
+  uint64_t* no_gene_pairs = malloc(parameters.num_threads * sizeof(uint64_t));
+  uint64_t* single_ends = malloc(parameters.num_threads * sizeof(uint64_t));
+
   for(i=0; i<parameters.num_threads; i++){
     gene_counts_list[i] = gt_shash_new();
     type_counts_list[i] = gt_shash_new();
     gene_type_counts_list[i] = gt_shash_new();
+    pair_patterns_list[i] = gt_shash_new();
+    singel_gene_pairs[i] = 0;
+    multi_gene_pairs[i] = 0;
+    no_gene_pairs[i] = 0;
+    single_ends[i] = 0;
   }
   uint64_t* read_counts = malloc(parameters.num_threads*sizeof(uint64_t));
   for(i=0; i<parameters.num_threads; i++){
@@ -84,6 +105,7 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_sha
     gt_shash* l_gene_counts = gene_counts_list[tid];
     gt_shash* l_type_counts = type_counts_list[tid];
     gt_shash* l_gene_type_counts = gene_type_counts_list[tid];
+    gt_shash* l_pair_patterns = pair_patterns_list[tid];
 
     while ((error_code = gt_input_generic_parser_get_template(buffered_input,template,generic_parser_attr))) {
       if (error_code != GT_IMP_OK) {
@@ -92,19 +114,41 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_sha
 
       if (gt_template_get_num_blocks(template)==1){
         GT_TEMPLATE_REDUCTION(template,alignment);
-        if(gt_alignment_is_mapped(alignment) && gt_alignment_get_num_maps(alignment) == 1) read_counts[tid]++;
+        if(gt_alignment_is_mapped(alignment) && gt_alignment_get_num_maps(alignment) == 1){
+          single_ends[tid] += 1;
+          read_counts[tid]++;
+        }
         gt_gtf_count_alignment(gtf, alignment, l_type_counts, l_gene_counts, l_gene_type_counts);
+
       } else {
         if (!gt_template_is_mapped(template)) {
           GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_end1,alignment_end2);
 
-          if(gt_alignment_is_mapped(alignment_end1)&& gt_alignment_get_num_maps(alignment_end1) == 1) read_counts[tid]++;
+          if(gt_alignment_is_mapped(alignment_end1)&& gt_alignment_get_num_maps(alignment_end1) == 1){
+            read_counts[tid]++;
+            single_ends[tid] += 1;
+          }
           gt_gtf_count_alignment(gtf, alignment_end1, l_type_counts, l_gene_counts, l_gene_type_counts);
-          if(gt_alignment_is_mapped(alignment_end2)&& gt_alignment_get_num_maps(alignment_end2) == 1) read_counts[tid]++;
+
+
+          if(gt_alignment_is_mapped(alignment_end2)&& gt_alignment_get_num_maps(alignment_end2) == 1){
+            read_counts[tid]++;
+            single_ends[tid] += 1;
+          }
           gt_gtf_count_alignment(gtf, alignment_end2, l_type_counts, l_gene_counts, l_gene_type_counts);
+
         } else {
-          if(gt_template_is_mapped(template) && gt_template_get_num_mmaps(template) == 1) read_counts[tid] += 2;
-          gt_gtf_count_template(gtf, template, l_type_counts, l_gene_counts, l_gene_type_counts);
+          uint64_t hits_genes = gt_gtf_count_template(gtf, template, l_type_counts, l_gene_counts, l_gene_type_counts, l_pair_patterns);
+          if(gt_template_is_mapped(template) && gt_template_get_num_mmaps(template) == 1){
+            read_counts[tid] += 2;
+            if(hits_genes == 1){
+              singel_gene_pairs[tid]++;
+            }else if(hits_genes > 1){
+              multi_gene_pairs[tid]++;
+            }else{
+              no_gene_pairs[tid]++;
+            }
+          }
         }
       }
     }
@@ -118,10 +162,16 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts, gt_sha
     gt_gtfcount_merge_counts_(gene_counts_list[i], gene_counts);
     gt_gtfcount_merge_counts_(type_counts_list[i], type_counts);
     gt_gtfcount_merge_counts_(gene_type_counts_list[i], gene_type_counts);
+    gt_gtfcount_merge_counts_(pair_patterns_list[i], pair_patterns_counts);
     gt_shash_delete(gene_counts_list[i], true);
     gt_shash_delete(type_counts_list[i], true);
     gt_shash_delete(gene_type_counts_list[i], true);
     total_counts += read_counts[i];
+
+    pair_counts->multi_genes += multi_gene_pairs[i];
+    pair_counts->single_genes += singel_gene_pairs[i];
+    pair_counts->no_genes += no_gene_pairs[i];
+    pair_counts->single_reads += single_ends[i];
   }
   // Clean
   gt_input_file_close(input_file);
@@ -282,8 +332,17 @@ int main(int argc,char** argv) {
   gt_shash* gene_counts = gt_shash_new();
   gt_shash* gene_type_counts = gt_shash_new();
   gt_shash* type_counts = gt_shash_new();
+  gt_shash* pair_pattern_counts = gt_shash_new();
+
+  gt_gtfcount_pair_counts pair_counts = {
+      .single_genes = 0,
+      .multi_genes = 0,
+      .no_genes= 0,
+      .single_reads =0
+  };
+
   gt_gtfcount_warn("Counting...");
-  uint64_t total_counts = gt_gtfcount_read(gtf, gene_counts, type_counts, gene_type_counts);
+  uint64_t total_counts = gt_gtfcount_read(gtf, gene_counts, type_counts, gene_type_counts, pair_pattern_counts, &pair_counts);
   gt_gtfcount_warn("Done\n");
 
   FILE* output = stdout;
@@ -294,21 +353,80 @@ int main(int argc,char** argv) {
       exit(1);
     }
   }
-  fprintf(output, "Annotation type counts\n");
+
+  /*
+   * Print type counts for hits to single genese and hits to multiple genes
+   */
+  uint64_t type_counts_single_total = 0;
+  uint64_t type_counts_multi_total = 0;
+  GT_SHASH_BEGIN_ITERATE(type_counts, key, e, uint64_t){
+    if(strstr(key, "_mg") == NULL){
+      type_counts_single_total += *e;
+    }else{
+      type_counts_multi_total += *e;
+    }
+  }GT_SHASH_END_ITERATE
+
+  fprintf(output, "Annotation type counts for single gene hits (Single: %"PRIu64" (%.2f%%))\n", type_counts_single_total, (((float)type_counts_single_total/total_counts) * 100.0));
   fprintf(output, "-----------------------------------------------------------------------\n");
   GT_SHASH_BEGIN_ITERATE(type_counts, key, e, uint64_t){
-    fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
+    if(strstr(key, "_mg") == NULL){
+      fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)type_counts_single_total) * 100.0));
+    }
+  }GT_SHASH_END_ITERATE
+  fprintf(output, "-----------------------------------------------------------------------\n");
+  fprintf(output, "Annotation type counts for multi gene hits (Multi: %"PRIu64" (%.2f%%))\n", type_counts_multi_total, (((float)type_counts_multi_total/total_counts) * 100.0));
+  fprintf(output, "-----------------------------------------------------------------------\n");
+  GT_SHASH_BEGIN_ITERATE(type_counts, key, e, uint64_t){
+    if(strstr(key, "_mg") != NULL){
+      fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)type_counts_multi_total) * 100.0));
+    }
   }GT_SHASH_END_ITERATE
   fprintf(output, "-----------------------------------------------------------------------\n");
 
-  fprintf(output, "Gene type counts\n");
+  /*
+   * Print Gene Types
+   */
+  uint64_t gene_types_total = 0;
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(gene_type_counts, e, uint64_t){
+    gene_types_total += *e;
+  }GT_SHASH_END_ITERATE
+  fprintf(output, "Gene type counts for single gene Exons (%"PRIu64")\n", gene_types_total);
   fprintf(output, "-----------------------------------------------------------------------\n");
   GT_SHASH_BEGIN_ITERATE(gene_type_counts, key, e, uint64_t){
-    fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)total_counts) * 100.0));
+    fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)gene_types_total) * 100.0));
   }GT_SHASH_END_ITERATE
   fprintf(output, "-----------------------------------------------------------------------\n");
 
-  fprintf(output, "Total counts: %"PRIu64"\n", total_counts);
+
+  /*
+   * Print Pair patterns
+   */
+  uint64_t paired_pattern_total = 0;
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(pair_pattern_counts, e, uint64_t){
+    paired_pattern_total += *e;
+  }GT_SHASH_END_ITERATE
+
+  fprintf(output, "Paired-read patterns (%"PRIu64")\n", paired_pattern_total);
+  fprintf(output, "-----------------------------------------------------------------------\n");
+  GT_SHASH_BEGIN_ITERATE(pair_pattern_counts, key, e, uint64_t){
+    fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", key, *e, (((float)*e/(float)paired_pattern_total) * 100.0));
+  }GT_SHASH_END_ITERATE
+  fprintf(output, "-----------------------------------------------------------------------\n");
+
+  uint64_t paired_total = pair_counts.multi_genes + pair_counts.single_genes + pair_counts.no_genes + pair_counts.single_reads;
+  fprintf(output, "Paired-reads Gene-Matches (pairs: %"PRIu64" singles: %"PRIu64" total: %"PRIu64")\n", paired_total-pair_counts.single_reads, pair_counts.single_reads, paired_total);
+  fprintf(output, "-----------------------------------------------------------------------\n");
+  fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", "Single end reads", pair_counts.single_reads, (((float)pair_counts.single_reads/(float)paired_total) * 100.0));
+  fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", "Pair not mapped to gene", pair_counts.no_genes, (((float)pair_counts.no_genes/(float)paired_total) * 100.0));
+  fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", "Pair mapped to single gene", pair_counts.single_genes, (((float)pair_counts.single_genes/(float)paired_total) * 100.0));
+  fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", "Pair mapped to multiple genes", pair_counts.multi_genes, (((float)pair_counts.multi_genes/(float)paired_total) * 100.0));
+  fprintf(output, "-----------------------------------------------------------------------\n");
+
+
+
+
+
   if(parameters.output_file != NULL){
     fclose(output);
   }
