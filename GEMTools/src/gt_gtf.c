@@ -939,11 +939,24 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
   if(gt_vector_get_used(hits) == 0){
 	gt_gtf_count_(type_counts, "not annotated");
   }else if(gt_gtf_get_count_(local_type_counts, "exon") > 0){
-    gt_gtf_count_(type_counts, "exon");
+    // count exon in single gene block
+    if(gt_shash_get_num_elements(local_gene_counts) == 1){
+      gt_gtf_count_(type_counts, "exon");
+    }else{
+      gt_gtf_count_(type_counts, "exon_mg");
+    }
   }else if(gt_gtf_get_count_(local_type_counts, "intron") > 0){
-    gt_gtf_count_(type_counts, "intron");
+    if(gt_shash_get_num_elements(local_gene_counts) == 1){
+      gt_gtf_count_(type_counts, "intron");
+    }else{
+      gt_gtf_count_(type_counts, "intron_mg");
+    }
   }else{
-    gt_gtf_count_(type_counts, "unknown");
+    if(gt_shash_get_num_elements(local_gene_counts) == 1){
+      gt_gtf_count_(type_counts, "unknown");
+    }else{
+      gt_gtf_count_(type_counts, "unknown_mg");
+    }
   }
 
   if(gt_shash_get_num_elements(local_gene_counts) == 1){
@@ -961,6 +974,22 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
   gt_shash_delete(local_type_counts, true);
   gt_shash_delete(local_gene_type_counts, true);
   gt_vector_delete(hits);
+}
+
+GT_INLINE uint64_t gt_gtf_join_(gt_string* buf, char* base, bool multi_gene, uint64_t blocks){
+  if(blocks == 0) return 0;
+  uint64_t i = 0;
+  uint64_t len = strlen(base);
+  for(i=0; i<blocks; i++){
+    gt_string_right_append_string(buf, base, len);
+    if(multi_gene){
+      gt_string_right_append_string(buf, "_mg", 3);
+    }
+    if(i<blocks-1){
+      gt_string_append_char(buf, '|');
+    }
+  }
+  return blocks;
 }
 
 GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
@@ -985,44 +1014,36 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     uint64_t not_annotated = gt_gtf_get_count_(local_type_counts, "not annotated");
 
     // print splitmap blocks
+    gt_string* t = gt_string_new(16);
+    bool multi_gene = !gt_shash_get_num_elements(local_gene_counts) == 1;
     if(exons == blocks){
-      gt_gtf_count_(type_counts, "exon");
+      gt_gtf_join_(t, "exon", multi_gene, blocks);
+      gt_gtf_count_(type_counts, t->buffer);
     }else if(introns == blocks){
-      gt_gtf_count_(type_counts, "intron");
+      gt_gtf_join_(t, "intron", multi_gene, blocks);
+      gt_gtf_count_(type_counts, t->buffer);
     }else if(unknown == blocks){
-      gt_gtf_count_(type_counts, "unknown");
+      gt_gtf_join_(t, "unknown", multi_gene, blocks);
+      gt_gtf_count_(type_counts, t->buffer);
+
     }else if(not_annotated == blocks){
-        gt_gtf_count_(type_counts, "not annotated");
+      gt_gtf_join_(t, "not_annotated", multi_gene, blocks);
+      gt_gtf_count_(type_counts, t->buffer);
     }else{
       // construct type
-      gt_string* t = gt_string_new(16);
       uint64_t total = exons + introns + unknown + not_annotated;
-      if(exons > 0){
-        gt_string_right_append_string(t, "exon", 4);
-        total -= exons;
-        if(total > 0) gt_string_append_char(t, '|');
-      }
-
-      if(introns > 0){
-        gt_string_right_append_string(t, "intron", 6);
-        total -= introns;
-        if(total > 0) gt_string_append_char(t, '|');
-      }
-
-      if(unknown > 0){
-        gt_string_right_append_string(t, "unknown", 7);
-        total -= unknown;
-        if(total > 0) gt_string_append_char(t, '|');
-      }
-
-      if(not_annotated > 0){
-        gt_string_right_append_string(t, "not annotated", 13);
-        total -= unknown;
-      }
-
+      total -= gt_gtf_join_(t, "exon", multi_gene, exons);
+      if(total > 0) gt_string_append_char(t, '|');
+      total -= gt_gtf_join_(t, "intron", multi_gene, introns);
+      if(total > 0) gt_string_append_char(t, '|');
+      total -= gt_gtf_join_(t, "unknown", multi_gene, unknown);
+      if(total > 0) gt_string_append_char(t, '|');
+      total -= gt_gtf_join_(t, "not_annotated", multi_gene, not_annotated);
+      if(total > 0) gt_string_append_char(t, '|');
       gt_gtf_count_(type_counts, gt_string_get_string(t));
-      gt_string_delete(t);
+
     }
+    gt_string_delete(t);
 
     // count genes
     // only count if the split is within a single gene
