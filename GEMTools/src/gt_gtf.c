@@ -1047,7 +1047,7 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
         if(total > 0) gt_string_append_char(t, '|');
       }
       if(exons_mg > 0){
-        total -= gt_gtf_join_(t, "exon", true, exons);
+        total -= gt_gtf_join_(t, "exon", true, exons_mg);
         if(total > 0) gt_string_append_char(t, '|');
       }
       if(introns > 0){
@@ -1055,7 +1055,7 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
         if(total > 0) gt_string_append_char(t, '|');
       }
       if(introns_mg > 0){
-        total -= gt_gtf_join_(t, "intron", true, introns);
+        total -= gt_gtf_join_(t, "intron", true, introns_mg);
         if(total > 0) gt_string_append_char(t, '|');
       }
       if(unknown > 0){
@@ -1063,7 +1063,7 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
         if(total > 0) gt_string_append_char(t, '|');
       }
       if(unknown_mg > 0){
-         total -= gt_gtf_join_(t, "unknown", true, unknown);
+         total -= gt_gtf_join_(t, "unknown", true, unknown_mg);
          if(total > 0) gt_string_append_char(t, '|');
        }
 
