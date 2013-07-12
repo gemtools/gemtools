@@ -965,6 +965,7 @@ GT_INLINE void gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash*
 
 GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
   uint64_t blocks = gt_map_get_num_blocks(map);
+  uint64_t i = 0;
   if(blocks == 1){
     // single block
     gt_gtf_count_map_(gtf, map, type_counts, gene_counts, gene_type_counts);
@@ -982,6 +983,8 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     uint64_t introns = gt_gtf_get_count_(local_type_counts, "intron");
     uint64_t unknown = gt_gtf_get_count_(local_type_counts, "unknown");
     uint64_t not_annotated = gt_gtf_get_count_(local_type_counts, "not annotated");
+
+    // print splitmap blocks
     if(exons == blocks){
       gt_gtf_count_(type_counts, "exon");
     }else if(introns == blocks){
@@ -993,8 +996,7 @@ GT_INLINE void gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* 
     }else{
       // construct type
       gt_string* t = gt_string_new(16);
-      uint64_t total = exons + introns + unknown;
-
+      uint64_t total = exons + introns + unknown + not_annotated;
       if(exons > 0){
         gt_string_right_append_string(t, "exon", 4);
         total -= exons;
