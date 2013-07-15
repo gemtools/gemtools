@@ -64,6 +64,7 @@ typedef struct {
   int64_t reduce_by_quality;
   bool reduce_to_pairs;
   bool reduce_to_unique;
+  bool reduce_by_gene_id;
   /* RNA Seq to recalculate counters */
   bool no_split_maps;
   bool only_split_maps;
@@ -168,6 +169,7 @@ gt_filter_args parameters = {
     .max_maps=-1,
     /* Make templates unique */
     .reduce_to_unique_strata=-1,
+    .reduce_by_gene_id=false,
     .reduce_to_unique=false,
     .reduce_to_pairs=false,
     .reduce_by_quality=-1,
@@ -419,92 +421,34 @@ GT_INLINE void gt_filter_add_from_hit(gt_template* const template,gt_gtf_hit* hi
     gt_alignment_insert_map(alignment_dst,gt_map_copy(hit->map));
   }
 }
+
+
 GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
-  gt_gtf_hits* hits = gt_gtf_hits_new();
-  gt_gtf_search_template_for_exons(parameters.gtf, hits, template_src);
-
-  // see if we find a single common transcript
-  // if so, that transcript id is covered by all alignments
-  // and we pick the first mapping
-  //bool paired = gt_template_get_num_blocks(template_src) == 2;
-
-  float max_junction_hits = 0;
-  float max_overlap = 0;
-  uint64_t all_hits = 0;
-  uint64_t protein_coding_hits = 0;
-  gt_shash* transcripts = gt_shash_new();
-  bool pairs_transcripts = false;
-  bool is_protein_coding = false;
-  bool pick_first = false;
-  // prefer protein coding hits over others (i.e. pseudogenes)
-  bool prefer_protein_coding = false;
-
-  uint64_t counter;
-  gt_gtf_hit* hit = NULL;
-  gt_vector* exon_hits = hits->exon_hits;
-  for (counter=0;counter<gt_vector_get_used(exon_hits);++counter) {
-    hit = *gt_vector_get_elm(exon_hits,counter,gt_gtf_hit*);
-    if(!hit->pairs_gene){
-      continue;
-    }
-    if(prefer_protein_coding){
-      is_protein_coding |= hit->is_protein_coding;
-    }
-    pairs_transcripts |= hit->pairs_transcript;
-    if (hit->junction_hits > max_junction_hits) {
-      max_junction_hits = hit->junction_hits;
-    }
-    if (hit->exon_overlap > max_overlap) {
-      max_overlap = hit->exon_overlap;
-    }
-    all_hits++;
-    if (hit->is_protein_coding) {
-      protein_coding_hits++;
-    }
-  }
-  // collect transcripts hits
-  for (counter=0;counter<gt_vector_get_used(exon_hits);++counter) {
-    hit = *gt_vector_get_elm(exon_hits,counter,gt_gtf_hit*);
-    if (!hit->pairs_gene) {
-      continue;
-    }
-    GT_SHASH_BEGIN_KEY_ITERATE(hit->transcripts,key) {
-      if ((is_protein_coding && hit->is_protein_coding) || !is_protein_coding) {
-        uint64_t* v;
-        if (!gt_shash_is_contained(transcripts, key)) {
-          v = gt_malloc_uint64();
-          *v = 1;
-          gt_shash_insert(transcripts, key, v, uint64_t);
-        } else {
-          v = gt_shash_get(transcripts, key, uint64_t);
-          ++(*v);
-        }
-        if (*v == (is_protein_coding ? protein_coding_hits : all_hits)) {
-          pick_first = true;
-        }
-      }
-    } GT_SHASH_END_ITERATE;
-  }
-  // iterate again and pick the hits
-  uint64_t added = 0;
-  for (counter=0;counter<gt_vector_get_used(exon_hits);++counter) {
-    hit = *gt_vector_get_elm(exon_hits,counter,gt_gtf_hit*);
-    if (!hit->pairs_gene) continue;
-    if (pick_first && (!is_protein_coding || (is_protein_coding && hit->is_protein_coding))) {
-      gt_filter_add_from_hit(template_dst, hit);
-      added++;
-      break;
+  bool filtered = false;
+  GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
+//    GT_TEMPLATE_REDUCTION(template_src,alignment_src);
+//    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
+    return false;
+  } else {
+    if (!gt_template_is_mapped(template_src)) {
+//        GT_TEMPLATE_REDUCE_BOTH_ENDS(template_src,alignment_src_end1,alignment_src_end2);
+//        GT_TEMPLATE_REDUCE_BOTH_ENDS(template_dst,alignment_dst_end1,alignment_dst_end2);
     } else {
-      if ((is_protein_coding && hit->is_protein_coding) || !is_protein_coding) {
-        // pick all protein coding hits or all hits
-        gt_filter_add_from_hit(template_dst, hit);
-        added++;
+      gt_gtf_hits* hits = gt_gtf_hits_new();
+      gt_gtf_search_template_for_exons(parameters.gtf, hits, template_src);
+      GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
+        gt_gtf_hit* hit = *e;
+        if(parameters.reduce_by_gene_id){
+          filtered = true;
+          if(hit->pairs_gene){
+            gt_filter_add_from_hit(template_dst, hit);
+          }
+        }
       }
+      gt_gtf_hits_delete(hits);
     }
   }
-  gt_gtf_hits_delete(hits);
-  gt_shash_delete(transcripts,true);
-  return (added > 0);
+  return filtered;
 }
 
 void gt_alignment_reduction_filter(gt_alignment* const alignment_dst,gt_alignment* const alignment_src,const gt_file_format file_format) {
@@ -1008,16 +952,19 @@ GT_INLINE bool gt_filter_apply_filters(
   num_maps = gt_filter_get_num_maps(template);
   if (parameters.gtf != NULL && parameters.perform_annotation_filter && num_maps > 1) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
-    if(gt_filter_make_reduce_by_annotation(template_filtered,template)){
+    bool filtered = gt_filter_make_reduce_by_annotation(template_filtered,template);
+    if(filtered && (!parameters.keep_unique || gt_filter_get_num_maps(template_filtered) > 0)){
       gt_template_swap(template,template_filtered);
-      if (parameters.no_penalty_for_splitmaps) {
-        gt_template_recalculate_counters_no_splits(template);
-        gt_template_sort_by_distance__score_no_split(template);
-      }else{
-        gt_template_recalculate_counters(template);
-      }
     }
+
     gt_template_delete(template_filtered);
+    if (parameters.no_penalty_for_splitmaps) {
+      gt_template_recalculate_counters_no_splits(template);
+      gt_template_sort_by_distance__score_no_split(template);
+    }else{
+      gt_template_recalculate_counters(template);
+    }
+
   }
 
   // reduce by level filter
@@ -1778,7 +1725,7 @@ void parse_arguments(int argc,char** argv) {
       parameters.reduce_by_quality = atol(optarg);
       break;
     case 514: // reduce-by-annotation
-      //gt_filter_get_argument_gtf_type(optarg);
+      parameters.reduce_by_gene_id = true;
       parameters.perform_annotation_filter = true;
       break;
     case 515: // reduce-by-annotation
