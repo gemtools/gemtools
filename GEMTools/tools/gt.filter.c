@@ -440,6 +440,11 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_d
         gt_gtf_hit* hit = *e;
         if(parameters.reduce_by_gene_id){
           filtered = true;
+          gt_output_map_fprint_map(stdout, hit->map == NULL ? hit->mmap[0]: hit->map, NULL);
+          printf("\n\tPAIRS GENES ? %d\n", hit->pairs_gene);
+          GT_SHASH_BEGIN_KEY_ITERATE(hit->genes, key){
+            printf("\tGENE: %s\n", key);
+          }GT_SHASH_END_ITERATE;
           if(hit->pairs_gene){
             gt_filter_add_from_hit(template_dst, hit);
           }

@@ -111,6 +111,9 @@ extern char* gt_map2sam_groups[];
 extern gt_option gt_gtfcount_options[];
 extern char* gt_gtfcount_groups[];
 
+extern gt_option gt_region_options[];
+extern char* gt_region_groups[];
+
 GT_INLINE uint64_t gt_options_get_num_options(const gt_option* const options);
 GT_INLINE struct option* gt_options_adaptor_getopt(const gt_option* const options);
 GT_INLINE gt_string* gt_options_adaptor_getopt_short(const gt_option* const options);

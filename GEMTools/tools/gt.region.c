@@ -68,14 +68,14 @@ GT_INLINE void gt_region_read(gt_gtf* const gtf) {
 
 
 void parse_arguments(int argc,char** argv) {
-  struct option* gt_gtfcount_getopt = gt_options_adaptor_getopt(gt_gtfcount_options);
-  gt_string* const gt_gtfcount_short_getopt = gt_options_adaptor_getopt_short(gt_gtfcount_options);
+  struct option* gt_region_getopt = gt_options_adaptor_getopt(gt_region_options);
+  gt_string* const gt_region_short_getopt = gt_options_adaptor_getopt_short(gt_region_options);
 
   int option, option_index;
   while (true) {
     // Get option & Select case
     if ((option=getopt_long(argc,argv,
-        gt_string_get_string(gt_gtfcount_short_getopt),gt_gtfcount_getopt,&option_index))==-1) break;
+        gt_string_get_string(gt_region_short_getopt),gt_region_getopt,&option_index))==-1) break;
     switch (option) {
     /* I/O */
     case 'i':
@@ -99,10 +99,10 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'h':
       fprintf(stderr, "USE: gt.gtfcount [OPERATION] [ARGS]...\n");
-      gt_options_fprint_menu(stderr,gt_gtfcount_options,gt_gtfcount_groups,false,false);
+      gt_options_fprint_menu(stderr,gt_region_options,gt_region_groups,false,false);
       exit(1);
     case 'J':
-      gt_options_fprint_json_menu(stderr,gt_gtfcount_options,gt_gtfcount_groups,true,false);
+      gt_options_fprint_json_menu(stderr,gt_region_options,gt_region_groups,true,false);
       exit(1);
       break;
     case '?':
@@ -115,7 +115,7 @@ void parse_arguments(int argc,char** argv) {
     gt_fatal_error_msg("Please specify a reference annotation");
   }
   // Free
-  gt_string_delete(gt_gtfcount_short_getopt);
+  gt_string_delete(gt_region_short_getopt);
 }
 
 int main(int argc,char** argv) {
