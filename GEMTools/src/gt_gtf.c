@@ -1132,6 +1132,29 @@ GT_INLINE void gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const ali
   }
 }
 
+GT_INLINE void gt_gtf_search_map(const gt_gtf* const gtf, gt_vector* const hits, gt_map* const map){
+  GT_MAP_ITERATE(map, block){
+    uint64_t start = gt_map_get_begin_mapping_position(map);
+    uint64_t end   = gt_map_get_end_mapping_position(map);
+    gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end);
+  }
+}
+
+GT_INLINE void gt_gtf_search_alignment(const gt_gtf* const gtf, gt_vector* const hits, gt_alignment* const alignment){
+  GT_ALIGNMENT_ITERATE(alignment, map){
+    gt_gtf_search_map(gtf, hits, map);
+  }
+}
+
+GT_INLINE void gt_gtf_search_template(const gt_gtf* const gtf, gt_vector* const hits, gt_template* const template){
+  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template, alignment){
+    gt_gtf_search_alignment(gtf,hits, alignment);
+  }GT_TEMPLATE_END_REDUCTION__RETURN;
+  gt_gtf_search_alignment(gtf,hits, gt_template_get_block(template, 0));
+  gt_gtf_search_alignment(gtf,hits, gt_template_get_block(template, 1));
+}
+
+
 GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts, gt_shash* const pair_patterns_counts){
   // process single alignments
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {

@@ -11,7 +11,7 @@ ROOT_PATH=..
 include ../Makefile.mk
 
 GEM_TOOLS=gt.construct gt.stats gt.filter gt.mapset gt.map2sam \
-align_stats sel_reads gt.gtfcount
+align_stats sel_reads gt.gtfcount gt.region
 
 GEM_TOOLS_SRC=$(addsuffix .c, $(GEM_TOOLS))
 GEM_TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(GEM_TOOLS))
