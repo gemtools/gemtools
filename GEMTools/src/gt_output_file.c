@@ -155,15 +155,17 @@ GT_INLINE void gt_output_file_release_buffer(
 GT_INLINE gt_output_buffer* gt_output_file_write_buffer(
     gt_output_file* const output_file,gt_output_buffer* const output_buffer) {
   GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
-  int64_t bytes_written;
-  gt_vector* const vbuffer = gt_output_buffer_to_vchar(output_buffer);
-  GT_BEGIN_MUTEX_SECTION(output_file->out_file_mutex)
-  {
-    bytes_written = fwrite(gt_vector_get_mem(vbuffer,char),1,
-        gt_vector_get_used(vbuffer),output_file->file);
+  if (gt_output_buffer_get_used(output_buffer) > 0) {
+    int64_t bytes_written;
+    gt_vector* const vbuffer = gt_output_buffer_to_vchar(output_buffer);
+    GT_BEGIN_MUTEX_SECTION(output_file->out_file_mutex)
+    {
+      bytes_written = fwrite(gt_vector_get_mem(vbuffer,char),1,
+          gt_vector_get_used(vbuffer),output_file->file);
+    }
+    GT_END_MUTEX_SECTION(output_file->out_file_mutex);
+    gt_cond_fatal_error(bytes_written!=gt_vector_get_used(vbuffer),OUTPUT_FILE_FAIL_WRITE);
   }
-  GT_END_MUTEX_SECTION(output_file->out_file_mutex);
-  gt_cond_fatal_error(bytes_written!=gt_vector_get_used(vbuffer),OUTPUT_FILE_FAIL_WRITE);
   gt_output_buffer_initiallize(output_buffer,GT_OUTPUT_BUFFER_BUSY);
   return output_buffer;
 }
@@ -198,10 +200,12 @@ GT_INLINE gt_output_buffer* gt_output_file_sorted_write_buffer_asynchronous(
   // I'm the victim, I will output as much as I can
   do {
     // Write the current buffer
-    gt_vector* const vbuffer = gt_output_buffer_to_vchar(output_buffer);
-    const int64_t bytes_written =
-        fwrite(gt_vector_get_mem(vbuffer,char),1,gt_vector_get_used(vbuffer),output_file->file);
-    gt_cond_fatal_error(bytes_written!=gt_vector_get_used(vbuffer),OUTPUT_FILE_FAIL_WRITE);
+    if (gt_output_buffer_get_used(output_buffer) > 0) {
+      gt_vector* const vbuffer = gt_output_buffer_to_vchar(output_buffer);
+      const int64_t bytes_written =
+          fwrite(gt_vector_get_mem(vbuffer,char),1,gt_vector_get_used(vbuffer),output_file->file);
+      gt_cond_fatal_error(bytes_written!=gt_vector_get_used(vbuffer),OUTPUT_FILE_FAIL_WRITE);
+    }
     // Update buffers' state
     GT_BEGIN_MUTEX_SECTION(output_file->out_file_mutex) {
       // Decrement write-pending blocks and update next block ID (mayorID,minorID)
