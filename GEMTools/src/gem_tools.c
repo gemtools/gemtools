@@ -40,8 +40,8 @@ gt_option gt_filter_options[] = {
   { 404, "max-length", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
   { 405, "min-maps", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
   { 406, "max-maps", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
-//  { 407, "allow-mapping-to-sequence", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<SequenceId>[,...] (Eg 'Chr1','Chr2')" , "" },
-//  { 408, "forbid-mapping-to-sequence", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<SequenceId>[,...] (Eg 'Chr1','Chr2')" , "" },
+  { 407, "allow-alignment", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<MapPattern>[,...] (Eg 'Chr1','Chr2:*:1-100')" , "" },
+  { 408, "forbid-alignment", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<MapPattern>[,...] (Eg 'Chr1','Chr2')" , "" },
   /* Filter SE-Maps */
   { 500, "first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 'k', "keep-first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
