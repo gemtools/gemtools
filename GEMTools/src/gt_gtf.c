@@ -742,62 +742,19 @@ GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search
 
 
 GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_hits* const hits, gt_template* const template_src){
-  if(!gt_gtf_contains_type(gtf, "exon")){
-    return;
-  }
-  gt_string* const exon_type = gt_gtf_get_type(gtf, "exon");
-  gt_string* const protein_coding = gt_string_set_new("protein_coding");
-  // stores hits
-  gt_vector* const search_hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
-  // clear the hits
-  gt_gtf_hits_clear(hits);
+  gt_vector* const search_hits_end_1 = gt_vector_new(32, sizeof(gt_gtf_entry*));
+  gt_vector* const search_hits_end_2 = gt_vector_new(32, sizeof(gt_gtf_entry*));
 
-  // process single alignments
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_src,alignment_src) {
-    GT_ALIGNMENT_ITERATE(alignment_src,map) {
-      gt_gtf_hit* hit = gt_gtf_hit_new();
-      hit->map = map;
-      hit->num_junctions = gt_map_get_num_blocks(map) - 1;
-      hit->transcripts = gt_shash_new();
-      hit->genes = gt_shash_new();
-
-      gt_gtf_create_hit(hit, map, search_hits, gtf, exon_type, protein_coding);
-
-
-      hit->exon_overlap = hit->exon_overlap / gt_map_get_num_blocks(map);
-      if(hit->num_junctions > 0){
-        hit->junction_hits = hit->junction_hits / hit->num_junctions;
-      }
-
-      GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->transcripts, count, uint64_t){
-        if((*count) > 1 && (*count) == gt_map_get_num_blocks(map)){
-          hit->pairs_splits = true;
-        }
-      }GT_SHASH_END_ITERATE;
-      if(gt_map_get_num_blocks(map) >0){
-        GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->genes, count, uint64_t){
-          if((*count) == gt_map_get_num_blocks(map)){
-            hit->pairs_gene = true;
-          }
-        }GT_SHASH_END_ITERATE;
-      }else{
-        // always mark as pairing if we dont know better
-        hit->pairs_gene = true;
-      }
-
-
-      gt_vector_insert(hits->exon_hits, hit, gt_gtf_hit*);
-    }
-    gt_string_delete(protein_coding);
-    gt_vector_delete(search_hits);
-  } GT_TEMPLATE_END_REDUCTION__RETURN;
-
-
+  // process paired alignment
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
-    gt_gtf_hit* template_hit = gt_gtf_hit_new();
+	gt_gtf_search_map(gtf, search_hits_end_1, mmap[0]);
+	gt_gtf_search_map(gtf, search_hits_end_2, mmap[1]);
+
+	gt_gtf_hit* template_hit = gt_gtf_hit_new();
     template_hit->mmap = mmap;
     template_hit->map_attributes = mmap_attr;
     template_hit->num_template_blocks = gt_template_get_num_blocks(template_src);
+
     GT_MMAP_ITERATE(mmap, map, end_position){
       gt_gtf_hit* hit = NULL;
       if(end_position == 0){
@@ -810,77 +767,10 @@ GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_
       hit->num_junctions = gt_map_get_num_blocks(map) - 1;
       hit->transcripts = gt_shash_new();
       hit->genes = gt_shash_new();
-
-      gt_gtf_create_hit(hit, map, search_hits, gtf, exon_type, protein_coding);
-
-
-      hit->exon_overlap = hit->exon_overlap / gt_map_get_num_blocks(map);
-      if(hit->num_junctions > 0){
-        hit->junction_hits = hit->junction_hits / (hit->num_junctions*2.0);
-      }
-      GT_SHASH_BEGIN_ELEMENT_ITERATE(hit->transcripts, count, uint64_t){
-        if((*count) > 1 && (*count) == gt_map_get_num_blocks(map)){
-          hit->pairs_splits = true;
-        }
-      }GT_SHASH_END_ITERATE;
-
-      if(end_position > 0){
-        // merge and remove
-        template_hit->exon_overlap = (template_hit->exon_overlap+hit->exon_overlap)/2.0;
-        if(template_hit->num_junctions > 0 && hit->num_junctions > 0){
-          template_hit->pairs_splits = template_hit->pairs_splits & hit->pairs_splits;
-        }else{
-          template_hit->pairs_splits = template_hit->num_junctions > 0 ? template_hit->pairs_splits : hit->pairs_splits;
-        }
-
-
-        template_hit->is_protein_coding = template_hit->is_protein_coding & hit->is_protein_coding;
-        template_hit->intron_length += hit->intron_length;
-        template_hit->num_junctions += hit->num_junctions;
-
-
-        GT_SHASH_BEGIN_KEY_ITERATE(hit->transcripts, key){
-          if(gt_shash_is_contained(template_hit->transcripts, key)){
-            uint64_t* v = gt_shash_get(hit->transcripts, key, uint64_t);
-            uint64_t* u = gt_shash_get(template_hit->transcripts, key, uint64_t);
-            *u += (*v);
-          }else{
-            // remove
-            gt_shash_remove(template_hit->transcripts, key, true);
-          }
-
-        }GT_SHASH_END_ITERATE;
-        GT_SHASH_BEGIN_KEY_ITERATE(hit->genes, key){
-          if(gt_shash_is_contained(template_hit->genes, key)){
-            uint64_t* v = gt_shash_get(hit->genes, key, uint64_t);
-            uint64_t* u = gt_shash_get(template_hit->genes, key, uint64_t);
-            *u += (*v);
-          }else{
-            // remove
-            gt_shash_remove(template_hit->genes, key, true);
-          }
-        }GT_SHASH_END_ITERATE;
-
-        template_hit->junction_hits = (template_hit->junction_hits + hit->junction_hits) / 2.0;
-        GT_SHASH_BEGIN_ELEMENT_ITERATE(template_hit->transcripts, count, uint64_t){
-          if((*count) > 1 && (*count) == gt_map_get_num_blocks(mmap[1]) + gt_map_get_num_blocks(mmap[0])){
-            hit->pairs_transcript = true;
-          }
-        }GT_SHASH_END_ITERATE;
-
-        GT_SHASH_BEGIN_ELEMENT_ITERATE(template_hit->genes, count, uint64_t){
-          if((*count) > 1 && (*count) == gt_map_get_num_blocks(mmap[1]) + gt_map_get_num_blocks(mmap[0])){
-            template_hit->pairs_gene = true;
-          }
-        }GT_SHASH_END_ITERATE;
-
-        gt_vector_insert(hits->exon_hits, template_hit, gt_gtf_hit*);
-        gt_gtf_hit_delete(hit);
-      }
     }
   }
-  gt_string_delete(protein_coding);
-  gt_vector_delete(search_hits);
+  gt_vector_delete(search_hits_end_1);
+  gt_vector_delete(search_hits_end_2);
 }
 
 GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element){
