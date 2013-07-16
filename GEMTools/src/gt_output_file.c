@@ -6,6 +6,8 @@
  * DESCRIPTION: // TODO
  */
 
+#include <zlib.h>
+#include <bzlib.h>
 #include "gt_output_file.h"
 
 /*
@@ -28,34 +30,131 @@ GT_INLINE void gt_output_file_init_buffers(gt_output_file* const output_file) {
   gt_cond_fatal_error(pthread_mutex_init(&output_file->out_file_mutex, NULL),SYS_MUTEX_INIT);
 }
 
-gt_output_file* gt_output_stream_new(FILE* const file,const gt_output_file_type output_file_type) {
+static void* gt_output_file_pipe_gzip(void *s)
+{
+	u_int8_t *buffer[GT_OUTPUT_COMPRESS_BUFFER_SIZE];
+	gt_output_file* output_file=s;
+	FILE *in;
+  gt_cond_fatal_error(!(in=fdopen(output_file->pipe_fd[0],"r")),FILE_FDOPEN);
+  while(!feof(in)) {
+  	size_t n=fread(buffer,1,GT_OUTPUT_COMPRESS_BUFFER_SIZE,in);
+  	if(!n) break;
+  	size_t bytes_written=gzwrite(output_file->cfile,buffer,n);
+    gt_cond_fatal_error(bytes_written!=n,OUTPUT_FILE_FAIL_WRITE);
+  }
+  int err=gzclose(output_file->cfile);
+  gt_cond_error(err!=Z_OK,FILE_CLOSE,output_file->file_name);
+  fclose(in);
+	return 0;
+}
+
+static void* gt_output_file_pipe_bzip(void *s)
+{
+	u_int8_t *buffer[GT_OUTPUT_COMPRESS_BUFFER_SIZE];
+	gt_output_file* output_file=s;
+	FILE *in;
+  gt_cond_fatal_error(!(in=fdopen(output_file->pipe_fd[0],"r")),FILE_FDOPEN);
+  while(!feof(in)) {
+  	size_t n=fread(buffer,1,GT_OUTPUT_COMPRESS_BUFFER_SIZE,in);
+  	if(!n) break;
+  	int err;
+  	BZ2_bzWrite(&err,output_file->cfile,buffer,n);
+    gt_cond_fatal_error(err!=BZ_OK,OUTPUT_FILE_FAIL_WRITE);
+  }
+  int err;
+  BZ2_bzWriteClose(&err,output_file->cfile,0,NULL,NULL);
+  gt_cond_error(err!=BZ_OK,FILE_CLOSE,output_file->file_name);
+  fclose(in);
+	return 0;
+}
+
+gt_output_file* gt_output_stream_new_compress(FILE* const file,const gt_output_file_type output_file_type, gt_output_file_compression compression_type) {
+
   GT_NULL_CHECK(file);
   gt_output_file* output_file = gt_alloc(gt_output_file);
   /* Output file */
   output_file->file_name=GT_STREAM_FILE_NAME;
   output_file->file=file;
   output_file->file_type=output_file_type;
+
+  if(compression_type!=NONE && isatty(fileno(file))) {
+  	fprintf(stderr,"Will not output compressed data to a tty\n");
+  	compression_type=NONE;
+  }
+  output_file->compression_type=compression_type;
+  switch(compression_type) {
+  case GZIP:
+		gt_cond_fatal_error(pipe(output_file->pipe_fd)<0,SYS_PIPE);
+ 	  gt_cond_fatal_error(!(output_file->cfile=gzdopen(dup(fileno(file)),"wb")),FILE_GZIP_OPEN,output_file->file_name);
+	  gt_cond_fatal_error(pthread_create(&output_file->pth,NULL,gt_output_file_pipe_gzip,output_file),SYS_THREAD);
+	  gt_cond_fatal_error(!(output_file->file=fdopen(output_file->pipe_fd[1],"w")),FILE_FDOPEN);
+	  break;
+  case BZIP2:
+		gt_cond_fatal_error(pipe(output_file->pipe_fd)<0,SYS_PIPE);
+	  int er;
+	  output_file->cfile=BZ2_bzWriteOpen(&er,output_file->file,1,0,0);
+	  gt_cond_fatal_error(er!=BZ_OK,FILE_BZIP2_OPEN,output_file->file_name);
+	  gt_cond_fatal_error(pthread_create(&output_file->pth,NULL,gt_output_file_pipe_bzip,output_file),SYS_THREAD);
+	  gt_cond_fatal_error(!(output_file->file=fdopen(output_file->pipe_fd[1],"w")),FILE_FDOPEN);
+  	break;
+  default:
+  	break;
+  }
   /* Setup buffers */
   gt_output_file_init_buffers(output_file);
   return output_file;
 }
-gt_output_file* gt_output_file_new(char* const file_name,const gt_output_file_type output_file_type) {
+
+gt_output_file* gt_output_file_new_compress(char* const file_name,const gt_output_file_type output_file_type,const gt_output_file_compression compression_type)
+{
   GT_NULL_CHECK(file_name);
   gt_output_file* output_file = gt_alloc(gt_output_file);
   /* Output file */
   output_file->file_name=file_name;
-  gt_cond_fatal_error(!(output_file->file=fopen(file_name,"w")),FILE_OPEN,file_name);
+	output_file->compression_type=compression_type;
+  switch(compression_type) {
+  	case GZIP:
+  		gt_cond_fatal_error(pipe(output_file->pipe_fd)<0,SYS_PIPE);
+  	  gt_cond_fatal_error(!(output_file->cfile=gzopen(file_name,"wb")),FILE_GZIP_OPEN,file_name);
+  	  gt_cond_fatal_error(pthread_create(&output_file->pth,NULL,gt_output_file_pipe_gzip,output_file),SYS_THREAD);
+  	  gt_cond_fatal_error(!(output_file->file=fdopen(output_file->pipe_fd[1],"w")),FILE_FDOPEN);
+  	  break;
+  	case BZIP2:
+  		gt_cond_fatal_error(pipe(output_file->pipe_fd)<0,SYS_PIPE);
+  	  gt_cond_fatal_error(!(output_file->file=fopen(file_name,"w")),FILE_OPEN,file_name);
+  	  int er;
+  	  output_file->cfile=BZ2_bzWriteOpen(&er,output_file->file,1,0,0);
+  	  gt_cond_fatal_error(er!=BZ_OK,FILE_BZIP2_OPEN,file_name);
+  	  gt_cond_fatal_error(pthread_create(&output_file->pth,NULL,gt_output_file_pipe_bzip,output_file),SYS_THREAD);
+  	  gt_cond_fatal_error(!(output_file->file=fdopen(output_file->pipe_fd[1],"w")),FILE_FDOPEN);
+  	  break;
+  	default:
+  		gt_cond_fatal_error(!(output_file->file=fopen(file_name,"w")),FILE_OPEN,file_name);
+  		break;
+  }
   output_file->file_type=output_file_type;
   /* Setup buffers */
   gt_output_file_init_buffers(output_file);
   return output_file;
 }
+
 gt_status gt_output_file_close(gt_output_file* const output_file) {
   GT_OUTPUT_FILE_CONSISTENCY_CHECK(output_file);
   gt_status error_code = 0;
-  // Close filem not stream
-  if(strcmp(output_file->file_name, GT_STREAM_FILE_NAME) != 0){
-    gt_cond_error(error_code|=fclose(output_file->file),FILE_CLOSE,output_file->file_name);
+  switch(output_file->compression_type) {
+  case GZIP:
+  case BZIP2:
+  	error_code|=fclose(output_file->file);
+	  gt_cond_error(error_code,FILE_CLOSE,output_file->file_name);
+  	pthread_join(output_file->pth,NULL);
+  	break;
+  default:
+    // Close file not stream
+    if(strcmp(output_file->file_name, GT_STREAM_FILE_NAME)) {
+    	error_code|=fclose(output_file->file);
+  	  gt_cond_error(error_code,FILE_CLOSE,output_file->file_name);
+    }
+  	break;
   }
   // Delete allocated buffers
   uint64_t i;
