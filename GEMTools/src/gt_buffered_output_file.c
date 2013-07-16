@@ -62,7 +62,7 @@ GT_INLINE void gt_buffered_output_file_dump(gt_buffered_output_file* const buffe
   GT_BUFFERED_OUTPUT_FILE_CHECK(buffered_output_file);
   // Skip empty-buffers with no ID
   if (buffered_output_file->buffer->mayor_block_id==UINT32_MAX &&
-      gt_output_buffer_get_used(output_buffer) == 0) return;
+      gt_output_buffer_get_used(buffered_output_file->buffer) == 0) return;
   // Dump
   buffered_output_file->buffer = gt_output_file_dump_buffer(
       buffered_output_file->output_file,buffered_output_file->buffer,true);
