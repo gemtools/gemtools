@@ -368,10 +368,8 @@ https://github.com/gemtools/gemtools
                                                                      "gem-indexer_fasta2meta+cont",
                                                                      "gem-info",
                                                                      "gem-mapper",
-                                                                     "gem-rna-mapper",
-                                                                     "splits-2-junctions",
-                                                                     "compute-transcriptome",
-                                                                     "transcriptome-2-genome"]]},
+                                                                     "gem-rna-tools"
+                                                                     ]]},
         ext_modules=[gemtools],
         test_suite='nose.collector',
         zip_safe=False,

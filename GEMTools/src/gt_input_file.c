@@ -79,7 +79,7 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
         fseek(input_file->file,0L,SEEK_SET);
         input_file->file_type=BZIPPED_FILE;
         input_file->file=BZ2_bzReadOpen(&i,input_file->file,0,0,NULL,0);
-        gt_cond_fatal_error(i!=BZ_OK,FILE_BZIP_OPEN,file_name);
+        gt_cond_fatal_error(i!=BZ_OK,FILE_BZIP2_OPEN,file_name);
       } else {
         fseek(input_file->file,0L,SEEK_SET);
       }

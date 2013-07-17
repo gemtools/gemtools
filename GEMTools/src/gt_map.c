@@ -262,7 +262,7 @@ GT_INLINE void gt_map_restore_left_trim(gt_map* const map,const uint64_t length)
   }
   // Adjust base length
   map->base_length += length;
-  map->position -= length;
+  // map->position -= length; // BUG
 }
 GT_INLINE void gt_map_restore_right_trim(gt_map* const map,const uint64_t length) {
   GT_MAP_CHECK(map);

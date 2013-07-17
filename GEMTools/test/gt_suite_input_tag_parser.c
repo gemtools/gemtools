@@ -49,7 +49,7 @@ START_TEST(gt_test_basic_tag_parsing)
 	char* tag_begin = *input;
 	int pair = 1;
 
-	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_input_parse_tag((const char** const)input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
 	pair = *((int*)gt_attributes_get(attributes,GT_ATTR_ID_TAG_PAIR));
 	fail_unless(pair == 0, "Pair information not parsed");
@@ -59,7 +59,7 @@ START_TEST(gt_test_basic_tag_parsing)
 	input[0] = "mytag/1";
 	gt_string_set_string(expected, "mytag");
 	tag_begin = *input;
-	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_input_parse_tag((const char** const)input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
 	pair = *((int*)gt_attributes_get(attributes, GT_ATTR_ID_TAG_PAIR));
 	fail_unless(pair == 1, "Pair information not parsed");
@@ -69,7 +69,7 @@ START_TEST(gt_test_basic_tag_parsing)
 	input[0] = "mytag/2";
 	gt_string_set_string(expected, "mytag");
 	tag_begin = *input;
-	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_input_parse_tag((const char** const)input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
 	pair = *((int*)gt_attributes_get(attributes, GT_ATTR_ID_TAG_PAIR));
 	fail_unless(pair == 2, "Pair information not parsed");
@@ -81,7 +81,7 @@ START_TEST(gt_test_basic_tag_parsing)
 	gt_string_set_string(expected, "mytag");
 	gt_string_set_string(expected_extra, "ABC123 XYF");
 	tag_begin = *input;
-	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_input_parse_tag((const char** const)input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
 	fail_unless(*((int64_t*)gt_attributes_get(attributes, GT_ATTR_ID_TAG_PAIR)) == 2, "Pair information not parsed");
 	fail_unless(gt_string_equals(expected_extra, gt_attributes_get(attributes,GT_ATTR_ID_TAG_EXTRA)), "Extra string not extracted");
@@ -99,7 +99,7 @@ START_TEST(gt_test_casava_tag_parsing)
 	char* tag_begin = *input;
 	int pair = 0;
 
-	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_input_parse_tag((const char** const)input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	//printf("PARSED TAG "PRIgts"\n",PRIgts_content(tag));
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
 	fail_unless(*((int64_t*)gt_attributes_get(attributes, GT_ATTR_ID_TAG_PAIR)) == 1, "Pair information not parsed, should be 1");
@@ -114,7 +114,7 @@ START_TEST(gt_test_casava_tag_parsing)
 	gt_string_set_string(expected_casava, "2:Y:18:ATCACG");
 	gt_string_set_string(expected_extra, "B T AAA CCC ### ###");
 	tag_begin = *input;
-	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_input_parse_tag((const char** const)input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
 	fail_unless(*((int64_t*)gt_attributes_get(attributes, GT_ATTR_ID_TAG_PAIR)) == 2, "Pair information not parsed, should be 2");
 	fail_unless(gt_string_cmp(expected_casava,(gt_string*)gt_attributes_get(attributes, GT_ATTR_ID_TAG_CASAVA)) == 0, "Casava string not extracted");
@@ -133,7 +133,7 @@ START_TEST(gt_test_casava_tag_parsing_extended)
 	register char* tag_begin = *input;
 	int pair = 0;
 
-	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_input_parse_tag((const char** const)input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
 	fail_unless(*gt_shash_get(attributes, GT_ATTR_ID_TAG_PAIR, int64_t) == 1, "Pair information not parsed, should be 1");
 	
@@ -148,7 +148,7 @@ START_TEST(gt_test_casava_tag_parsing_extended)
 	tag_begin = *input;
 	pair = 0;
 
-	fail_unless(gt_input_parse_tag(input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
+	fail_unless(gt_input_parse_tag((const char** const)input, tag, attributes) == GT_STATUS_OK, "Basic tag not parsed");
 	fail_unless(gt_string_cmp(tag, expected) == 0, "Tag not parsed correctly");
 	fail_unless(*gt_shash_get(attributes, GT_ATTR_ID_TAG_PAIR, int64_t) == 1, "Pair information not parsed, should be 1");
 	

@@ -58,7 +58,7 @@ typedef struct {
   float max_length;
   int64_t min_maps;
   int64_t max_maps;
-  int64_t max_strata_after_map;
+  float max_strata_after_map;
   /* Make templates unique */
   int64_t reduce_to_unique_strata;
   int64_t reduce_by_quality;
@@ -165,7 +165,7 @@ gt_filter_args parameters = {
     .min_length=-1.0,
     .max_length=-1.0,
     .min_maps=-1,
-    .max_strata_after_map=-1,
+    .max_strata_after_map=-1.0,
     .max_maps=-1,
     /* Make templates unique */
     .reduce_to_unique_strata=-1,
@@ -255,8 +255,6 @@ GT_INLINE uint64_t gt_filter_get_num_maps(gt_template* template){
     }
   }
 }
-
-
 
 /*
  * Checking/(Re)Aligning/MismsRecovery
@@ -491,7 +489,8 @@ void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* con
     }
     // Filter strata beyond first mapping
     const int64_t current_stratum = parameters.no_penalty_for_splitmaps ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
-    if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_distance) > parameters.max_strata_after_map) break;
+    if (parameters.max_strata_after_map >= 0.0 &&
+        (current_stratum-first_matching_distance) > gt_alignment_get_read_proportion(alignment_src,parameters.max_strata_after_map)) break;
     // Check strata
     if (parameters.min_event_distance != GT_FILTER_FLOAT_NO_VALUE || parameters.max_event_distance != GT_FILTER_FLOAT_NO_VALUE) {
       const uint64_t total_distance = parameters.no_penalty_for_splitmaps ? gt_map_get_no_split_distance(map) : gt_map_get_global_distance(map);
@@ -616,7 +615,8 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
         const int64_t current_stratum = parameters.no_penalty_for_splitmaps ?
             gt_map_get_no_split_distance(mmap[0]) + gt_map_get_no_split_distance(mmap[1]):
             gt_map_get_global_distance(mmap[0]) + gt_map_get_global_distance(mmap[1]);
-        if (parameters.max_strata_after_map >= 0 && (current_stratum-first_matching_distance) > parameters.max_strata_after_map) break;
+        if (parameters.max_strata_after_map >= 0.0 &&
+            (current_stratum-first_matching_distance) > gt_template_get_read_proportion(template_src,parameters.max_strata_after_map)) break;
         // Check sequence name
         if (parameters.map_ids!=NULL) {
           if (!gt_filter_is_sequence_name_allowed(mmap[0]->seq_name)) continue;
@@ -935,13 +935,11 @@ GT_INLINE bool gt_filter_apply_filters(
   if (parameters.perform_rna_map_filter && (!parameters.keep_unique || num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_rna_filter(template_filtered,template,file_format);
-
     // if keep_unique is on, we only flip if we have at least one
     // alignment left
     if(!parameters.keep_unique || gt_filter_get_num_maps(template_filtered) > 0){
       gt_template_swap(template,template_filtered);
     }
-
     // delete filtered and recalculate counters
     gt_template_delete(template_filtered);
     if (parameters.no_penalty_for_splitmaps) {
@@ -1040,10 +1038,10 @@ GT_INLINE void gt_filter__print(
  */
 GT_INLINE void gt_filter_sample_read_print_fastq(
     gt_buffered_output_file* const buffered_output,gt_string* const tag,gt_string* const read,gt_string* const qualities,
-    const uint64_t segment_id,const uint64_t total_segments,
+    const bool print_segmented_read_info,const uint64_t segment_id,const uint64_t total_segments,
     const uint64_t left_trim,const uint64_t right_trim,const uint64_t chunk_size) {
   gt_bofprintf(buffered_output,"@"PRIgts,PRIgts_content(tag));
-  gt_output_bofprint_segmented_read_info(buffered_output,segment_id,total_segments); // Segmented Read
+  if (print_segmented_read_info) gt_output_bofprint_segmented_read_info(buffered_output,segment_id,total_segments); // Segmented Read
   if (left_trim > 0) {
     gt_bofprintf(buffered_output," lt:Z:%"PRIu64":"PRIgts":"PRIgts,left_trim,
         PRIgts_range_content(read,0,left_trim),
@@ -1061,10 +1059,10 @@ GT_INLINE void gt_filter_sample_read_print_fastq(
 }
 GT_INLINE void gt_filter_sample_read_print_fasta(
     gt_buffered_output_file* const buffered_output,gt_string* const tag,gt_string* const read,
-    const uint64_t segment_id,const uint64_t total_segments,
+    const bool print_segmented_read_info,const uint64_t segment_id,const uint64_t total_segments,
     const uint64_t left_trim,const uint64_t right_trim,const uint64_t chunk_size) {
   gt_bofprintf(buffered_output,">"PRIgts,PRIgts_content(tag));
-  gt_output_bofprint_segmented_read_info(buffered_output,segment_id,total_segments); // Segmented Read
+  if (print_segmented_read_info) gt_output_bofprint_segmented_read_info(buffered_output,segment_id,total_segments); // Segmented Read
   if (left_trim > 0) {
     gt_bofprintf(buffered_output," lt:Z:%"PRIu64":"PRIgts,left_trim,
         PRIgts_range_content(read,0,left_trim)); // Left-trim
@@ -1083,64 +1081,63 @@ GT_INLINE void gt_filter_group_reads() {
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,parameters.mmap_input);
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
             gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
-//  // Parallel I/O
-//  #pragma omp parallel num_threads(parameters.num_threads)
-//  {
-    // Prepare out-printers
-    if (parameters.output_format==FILE_FORMAT_UNKNOWN) parameters.output_format = input_file->file_format; // Select output format
-    gt_generic_printer_attributes* const generic_printer_attributes = gt_generic_printer_attributes_new(parameters.output_format);
-    // SegmentedRead aux variables
-    gt_template* const group_template = gt_template_new();
-    uint64_t total_segments = 0, last_segment_id = 0;
-    GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,parameters.paired_end,buffered_output,template) {
-      // Get group attribute
-      gt_segmented_read_info* const segmented_read_info = gt_attributes_get_segmented_read_info(template->attributes);
-      if (segmented_read_info==NULL) {
-        gt_filter_cond_fatal_error_msg(total_segments!=last_segment_id,
-            "Expected SegmentedRead Info => lastRead(%"PRIu64"/%"PRIu64")",last_segment_id,total_segments);
-        gt_template_restore_trim(template); // If any
-        gt_attributes_remove(template->attributes,GT_ATTR_ID_SEGMENTED_READ_INFO); // If any
-        gt_output_generic_bofprint_template(buffered_output,template,generic_printer_attributes); // Print it, as it is
-      } else {
-        // First, undo the trim
-        gt_template_restore_trim(template);
-        // Tackle the group merging
-        if (last_segment_id==total_segments) {
-          /*
-           * New group
-           */
-          gt_filter_cond_fatal_error_msg(segmented_read_info->total_segments==0 || segmented_read_info->segment_id!=1,
-              "Wrong SegmentedRead Info (Zero reads in group or not properly sorted)");
-          gt_template_clear(group_template,true);
-          gt_template_copy(group_template,template,true,true);
-          total_segments = segmented_read_info->total_segments;
-          last_segment_id = segmented_read_info->segment_id;
-        } else if (segmented_read_info->segment_id==last_segment_id+1 && segmented_read_info->segment_id <= total_segments) {
-          /*
-           * Old group (Keep merging)
-           */
-          gt_filter_cond_fatal_error_msg(!gt_string_equals(template->tag,group_template->tag),
-              "Wrong TAG in Segmented Reads Sequence ('"PRIgts"'/'"PRIgts"')",PRIgts_content(group_template->tag),PRIgts_content(template->tag));
-          gt_template_merge_template_mmaps(group_template,template);
-          last_segment_id = segmented_read_info->segment_id;
-          if (last_segment_id==total_segments) { // Close group
-            gt_attributes_remove(template->attributes,GT_ATTR_ID_SEGMENTED_READ_INFO); // If any
-            gt_output_generic_bofprint_template(buffered_output,group_template,generic_printer_attributes);
-          }
-        } else {
-          gt_filter_fatal_error_msg("Wrong SegmentedRead Info => Expected(%"PRIu64"/%"PRIu64")::Found(%"PRIu64"/%"PRIu64").",
-              segmented_read_info->segment_id,segmented_read_info->total_segments,last_segment_id,total_segments);
-        }
+  // Prepare out-printers
+  if (parameters.output_format==FILE_FORMAT_UNKNOWN) parameters.output_format = input_file->file_format; // Select output format
+  gt_generic_printer_attributes* const generic_printer_attributes = gt_generic_printer_attributes_new(parameters.output_format);
+  // SegmentedRead aux variables
+  gt_template* const group_template = gt_template_new();
+  uint64_t total_segments = 0, last_segment_id = 0;
+  GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,parameters.paired_end,buffered_output,template) {
+    // Get group attribute
+    gt_segmented_read_info* const segmented_read_info = gt_attributes_get_segmented_read_info(template->attributes);
+    if (segmented_read_info==NULL) {
+      gt_filter_cond_fatal_error_msg(total_segments!=last_segment_id,
+          "Expected SegmentedRead Info => lastRead(%"PRIu64"/%"PRIu64")",last_segment_id,total_segments);
+      gt_template_restore_trim(template); // If any
+      GT_TEMPLATE_ITERATE_ALIGNMENT(group_template,alignment) {
+        gt_attributes_remove(alignment->attributes,GT_ATTR_ID_SEGMENTED_READ_INFO); // If any
       }
-    } GT_END_READING_WRITING_LOOP(input_file,output_file,template);
-    // Check proper end of merging groups
-    gt_filter_cond_fatal_error_msg(total_segments!=last_segment_id,
-        "Expected SegmentedRead Info => lastRead(%"PRIu64"/%"PRIu64")",last_segment_id,total_segments);
-    // Clean
-    gt_template_delete(group_template);
-    gt_generic_printer_attributes_delete(generic_printer_attributes);
-//  }
+      gt_output_generic_bofprint_template(buffered_output,template,generic_printer_attributes); // Print it, as it is
+    } else {
+      // First, undo the trim
+      gt_template_restore_trim(template);
+      // Tackle the group merging
+      if (last_segment_id==total_segments) {
+        /*
+         * New group
+         */
+        gt_filter_cond_fatal_error_msg(segmented_read_info->total_segments==0 || segmented_read_info->segment_id!=1,
+            "Wrong SegmentedRead Info (Zero reads in group or not properly sorted)");
+        gt_template_clear(group_template,true);
+        gt_template_copy(group_template,template,true,true);
+        total_segments = segmented_read_info->total_segments;
+        last_segment_id = segmented_read_info->segment_id;
+      } else if (segmented_read_info->segment_id==last_segment_id+1 && segmented_read_info->segment_id <= total_segments) {
+        /*
+         * Old group (Keep merging)
+         */
+        gt_filter_cond_fatal_error_msg(!gt_string_equals(template->tag,group_template->tag),
+            "Wrong TAG in Segmented Reads Sequence ('"PRIgts"'/'"PRIgts"')",PRIgts_content(group_template->tag),PRIgts_content(template->tag));
+        gt_template_merge_template_mmaps(group_template,template);
+        last_segment_id = segmented_read_info->segment_id;
+        if (last_segment_id==total_segments) { // Close group
+          GT_TEMPLATE_ITERATE_ALIGNMENT(group_template,alignment) {
+            gt_attributes_remove(alignment->attributes,GT_ATTR_ID_SEGMENTED_READ_INFO); // If any
+          }
+          gt_output_generic_bofprint_template(buffered_output,group_template,generic_printer_attributes);
+        }
+      } else {
+        gt_filter_fatal_error_msg("Wrong SegmentedRead Info => Expected(%"PRIu64"/%"PRIu64")::Found(%"PRIu64"/%"PRIu64").",
+            segmented_read_info->segment_id,segmented_read_info->total_segments,last_segment_id,total_segments);
+      }
+    }
+  } GT_END_READING_WRITING_LOOP(input_file,output_file,template);
+  // Check proper end of merging groups
+  gt_filter_cond_fatal_error_msg(total_segments!=last_segment_id,
+      "Expected SegmentedRead Info => lastRead(%"PRIu64"/%"PRIu64")",last_segment_id,total_segments);
   // Clean
+  gt_template_delete(group_template);
+  gt_generic_printer_attributes_delete(generic_printer_attributes);
   gt_input_file_close(input_file);
   gt_output_file_close(output_file);
 }
@@ -1158,12 +1155,13 @@ GT_INLINE void gt_filter_sample_read() {
           // Calculate the chunks
           const uint64_t read_length = gt_alignment_get_read_length(alignment);
           const uint64_t split_chunk_size = gt_get_integer_proportion(parameters.split_chunk_size,read_length);
+          const uint64_t split_min_remainder = gt_get_integer_proportion(parameters.split_min_remainder,read_length);
           // Check boundaries
-          if (split_chunk_size>read_length || split_chunk_size==0) {
+          if (split_chunk_size >= read_length || split_chunk_size <= split_min_remainder) {
             if (gt_alignment_has_qualities(alignment)) {
-              gt_filter_sample_read_print_fastq(buffered_output,alignment->tag,alignment->read,alignment->qualities,1,1,0,0,read_length); // FASTQ
+              gt_filter_sample_read_print_fastq(buffered_output,alignment->tag,alignment->read,alignment->qualities,false,1,1,0,0,read_length); // FASTQ
             } else {
-              gt_filter_sample_read_print_fasta(buffered_output,alignment->tag,alignment->read,1,1,0,0,read_length); // FASTA
+              gt_filter_sample_read_print_fasta(buffered_output,alignment->tag,alignment->read,false,1,1,0,0,read_length); // FASTA
             }
             continue;
           }
@@ -1175,7 +1173,6 @@ GT_INLINE void gt_filter_sample_read() {
           uint64_t total_chunks = full_chunks;
           uint64_t left_trim=split_left_trim, right_trim=read_length-split_left_trim-split_chunk_size;
           // Check last chunk (remainder)
-          const uint64_t split_min_remainder = gt_get_integer_proportion(parameters.split_min_remainder,read_length);
           const uint64_t last_left_trim = left_trim+(split_step_size*full_chunks);
           const uint64_t remainder_chunk = read_length-split_right_trim-last_left_trim;
           bool print_remainder_chunk = false;
@@ -1187,11 +1184,11 @@ GT_INLINE void gt_filter_sample_read() {
           for (i=0;i<full_chunks;++i,left_trim+=split_step_size,right_trim-=split_step_size) {
             if (gt_alignment_has_qualities(alignment)) {
               gt_filter_sample_read_print_fastq(
-                  buffered_output,alignment->tag,alignment->read,alignment->qualities,
+                  buffered_output,alignment->tag,alignment->read,alignment->qualities,true,
                   i+1,total_chunks,left_trim,right_trim,split_chunk_size); // FASTQ
             } else {
               gt_filter_sample_read_print_fasta(
-                  buffered_output,alignment->tag,alignment->read,
+                  buffered_output,alignment->tag,alignment->read,true,
                   i+1,total_chunks,left_trim,right_trim,split_chunk_size); // FASTA
             }
           }
@@ -1199,11 +1196,11 @@ GT_INLINE void gt_filter_sample_read() {
           if (print_remainder_chunk) {
             if (gt_alignment_has_qualities(alignment)) {
               gt_filter_sample_read_print_fastq(
-                  buffered_output,alignment->tag,alignment->read,alignment->qualities,
+                  buffered_output,alignment->tag,alignment->read,alignment->qualities,true,
                   total_chunks,total_chunks,last_left_trim,split_right_trim,remainder_chunk); // FASTQ
             } else {
               gt_filter_sample_read_print_fasta(
-                  buffered_output,alignment->tag,alignment->read,
+                  buffered_output,alignment->tag,alignment->read,true,
                   total_chunks,total_chunks,last_left_trim,split_right_trim,remainder_chunk); // FASTA
             }
           }
@@ -1675,7 +1672,7 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 503: // max-strata-after-map
       parameters.perform_dna_map_filter = true;
-      parameters.max_strata_after_map = atol(optarg);
+      parameters.max_strata_after_map = atof(optarg);
       break;
     case 504: // make-counters
       parameters.make_counters = true;
