@@ -704,7 +704,7 @@ GT_INLINE void gt_gtf_create_hit(gt_vector* search_hits, gt_shash* all_genes, gt
     }
     if(strcmp(e->type->buffer, "exon") == 0){
       if(e->gene_type != NULL){
-        template_hit->is_protein_coding |= (strcmp(e->gene_type->buffer, "protein_coding"));
+        template_hit->is_protein_coding |= (strcmp(e->gene_type->buffer, "protein_coding") == 0);
         if(!template_hit->hits_exon){
           hits->num_protein_coding++;
         }

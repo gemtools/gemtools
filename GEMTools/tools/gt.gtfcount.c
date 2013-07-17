@@ -273,11 +273,22 @@ GT_INLINE uint64_t gt_gtfcount_shell_parse_end(char** line){
   if(**line == '\n') return 0;
   char* ref = *line;
   uint64_t n = 0;
-  GT_READ_UNTIL(line, **line=='\n');
+  GT_READ_UNTIL(line, **line==' ' || **line=='\n');
   **line = EOS;
   n = atol(ref);
   GT_NEXT_CHAR(line);
   return n;
+}
+
+GT_INLINE char* gt_gtfcount_shell_parse_type(char** line){
+  if(**line == '\n') return 0;
+  while(**line == ' ') GT_NEXT_CHAR(line);
+  char* ref = *line;
+  GT_READ_UNTIL(line, **line=='\n');
+  **line = EOS;
+  GT_NEXT_CHAR(line);
+  if(strlen(ref)==0) return NULL;
+  return ref;
 }
 
 int main(int argc,char** argv) {
@@ -291,13 +302,14 @@ int main(int argc,char** argv) {
   gt_gtfcount_warn("Done\n");
 
   if(parameters.shell){
-    fprintf(stdout, "Search the annotation with queries like : <ref>:<start>[-<end>]\n");
+    fprintf(stdout, "Search the annotation with queries like : <ref>:<start>[-<end>] [type]\n");
     fprintf(stdout, ">");
     gt_vector* hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
     size_t buf_size = 1024;
     ssize_t read;
     char* line = malloc(buf_size * sizeof(char));
     uint64_t start, end=0 ;
+    char* type = NULL;
     while((read = getline(&line, &buf_size, stdin)) != -1){
       // parse the line
       char* ref = gt_gtfcount_shell_parse_ref(&line);
@@ -313,6 +325,9 @@ int main(int argc,char** argv) {
         fprintf(stdout, ">");
         continue;
       }
+      type = gt_gtfcount_shell_parse_type(&line);
+
+
       if(end == 0) end = start;
       uint64_t num_results = gt_gtf_search(gtf,hits, ref, start, end, true);
       if(num_results == 0){
@@ -320,6 +335,7 @@ int main(int argc,char** argv) {
       }else{
         GT_VECTOR_ITERATE(hits, v, c, gt_gtf_entry*){
           gt_gtf_entry* e = *v;
+          if(type != NULL && (e->type == NULL || strcmp(type, e->type->buffer) != 0)) continue;
           gt_gtf_print_entry_(e, NULL);
         }
       }

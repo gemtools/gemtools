@@ -436,6 +436,7 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation_alignment(gt_template* const 
   gt_gtf_search_alignment_hits(parameters.gtf, hits, alignment);
   bool prot_coding = (parameters.reduce_to_protein_coding && hits->num_protein_coding >= 1);
   bool gene_id = (parameters.reduce_by_gene_id && hits->num_paired_genes >= 1);
+  bool single_gene = (parameters.reduce_by_gene_id && hits->num_genes == 1);
   if(gene_id || prot_coding){
     GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
       gt_gtf_hit* hit = *e;
@@ -448,6 +449,7 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation_alignment(gt_template* const 
         filtered = true;
         gt_filter_add_from_hit(template_dst, hit, block);
       }
+      if(single_gene && filtered) break; // we found a single gene and it was added so we stop adding more
     }
   }
   return filtered;
@@ -489,6 +491,7 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_d
       gt_gtf_search_template_hits(parameters.gtf, hits, template_src);
       bool prot_coding = (parameters.reduce_to_protein_coding && hits->num_protein_coding >= 1);
       bool gene_id = (parameters.reduce_by_gene_id && hits->num_paired_genes >= 1);
+      bool single_gene = (parameters.reduce_by_gene_id && hits->num_genes == 1);
       if(gene_id || prot_coding){
         GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
           gt_gtf_hit* hit = *e;
@@ -501,6 +504,7 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_d
             filtered = true;
             gt_filter_add_from_hit(template_dst, hit, 0);
           }
+          if(single_gene && filtered)break; // we found a single gene and it was added so we stop adding more
         }
       }
       gt_gtf_hits_delete(hits);
