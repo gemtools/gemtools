@@ -727,6 +727,7 @@ GT_INLINE void gt_gtf_search_template_hits(const gt_gtf* const gtf, gt_gtf_hits*
     gt_gtf_hit* template_hit = gt_gtf_hit_new();
     template_hit->num_template_blocks = gt_template_get_num_blocks(template_src);
     template_hit->mmap = mmap;
+    template_hit->map = NULL;
     template_hit->map_attributes = mmap_attr;
     template_hit->num_junctions = (gt_map_get_num_blocks(mmap[0]) + gt_map_get_num_blocks(mmap[1])) - 2;
     gt_gtf_create_hit(search_hits, all_genes, hits, template_hit);
@@ -747,7 +748,9 @@ GT_INLINE void gt_gtf_search_alignment_hits(const gt_gtf* const gtf, gt_gtf_hits
     gt_gtf_search_map(gtf, search_hits, map, true);
     gt_gtf_hit* template_hit = gt_gtf_hit_new();
     template_hit->map = map;
+    template_hit->mmap = NULL;
     template_hit->num_junctions = gt_map_get_num_blocks(map);
+    template_hit->num_template_blocks = 1;
     gt_gtf_create_hit(search_hits, all_genes, hits, template_hit);
   }
   hits->num_genes = gt_shash_get_num_elements(all_genes);

@@ -464,10 +464,24 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_d
   } else {
     if (!gt_template_is_mapped(template_src)) {
         GT_TEMPLATE_REDUCE_BOTH_ENDS(template_src,alignment_end1,alignment_end2);
+
         gt_gtf_hits* hits = gt_gtf_hits_new();
         filtered = gt_filter_make_reduce_by_annotation_alignment(template_dst, alignment_end1, 1, hits);
+        if(!filtered){
+          // add all as we want to preserve them in case second alignment is filtered.
+          GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
+            gt_filter_add_from_hit(template_dst, *e, 1);
+          }
+        }
         gt_gtf_hits_clear(hits);
-        filtered = gt_filter_make_reduce_by_annotation_alignment(template_dst, alignment_end2, 2, hits);
+        if(gt_filter_make_reduce_by_annotation_alignment(template_dst, alignment_end2, 2, hits)){
+          filtered = true;
+        }else if(filtered){
+          // alignment 1 was filtered, so we have to copy all from alignment 2
+          GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
+            gt_filter_add_from_hit(template_dst, *e, 2);
+          }
+        }
         gt_gtf_hits_delete(hits);
         return filtered;
     } else {
