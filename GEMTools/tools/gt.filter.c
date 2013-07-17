@@ -65,6 +65,7 @@ typedef struct {
   bool reduce_to_pairs;
   bool reduce_to_unique;
   bool reduce_by_gene_id;
+  bool reduce_to_protein_coding;
   /* RNA Seq to recalculate counters */
   bool no_split_maps;
   bool only_split_maps;
@@ -170,6 +171,7 @@ gt_filter_args parameters = {
     /* Make templates unique */
     .reduce_to_unique_strata=-1,
     .reduce_by_gene_id=false,
+    .reduce_to_protein_coding=false,
     .reduce_to_unique=false,
     .reduce_to_pairs=false,
     .reduce_by_quality=-1,
@@ -408,43 +410,82 @@ GT_INLINE bool gt_filter_are_overlapping_pairs_coherent(gt_map** const mmap) {
   }
   return true;
 }
-GT_INLINE void gt_filter_add_from_hit(gt_template* const template,gt_gtf_hit* hit) {
+GT_INLINE void gt_filter_add_from_hit(gt_template* const template,gt_gtf_hit* hit, uint64_t target_block) {
   if (hit->mmap != NULL) {
     // add PE
     gt_map** mmap_copy = gt_mmap_array_copy(hit->mmap, hit->num_template_blocks);
     gt_template_insert_mmap(template,mmap_copy,hit->map_attributes);
     free(mmap_copy);
   } else if(hit->map != NULL) {
-    GT_TEMPLATE_REDUCTION(template,alignment_dst);
-    gt_alignment_insert_map(alignment_dst,gt_map_copy(hit->map));
+    if(target_block > 0){
+      GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_1, alignment_2);
+      if(target_block == 1){
+        gt_alignment_insert_map(alignment_1,gt_map_copy(hit->map));
+      }else{
+        gt_alignment_insert_map(alignment_2,gt_map_copy(hit->map));
+      }
+    }else{
+      GT_TEMPLATE_REDUCTION(template,alignment_dst);
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(hit->map));
+    }
   }
 }
 
+GT_INLINE bool gt_filter_make_reduce_by_annotation_alignment(gt_template* const template_dst,gt_alignment* const alignment, uint64_t block, gt_gtf_hits* hits) {
+  bool filtered = false;
+  gt_gtf_search_alignment_hits(parameters.gtf, hits, alignment);
+  bool prot_coding = (parameters.reduce_to_protein_coding && hits->num_protein_coding >= 1);
+  bool gene_id = (parameters.reduce_by_gene_id && hits->num_paired_genes >= 1);
+  if(gene_id || prot_coding){
+    GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
+      gt_gtf_hit* hit = *e;
+      if(gene_id && hit->pairs_gene){
+        if(!prot_coding || hit->is_protein_coding){
+          filtered = true;
+          gt_filter_add_from_hit(template_dst, hit, block);
+        }
+      }else if(prot_coding && hit->is_protein_coding){
+        filtered = true;
+        gt_filter_add_from_hit(template_dst, hit, block);
+      }
+    }
+  }
+  return filtered;
+}
 
 GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
   bool filtered = false;
   GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
-//    GT_TEMPLATE_REDUCTION(template_src,alignment_src);
-//    GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
-    return false;
+    GT_TEMPLATE_REDUCTION(template_src,alignment_src);
+    gt_gtf_hits* hits = gt_gtf_hits_new();
+    filtered = gt_filter_make_reduce_by_annotation_alignment(template_dst, alignment_src, 0, hits);
+    gt_gtf_hits_delete(hits);
+    return filtered;
   } else {
     if (!gt_template_is_mapped(template_src)) {
-//        GT_TEMPLATE_REDUCE_BOTH_ENDS(template_src,alignment_src_end1,alignment_src_end2);
-//        GT_TEMPLATE_REDUCE_BOTH_ENDS(template_dst,alignment_dst_end1,alignment_dst_end2);
+        GT_TEMPLATE_REDUCE_BOTH_ENDS(template_src,alignment_end1,alignment_end2);
+        gt_gtf_hits* hits = gt_gtf_hits_new();
+        filtered = gt_filter_make_reduce_by_annotation_alignment(template_dst, alignment_end1, 1, hits);
+        gt_gtf_hits_clear(hits);
+        filtered = gt_filter_make_reduce_by_annotation_alignment(template_dst, alignment_end2, 2, hits);
+        gt_gtf_hits_delete(hits);
+        return filtered;
     } else {
       gt_gtf_hits* hits = gt_gtf_hits_new();
       gt_gtf_search_template_hits(parameters.gtf, hits, template_src);
-      GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
-        gt_gtf_hit* hit = *e;
-        if(parameters.reduce_by_gene_id){
-          filtered = true;
-          gt_output_map_fprint_map(stdout, hit->map == NULL ? hit->mmap[0]: hit->map, NULL);
-          printf("\n\tPAIRS GENES ? %d\n", hit->pairs_gene);
-          GT_SHASH_BEGIN_KEY_ITERATE(hit->genes, key){
-            printf("\tGENE: %s\n", key);
-          }GT_SHASH_END_ITERATE;
-          if(hit->pairs_gene){
-            gt_filter_add_from_hit(template_dst, hit);
+      bool prot_coding = (parameters.reduce_to_protein_coding && hits->num_protein_coding >= 1);
+      bool gene_id = (parameters.reduce_by_gene_id && hits->num_paired_genes >= 1);
+      if(gene_id || prot_coding){
+        GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
+          gt_gtf_hit* hit = *e;
+          if(gene_id && hit->pairs_gene){
+            if(!prot_coding || hit->is_protein_coding){
+              filtered = true;
+              gt_filter_add_from_hit(template_dst, hit, 0);
+            }
+          }else if(prot_coding && hit->is_protein_coding){
+            filtered = true;
+            gt_filter_add_from_hit(template_dst, hit, 0);
           }
         }
       }
@@ -1735,6 +1776,10 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 516: // reduce-to-pairs
       parameters.reduce_to_pairs = true;
+      break;
+    case 517: // reduce-to-protein-coding
+      parameters.reduce_to_protein_coding = true;
+      parameters.perform_annotation_filter = true;
       break;
     /* Filter RNA-Maps */
     case 600: // no-split-maps

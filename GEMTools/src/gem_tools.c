@@ -64,6 +64,7 @@ gt_option gt_filter_options[] = {
   { 514, "reduce-by-gene-id", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 515, "reduce-to-unique", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 516, "reduce-to-pairs", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "Set all unpaired templates to unmapped" },
+  { 517, "reduce-to-protein-coding", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   /* Filter RNA-Maps */
   { 600, "no-split-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },
   { 601, "only-split-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },
