@@ -7,6 +7,9 @@ GT_INLINE gt_gtf_entry* gt_gtf_entry_new(const uint64_t start, const uint64_t en
   entry->end = end;
   entry->type = type;
   entry->strand = strand;
+  entry->gene_type = NULL;
+  entry->gene_id = NULL;
+  entry->transcript_id = NULL;
   return entry;
 }
 GT_INLINE void gt_gtf_entry_delete(gt_gtf_entry* const entry){
@@ -691,7 +694,7 @@ GT_INLINE void gt_gtf_create_hit(gt_vector* search_hits, gt_shash* all_genes, gt
   template_hit->genes = gt_shash_new();
   template_hit->is_protein_coding = false;
   template_hit->hits_exon = false;
-
+  bool counted_protein = false;
   GT_VECTOR_ITERATE(search_hits, v, c, gt_gtf_entry*){
     gt_gtf_entry* e = *v;
     // count gene id
@@ -703,13 +706,14 @@ GT_INLINE void gt_gtf_create_hit(gt_vector* search_hits, gt_shash* all_genes, gt
       gt_gtf_count_(template_hit->transcripts, gt_string_get_string(e->transcript_id));
     }
     if(strcmp(e->type->buffer, "exon") == 0){
-      if(e->gene_type != NULL){
-        template_hit->is_protein_coding |= (strcmp(e->gene_type->buffer, "protein_coding") == 0);
-        if(!template_hit->hits_exon){
-          hits->num_protein_coding++;
-        }
-      }
       template_hit->hits_exon = true;
+    }
+    if(e->gene_type != NULL){
+      template_hit->is_protein_coding |= (strcmp(e->gene_type->buffer, "protein_coding") == 0);
+      if(!counted_protein){
+        hits->num_protein_coding++;
+        counted_protein = true;
+      }
     }
   }
   template_hit->pairs_gene = (gt_shash_get_num_elements(template_hit->genes) == 1); // single gene

@@ -63,7 +63,7 @@ typedef struct {
   int64_t reduce_to_unique_strata;
   int64_t reduce_by_quality;
   bool reduce_to_pairs;
-  bool reduce_to_unique;
+  uint64_t reduce_to_unique;
   bool reduce_by_gene_id;
   bool reduce_to_protein_coding;
   /* RNA Seq to recalculate counters */
@@ -172,7 +172,7 @@ gt_filter_args parameters = {
     .reduce_to_unique_strata=-1,
     .reduce_by_gene_id=false,
     .reduce_to_protein_coding=false,
-    .reduce_to_unique=false,
+    .reduce_to_unique=UINT64_MAX,
     .reduce_to_pairs=false,
     .reduce_by_quality=-1,
     /* RNA Seq */
@@ -440,7 +440,7 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation_alignment(gt_template* const 
   if(gene_id || prot_coding){
     GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
       gt_gtf_hit* hit = *e;
-      if(gene_id && hit->pairs_gene){
+      if(single_gene){
         if(!prot_coding || hit->is_protein_coding){
           filtered = true;
           gt_filter_add_from_hit(template_dst, hit, block);
@@ -521,7 +521,7 @@ void gt_alignment_reduction_filter(gt_alignment* const alignment_dst,gt_alignmen
       gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
       break;
     }
-    if(gt_alignment_get_num_maps(alignment_src) != 1 && parameters.reduce_to_unique) break;
+    if(gt_alignment_get_num_maps(alignment_src) > parameters.reduce_to_unique) break;
     gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
   }
 }
@@ -625,7 +625,7 @@ void gt_template_reduction_filter(gt_template* const template_dst,gt_template* c
           free(mmap_copy);
           break;
         }
-        if(gt_template_get_num_mmaps(template_src) != 1 && parameters.reduce_to_unique) break;
+        if(gt_template_get_num_mmaps(template_src) >= parameters.reduce_to_unique) break;
         gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
         gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
         free(mmap_copy);
@@ -1031,7 +1031,7 @@ GT_INLINE bool gt_filter_apply_filters(
 
   // reduce by level filter
   num_maps = gt_filter_get_num_maps(template);
-  if ((parameters.reduce_to_unique_strata >= 0 || parameters.reduce_to_unique || parameters.reduce_to_pairs) && (num_maps > 1)) {
+  if ((parameters.reduce_to_unique_strata >= 0 || parameters.reduce_to_unique != UINT64_MAX|| parameters.reduce_to_pairs) && (num_maps > 1)) {
     gt_template *template_filtered = gt_template_dup(template,false,false);
     gt_template_reduction_filter(template_filtered,template,file_format);
     gt_template_swap(template,template_filtered);
@@ -1789,8 +1789,8 @@ void parse_arguments(int argc,char** argv) {
       parameters.reduce_by_gene_id = true;
       parameters.perform_annotation_filter = true;
       break;
-    case 515: // reduce-by-annotation
-      parameters.reduce_to_unique = true;
+    case 515: // reduce-to-unique
+      parameters.reduce_to_unique = atol(optarg);
       break;
     case 516: // reduce-to-pairs
       parameters.reduce_to_pairs = true;
