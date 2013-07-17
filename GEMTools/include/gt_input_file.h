@@ -38,7 +38,7 @@ typedef struct {
   /* Input file */
   char* file_name;
   gt_file_type file_type;
-  void* file;
+  FILE* file;
   int fildes;
   bool eof;
   uint64_t file_size;
