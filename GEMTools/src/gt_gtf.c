@@ -397,6 +397,11 @@ void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map){
   if(e->type != NULL){
     printf(" [%s]", e->type->buffer);
   }
+
+  if(e->gene_type != NULL){
+    printf(" [%s]", e->gene_type->buffer);
+  }
+
   if(map != NULL && gt_gtf_hits_junction(map, e)){
     printf(" [Hits JS]");
   }
