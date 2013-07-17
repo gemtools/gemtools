@@ -128,15 +128,12 @@ class execs_dict(dict):
 executables = execs_dict({
     "gem-indexer": "gem-indexer",
     "gem-mapper": "gem-mapper",
-    "gem-rna-mapper": "gem-rna-mapper",
     "gem-2-gem": "gem-2-gem",
     "gem-2-sam": "gem-2-sam",
     "samtools": "samtools",
     "gem-info": "gem-info",
-    "splits-2-junctions": "splits-2-junctions",
     "gem-retriever": "gem-retriever",
-    "compute-transcriptome": "compute-transcriptome",
-    "transcriptome-2-genome": "transcriptome-2-genome",
+    "gem-rna-tools": "gem-rna-tools",
     "gt.filter": "gt.filter",
     "gt.map.2.sam": "gt.map.2.sam",
     "gt.mapset": "gt.mapset",
@@ -413,7 +410,11 @@ def mapper(input, index, output=None,
 
     # convert to genome coordinates if mapping to transcriptome
     if key_file is not None:
-        convert_to_genome = [executables['transcriptome-2-genome'], key_file, str(max(1, threads / 2))]
+        convert_to_genome = [executables['gem-rna-tools'],
+                             'transcriptome-2-genome',
+                             '-k', key_file,
+                             '--threads', str(max(1, threads / 2))
+                             ]
         tools.append(convert_to_genome)
 
     if compress:
@@ -559,7 +560,8 @@ def splitmapper(input,
     quality = _prepare_quality_parameter(quality)
     splice_cons = _prepare_splice_consensus_parameter(splice_consensus)
 
-    pa = [executables['gem-rna-mapper'],
+    pa = [executables['gem-rna-tools'],
+          'split-mapper',
           '-I', index,
           '-q', quality,
           '-m', str(mismatches),
@@ -934,7 +936,7 @@ def bamIndex(input, output=None):
     return output
 
 
-def compute_transcriptome(max_read_length, index, junctions, substract=None):
+def compute_transcriptome(max_read_length, index, junctions, substract=None, output_name=None):
     """Compute the transcriptome based on a set of junctions. You can optionally specify
     a *substract* junction set. In that case only junctions not in substract are passed
     to compute the transcriptome.
@@ -946,14 +948,18 @@ def compute_transcriptome(max_read_length, index, junctions, substract=None):
     junctions -- path to the junctions file
     substract -- additional juntions that are not taken into account and substracted from the main junctions
     """
+    if output_name is None:
+        output_name = os.path.basename(junctions)
     transcriptome_p = [
-        executables['compute-transcriptome'],
-        str(max_read_length),
-        index,
-        junctions
+        executables['gem-rna-tools'],
+        'compute-transcriptome',
+        '-l', str(max_read_length),
+        '-I', index,
+        '-j', junctions,
+        '-o', output_name
     ]
     if substract is not None:
-        transcriptome_p.append(substract)
+        transcriptome_p.extend(['-J', substract])
 
     process = utils.run_tools([transcriptome_p], input=None, output=None, name="compute-transcriptome")
     if process.wait() != 0:
