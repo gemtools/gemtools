@@ -433,7 +433,7 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_d
 //        GT_TEMPLATE_REDUCE_BOTH_ENDS(template_dst,alignment_dst_end1,alignment_dst_end2);
     } else {
       gt_gtf_hits* hits = gt_gtf_hits_new();
-      gt_gtf_search_template_for_exons(parameters.gtf, hits, template_src);
+      gt_gtf_search_template_hits(parameters.gtf, hits, template_src);
       GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
         gt_gtf_hit* hit = *e;
         if(parameters.reduce_by_gene_id){

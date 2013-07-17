@@ -50,6 +50,9 @@ GT_INLINE void gt_gtf_delete(gt_gtf* const gtf){
 GT_INLINE gt_gtf_hits* gt_gtf_hits_new(void){
   gt_gtf_hits* hits = malloc(sizeof(gt_gtf_hits));
   hits->exon_hits = gt_vector_new(16, sizeof(gt_gtf_hit*));
+  hits->num_genes = 0;
+  hits->num_protein_coding =0;
+  hits->num_paired_genes =0;
   return hits;
 }
 GT_INLINE void gt_gtf_hits_delete(gt_gtf_hits* const hits){
@@ -63,6 +66,9 @@ GT_INLINE void gt_gtf_hits_clear(gt_gtf_hits* const hits){
     gt_gtf_hit* hit = *gt_vector_get_elm(hits->exon_hits, i, gt_gtf_hit*);
     gt_gtf_hit_delete(hit);
   }
+  hits->num_genes = 0;
+  hits->num_protein_coding =0;
+  hits->num_paired_genes =0;
   gt_vector_clear(hits->exon_hits);
 }
 
@@ -413,6 +419,7 @@ GT_INLINE gt_gtf_hit* gt_gtf_hit_new(void){
   hit->num_template_blocks = 0;
   hit->transcripts = NULL;
   hit->genes = NULL;
+  hit->hits_exon = false;
   return hit;
 }
 
@@ -644,8 +651,8 @@ GT_INLINE void gt_gtf_search_node_(gt_gtf_node* node, const uint64_t start, cons
 
 
 
-GT_INLINE uint64_t gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, char* const ref, const uint64_t start, const uint64_t end){
-  gt_vector_clear(target);
+GT_INLINE uint64_t gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const target, char* const ref, const uint64_t start, const uint64_t end, const bool clear_target){
+  if(clear_target)gt_vector_clear(target);
   // make sure the target ref is contained
   if (! gt_shash_is_contained(gtf->refs, ref)){
     return 0;
@@ -653,124 +660,6 @@ GT_INLINE uint64_t gt_gtf_search(const gt_gtf* const gtf,  gt_vector* const targ
   const gt_gtf_ref* const source_ref = gt_gtf_get_ref(gtf, ref);
   gt_gtf_search_node_(source_ref->node, start, end, target);
   return gt_vector_get_used(target);
-}
-
-
-GT_INLINE void gt_gtf_create_hit(gt_gtf_hit* hit, gt_map* map, gt_vector* search_hits,const gt_gtf* const gtf, gt_string* exon_type, gt_string* protein_coding){
-  bool collect_transcripts = true;
-  GT_MAP_ITERATE(map, map_it) {
-    uint64_t start = gt_map_get_begin_mapping_position(map_it);
-    uint64_t end   = gt_map_get_end_mapping_position(map_it);
-
-    // clear search hits
-    // and search for this block
-    gt_vector_clear(search_hits);
-    gt_gtf_search(gtf, search_hits, gt_map_get_seq_name(map_it), start, end);
-
-    float local_overlap = 0;
-    if(gt_map_has_next_block(map_it)){
-      hit->intron_length += gt_map_get_junction_size(map_it);
-    }
-    gt_shash* local_genes = gt_shash_new();
-
-    bool hit_junction = false;
-    // get all the exons with same gene id
-    GT_VECTOR_ITERATE(search_hits, element, counter, gt_gtf_entry*){
-      gt_gtf_entry* entry = *element;
-      if(!gt_string_equals(exon_type, entry->type) || !gt_string_equals(protein_coding, entry->gene_type)){
-        continue;
-      }
-      //gt_gtf_print_entry_(entry, map_it);
-      // we hit something protein coding
-      hit->is_protein_coding = true;
-      // calculate the overlap
-      float read_length = (end - start) + 1;
-      uint64_t tran_length = (entry->end - entry->start) + 1;
-      uint64_t s = entry->start < start ? start - entry->start : 0;
-      uint64_t e = entry->end > end ? entry->end - end : 0;
-      float over = ((tran_length - s - e) / read_length);
-      if(over >= local_overlap){
-        local_overlap = over;
-      }
-      if(hit->num_junctions > 0 && !hit_junction){
-        hit->junction_hits += gt_gtf_hits_junction(map_it, entry) ? 1 : 0;
-        hit_junction = true;
-      }
-      // fill initial transcripts
-      if(entry->transcript_id != NULL){
-        if(collect_transcripts){
-          if(!gt_shash_is_contained(hit->transcripts, gt_string_get_string(entry->transcript_id))){
-            uint64_t* v = gt_malloc_uint64();
-            *v = 1;
-            gt_shash_insert(hit->transcripts, gt_string_get_string(entry->transcript_id), v, uint64_t);
-          }else{
-            uint64_t* v = gt_shash_get(hit->transcripts,gt_string_get_string(entry->transcript_id),uint64_t);
-            ++(*v);
-          }
-        }else{
-          if(gt_shash_is_contained(hit->transcripts, gt_string_get_string(entry->transcript_id))){
-            uint64_t* v = gt_shash_get(hit->transcripts,gt_string_get_string(entry->transcript_id),uint64_t);
-            ++(*v);
-          }
-        }
-      }
-      // fill initial transcripts
-      if(entry->gene_id != NULL){
-        // count if the gene is not in the local gene list and we counted it
-        // for this hit set already
-        char* gene_id = gt_string_get_string(entry->gene_id);
-        if(!gt_shash_is_contained(local_genes, gene_id)){
-          // insert into local list and count
-          gt_shash_insert(local_genes, gene_id, true, bool);
-          if(!gt_shash_is_contained(hit->genes, gene_id)){
-            uint64_t* v = gt_malloc_uint64();
-            *v = 1;
-            gt_shash_insert(hit->genes, gene_id, v, uint64_t);
-          }else{
-            uint64_t* v = gt_shash_get(hit->genes,gene_id,uint64_t);
-            ++(*v);
-          }
-        }
-      }
-    }
-    hit->exon_overlap += local_overlap;
-    gt_shash_delete(local_genes, false);
-  }
-
-
-}
-
-
-GT_INLINE void gt_gtf_search_template_for_exons(const gt_gtf* const gtf, gt_gtf_hits* const hits, gt_template* const template_src){
-  gt_vector* const search_hits_end_1 = gt_vector_new(32, sizeof(gt_gtf_entry*));
-  gt_vector* const search_hits_end_2 = gt_vector_new(32, sizeof(gt_gtf_entry*));
-
-  // process paired alignment
-  GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
-	gt_gtf_search_map(gtf, search_hits_end_1, mmap[0]);
-	gt_gtf_search_map(gtf, search_hits_end_2, mmap[1]);
-
-	gt_gtf_hit* template_hit = gt_gtf_hit_new();
-    template_hit->mmap = mmap;
-    template_hit->map_attributes = mmap_attr;
-    template_hit->num_template_blocks = gt_template_get_num_blocks(template_src);
-
-    GT_MMAP_ITERATE(mmap, map, end_position){
-      gt_gtf_hit* hit = NULL;
-      if(end_position == 0){
-        hit = template_hit;
-      }else{
-        hit = gt_gtf_hit_new();
-      }
-
-      hit->map = map;
-      hit->num_junctions = gt_map_get_num_blocks(map) - 1;
-      hit->transcripts = gt_shash_new();
-      hit->genes = gt_shash_new();
-    }
-  }
-  gt_vector_delete(search_hits_end_1);
-  gt_vector_delete(search_hits_end_2);
 }
 
 GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element){
@@ -792,6 +681,82 @@ GT_INLINE uint64_t gt_gtf_get_count_(gt_shash* const table, char* const element)
   return *v;
 }
 
+GT_INLINE void gt_gtf_create_hit(gt_vector* search_hits, gt_shash* all_genes, gt_gtf_hits* hits, gt_gtf_hit* template_hit){
+  template_hit->transcripts = gt_shash_new();
+  template_hit->genes = gt_shash_new();
+  template_hit->is_protein_coding = false;
+  template_hit->hits_exon = false;
+
+  GT_VECTOR_ITERATE(search_hits, v, c, gt_gtf_entry*){
+    gt_gtf_entry* e = *v;
+    // count gene id
+    if(e->gene_id != NULL){
+      gt_gtf_count_(template_hit->genes, gt_string_get_string(e->gene_id));
+      gt_gtf_count_(all_genes, gt_string_get_string(e->gene_id));
+    }
+    if(e->transcript_id != NULL){
+      gt_gtf_count_(template_hit->transcripts, gt_string_get_string(e->transcript_id));
+    }
+    if(strcmp(e->type->buffer, "exon") == 0){
+      if(e->gene_type != NULL){
+        template_hit->is_protein_coding |= (strcmp(e->gene_type->buffer, "protein_coding"));
+        if(!template_hit->hits_exon){
+          hits->num_protein_coding++;
+        }
+      }
+      template_hit->hits_exon = true;
+    }
+  }
+  template_hit->pairs_gene = (gt_shash_get_num_elements(template_hit->genes) == 1); // single gene
+  template_hit->pairs_transcript = (gt_shash_get_num_elements(template_hit->transcripts) == 1); // single gene
+
+  hits->num_paired_genes += (template_hit->pairs_gene ? 1 : 0);
+  gt_vector_insert(hits->exon_hits, template_hit, gt_gtf_hit*);
+}
+
+GT_INLINE void gt_gtf_search_template_hits(const gt_gtf* const gtf, gt_gtf_hits* const hits, gt_template* const template_src){
+  gt_vector* const search_hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
+  // reset the hits
+  gt_gtf_hits_clear(hits);
+  gt_shash* all_genes = gt_shash_new();
+
+  // process paired alignment
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attr) {
+    gt_gtf_search_map(gtf, search_hits, mmap[0], true);
+    gt_gtf_search_map(gtf, search_hits, mmap[1], false);
+    gt_gtf_hit* template_hit = gt_gtf_hit_new();
+    template_hit->num_template_blocks = gt_template_get_num_blocks(template_src);
+    template_hit->mmap = mmap;
+    template_hit->map_attributes = mmap_attr;
+    template_hit->num_junctions = (gt_map_get_num_blocks(mmap[0]) + gt_map_get_num_blocks(mmap[1])) - 2;
+    gt_gtf_create_hit(search_hits, all_genes, hits, template_hit);
+  }
+  hits->num_genes = gt_shash_get_num_elements(all_genes);
+  gt_shash_delete(all_genes, true);
+  gt_vector_delete(search_hits);
+}
+
+GT_INLINE void gt_gtf_search_alignment_hits(const gt_gtf* const gtf, gt_gtf_hits* const hits, gt_alignment* const alignment){
+  gt_vector* const search_hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
+  // reset the hits
+  gt_gtf_hits_clear(hits);
+  gt_shash* all_genes = gt_shash_new();
+
+  // process paired alignment
+  GT_ALIGNMENT_ITERATE(alignment, map){
+    gt_gtf_search_map(gtf, search_hits, map, true);
+    gt_gtf_hit* template_hit = gt_gtf_hit_new();
+    template_hit->map = map;
+    template_hit->num_junctions = gt_map_get_num_blocks(map);
+    gt_gtf_create_hit(search_hits, all_genes, hits, template_hit);
+  }
+  hits->num_genes = gt_shash_get_num_elements(all_genes);
+  gt_shash_delete(all_genes, true);
+  gt_vector_delete(search_hits);
+}
+
+
+
 GT_INLINE void gt_gtf_count_add_(gt_shash* const source, gt_shash* const target){
   GT_SHASH_BEGIN_ITERATE(source, key, value, uint64_t){
     if(!gt_shash_is_contained(target, key)){
@@ -809,7 +774,7 @@ GT_INLINE void gt_gtf_gene_map_(gt_gtf* const gtf, gt_map* const map, gt_shash* 
   uint64_t start = gt_map_get_begin_mapping_position(map);
   uint64_t end   = gt_map_get_end_mapping_position(map);
   gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
-  gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end);
+  gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end, true);
 
   GT_VECTOR_ITERATE(hits, e, i, gt_gtf_entry*){
     gt_gtf_entry* hit = *e;
@@ -835,7 +800,7 @@ GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_sh
   uint64_t start = gt_map_get_begin_mapping_position(map);
   uint64_t end   = gt_map_get_end_mapping_position(map);
   gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
-  gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end);
+  gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end, true);
 
   gt_shash* const local_type_counts = gt_shash_new();
   gt_shash* local_gene_counts = gt_shash_new();
@@ -1022,17 +987,17 @@ GT_INLINE void gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const ali
   }
 }
 
-GT_INLINE void gt_gtf_search_map(const gt_gtf* const gtf, gt_vector* const hits, gt_map* const map){
+GT_INLINE void gt_gtf_search_map(const gt_gtf* const gtf, gt_vector* const hits, gt_map* const map, const bool clean_target){
   GT_MAP_ITERATE(map, block){
     uint64_t start = gt_map_get_begin_mapping_position(map);
     uint64_t end   = gt_map_get_end_mapping_position(map);
-    gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end);
+    gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end, clean_target);
   }
 }
 
 GT_INLINE void gt_gtf_search_alignment(const gt_gtf* const gtf, gt_vector* const hits, gt_alignment* const alignment){
   GT_ALIGNMENT_ITERATE(alignment, map){
-    gt_gtf_search_map(gtf, hits, map);
+    gt_gtf_search_map(gtf, hits, map, true);
   }
 }
 

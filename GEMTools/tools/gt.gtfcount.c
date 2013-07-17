@@ -314,7 +314,7 @@ int main(int argc,char** argv) {
         continue;
       }
       if(end == 0) end = start;
-      uint64_t num_results = gt_gtf_search(gtf,hits, ref, start, end);
+      uint64_t num_results = gt_gtf_search(gtf,hits, ref, start, end, true);
       if(num_results == 0){
         fprintf(stdout, "Nothing found :(\n");
       }else{
