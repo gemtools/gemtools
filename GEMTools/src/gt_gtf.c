@@ -38,6 +38,7 @@ GT_INLINE gt_gtf* gt_gtf_new(void){
   gtf->gene_ids = gt_shash_new();
   gtf->transcript_ids = gt_shash_new();
   gtf->gene_types = gt_shash_new();
+  gtf->genes = gt_shash_new();
   return gtf;
 }
 
@@ -47,6 +48,7 @@ GT_INLINE void gt_gtf_delete(gt_gtf* const gtf){
   gt_shash_delete(gtf->gene_ids, true);
   gt_shash_delete(gtf->transcript_ids, true);
   gt_shash_delete(gtf->gene_types, true);
+  gt_shash_delete(gtf->genes, false);
   free(gtf);
 }
 
@@ -129,6 +131,13 @@ GT_INLINE gt_string* gt_gtf_get_gene_type(const gt_gtf* const gtf, char* const n
 }
 GT_INLINE bool gt_gtf_contains_gene_type(const gt_gtf* const gtf, char* const name){
 	return gt_shash_is_contained(gtf->gene_types, name);
+}
+
+GT_INLINE gt_gtf_entry* gt_gtf_get_gene_by_id(gt_gtf* const gtf, char* const key){
+  if(gt_shash_is_contained(gtf->genes, key)){
+    return gt_shash_get_element(gtf->genes, key);
+  }
+  return NULL;
 }
 
 /**
@@ -374,6 +383,9 @@ GT_INLINE gt_status gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t cou
   // get the ref or create it
   gt_gtf_ref* gtref = gt_gtf_get_ref(gtf, ref);
   gt_vector_insert(gtref->entries, e, gt_gtf_entry*);
+  if(strcmp(e->type->buffer, "gene") == 0){
+    gt_shash_insert(gtf->genes, e->gene_id->buffer, e, gt_gtf_entry*);
+  }
   return GT_STATUS_OK;
 }
 
@@ -389,7 +401,10 @@ void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map){
     gt_output_map_fprint_map(stdout, map, NULL);
     printf(" ==> ");
   }
-  printf("%s : %"PRIu64" - %"PRIu64" (%c)", e->type->buffer, e->start, e->end, (e->strand==FORWARD?'+':'-') );
+  if(e->type != NULL){
+    printf("%s : %"PRIu64" - %"PRIu64" (%c)", e->type->buffer, e->start, e->end, (e->strand==FORWARD?'+':'-') );
+
+  }
   if(e->gene_id != NULL){
     printf(" GID:%s", e->gene_id->buffer);
   }
@@ -490,6 +505,11 @@ GT_INLINE uint64_t gt_gtf_merge_(const gt_gtf* const target, gt_gtf* source, uin
       if(e->type != NULL)e->type = gt_gtf_get_type(target, gt_string_get_string(e->type));
       if(e->gene_type != NULL)e->gene_type = gt_gtf_get_gene_type(target, gt_string_get_string(e->gene_type));
       gt_vector_insert(target_ref->entries, e, gt_gtf_entry*);
+
+      if(strcmp(e->type->buffer, "gene") == 0 && !gt_shash_is_contained(target->genes, e->gene_id->buffer)){
+        gt_shash_insert(target->genes, e->gene_id->buffer, e, gt_gtf_entry*);
+      }
+
     }
   }GT_SHASH_END_ITERATE;
   return counter;
@@ -680,12 +700,41 @@ GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element){
     ++(*v);
   }
 }
+GT_INLINE void gt_gtf_count_sum_(gt_shash* const table, char* const element, uint64_t value){
+  if(!gt_shash_is_contained(table, element)){
+    uint64_t* v = gt_malloc_uint64();
+    *v = value;
+    gt_shash_insert(table, element, v, uint64_t);
+  }else{
+    uint64_t* v = gt_shash_get(table,element,uint64_t);
+    *v += value;
+  }
+}
+
+GT_INLINE void gt_gtf_count_weight_(gt_shash* const table, char* const element, double weight){
+  if(!gt_shash_is_contained(table, element)){
+    double* v = malloc(sizeof(double*));
+    *v = weight;
+    gt_shash_insert(table, element, v, double);
+  }else{
+    double* v = gt_shash_get(table,element,double);
+    *v += weight;
+  }
+}
 
 GT_INLINE uint64_t gt_gtf_get_count_(gt_shash* const table, char* const element){
   if(!gt_shash_is_contained(table, element)){
     return 0;
   }
   uint64_t* v = gt_shash_get(table,element,uint64_t);
+  return *v;
+}
+
+GT_INLINE float gt_gtf_get_count_weight(gt_shash* const table, char* const element){
+  if(!gt_shash_is_contained(table, element)){
+    return 0.0;
+  }
+  double* v = gt_shash_get(table,element,double);
   return *v;
 }
 
@@ -782,131 +831,76 @@ GT_INLINE void gt_gtf_count_add_(gt_shash* const source, gt_shash* const target)
   }GT_SHASH_END_ITERATE;
 }
 
-GT_INLINE void gt_gtf_gene_map_(gt_gtf* const gtf, gt_map* const map, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
+/**
+ * This counts a single continuous block and takes the. Note that we do not perform any checks on
+ * splits/pairs here and simply count for this single continuous map
+ *
+ * @param gt_gtf* gtf                the gtf reference
+ * @param gt_map*                    continuous map block
+ * @param gt_shash* type_counts      the type counts, i.e exon/intron etc
+ * @param gt_shash* gene_counts      the gene counts with the gene_id's hit by the map.
+ * @return uint64_t num_gene_exons   number of unique gene_ids hit by exons
+ */
+GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map,
+                                     gt_shash* const type_counts,
+                                     gt_shash* const gene_counts){
+  // get coordinates
   uint64_t start = gt_map_get_begin_mapping_position(map);
   uint64_t end   = gt_map_get_end_mapping_position(map);
+  // store the search hits and search
   gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
   gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end, true);
 
-  GT_VECTOR_ITERATE(hits, e, i, gt_gtf_entry*){
-    gt_gtf_entry* hit = *e;
-    // count gene if we find an exonic hit
-    if(strcmp(hit->type->buffer, "exon") == 0){
-      gt_gtf_count_(gene_counts, gt_string_get_string(hit->gene_id));
-      gt_gtf_count_(gene_type_counts, gt_string_get_string(hit->gene_type));
-    }
-  }
-  gt_vector_delete(hits);
-}
-
-
-GT_INLINE void gt_gtf_gene_map(gt_gtf* const gtf, gt_map* const map, gt_shash* const genes, gt_shash* const types){
-  uint64_t blocks = gt_map_get_num_blocks(map);
-  if(blocks == 0) return;
-  GT_MAP_ITERATE(map, map_block){
-    gt_gtf_gene_map_(gtf, map_block, genes, types);
-  }
-}
-
-GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts, gt_map* const other_pair){
-  uint64_t start = gt_map_get_begin_mapping_position(map);
-  uint64_t end   = gt_map_get_end_mapping_position(map);
-  gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
-  gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end, true);
-
+  // we do a complete local count for this block
+  // and then merge the local count with the global count
+  // to be able to resolve genes/gene_types that are
+  // through wither the pair information or split information,
+  // assuming that the counts for the other pair and/or the other split
+  // are already contained in the globally presented count maps
   gt_shash* const local_type_counts = gt_shash_new();
   gt_shash* local_gene_counts = gt_shash_new();
-  gt_shash* local_gene_type_counts = gt_shash_new();
-
+  gt_shash* local_exon_gene_counts = gt_shash_new();
   GT_VECTOR_ITERATE(hits, e, i, gt_gtf_entry*){
     gt_gtf_entry* hit = *e;
+    // count type
     gt_gtf_count_(local_type_counts, gt_string_get_string(hit->type));
-    // count gene if we find an exonic hit
-    if(strcmp(hit->type->buffer, "exon") == 0){
-      gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
-      gt_gtf_count_(local_gene_type_counts, gt_string_get_string(hit->gene_type));
+    // count gene id
+    if(hit->gene_id != NULL) gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
+    // count gene_id from exons
+    if(hit->type != NULL && hit->gene_id != NULL && strcmp("exon", hit->type->buffer) == 0){
+      gt_gtf_count_(local_exon_gene_counts, gt_string_get_string(hit->gene_id));
     }
   }
-
-  uint64_t num_gene_hits = gt_shash_get_num_elements(local_gene_counts);
-  uint64_t hit_by_both_ends = 0;
-  // count types
+  uint64_t num_gene_hit_exons = gt_shash_get_num_elements(local_exon_gene_counts);
+  // count types and merge them with the global
+  // counts. NOTE that the order matters here, so
+  // we:
+  //   1. check for NA hits where nothing is found
+  //   2. count exon hits
+  //   3. count intron hits
+  //   4. count unknown if the hit was neither an intron nor exon hit
+  // all counting steps are exclusive, thats why the order matters!
   if(gt_vector_get_used(hits) == 0){
+    // count 'NA' type if we did not hit anything
     gt_gtf_count_(type_counts, "na");
   }else if(gt_gtf_get_count_(local_type_counts, "exon") > 0){
-    // try to resolve multi gene hits for paired end data
-    if(other_pair != NULL){
-      gt_shash* const other_gene_counts = gt_shash_new();
-      gt_shash* const other_gene_type_counts = gt_shash_new();
-      gt_gtf_gene_map(gtf, other_pair, other_gene_counts, other_gene_type_counts);
-
-      uint64_t hits = 0;
-      GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
-        if(gt_shash_is_contained(other_gene_counts, key)) hits++;
-      }GT_SHASH_END_ITERATE;
-      if(hits == 1){
-        // only a single gene hit that is matched by both pairs
-        // replace the count maps
-        num_gene_hits = 1;
-        hit_by_both_ends = 1;
-        gt_shash* const merged_gene_counts = gt_shash_new();
-        gt_shash* const merged_gene_type_counts = gt_shash_new();
-        GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
-          if(gt_shash_is_contained(other_gene_counts, key)){
-            gt_gtf_count_(merged_gene_counts, key);
-          }
-        }GT_SHASH_END_ITERATE;
-        GT_SHASH_BEGIN_KEY_ITERATE(local_gene_type_counts, key){
-          if(gt_shash_is_contained(other_gene_type_counts, key)){
-            gt_gtf_count_(merged_gene_type_counts, key);
-          }
-        }GT_SHASH_END_ITERATE;
-        gt_shash_delete(local_gene_counts, true);
-        gt_shash_delete(local_gene_type_counts, true);
-        local_gene_counts = merged_gene_counts;
-        local_gene_type_counts = merged_gene_type_counts;
-      }
-
-//      fprintf(stderr, "HIT: %d\n", hits);
-//      if(hits > 1){
-//        GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
-//          if(gt_shash_is_contained(other_gene_counts, key)){
-//            fprintf(stderr, "  SAME GENE HIT %s for ", key);
-//            gt_output_map_fprint_map(stderr, map, NULL); fprintf(stderr, "::");gt_output_map_fprint_map(stderr, other_pair, NULL);
-//            fprintf(stderr, "\n");
-//          }
-//        }GT_SHASH_END_ITERATE;
-//      }
-
-      gt_shash_delete(other_gene_counts, true);
-      gt_shash_delete(other_gene_type_counts, true);
-    }
-
-    // count exon in single gene block
-    if(num_gene_hits == 1){
-      gt_gtf_count_(type_counts, "exon");
-    }else{
-      gt_gtf_count_(type_counts, "exon_mg");
-    }
+    gt_gtf_count_(type_counts, "exon");
   }else if(gt_gtf_get_count_(local_type_counts, "intron") > 0){
-      gt_gtf_count_(type_counts, "intron");
+    gt_gtf_count_(type_counts, "intron");
   }else{
-      gt_gtf_count_(type_counts, "unknown");
+    gt_gtf_count_(type_counts, "unknown");
   }
-
   // add all gene counts
   GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
     gt_gtf_count_(gene_counts, key);
   }GT_SHASH_END_ITERATE;
-  GT_SHASH_BEGIN_KEY_ITERATE(local_gene_type_counts, key){
-    gt_gtf_count_(gene_type_counts, key);
-  }GT_SHASH_END_ITERATE;
+
 
   gt_shash_delete(local_gene_counts, true);
   gt_shash_delete(local_type_counts, true);
-  gt_shash_delete(local_gene_type_counts, true);
+  gt_shash_delete(local_exon_gene_counts, true);
   gt_vector_delete(hits);
-  return hit_by_both_ends;
+  return num_gene_hit_exons;
 }
 
 
@@ -926,78 +920,212 @@ GT_INLINE uint64_t gt_gtf_join_(gt_string* buf, char* base, bool multi_gene, uin
   return blocks;
 }
 
-GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts, gt_string* pattern, gt_map* const other_pair){
-  // print splitmap blocks
+GT_INLINE double gt_gtf_count_get_sum_(gt_shash* table){
+  double v = 0;
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(table, value, uint64_t){
+    v += *value;
+  }GT_SHASH_END_ITERATE;
+  return v;
+}
+/**
+ * Count a map. This respects split maps and unifies gene_id's based on the
+ * the split. If the both sides of the split match multiple gene_ids but there is
+ * a common gene_id on both side, only that id is counted. Otherwise a count is set
+ * for all gene_ids.
+ * In addition to the counts, if a pattern string is given, it is filled with the type
+ * pattern with respect to split maps. For example:
+ *
+ *   exon                        -> exon
+ *   exon and intron (split map) -> exon^intron
+ *   exon in multiple genes      -> exon_mg
+ *
+ * The function returns the number of gene_ids hit by the map.
+ *
+ * The first map has to be specified, but the second one is options. If it is set,
+ * the second map block is also checked and counted.
+ *
+ *
+ * @param gt_gtf* gtf              the gtf reference
+ * @param gt_map* map1             the first map
+ * @param gt_map* map2             the scond map
+ * @param gt_shash* type_counts    the type counts
+ * @param gt_shash* gene_counts    the gene counts
+ * @param gt_string pattern        the pattern string filled based on the types
+ * @return uint64_t num_gene_hits  the number of gene_ids hit by the map
+ */
+GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_map* const map2,
+                                    gt_shash* const pattern_counts, gt_shash* const gene_counts,
+                                    gt_string* pattern){
+  // clear patterns
   gt_string_clear(pattern);
-  uint64_t blocks = gt_map_get_num_blocks(map);
+  // get number of blocks and ensure we have at least one
+  uint64_t blocks = gt_map_get_num_blocks(map1);
+  if(map2 != NULL){
+    blocks += gt_map_get_num_blocks(map2);
+  }
+
   if(blocks == 0) return 0;
 
+  // local counts for all blocks
+  // and store the number of multi gene exon hits for each block
+  // in addition we create the base pattern per block here
   gt_shash* const local_type_counts = gt_shash_new();
-  gt_shash* const local_gene_counts = gt_shash_new();
-  gt_shash* const local_gene_type_counts = gt_shash_new();
-  GT_MAP_ITERATE(map, map_block){
-    gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts, local_gene_type_counts, other_pair);
-  }
-  // count type
-  // count types
-  uint64_t exons = gt_gtf_get_count_(local_type_counts, "exon") + gt_gtf_get_count_(local_type_counts, "exon_mg");
-  uint64_t introns = gt_gtf_get_count_(local_type_counts, "intron");
-  uint64_t unknown = gt_gtf_get_count_(local_type_counts, "unknown");
-  uint64_t not_annotated = gt_gtf_get_count_(local_type_counts, "na");
+  gt_shash* local_gene_counts = gt_shash_new();
+  gt_shash* local_gene_counts_1 = gt_shash_new();
+  gt_shash* local_gene_counts_2 = gt_shash_new();
+  uint64_t* const local_exon_gene_hits = malloc(blocks * sizeof(uint64_t));
+  gt_vector* const local_type_patterns = gt_vector_new(2, sizeof(char*));
+  uint64_t exons, introns, unknown, not_annotated;
+  exons = introns = unknown = not_annotated = 0;
+  uint64_t i = 0;
+  GT_MAP_ITERATE(map1, map_block){
+    local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_1);
+    uint64_t _exons = gt_gtf_get_count_(local_type_counts, "exon");
+    uint64_t _introns = gt_gtf_get_count_(local_type_counts, "intron");
+    uint64_t _unknown = gt_gtf_get_count_(local_type_counts, "unknown");
+    uint64_t _not_annotated = gt_gtf_get_count_(local_type_counts, "na");
 
+    // add the pattern string based in the count value that changed
+    if(_exons > exons) gt_vector_insert(local_type_patterns, "exon", char*);
+    if(_introns > introns) gt_vector_insert(local_type_patterns, "intron", char*);
+    if(_unknown > unknown) gt_vector_insert(local_type_patterns, "unknown", char*);
+    if(_not_annotated > not_annotated) gt_vector_insert(local_type_patterns, "na", char*);
+
+    exons += _exons;
+    introns += _introns;
+    unknown += _unknown;
+    not_annotated += _not_annotated;
+  }
+  // unify the gene counts based on the number of blocks.
+  // the gene_counts are reduced to either the ones that are found in
+  // all blocks or they are kept as they are
+  if(gt_shash_get_num_elements(local_gene_counts_1) > 1){
+    gt_shash* merged_counts = gt_shash_new();
+    uint64_t blocks1 = gt_map_get_num_blocks(map1);
+    GT_SHASH_BEGIN_ITERATE(local_gene_counts, gene_id, count, uint64_t){
+      if(*count == blocks1){
+        gt_gtf_count_sum_(merged_counts, gene_id, blocks);
+      }
+    }GT_SHASH_END_ITERATE;
+    // if we found some unique ids that are covered by both
+    // we flip over to the merged counts
+    if(gt_shash_get_num_elements(merged_counts) > 0){
+      gt_shash_delete(local_gene_counts_1, true);
+      local_gene_counts_1 = merged_counts;
+    }
+  }
+
+  if(map2 != NULL){
+    exons = introns = unknown = not_annotated = 0;
+    GT_MAP_ITERATE(map2, map_block){
+      local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_2);
+      uint64_t _exons = gt_gtf_get_count_(local_type_counts, "exon");
+      uint64_t _introns = gt_gtf_get_count_(local_type_counts, "intron");
+      uint64_t _unknown = gt_gtf_get_count_(local_type_counts, "unknown");
+      uint64_t _not_annotated = gt_gtf_get_count_(local_type_counts, "na");
+
+      // add the pattern string based in the count value that changed
+      if(_exons > exons) gt_vector_insert(local_type_patterns, "exon", char*);
+      if(_introns > introns) gt_vector_insert(local_type_patterns, "intron", char*);
+      if(_unknown > unknown) gt_vector_insert(local_type_patterns, "unknown", char*);
+      if(_not_annotated > not_annotated) gt_vector_insert(local_type_patterns, "na", char*);
+      exons += _exons;
+      introns += _introns;
+      unknown += _unknown;
+      not_annotated += _not_annotated;
+    }
+    // unify the gene counts based on the number of blocks.
+    // the gene_counts are reduced to either the ones that are found in
+    // all blocks or they are kept as they are
+    if(gt_shash_get_num_elements(local_gene_counts_2) > 1){
+      gt_shash* merged_counts = gt_shash_new();
+      uint64_t blocks2 = gt_map_get_num_blocks(map2);
+      GT_SHASH_BEGIN_ITERATE(local_gene_counts, gene_id, count, uint64_t){
+        if(*count == blocks2){
+          gt_gtf_count_sum_(merged_counts, gene_id, blocks);
+        }
+      }GT_SHASH_END_ITERATE;
+      // if we found some unique ids that are covered by both
+      // we flip over to the merged counts
+      if(gt_shash_get_num_elements(merged_counts) > 0){
+        gt_shash_delete(local_gene_counts_2, true);
+        local_gene_counts_2 = merged_counts;
+      }
+    }
+
+  }
+
+  // merge the gene counts weighted to a single map
+  double gene_counts_1 = gt_gtf_count_get_sum_(local_gene_counts_1);
+  GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
+    gt_gtf_count_weight_(local_gene_counts, gene_id, ((double)*count)/gene_counts_1);
+  }GT_SHASH_END_ITERATE;
+  gt_shash_delete(local_gene_counts_1, true);
+  if(map2 != NULL){
+    double gene_counts_2 = gt_gtf_count_get_sum_(local_gene_counts_2);
+    GT_SHASH_BEGIN_ITERATE(local_gene_counts_2, gene_id, count, uint64_t){
+      gt_gtf_count_weight_(local_gene_counts, gene_id, ((double)*count)/gene_counts_2);
+    }GT_SHASH_END_ITERATE;
+    gt_shash_delete(local_gene_counts_2, true);
+  }
+
+
+  // get the number of hits of this map
   uint64_t num_gene_hits = gt_shash_get_num_elements(local_gene_counts);
+  uint64_t map1_blocks = gt_map_get_num_blocks(map1);
+  if(pattern_counts != NULL){
+    // now iterate the blocks and construct final pattern
+    for(i=0; i<blocks; i++){
+      char* p = *(gt_vector_get_elm(local_type_patterns, i, char*));
+      // for exons check that in case we have a single gene hit, its exons, in case of a multi-gene hit, append _mg if
+      // the multi gene hit comes from the current block
+      gt_gtf_join_(pattern, p, (strcmp("exon",p) == 0) ? ((num_gene_hits == 1) ? false : (local_exon_gene_hits[i] > 1)) : false, 1);
+      // add paired end spacer
+      if(map2 != NULL && i == (map1_blocks-1)){
+        gt_string_append_char(pattern, '|');
+      }
+    }
+    // count global type based on the constructed pattern
+    gt_gtf_count_(pattern_counts, gt_string_get_string(pattern));
+  }
 
-  // construct type
-  uint64_t total = exons + introns + unknown + not_annotated;
-  if(exons > 0){
-    total -= gt_gtf_join_(pattern, "exon", num_gene_hits > 1, exons);
-    if(total > 0) gt_string_append_char(pattern, '^');
-  }
-  if(introns > 0){
-    total -= gt_gtf_join_(pattern, "intron", false, introns);
-    if(total > 0) gt_string_append_char(pattern, '^');
-  }
-  if(unknown > 0){
-    total -= gt_gtf_join_(pattern, "unknown", false, unknown);
-    if(total > 0) gt_string_append_char(pattern, '^');
-  }
-  if(not_annotated > 0){
-    total -= gt_gtf_join_(pattern, "na", false, not_annotated);
-    if(total > 0) gt_string_append_char(pattern, '^');
-  }
-  gt_gtf_count_(type_counts, gt_string_get_string(pattern));
-
-  // count genes
-  // only count if the split is within a single gene
-  if(num_gene_hits == 1){
-    //fprintf(stderr, "%"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64"\n", exons, introns, unknown, not_annotated);
-    // add gene count
-    GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
-      gt_gtf_count_(gene_counts, key);
-      break;
-    }GT_SHASH_END_ITERATE;
-    GT_SHASH_BEGIN_KEY_ITERATE(local_gene_type_counts, key){
-      gt_gtf_count_(gene_type_counts, key);
-      break;
+  if(gene_counts != NULL){
+    // count the gene ids
+    GT_SHASH_BEGIN_ITERATE(local_gene_counts, key, e, double){
+      gt_gtf_count_weight_(gene_counts, key, *e);
     }GT_SHASH_END_ITERATE;
   }
 
+  // cleanup
+  gt_vector_delete(local_type_patterns);
   gt_shash_delete(local_gene_counts, true);
   gt_shash_delete(local_type_counts, true);
-  gt_shash_delete(local_gene_type_counts, true);
+  free(local_exon_gene_hits);
   return num_gene_hits;
 }
 
-
-
-GT_INLINE void gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const type_count, gt_shash* const gene_counts, gt_shash* const gene_type_counts){
-  if(gt_alignment_get_num_maps(alignment) != 1) return; // count only unique
+GT_INLINE uint64_t gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const pattern_count, gt_shash* const gene_counts){
+  uint64_t hits = 0;
+  gt_string* pattern = gt_string_new(16);
   GT_ALIGNMENT_ITERATE(alignment,map) {
-    gt_string* pattern = gt_string_new(16);
-    gt_gtf_count_map(gtf, map,type_count, gene_counts, gene_type_counts, pattern, NULL);
-    gt_string_delete(pattern);
+    hits += gt_gtf_count_map(gtf, map, NULL, pattern_count, gene_counts, pattern);
+    gt_string_clear(pattern);
   }
+  gt_string_delete(pattern);
+  return hits;
 }
+
+GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const pattern_count, gt_shash* const gene_counts){
+  uint64_t hits = 0;
+  gt_string* pattern = gt_string_new(16);
+  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
+    hits += gt_gtf_count_map(gtf, mmap[0], mmap[1], pattern_count, gene_counts, pattern);
+    gt_string_clear(pattern);
+  }
+  gt_string_delete(pattern);
+  return hits;
+}
+
 
 GT_INLINE void gt_gtf_search_map(const gt_gtf* const gtf, gt_vector* const hits, gt_map* const map, const bool clean_target){
   GT_MAP_ITERATE(map, block){
@@ -1019,38 +1147,4 @@ GT_INLINE void gt_gtf_search_template(const gt_gtf* const gtf, gt_vector* const 
   }GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_gtf_search_alignment(gtf,hits, gt_template_get_block(template, 0));
   gt_gtf_search_alignment(gtf,hits, gt_template_get_block(template, 1));
-}
-
-
-GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const type_counts, gt_shash* const gene_counts, gt_shash* const gene_type_counts, gt_shash* const pair_patterns_counts){
-  // process single alignments
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
-      gt_gtf_count_alignment(gtf, alignment, type_counts, gene_counts, gene_type_counts);
-  } return 0;}
-
-  if(gt_template_get_num_mmaps(template) != 1) return 0;
-  // process templates
-  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
-
-    gt_string* pattern1 = gt_string_new(16);
-    gt_string* pattern2 = gt_string_new(16);
-    gt_gtf_count_map(gtf, mmap[0],type_counts, gene_counts, gene_type_counts, pattern1, mmap[1]);
-    uint64_t hit_by_both = gt_gtf_count_map(gtf, mmap[1],type_counts, gene_counts, gene_type_counts, pattern2, mmap[0]);
-
-    // append pair pattern
-    if(gt_string_cmp(pattern1, pattern2) < 0){
-      gt_string_append_char(pattern2, '|');
-      gt_string_append_eos(pattern2);
-      gt_string_left_append_gt_string(pattern1, pattern2);
-    }else{
-      gt_string_append_char(pattern1, '|');
-      gt_string_append_eos(pattern1);
-      gt_string_right_append_gt_string(pattern1, pattern2);
-    }
-    gt_gtf_count_(pair_patterns_counts, pattern1->buffer);
-    gt_string_delete(pattern1);
-    gt_string_delete(pattern2);
-    return hit_by_both;
-  }
-  return 0;
 }

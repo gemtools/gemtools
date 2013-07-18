@@ -253,23 +253,25 @@ gt_option gt_gtfcount_options[] = {
   { 'g', "counts", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "Output file for the gene counts" },
   { 'a', "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GTF annotation" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  /*Counts*/
+  { 'w', "weighted", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Count multi-gene hits (and multi-maps if non unique counts are on) weighted"},
+  { 'm', "multi-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Count multi-maps"},
   /* Misc */
-  { 500, "shell", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Interactive shell to query the annotation"},
-  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
-  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
-  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
-  { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
-  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
+  { 500, "shell", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", "Interactive shell to query the annotation"},
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", ""},
+  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 4, true, "", ""},
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", ""},
+  { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , false, "" , "" },
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
 };
-char* gt_gtfcount_options_short = "i:o:a:p:t:hHv";
+char* gt_gtfcount_options_short = "i:o:a:p:t:mwhHv";
 char* gt_gtfcount_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",
   /*  2 */ "I/O",
-  /*  3 */ "Optional Fields",
-  /*  4 */ "Format",
-  /*  5 */ "Misc",
+  /*  3 */ "Counts",
+  /*  4 */ "Misc",
 };
 
 /*

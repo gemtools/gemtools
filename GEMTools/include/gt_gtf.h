@@ -72,6 +72,7 @@ typedef struct {
 	gt_shash* gene_ids; // maps from char* to gt_string* for gene_ids char* -> gt_string*
 	gt_shash* transcript_ids; // maps from char* to gt_string* for gene_ids char* -> gt_string*
 	gt_shash* gene_types; // maps from char* to gt_string* for gene_types char* -> gt_string*
+	gt_shash* genes; // maps from char* to gt_gtf_entry for genes
 }gt_gtf;
 
 /**
@@ -170,6 +171,15 @@ GT_INLINE gt_string* gt_gtf_get_gene_type(const gt_gtf* const gtf, char* const n
 GT_INLINE bool gt_gtf_contains_gene_type(const gt_gtf* const gtf, char* const name);
 
 /**
+ * Get gt_gtf_entry for gene by its gene_id
+ */
+GT_INLINE gt_gtf_entry* gt_gtf_get_gene_by_id(gt_gtf* const gtf, char* const key);
+
+GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element);
+GT_INLINE void gt_gtf_count_weight_(gt_shash* const table, char* const element, double weight);
+
+
+/**
  * Search
  */
 /**
@@ -183,8 +193,9 @@ GT_INLINE uint64_t gt_gtf_search(const gt_gtf* const gtf, gt_vector* const targe
 GT_INLINE void gt_gtf_search_template_hits(const gt_gtf* const gtf, gt_gtf_hits* const hits, gt_template* const template_src);
 GT_INLINE void gt_gtf_search_alignment_hits(const gt_gtf* const gtf, gt_gtf_hits* const hits, gt_alignment* const template_src);
 
-GT_INLINE void gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const type_count, gt_shash* const gene_counts, gt_shash* const gene_type_counts);
-GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const type_count, gt_shash* const gene_counts, gt_shash* const gene_type_counts,gt_shash* const pair_patterns_counts);
+GT_INLINE uint64_t gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const type_count, gt_shash* const gene_counts);
+GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const type_counts, gt_shash* const gene_counts);
+
 
 
 /**
