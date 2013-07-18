@@ -14,7 +14,13 @@ GEM_TOOLS=gt.construct gt.stats gt.filter gt.mapset gt.map2sam align_stats sel_r
 
 GEM_TOOLS_SRC=$(addsuffix .c, $(GEM_TOOLS))
 GEM_TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(GEM_TOOLS))
-LIBS=-lgemtools -lpthread -fopenmp -lz -lbz2 -lm
+LIBS:=-lgemtools -lpthread -fopenmp -lm
+ifeq ($(HAVE_ZLIB),1)
+LIBS:=$(LIBS) -lz
+endif
+ifeq ($(HAVE_BZLIB),1)
+LIBS:=$(LIBS) -lbz2
+endif
 
 all: GEM_TOOLS_FLAGS=-O4 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
 all: $(GEM_TOOLS_BIN)

@@ -13,8 +13,12 @@
 #include "gt_attributes.h"
 #include "gt_sam_attributes.h"
 
+#ifdef HAVE_ZLIB
 #include <zlib.h>
+#endif
+#ifdef HAVE_BZLIB
 #include <bzlib.h>
+#endif
 
 // Codes gt_status
 #define GT_INPUT_FILE_OK 0

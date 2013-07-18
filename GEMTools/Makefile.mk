@@ -24,8 +24,17 @@ FOLDER_TEST=$(ROOT_PATH)/test
 FOLDER_TOOLS=$(ROOT_PATH)/tools
 
 # Flags
-GENERAL_FLAGS=-fPIC -Wall
 ARCH_FLAGS=-D__LINUX__
+HAVE_ZLIB=1
+HAVE_BZLIB=1
+
+GENERAL_FLAGS=-fPIC -Wall
+ifeq ($(HAVE_ZLIB),1)
+GENERAL_FLAGS:=$(GENERAL_FLAGS) -DHAVE_ZLIB
+endif
+ifeq ($(HAVE_BZLIB),1)
+GENERAL_FLAGS:=$(GENERAL_FLAGS) -DHAVE_BZLIB
+endif
 
 OPTIMIZTION_FLAGS=-O4 # -fomit-frame-pointer -ftree-vectorize
 ARCH_FLAGS_OPTIMIZTION_FLAGS= # -msse3 -mssse3 -msse4.2
@@ -40,3 +49,4 @@ PLATFORM=$(shell uname)
 ifeq ($(PLATFORM),Darwin)
 FOLDER_RESOURCES_LIB=$(ROOT_PATH)/resources/lib/mac
 endif
+
