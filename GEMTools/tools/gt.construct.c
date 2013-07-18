@@ -7,7 +7,9 @@
  */
 
 #include <getopt.h>
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 
 #include "gem_tools.h"
 
@@ -135,7 +137,9 @@ void gt_remove_maps_with_n_or_more_mismatches() {
   gt_output_file* output_file = gt_output_stream_new(stdout, SORTED_FILE);
   gt_output_map_attributes* output_attributes = gt_output_map_attributes_new();
   // Parallel reading+process
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(4)
+#endif
   {
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
     gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);
@@ -247,7 +251,9 @@ void gt_filter_fastq() {
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
 
   // Parallel reading+process
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
     gt_buffered_output_file* buffered_output = gt_buffered_output_file_new(output_file);

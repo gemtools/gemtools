@@ -1,5 +1,7 @@
 #include <getopt.h>
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 #include <pthread.h>
 #include "gem_tools.h"
 #include "align_stats.h"
@@ -1367,9 +1369,14 @@ int main(int argc,char *argv[])
 		if(input_file1->file_format!=MAP || input_file2->file_format!=MAP) {
 			gt_fatal_error_msg("Fatal error: paired files '%s','%s' are not in MAP format\n",param.input_files[0],param.input_files[1]);
 		}
+#ifdef HAVE_OPENMP
 #pragma omp parallel num_threads(param.num_threads)
 		{
 			uint64_t tid=omp_get_thread_num();
+#else
+		{
+			uint64_t tid=0;
+#endif
 			gt_buffered_input_file* buffered_input1=gt_buffered_input_file_new(input_file1);
 			gt_buffered_input_file* buffered_input2=gt_buffered_input_file_new(input_file2);
 			gt_status error_code;
@@ -1433,9 +1440,14 @@ int main(int argc,char *argv[])
 		gt_input_file_close(input_file2);
 	} else { // Single file (could be single or paired end)
 		gt_input_file* input_file=param.input_files[0]?gt_input_file_open(param.input_files[0],param.mmap_input):gt_input_stream_open(stdin);
+#ifdef HAVE_OPENMP
 #pragma omp parallel num_threads(param.num_threads)
 		{
 			uint64_t tid=omp_get_thread_num();
+#else
+		{
+			uint64_t tid=0;
+#endif
 			gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
 			gt_status error_code;
 			gt_template *template=gt_template_new();
