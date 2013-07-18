@@ -74,7 +74,7 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
       if(tbuf[0]==0x1f && tbuf[1]==0x8b && tbuf[2]==0x08) {
         input_file->file_type=GZIPPED_FILE;
         fclose(input_file->file);
-        gt_cond_fatal_error(!(input_file->file=gzopen(file_name,"r")),FILE_GZIP_OPEN,file_name);
+        gt_cond_fatal_error(!(input_file->file=(void *)gzopen(file_name,"r")),FILE_GZIP_OPEN,file_name);
       } else if(tbuf[0]=='B' && tbuf[1]=='Z' && tbuf[2]=='h' && tbuf[3]>='0' && tbuf[3]<='9') {
         fseek(input_file->file,0L,SEEK_SET);
         input_file->file_type=BZIPPED_FILE;
@@ -115,7 +115,7 @@ gt_status gt_input_file_close(gt_input_file* const input_file) {
       break;
     case GZIPPED_FILE:
       gt_free(input_file->file_buffer);
-      if (gzclose(input_file->file)) status = GT_INPUT_FILE_CLOSE_ERR;
+      if (gzclose((gzFile)input_file->file)) status = GT_INPUT_FILE_CLOSE_ERR;
       break;
     case BZIPPED_FILE:
       gt_free(input_file->file_buffer);
@@ -185,8 +185,8 @@ GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
   } else if (input_file->file_type==MAPPED_FILE && input_file->global_pos < input_file->file_size) {
     input_file->buffer_size = input_file->file_size-input_file->global_pos;
     return input_file->buffer_size;
-  } else if (input_file->file_type==GZIPPED_FILE && !gzeof(input_file->file)) {
-    input_file->buffer_size = gzread(input_file->file,input_file->file_buffer,GT_INPUT_BUFFER_SIZE);
+  } else if (input_file->file_type==GZIPPED_FILE && !gzeof((gzFile)input_file->file)) {
+    input_file->buffer_size = gzread((gzFile)input_file->file,input_file->file_buffer,GT_INPUT_BUFFER_SIZE);
     if (input_file->buffer_size==0) {
       input_file->eof = true;
     }
