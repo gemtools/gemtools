@@ -23,10 +23,16 @@ static void usage(FILE *f)
 	fputs("  -d|--insert_dist <output insert size distribution file>\n",f);
 	fputs("  -M|--min_insert <minimum insert size> (for pairing of single end files: default=0)\n",f);
 	fprintf(f,"  -m|--max_insert <maximum insert size> (for pairing of single end files: default=%d)\n",DEFAULT_MAX_INSERT);
+#ifdef HAVE_OPENMP
 	fputs("  -t|--threads <number of threads>\n",f);
+#endif
+#ifdef HAVE_ZLIB
 	fputs("  -z|--gzip (compress output files with gzip\n",f);
-	fputs("  -j|--bzip2 (compress output files with bzip2\n",f);
 	fputs("  -Z|--no=compress (default)\n",f);
+#endif
+#ifdef HAVE_BZLIB
+	fputs("  -j|--bzip2 (compress output files with bzip2\n",f);
+#endif
 	fputs("  -l|--read_length <untrimmed read length>\n",f);
 	fputs("  -V|--variable  Variable length reads\n",f);
 	fputs("  -p|--paired    Paired mapping input file\n",f);
@@ -1287,10 +1293,14 @@ int main(int argc,char *argv[])
 			else param.read_length[1]=param.read_length[0];
 			break;
 		case 'z':
+#ifdef HAVE_ZLIB
 			param.compress=GZIP;
+#endif
 			break;
 		case 'j':
+#ifdef HAVE_BZLIB
 			param.compress=BZIP2;
+#endif
 			break;
 		case 'Z':
 			param.compress=NONE;
@@ -1324,7 +1334,9 @@ int main(int argc,char *argv[])
 			param.ignore_id=true;
 			break;
 		case 't':
+#ifdef HAVE_OPENMP
 			param.num_threads=atoi(optarg);
+#endif
 			break;
 		case 'r':
 			if(param.input_files[0]) {

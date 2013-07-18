@@ -323,7 +323,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     /* Misc */
     case 't':
+#ifdef HAVE_OPENMP
       parameters.num_threads = atol(optarg);
+#endif
       break;
     case 'v':
       parameters.verbose = true;

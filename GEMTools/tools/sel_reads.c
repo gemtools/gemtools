@@ -20,12 +20,18 @@ static void usage(FILE *f)
 	fputs("usage:\n align_stats\n",f);
 	fputs("  -i|--insert_dist <insert size distribution file>   (mandatory)\n",f);
 	fputs("  -o|--output <output file>                          (default=stdout)\n",f);
+#ifdef HAVE_ZLIB
 	fputs("  -z|--gzip output with gzip\n",f);
-	fputs("  -j|--bzip2 output with bzip2\n",f);
 	fputs("  -Z|--no-compress                                  (default)\n",f);
-	fprintf(f,"  -x|--insert_dist_cutoff <cutoff>                   (default=%g)\n",DEFAULT_INS_CUTOFF);
+#endif
+#ifdef HAVE_BZLIB
+	fputs("  -j|--bzip2 output with bzip2\n",f);
+#endif
+		fprintf(f,"  -x|--insert_dist_cutoff <cutoff>                   (default=%g)\n",DEFAULT_INS_CUTOFF);
 	fputs("  -r|--reads <reads file or file pair>\n",f);
+#ifdef HAVE_OPENMP
 	fputs("  -t|--threads <number of threads>\n",f);
+#endif
 	fputs("  -m|--mmap      Mmap input files\n",f);
 	fputs("  -p|--paired    Paired mapping input file\n",f);
 	fprintf(f,"  -F|--fastq     select fastq quality coding         %s\n",DEFAULT_QUAL==QUAL_FASTQ?"(default)":"");
@@ -301,10 +307,14 @@ int main(int argc,char *argv[])
       }
       break;
 		case 'z':
+#ifdef HAVE_ZLIB
 			param.compress=GZIP;
+#endif
 			break;
 		case 'j':
+#ifdef HAVE_BZLIB
 			param.compress=BZIP2;
+#endif
 			break;
 		case 'Z':
 			param.compress=NONE;
@@ -325,7 +335,9 @@ int main(int argc,char *argv[])
 			param.mmap_input=true;
 			break;
 		case 't':
+#ifdef HAVE_OPENMP
 			param.num_threads=atoi(optarg);
+#endif
 			break;
 		case 'r':
 			if(param.input_files[0]) {

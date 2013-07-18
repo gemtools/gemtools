@@ -1862,7 +1862,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     /* Misc */
     case 't': // threads
+#ifdef HAVE_OPENMP
       parameters.num_threads = atol(optarg);
+#endif
       gt_cond_fatal_error_msg(parameters.num_threads > GT_MAX_OUTPUT_BUFFERS,
           "Excessive number of threads (maximum %"PRId32")",GT_MAX_OUTPUT_BUFFERS);
       break;

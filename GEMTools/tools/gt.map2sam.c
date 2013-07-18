@@ -227,7 +227,9 @@ void parse_arguments(int argc,char** argv) {
       parameters.verbose = true;
       break;
     case 't':
+#ifdef HAVE_OPENMP
       parameters.num_threads = atol(optarg);
+#endif
       break;
     case 'h':
       usage(gt_map2sam_options,gt_map2sam_groups,false);

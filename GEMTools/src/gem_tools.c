@@ -90,7 +90,9 @@ gt_option gt_filter_options[] = {
   { 1002, "sequence-list", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 10 , true, "" , "" },
   { 1003, "display-pretty", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 10 , true, "" , "" },
   /* Misc */
+#ifdef HAVE_OPENMP
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 11 , true, "" , "" },
+#endif
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , false, "" , "" },
@@ -139,7 +141,9 @@ gt_option gt_stats_options[] = {
   { 400, "use-only-decoded-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "(instead of counters)", ""},
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+#ifdef HAVE_OPENMP
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
+#endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
@@ -183,7 +187,9 @@ gt_option gt_mapset_options[] = {
   { 401, "strict", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "(Strict comparison of mappings)" , "" },
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+#ifdef HAVE_OPENMP
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
+#endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
@@ -224,7 +230,9 @@ gt_option gt_map2sam_options[] = {
   { 'c', "compact", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , false, "" , "" },
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
+#ifdef HAVE_OPENMP
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 7, true, "", ""},
+#endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },

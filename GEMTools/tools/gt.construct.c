@@ -508,7 +508,9 @@ void parse_arguments(int argc,char** argv) {
      parameters.param7 = atol(optarg);
      break;
     case 'T':
+#ifdef HAVE_OPENMP
       parameters.num_threads = atol(optarg);
+#endif
       break;
     case 'h':
       usage();
