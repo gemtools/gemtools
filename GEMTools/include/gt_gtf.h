@@ -15,6 +15,11 @@
 #include <omp.h>
 
 
+#define GT_GTF_TYPE_EXON "exon"
+#define GT_GTF_TYPE_INTRON "intron"
+#define GT_GTF_TYPE_UNKNOWN "unknown"
+#define GT_GTF_TYPE_NA "na"
+
 #define GTF_DEFAULT_ENTRIES 1000
 #define GTF_MAX_LINE_LENGTH 2048
 
