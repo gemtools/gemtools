@@ -182,6 +182,7 @@ GT_INLINE gt_gtf_entry* gt_gtf_get_gene_by_id(gt_gtf* const gtf, char* const key
 
 GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element);
 GT_INLINE void gt_gtf_count_weight_(gt_shash* const table, char* const element, double weight);
+GT_INLINE void gt_gtf_count_sum_(gt_shash* const table, char* const element, uint64_t value);
 
 
 /**
