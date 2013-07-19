@@ -890,10 +890,18 @@ GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map,
   }else{
     gt_gtf_count_(type_counts, GT_GTF_TYPE_UNKNOWN);
   }
-  // add all gene counts
-  GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
-    gt_gtf_count_(gene_counts, key);
-  }GT_SHASH_END_ITERATE;
+
+  // make gene counts based on exon hits if we found at least one
+  if(num_gene_hit_exons > 0){
+    GT_SHASH_BEGIN_KEY_ITERATE(local_exon_gene_counts, key){
+      gt_gtf_count_(gene_counts, key);
+    }GT_SHASH_END_ITERATE;
+  }else{
+    // add all gene counts
+    GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
+      gt_gtf_count_(gene_counts, key);
+    }GT_SHASH_END_ITERATE;
+  }
 
 
   gt_shash_delete(local_gene_counts, true);
@@ -1000,9 +1008,9 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   if(gt_shash_get_num_elements(local_gene_counts_1) > 1){
     gt_shash* merged_counts = gt_shash_new();
     uint64_t blocks1 = gt_map_get_num_blocks(map1);
-    GT_SHASH_BEGIN_ITERATE(local_gene_counts, gene_id, count, uint64_t){
+    GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
       if(*count == blocks1){
-        gt_gtf_count_sum_(merged_counts, gene_id, blocks);
+        gt_gtf_count_sum_(merged_counts, gene_id, blocks1);
       }
     }GT_SHASH_END_ITERATE;
     // if we found some unique ids that are covered by both
@@ -1010,6 +1018,8 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     if(gt_shash_get_num_elements(merged_counts) > 0){
       gt_shash_delete(local_gene_counts_1, true);
       local_gene_counts_1 = merged_counts;
+      // we fliped so we reset the exon gene hit counts to ones as well
+      for(i=0;i<blocks1;i++){local_exon_gene_hits[i] = 1;}
     }
   }
 
@@ -1036,9 +1046,9 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     if(gt_shash_get_num_elements(local_gene_counts_2) > 1){
       gt_shash* merged_counts = gt_shash_new();
       uint64_t blocks2 = gt_map_get_num_blocks(map2);
-      GT_SHASH_BEGIN_ITERATE(local_gene_counts, gene_id, count, uint64_t){
+      GT_SHASH_BEGIN_ITERATE(local_gene_counts_2, gene_id, count, uint64_t){
         if(*count == blocks2){
-          gt_gtf_count_sum_(merged_counts, gene_id, blocks);
+          gt_gtf_count_sum_(merged_counts, gene_id, blocks2);
         }
       }GT_SHASH_END_ITERATE;
       // if we found some unique ids that are covered by both
@@ -1046,22 +1056,70 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
       if(gt_shash_get_num_elements(merged_counts) > 0){
         gt_shash_delete(local_gene_counts_2, true);
         local_gene_counts_2 = merged_counts;
+        uint64_t blocks1 = gt_map_get_num_blocks(map1);
+        // we flipped so we reset the exon gene hit counts to ones as well
+        for(i=blocks1;i<(blocks1+blocks2);i++){local_exon_gene_hits[i] = 1;}
       }
     }
   }
 
-  // merge the gene counts weighted to a single map
-  double gene_counts_1 = gt_gtf_count_get_sum_(local_gene_counts_1);
-  GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
-    gt_gtf_count_weight_(local_gene_counts, gene_id, ((double)*count)/gene_counts_1);
-  }GT_SHASH_END_ITERATE;
-  gt_shash_delete(local_gene_counts_1, true);
+  /**
+   * Merge everything into a single map and reduce the map if we can resove through pairs
+   */
+  gt_shash* merged_counts = gt_shash_new();
+  uint64_t blocks2 = 0;
   if(map2 != NULL){
-    double gene_counts_2 = gt_gtf_count_get_sum_(local_gene_counts_2);
+    blocks2 = gt_map_get_num_blocks(map2);
+  }
+  uint64_t blocks1 = gt_map_get_num_blocks(map1);
+  GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
+      gt_gtf_count_sum_(merged_counts, gene_id, *count);
+  }GT_SHASH_END_ITERATE;
+  if(map2 != NULL){
     GT_SHASH_BEGIN_ITERATE(local_gene_counts_2, gene_id, count, uint64_t){
-      gt_gtf_count_weight_(local_gene_counts, gene_id, ((double)*count)/gene_counts_2);
+      gt_gtf_count_sum_(merged_counts, gene_id, *count);
     }GT_SHASH_END_ITERATE;
+  }
+  uint64_t unique_genes_between_pairs = 0;
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(merged_counts, count, uint64_t){
+    if(*count == blocks){
+      unique_genes_between_pairs++;
+    }
+  }GT_SHASH_END_ITERATE;
+
+  // we found unique genes through the pair, so we can use
+  // the merged map to do the final counts
+  if(unique_genes_between_pairs == 1){
+    // we flipped so we reset the exon gene hit counts to ones as well
+    for(i=0;i<(blocks1+blocks2);i++){local_exon_gene_hits[i] = 1;}
+
+    // merge the gene counts weighted to a single map
+    double gene_counts = (double)unique_genes_between_pairs;
+    GT_SHASH_BEGIN_ITERATE(merged_counts, gene_id, count, uint64_t){
+      if(*count == blocks){
+        gt_gtf_count_weight_(local_gene_counts, gene_id, ((double)*count)/gene_counts);
+      }
+    }GT_SHASH_END_ITERATE;
+
+    // cleanup
+    gt_shash_delete(local_gene_counts_1, true);
     gt_shash_delete(local_gene_counts_2, true);
+    gt_shash_delete(merged_counts, true);
+  }else{
+    // merge into the global counts using the two pair maps separately
+    // merge the gene counts weighted to a single map
+    double gene_counts_1 = gt_gtf_count_get_sum_(local_gene_counts_1);
+    GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
+      gt_gtf_count_weight_(local_gene_counts, gene_id, ((double)*count)/gene_counts_1);
+    }GT_SHASH_END_ITERATE;
+    gt_shash_delete(local_gene_counts_1, true);
+    if(map2 != NULL){
+      double gene_counts_2 = gt_gtf_count_get_sum_(local_gene_counts_2);
+      GT_SHASH_BEGIN_ITERATE(local_gene_counts_2, gene_id, count, uint64_t){
+        gt_gtf_count_weight_(local_gene_counts, gene_id, ((double)*count)/gene_counts_2);
+      }GT_SHASH_END_ITERATE;
+      gt_shash_delete(local_gene_counts_2, true);
+    }
   }
 
   // get the number of hits of this map
@@ -1085,6 +1143,9 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     }
     // count global type based on the constructed pattern
     gt_gtf_count_(pattern_counts, gt_string_get_string(pattern));
+//    if(strcmp(pattern->buffer, "exon|exon_mg") == 0){
+//      gt_output_map_fprint_map(stdout, map1, NULL); printf("::");gt_output_map_fprint_map(stdout, map2, NULL);printf("\n");
+//    }
   }
 
   if(gene_counts != NULL){

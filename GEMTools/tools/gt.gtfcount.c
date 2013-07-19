@@ -20,6 +20,7 @@ typedef struct {
   bool paired;
   bool weighted_counts;
   bool unique_only;
+  bool single_hit_only;
   bool verbose;
   uint64_t num_threads;
 } gt_gtfcount_args;
@@ -40,6 +41,7 @@ gt_gtfcount_args parameters = {
     .paired=false,
     .unique_only=true,
     .weighted_counts=false,
+    .single_hit_only=true,
     .shell=false,
     .verbose=false,
     .num_threads=1
@@ -79,10 +81,6 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
                                            gt_shash* private_gene_counts){
   // increase read counts for unique hits
   uint64_t num_maps = gt_alignment_get_num_maps(alignment);
-  if(gt_alignment_is_mapped(alignment) && num_maps == 1){
-    *single_ends += 1;
-    *read_counts += 1;
-  }
   // count the alignment
   // in case we use weighted counts, the weight is set to 1 for single end reads and to 0.5 for paired end reads
   // in case no weighting should be applied, the count is set to < 0
@@ -92,7 +90,9 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
   gt_shash_clear(private_gene_counts, true);
   uint64_t hits = gt_gtf_count_alignment(gtf, alignment, num_maps == 1 ? pattern_counts : NULL, private_gene_counts);
   // now we have the full counts for this alignment and we have to add weighted counts to the l_gene_counts
-  if(!parameters.unique_only || num_maps == 1){
+  if(hits > 0 && ((!parameters.unique_only || num_maps == 1) && (!parameters.single_hit_only || hits == 1))){
+    *single_ends += 1;
+    *read_counts += 1;
     GT_SHASH_BEGIN_ITERATE(private_gene_counts, key, e, double){
       if(weight < 0.0){
         // unweighted counts
@@ -119,7 +119,8 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
  * This call does the stats count and the gene counts and returns the total number of reads that were taken into account
  * for the stats counts (NOT for the read counts, that depdends on the weighting scheme)
  */
-uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts,
+uint64_t gt_gtfcount_read(gt_gtf* const gtf,
+                          gt_shash* const gene_counts,
                           gt_shash* const type_counts,
                           gt_shash* const single_patterns_counts,
                           gt_shash* const pair_patterns_counts,
@@ -178,6 +179,8 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts,
       if (error_code != GT_IMP_OK) {
         gt_fatal_error_msg("Fatal error parsing file \n");
       }
+      // clear the private counter hash
+      gt_shash_clear(private_gene_counts, true);
 
       if (gt_template_get_num_blocks(template)==1){
         // single end alignments
@@ -196,19 +199,19 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts,
           // paired-end alignments
           // increase read counts for unique hits
           uint64_t num_maps = gt_template_get_num_mmaps(template);
-          if(num_maps == 1){
-            read_counts[tid] += 2;
-          }
-
           // count the alignment
           // in case we use weighted counts, the weight is set to 1 for single end reads and to 0.5 for paired end reads
           // in case no weighting should be applied, the count is set to < 0
           double weight = parameters.weighted_counts ? 1.0 : -1.0;
-          // clear the private counter hash
-          gt_shash_clear(private_gene_counts, true);
           uint64_t hits = gt_gtf_count_template(gtf, template, num_maps == 1 ? l_pair_patterns : NULL, private_gene_counts);
           // now we have the full counts for this alignment and we have to add weighted counts to the l_gene_counts
-          if(!parameters.unique_only || num_maps == 1){
+          if(hits > 0 && ((!parameters.unique_only || num_maps == 1) && (!parameters.single_hit_only || hits == 1))){
+            read_counts[tid] += 1;
+            if(hits == 1){
+              singel_gene_pairs[tid]++;
+            }else if(hits > 1){
+              multi_gene_pairs[tid]++;
+            }
             GT_SHASH_BEGIN_ITERATE(private_gene_counts, key, e, double){
               if(weight < 0.0){
                 // unweighted counts
@@ -219,16 +222,8 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts,
                 gt_gtf_count_weight_(l_gene_counts, key, v);
               }
             }GT_SHASH_END_ITERATE;
-          }
-          // increase gene counts
-          if(num_maps == 1){
-            if(hits == 1){
-              singel_gene_pairs[tid]++;
-            }else if(hits > 1){
-              multi_gene_pairs[tid]++;
-            }else{
-              no_gene_pairs[tid]++;
-            }
+          }else{
+            no_gene_pairs[tid]++;
           }
           if(num_maps == 1 && hits == 1){
             // add type counts for unique reads with single gene hits
@@ -239,7 +234,6 @@ uint64_t gt_gtfcount_read(gt_gtf* const gtf, gt_shash* const gene_counts,
               }
             }GT_SHASH_END_ITERATE;
           }
-
         }
       }
     }
@@ -308,6 +302,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 'm':
       parameters.unique_only = false;
+      break;
+    case 's':
+      parameters.single_hit_only = false;
       break;
     /* Misc */
     case 500:
@@ -516,6 +513,7 @@ int main(int argc,char** argv) {
       type_counts_multi_total += *e;
     }
   }GT_SHASH_END_ITERATE
+  fprintf(output, "-----------------------------------------------------------------------\n");
 
   fprintf(output, "PE Annotation type counts for single gene hits (Single: %"PRIu64" (%.2f%%))\n", type_counts_single_total, (((float)type_counts_single_total/total_type_counts) * 100.0));
   fprintf(output, "-----------------------------------------------------------------------\n");
@@ -569,7 +567,7 @@ int main(int argc,char** argv) {
    * Print Pair patterns
    */
   uint64_t paired_total = pair_counts.multi_genes + pair_counts.single_genes + pair_counts.no_genes + pair_counts.single_reads;
-  fprintf(output, "Paired-reads Gene-Matches (pairs: %"PRIu64" singles: %"PRIu64" total: %"PRIu64")\n", paired_total-pair_counts.single_reads, pair_counts.single_reads, paired_total);
+  fprintf(output, "Unique PE-reads Gene-Matches (pairs: %"PRIu64" singles: %"PRIu64" total: %"PRIu64")\n", paired_total-pair_counts.single_reads, pair_counts.single_reads, paired_total);
   fprintf(output, "-----------------------------------------------------------------------\n");
   fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", "Single end reads", pair_counts.single_reads, (((float)pair_counts.single_reads/(float)paired_total) * 100.0));
   fprintf(output, "  %40s: %"PRIu64" (%.5f%%)\n", "Pair not mapped to gene", pair_counts.no_genes, (((float)pair_counts.no_genes/(float)paired_total) * 100.0));

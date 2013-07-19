@@ -256,6 +256,7 @@ gt_option gt_gtfcount_options[] = {
   /*Counts*/
   { 'w', "weighted", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Count multi-gene hits (and multi-maps if non unique counts are on) weighted"},
   { 'm', "multi-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Count multi-maps"},
+  { 's', "multi-genes", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Count hits to multiple genes"},
   /* Misc */
   { 500, "shell", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", "Interactive shell to query the annotation"},
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", ""},
