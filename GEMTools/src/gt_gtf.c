@@ -1077,6 +1077,10 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
       // add paired end spacer
       if(map2 != NULL && i == (map1_blocks-1)){
         gt_string_append_char(pattern, '|');
+      }else{
+        if(i<blocks-1){
+          gt_string_append_char(pattern, '^');
+        }
       }
     }
     // count global type based on the constructed pattern
