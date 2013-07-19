@@ -980,21 +980,19 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   uint64_t i = 0;
   GT_MAP_ITERATE(map1, map_block){
     local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_1);
-    uint64_t _exons = gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
-    uint64_t _introns = gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
-    uint64_t _unknown = gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
-    uint64_t _not_annotated = gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_NA);
-
+    uint64_t _exons = exons + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
+    uint64_t _introns = introns + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
+    uint64_t _unknown = unknown + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
+    uint64_t _not_annotated = not_annotated + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_NA);
     // add the pattern string based in the count value that changed
     if(_exons > exons) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_EXON, char*);
     if(_introns > introns) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_INTRON, char*);
     if(_unknown > unknown) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_UNKNOWN, char*);
     if(_not_annotated > not_annotated) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_NA, char*);
-
-    exons += _exons;
-    introns += _introns;
-    unknown += _unknown;
-    not_annotated += _not_annotated;
+    exons = _exons;
+    introns = _introns;
+    unknown = _unknown;
+    not_annotated = _not_annotated;
   }
   // unify the gene counts based on the number of blocks.
   // the gene_counts are reduced to either the ones that are found in
@@ -1018,21 +1016,19 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   if(map2 != NULL){
     GT_MAP_ITERATE(map2, map_block){
       local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_2);
-      uint64_t _exons = gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
-      uint64_t _introns = gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
-      uint64_t _unknown = gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
-      uint64_t _not_annotated = gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_NA);
-
+      uint64_t _exons = exons + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
+      uint64_t _introns = introns + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
+      uint64_t _unknown = unknown + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
+      uint64_t _not_annotated = not_annotated + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_NA);
       // add the pattern string based in the count value that changed
       if(_exons > exons) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_EXON, char*);
       if(_introns > introns) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_INTRON, char*);
       if(_unknown > unknown) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_UNKNOWN, char*);
       if(_not_annotated > not_annotated) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_NA, char*);
-      
-      exons += _exons;
-      introns += _introns;
-      unknown += _unknown;
-      not_annotated += _not_annotated;
+      exons = _exons;
+      introns = _introns;
+      unknown = _unknown;
+      not_annotated = _not_annotated;
     }
     // unify the gene counts based on the number of blocks.
     // the gene_counts are reduced to either the ones that are found in
@@ -1068,7 +1064,6 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     gt_shash_delete(local_gene_counts_2, true);
   }
 
-  printf("BLOCKS : %d SIZE: %d\n", blocks, gt_vector_get_used(local_type_patterns));
   // get the number of hits of this map
   uint64_t num_gene_hits = gt_shash_get_num_elements(local_gene_counts);
   uint64_t map1_blocks = gt_map_get_num_blocks(map1);
