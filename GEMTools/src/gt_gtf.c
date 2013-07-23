@@ -77,6 +77,18 @@ GT_INLINE void gt_gtf_hits_clear(gt_gtf_hits* const hits){
   gt_vector_clear(hits->exon_hits);
 }
 
+GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(void){
+  gt_gtf_count_parms* p = gt_malloc_(1, sizeof(gt_gtf_count_parms), false, false);
+  p->num_maps = 0;
+  p->exon_overlap = 0;
+  p->unweighted_counts = true;
+  p->single_pair_counts = false;
+  return p;
+}
+
+GT_INLINE void gt_gtf_count_params_delete(gt_gtf_count_parms* params){
+  free(params);
+}
 
 GT_INLINE gt_string* gt_gtf_get_type(const gt_gtf* const gtf, char* const type){
   if(!gt_gtf_contains_type(gtf, type)){
@@ -839,11 +851,15 @@ GT_INLINE void gt_gtf_count_add_(gt_shash* const source, gt_shash* const target)
  * @param gt_map*                    continuous map block
  * @param gt_shash* type_counts      the type counts, i.e exon/intron etc
  * @param gt_shash* gene_counts      the gene counts with the gene_id's hit by the map.
+ * @param gt_shash* exon_counts      the exon counts with the gene_id's hit by the map.
+ * @param float* overlap             float pointer that is set to the maximum exon overlap of this block
  * @return uint64_t num_gene_exons   number of unique gene_ids hit by exons
  */
 GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map,
                                      gt_shash* const type_counts,
-                                     gt_shash* const gene_counts){
+                                     gt_shash* const gene_counts,
+                                     gt_shash* const exon_counts,
+                                     float* overlap, uint64_t total_map_length){
   // get coordinates
   uint64_t start = gt_map_get_begin_mapping_position(map);
   uint64_t end   = gt_map_get_end_mapping_position(map);
@@ -860,6 +876,7 @@ GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map,
   gt_shash* const local_type_counts = gt_shash_new();
   gt_shash* local_gene_counts = gt_shash_new();
   gt_shash* local_exon_gene_counts = gt_shash_new();
+  float max_overlap = 0.0;
   GT_VECTOR_ITERATE(hits, e, i, gt_gtf_entry*){
     gt_gtf_entry* hit = *e;
     // count type
@@ -869,8 +886,13 @@ GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map,
     // count gene_id from exons
     if(hit->type != NULL && hit->gene_id != NULL && strcmp("exon", hit->type->buffer) == 0){
       gt_gtf_count_(local_exon_gene_counts, gt_string_get_string(hit->gene_id));
+      gt_gtf_count_(exon_counts, gt_string_get_string(hit->gene_id));
+      int64_t o = ((hit->end < end ? hit-> end : end) - (hit->start > start ? hit->start : start)) + 1;
+      float block_overlap = o <= 0 ? 0.0 : ((float)o)/((float)((end-start)+1));
+      if(block_overlap > max_overlap) max_overlap = block_overlap;
     }
   }
+  *overlap += (max_overlap * ((float) gt_map_get_length(map) / (float) total_map_length));
   uint64_t num_gene_hit_exons = gt_shash_get_num_elements(local_exon_gene_counts);
   // count types and merge them with the global
   // counts. NOTE that the order matters here, so
@@ -963,7 +985,7 @@ GT_INLINE double gt_gtf_count_get_sum_(gt_shash* table){
  */
 GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_map* const map2,
                                     gt_shash* const pattern_counts, gt_shash* const gene_counts,
-                                    gt_string* pattern){
+                                    gt_string* pattern, gt_gtf_count_parms* params){
   // clear patterns
   gt_string_clear(pattern);
   // get number of blocks and ensure we have at least one
@@ -981,13 +1003,17 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   gt_shash* local_gene_counts = gt_shash_new();
   gt_shash* local_gene_counts_1 = gt_shash_new();
   gt_shash* local_gene_counts_2 = gt_shash_new();
+  gt_shash* local_exon_counts_1 = gt_shash_new();
+  gt_shash* local_exon_counts_2 = gt_shash_new();
   uint64_t* const local_exon_gene_hits = malloc(blocks * sizeof(uint64_t));
   gt_vector* const local_type_patterns = gt_vector_new(2, sizeof(char*));
   uint64_t exons, introns, unknown, not_annotated;
   exons = introns = unknown = not_annotated = 0;
   uint64_t i = 0;
+  float block_1_overlap = 0.0;
+  float block_2_overlap = 0.0;
   GT_MAP_ITERATE(map1, map_block){
-    local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_1);
+    local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_1, local_exon_counts_1, &block_1_overlap, gt_map_get_length(map1));
     uint64_t _exons = exons + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
     uint64_t _introns = introns + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
     uint64_t _unknown = unknown + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
@@ -1002,9 +1028,10 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     unknown = _unknown;
     not_annotated = _not_annotated;
   }
-  // unify the gene counts based on the number of blocks.
-  // the gene_counts are reduced to either the ones that are found in
-  // all blocks or they are kept as they are
+  // if we hit more than one gene,
+  // try to unify the gene by checking the other blocks for
+  // overlaps. If we find genes that are covered by all the
+  // blocks we count only them.
   if(gt_shash_get_num_elements(local_gene_counts_1) > 1){
     gt_shash* merged_counts = gt_shash_new();
     uint64_t blocks1 = gt_map_get_num_blocks(map1);
@@ -1015,17 +1042,20 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     }GT_SHASH_END_ITERATE;
     // if we found some unique ids that are covered by both
     // we flip over to the merged counts
+
+    gt_shash_delete(local_gene_counts_1, true);
+    local_gene_counts_1 = merged_counts;
+    // we fliped so we reset the exon gene hit counts to ones as well
     if(gt_shash_get_num_elements(merged_counts) > 0){
-      gt_shash_delete(local_gene_counts_1, true);
-      local_gene_counts_1 = merged_counts;
-      // we fliped so we reset the exon gene hit counts to ones as well
-      for(i=0;i<blocks1;i++){local_exon_gene_hits[i] = 1;}
+      for(i=0;i<blocks1;i++){
+        if(local_exon_gene_hits[i] > 0) local_exon_gene_hits[i] = 1;
+      }
     }
   }
 
   if(map2 != NULL){
     GT_MAP_ITERATE(map2, map_block){
-      local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_2);
+      local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_2, local_exon_counts_2, &block_2_overlap, gt_map_get_length(map1));
       uint64_t _exons = exons + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
       uint64_t _introns = introns + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
       uint64_t _unknown = unknown + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
@@ -1053,78 +1083,62 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
       }GT_SHASH_END_ITERATE;
       // if we found some unique ids that are covered by both
       // we flip over to the merged counts
+
+      gt_shash_delete(local_gene_counts_2, true);
+      local_gene_counts_2 = merged_counts;
       if(gt_shash_get_num_elements(merged_counts) > 0){
-        gt_shash_delete(local_gene_counts_2, true);
-        local_gene_counts_2 = merged_counts;
         uint64_t blocks1 = gt_map_get_num_blocks(map1);
         // we flipped so we reset the exon gene hit counts to ones as well
-        for(i=blocks1;i<(blocks1+blocks2);i++){local_exon_gene_hits[i] = 1;}
+        for(i=blocks1;i<(blocks1+blocks2);i++){
+          if(local_exon_gene_hits[i] > 0) local_exon_gene_hits[i] = 1;
+        }
       }
     }
   }
 
   /**
-   * Merge everything into a single map and reduce the map if we can resolve through pairs
+   * Merge everything into a single merged map
    */
   gt_shash* merged_counts = gt_shash_new();
   uint64_t blocks1 = gt_map_get_num_blocks(map1);
-  uint64_t blocks2 = 0;
-  if(map2 != NULL){
-    blocks2 = gt_map_get_num_blocks(map2);
-  }
+  float overlap = (block_1_overlap + block_2_overlap) / (float) (map2==NULL?1.0:2.0);
+  uint64_t map2_hits = map2 != NULL ? gt_shash_get_num_elements(local_gene_counts_2) : 0;
 
   GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
-    if(gt_shash_is_contained(local_gene_counts_2, gene_id)){
-      gt_gtf_count_sum_(merged_counts, gene_id, *count + gt_gtf_get_count_(local_gene_counts_2, gene_id));
+//    fprintf(stderr, "OVERLAP : %.2f %.2f %s\n", overlap, params->exon_overlap, gene_id);
+    if( (gt_shash_is_contained(local_gene_counts_2, gene_id) || map2_hits == 0) && (params->exon_overlap <= 0.0 || overlap >= params->exon_overlap)){
+      uint64_t nv  =*count + gt_gtf_get_count_(local_gene_counts_2, gene_id);
+      gt_gtf_count_sum_(merged_counts, gene_id, nv);
     }
   }GT_SHASH_END_ITERATE;
-  uint64_t unique_genes_between_pairs = gt_shash_get_num_elements(merged_counts);
 
+  uint64_t unique_genes_between_pairs = gt_shash_get_num_elements(merged_counts);
   // we found unique genes through the pair, so we can use
   // the merged map to do the final counts
-  double exons_block_1 = (double) blocks1;
-  double exons_block_2 = 0.0;
-  if(map2 != NULL){
-    exons_block_2 = (double) blocks2;
-  }
   if(unique_genes_between_pairs > 0){
     // we flip the exon gene hit counts in case
     if(unique_genes_between_pairs  == 1){
-      for(i=0;i<(blocks1+blocks2);i++){local_exon_gene_hits[i] = 1;}
+      for(i=0;i<blocks;i++){
+        if(local_exon_gene_hits[i] > 0) local_exon_gene_hits[i] = 1;
+      }
     }
 
     // merge the gene counts weighted to a single map
     GT_SHASH_BEGIN_KEY_ITERATE(merged_counts, gene_id){
-      double v = ((double)gt_gtf_get_count_(local_gene_counts_1, gene_id))/exons_block_1;
-      if(map2!=NULL){
-        v+=(((double)gt_gtf_get_count_(local_gene_counts_2, gene_id))/exons_block_2);
+      double v = 0.0;
+      if(gt_shash_is_contained(local_exon_counts_1, gene_id) || (params->exon_overlap <= 0.0 && gt_shash_is_contained(local_gene_counts_1, gene_id))){
+        v+= 1.0;
       }
-      gt_gtf_count_weight_(local_gene_counts, gene_id, v);
+      if(gt_shash_is_contained(local_exon_counts_2, gene_id) || (params->exon_overlap <= 0.0 && gt_shash_is_contained(local_gene_counts_2, gene_id))){
+        v+=1.0;
+      }
+      //    (map2!= NULL && map2_hits > 0) ? 2.0 : 1.0;
+      if(v > 0.0) gt_gtf_count_weight_(local_gene_counts, gene_id, v);
     }GT_SHASH_END_ITERATE;
-
-    // cleanup
-    gt_shash_delete(local_gene_counts_1, true);
-    gt_shash_delete(local_gene_counts_2, true);
-  }else{
-    // merge into the global counts using the two pair maps separately
-    // merge the gene counts weighted to a single map
-    GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
-      double v = ((double)*count)/exons_block_1;
-      gt_gtf_count_weight_(local_gene_counts, gene_id, v);
-    }GT_SHASH_END_ITERATE;
-    gt_shash_delete(local_gene_counts_1, true);
-    if(map2 != NULL){
-      GT_SHASH_BEGIN_ITERATE(local_gene_counts_2, gene_id, count, uint64_t){
-        double v = ((double)*count)/exons_block_2;
-        gt_gtf_count_weight_(local_gene_counts, gene_id, v);
-      }GT_SHASH_END_ITERATE;
-      gt_shash_delete(local_gene_counts_2, true);
-    }
   }
 
   // get the number of hits of this map
   uint64_t num_gene_hits = gt_shash_get_num_elements(local_gene_counts);
-  uint64_t map1_blocks = gt_map_get_num_blocks(map1);
   if(pattern_counts != NULL){
     // now iterate the blocks and construct final pattern
     for(i=0; i<blocks; i++){
@@ -1133,7 +1147,7 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
       // the multi gene hit comes from the current block
       gt_gtf_join_(pattern, p, (strcmp("exon",p) == 0) ? ((num_gene_hits == 1) ? false : (local_exon_gene_hits[i] > 1)) : false, 1);
       // add paired end spacer
-      if(map2 != NULL && i == (map1_blocks-1)){
+      if(map2 != NULL && i == (blocks1-1)){
         gt_string_append_char(pattern, '|');
       }else{
         if(i<blocks-1){
@@ -1143,9 +1157,6 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     }
     // count global type based on the constructed pattern
     gt_gtf_count_(pattern_counts, gt_string_get_string(pattern));
-//    if(strcmp(pattern->buffer, "exon|exon_mg") == 0){
-//      gt_output_map_fprint_map(stdout, map1, NULL); printf("::");gt_output_map_fprint_map(stdout, map2, NULL);printf("\n");
-//    }
   }
 
   if(gene_counts != NULL){
@@ -1158,28 +1169,36 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   // cleanup
   gt_vector_delete(local_type_patterns);
   gt_shash_delete(local_gene_counts, true);
+  // cleanup
+  gt_shash_delete(local_gene_counts_1, true);
+  gt_shash_delete(local_gene_counts_2, true);
+  gt_shash_delete(local_exon_counts_1, true);
+  gt_shash_delete(local_exon_counts_2, true);
   gt_shash_delete(local_type_counts, true);
   gt_shash_delete(merged_counts, true);
   free(local_exon_gene_hits);
   return num_gene_hits;
 }
 
-GT_INLINE uint64_t gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const pattern_count, gt_shash* const gene_counts){
+GT_INLINE uint64_t gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const pattern_count, gt_shash* const gene_counts, gt_gtf_count_parms* params){
   uint64_t hits = 0;
   gt_string* pattern = gt_string_new(16);
+  params->num_maps = gt_alignment_get_num_maps(alignment);
   GT_ALIGNMENT_ITERATE(alignment,map) {
-    hits += gt_gtf_count_map(gtf, map, NULL, pattern_count, gene_counts, pattern);
+    hits += gt_gtf_count_map(gtf, map, NULL, pattern_count, gene_counts, pattern, params);
     gt_string_clear(pattern);
   }
   gt_string_delete(pattern);
   return hits;
 }
 
-GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const pattern_count, gt_shash* const gene_counts){
+GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const template, gt_shash* const pattern_count, gt_shash* const gene_counts, gt_gtf_count_parms* params){
   uint64_t hits = 0;
   gt_string* pattern = gt_string_new(16);
+  params->num_maps = gt_template_get_num_mmaps(template);
+//  fprintf(stderr, "COUNT: %s %.2f\n", gt_template_get_tag(template), params->exon_overlap);
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
-    hits += gt_gtf_count_map(gtf, mmap[0], mmap[1], pattern_count, gene_counts, pattern);
+    hits += gt_gtf_count_map(gtf, mmap[0], mmap[1], pattern_count, gene_counts, pattern, params);
     gt_string_clear(pattern);
   }
   gt_string_delete(pattern);

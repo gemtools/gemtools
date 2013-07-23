@@ -27,7 +27,9 @@ typedef struct {
   bool weighted_counts;
   bool unique_only;
   bool single_hit_only;
+  bool single_end_counts;
   bool verbose;
+  float exon_overlap;
   uint64_t num_threads;
 } gt_gtfcount_args;
 
@@ -62,7 +64,9 @@ gt_gtfcount_args parameters = {
     .unique_only=true,
     .weighted_counts=false,
     .single_hit_only=true,
+    .single_end_counts=false,
     .shell=false,
+    .exon_overlap=0.0,
     .verbose=false,
     .num_threads=1
 };
@@ -141,7 +145,7 @@ GT_INLINE void gt_gtfcount_merge_counts_weighted_(gt_shash* const source, gt_sha
 }
 GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment, gt_gtfcount_count_stats* stats,
                                            gt_shash* l_type_counts, gt_shash* l_gene_counts, gt_shash* pattern_counts,
-                                           gt_shash* private_gene_counts){
+                                           gt_shash* private_gene_counts, gt_gtf_count_parms* params){
   // increase read counts for unique hits
   uint64_t num_maps = gt_alignment_get_num_maps(alignment);
 
@@ -159,11 +163,11 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
 
   // clear the private counter hash
   gt_shash_clear(private_gene_counts, true);
-  uint64_t hits = gt_gtf_count_alignment(gtf, alignment, num_maps == 1 ? pattern_counts : NULL, private_gene_counts);
+  uint64_t hits = gt_gtf_count_alignment(gtf, alignment, num_maps == 1 ? pattern_counts : NULL, private_gene_counts, params);
 
 
   // now we have the full counts for this alignment and we have to add weighted counts to the l_gene_counts
-  if(hits > 0 && ((!parameters.unique_only || num_maps == 1) && (!parameters.single_hit_only || hits == 1))){
+  if(hits > 0 && ((!parameters.unique_only || hits == 1) )){
     stats->counted_reads++;
     stats->considered_se_mappings += num_maps;
     switch(hits){
@@ -175,8 +179,8 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
         // unweighted counts
         gt_gtf_count_(l_gene_counts, key);
       }else{
-        // weighted count
-        double v = ((*e)/(double)hits) * weight;
+        //double v = ((*e)/(double)hits) * weight;
+        double v = (1.0/(double)hits) * weight;
         gt_gtf_count_weight_(l_gene_counts, key, v);
       }
     }GT_SHASH_END_ITERATE;
@@ -242,6 +246,8 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
     gt_shash* l_single_patterns = single_patterns_list[tid];
     gt_shash* l_pair_patterns = pair_patterns_list[tid];
 
+    gt_gtf_count_parms* params = gt_gtf_count_params_new();
+    params->exon_overlap = parameters.exon_overlap;
     gt_shash* private_gene_counts = gt_shash_new();
 
     while ((error_code = gt_input_generic_parser_get_template(buffered_input,template,generic_parser_attr))) {
@@ -257,15 +263,15 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
         // single end alignments
         GT_TEMPLATE_REDUCTION(template,alignment);
         gt_gtfcount_count_alignment(gtf, alignment, stats_list[tid],
-                                    l_type_counts, l_gene_counts, l_single_patterns, private_gene_counts);
+                                    l_type_counts, l_gene_counts, l_single_patterns, private_gene_counts, params);
       } else {
         if (!gt_template_is_mapped(template)) {
           // paired-end reads with unpaired alignments
           GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_end1,alignment_end2);
           gt_gtfcount_count_alignment(gtf, alignment_end1, stats_list[tid],
-                                      l_type_counts, l_gene_counts, l_single_patterns, private_gene_counts);
+                                      l_type_counts, l_gene_counts, l_single_patterns, private_gene_counts, params);
           gt_gtfcount_count_alignment(gtf, alignment_end2, stats_list[tid],
-                                      l_type_counts, l_gene_counts, l_single_patterns, private_gene_counts);
+                                      l_type_counts, l_gene_counts, l_single_patterns, private_gene_counts, params);
         } else {
           // paired-end alignments
           gt_gtfcount_count_stats* stats = stats_list[tid];
@@ -281,9 +287,9 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
           // in case we use weighted counts, the weight is set to 1 for single end reads and to 0.5 for paired end reads
           // in case no weighting should be applied, the count is set to < 0
           double weight = parameters.weighted_counts ? 1.0 : -1.0;
-          uint64_t hits = gt_gtf_count_template(gtf, template, num_maps == 1 ? l_pair_patterns : NULL, private_gene_counts);
+          uint64_t hits = gt_gtf_count_template(gtf, template, num_maps == 1 ? l_pair_patterns : NULL, private_gene_counts, params);
           // now we have the full counts for this alignment and we have to add weighted counts to the l_gene_counts
-          if(hits > 0 && ((!parameters.unique_only || num_maps == 1) && (!parameters.single_hit_only || hits == 1))){
+          if(hits > 0 && ((!parameters.unique_only || hits == 1) )){
             stats->counted_reads +=2;
             stats->considered_pe_mappings += (num_maps * 2);
             switch(hits){
@@ -293,11 +299,18 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
             GT_SHASH_BEGIN_ITERATE(private_gene_counts, key, e, double){
               if(weight < 0.0){
                 // unweighted counts
-                gt_gtf_count_sum_(l_gene_counts, key, 2);
+                if(parameters.single_end_counts){
+                  gt_gtf_count_sum_(l_gene_counts, key, *e);
+                }else{
+                  gt_gtf_count_sum_(l_gene_counts, key, 2);
+                }
               }else{
                 // weighted count
-                double v = ((*e)/(double)hits) * weight;
-                gt_gtf_count_weight_(l_gene_counts, key, v);
+                if(parameters.single_end_counts){
+                  gt_gtf_count_weight_(l_gene_counts, key, (*e/(double)hits));
+                }else{
+                  gt_gtf_count_weight_(l_gene_counts, key, 2.0/(double)hits);
+                }
               }
             }GT_SHASH_END_ITERATE;
           }
@@ -314,6 +327,7 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
       }
     }
     // Clean
+    gt_gtf_count_params_delete(params);
     gt_shash_delete(private_gene_counts, true);
     gt_template_delete(template);
     gt_buffered_input_file_close(buffered_input);
@@ -371,12 +385,18 @@ void parse_arguments(int argc,char** argv) {
     case 'w':
       parameters.weighted_counts = true;
       break;
+    case 'e':
+      parameters.exon_overlap = atof(optarg);
+      break;
     case 'm':
       parameters.unique_only = false;
       break;
     case 's':
-      parameters.single_hit_only = false;
+      parameters.single_end_counts = true;
       break;
+//    case 's':
+//      parameters.single_hit_only = false;
+//      break;
     /* Misc */
     case 500:
       parameters.shell = true;

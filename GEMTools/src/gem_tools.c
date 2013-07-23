@@ -254,9 +254,11 @@ gt_option gt_gtfcount_options[] = {
   { 'a', "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GTF annotation" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
   /*Counts*/
-  { 'w', "weighted", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Count multi-gene hits (and multi-maps if non unique counts are on) weighted"},
-  { 'm', "multi-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Count multi-maps"},
-  { 's', "multi-genes", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", "Count hits to multiple genes"},
+  { 'w', "weighted", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count multi-gene hits (and multi-maps if non unique counts are on) weighted"},
+  { 'm', "multi-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count multi-maps"},
+  //{ 's', "multi-genes", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count hits to multiple genes"},
+  { 's', "count-single-ends", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Treat paired reads as single ends for counting (not for matching)"},
+  { 'e', "exon-overlap", GT_OPT_REQUIRED, GT_OPT_INT, 3, true, "<overlap>" , "Fraction (0<=overlap<=1) of overlap of the fragment with exon to be counted (default 0, disabled)" },
   /* Misc */
   { 500, "shell", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", "Interactive shell to query the annotation"},
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", ""},
