@@ -1105,10 +1105,11 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   uint64_t map2_hits = map2 != NULL ? gt_shash_get_num_elements(local_gene_counts_2) : 0;
 
   GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
-//    fprintf(stderr, "OVERLAP : %.2f %.2f %s\n", overlap, params->exon_overlap, gene_id);
+
     if( (gt_shash_is_contained(local_gene_counts_2, gene_id) || map2_hits == 0) && (params->exon_overlap <= 0.0 || overlap >= params->exon_overlap)){
       uint64_t nv  =*count + gt_gtf_get_count_(local_gene_counts_2, gene_id);
       gt_gtf_count_sum_(merged_counts, gene_id, nv);
+//      fprintf(stderr, "OVERLAP : %.2f %.2f %s :: %d\n", overlap, params->exon_overlap, gene_id, nv);
     }
   }GT_SHASH_END_ITERATE;
 
@@ -1162,7 +1163,15 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   if(gene_counts != NULL){
     // count the gene ids
     GT_SHASH_BEGIN_ITERATE(local_gene_counts, key, e, double){
-      gt_gtf_count_weight_(gene_counts, key, *e);
+      if(gt_shash_is_contained(gene_counts, key)){
+        double current = gt_gtf_get_count_weight(gene_counts, key);
+        if(current < *e){
+          // set to max count
+          gt_gtf_count_weight_(gene_counts, key, (*e)-current);
+        }
+      }else{
+        gt_gtf_count_weight_(gene_counts, key, *e);
+      }
     }GT_SHASH_END_ITERATE;
   }
 
@@ -1177,7 +1186,7 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   gt_shash_delete(local_type_counts, true);
   gt_shash_delete(merged_counts, true);
   free(local_exon_gene_hits);
-  return num_gene_hits;
+  return gt_shash_get_num_elements(gene_counts);
 }
 
 GT_INLINE uint64_t gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const alignment, gt_shash* const pattern_count, gt_shash* const gene_counts, gt_gtf_count_parms* params){
@@ -1185,7 +1194,7 @@ GT_INLINE uint64_t gt_gtf_count_alignment(gt_gtf* const gtf, gt_alignment* const
   gt_string* pattern = gt_string_new(16);
   params->num_maps = gt_alignment_get_num_maps(alignment);
   GT_ALIGNMENT_ITERATE(alignment,map) {
-    hits += gt_gtf_count_map(gtf, map, NULL, pattern_count, gene_counts, pattern, params);
+    hits = gt_gtf_count_map(gtf, map, NULL, pattern_count, gene_counts, pattern, params);
     gt_string_clear(pattern);
   }
   gt_string_delete(pattern);
@@ -1198,7 +1207,8 @@ GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const t
   params->num_maps = gt_template_get_num_mmaps(template);
 //  fprintf(stderr, "COUNT: %s %.2f\n", gt_template_get_tag(template), params->exon_overlap);
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
-    hits += gt_gtf_count_map(gtf, mmap[0], mmap[1], pattern_count, gene_counts, pattern, params);
+    hits = gt_gtf_count_map(gtf, mmap[0], mmap[1], pattern_count, gene_counts, pattern, params);
+//    fprintf(stderr, "\tHITS: %d\n", hits);
     gt_string_clear(pattern);
   }
   gt_string_delete(pattern);
