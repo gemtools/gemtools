@@ -892,7 +892,9 @@ GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map,
       if(block_overlap > max_overlap) max_overlap = block_overlap;
     }
   }
-  *overlap += (max_overlap * ((float) gt_map_get_length(map) / (float) total_map_length));
+  const float map_length = (float) gt_map_get_base_length(map);
+  *overlap += (max_overlap * ( map_length / (float) total_map_length));
+
   uint64_t num_gene_hit_exons = gt_shash_get_num_elements(local_exon_gene_counts);
   // count types and merge them with the global
   // counts. NOTE that the order matters here, so
@@ -1013,7 +1015,7 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   float block_1_overlap = 0.0;
   float block_2_overlap = 0.0;
   GT_MAP_ITERATE(map1, map_block){
-    local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_1, local_exon_counts_1, &block_1_overlap, gt_map_get_length(map1));
+    local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_1, local_exon_counts_1, &block_1_overlap, gt_map_get_global_base_length(map1));
     uint64_t _exons = exons + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
     uint64_t _introns = introns + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
     uint64_t _unknown = unknown + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
@@ -1055,7 +1057,7 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
 
   if(map2 != NULL){
     GT_MAP_ITERATE(map2, map_block){
-      local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_2, local_exon_counts_2, &block_2_overlap, gt_map_get_length(map1));
+      local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_2, local_exon_counts_2, &block_2_overlap, gt_map_get_global_base_length(map2));
       uint64_t _exons = exons + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
       uint64_t _introns = introns + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
       uint64_t _unknown = unknown + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
@@ -1103,13 +1105,13 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   uint64_t blocks1 = gt_map_get_num_blocks(map1);
   float overlap = (block_1_overlap + block_2_overlap) / (float) (map2==NULL?1.0:2.0);
   uint64_t map2_hits = map2 != NULL ? gt_shash_get_num_elements(local_gene_counts_2) : 0;
-
   GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
-
     if( (gt_shash_is_contained(local_gene_counts_2, gene_id) || map2_hits == 0) && (params->exon_overlap <= 0.0 || overlap >= params->exon_overlap)){
       uint64_t nv  =*count + gt_gtf_get_count_(local_gene_counts_2, gene_id);
       gt_gtf_count_sum_(merged_counts, gene_id, nv);
-//      fprintf(stderr, "OVERLAP : %.2f %.2f %s :: %d\n", overlap, params->exon_overlap, gene_id, nv);
+      if(overlap > 1.000001){
+        gt_fatal_error_msg("Exon Overlap %.10f > 1.0 !", overlap);
+      }
     }
   }GT_SHASH_END_ITERATE;
 
@@ -1133,7 +1135,6 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
       if(gt_shash_is_contained(local_exon_counts_2, gene_id) || (params->exon_overlap <= 0.0 && gt_shash_is_contained(local_gene_counts_2, gene_id))){
         v+=1.0;
       }
-      //    (map2!= NULL && map2_hits > 0) ? 2.0 : 1.0;
       if(v > 0.0) gt_gtf_count_weight_(local_gene_counts, gene_id, v);
     }GT_SHASH_END_ITERATE;
   }

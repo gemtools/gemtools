@@ -174,7 +174,7 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
       case 1: stats->counted_se_single_gene++; break;
       default: stats->counted_se_multi_gene++; break;
     }
-    GT_SHASH_BEGIN_ITERATE(private_gene_counts, key, e, double){
+    GT_SHASH_BEGIN_KEY_ITERATE(private_gene_counts, key){
       if(weight < 0.0){
         // unweighted counts
         gt_gtf_count_(l_gene_counts, key);
