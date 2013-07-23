@@ -489,10 +489,16 @@ GT_INLINE void gt_mm_copy_mem_parallel(
   GT_MM_CHECK_SEGMENT(mm);
   // Calculate size of each chunk
   const uint64_t chunk_size = num_bytes/num_threads; // num_bytes > num_threads
+#ifdef HAVE_OPENMP
   //#pragma omp parallel num_threads(num_threads)
+#endif
   {
     // Calculate offsets
+#ifdef HAVE_OPENMP
     const uint64_t tid = omp_get_thread_num();
+#else
+    const uint64_t tid = 0;
+#endif
     const uint64_t offset = tid*chunk_size;
     const uint64_t size = (tid < (num_threads-1)) ? chunk_size : num_bytes-chunk_size*tid;
     // Copy the chunk

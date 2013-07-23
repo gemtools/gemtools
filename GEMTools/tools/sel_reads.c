@@ -8,7 +8,9 @@
 
 #include <getopt.h>
 #include <ctype.h>
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 #include <pthread.h>
 #include "gem_tools.h"
 #include "sel_reads.h"
@@ -18,12 +20,18 @@ static void usage(FILE *f)
 	fputs("usage:\n align_stats\n",f);
 	fputs("  -i|--insert_dist <insert size distribution file>   (mandatory)\n",f);
 	fputs("  -o|--output <output file>                          (default=stdout)\n",f);
+#ifdef HAVE_ZLIB
 	fputs("  -z|--gzip output with gzip\n",f);
-	fputs("  -j|--bzip2 output with bzip2\n",f);
 	fputs("  -Z|--no-compress                                  (default)\n",f);
-	fprintf(f,"  -x|--insert_dist_cutoff <cutoff>                   (default=%g)\n",DEFAULT_INS_CUTOFF);
+#endif
+#ifdef HAVE_BZLIB
+	fputs("  -j|--bzip2 output with bzip2\n",f);
+#endif
+		fprintf(f,"  -x|--insert_dist_cutoff <cutoff>                   (default=%g)\n",DEFAULT_INS_CUTOFF);
 	fputs("  -r|--reads <reads file or file pair>\n",f);
+#ifdef HAVE_OPENMP
 	fputs("  -t|--threads <number of threads>\n",f);
+#endif
 	fputs("  -m|--mmap      Mmap input files\n",f);
 	fputs("  -p|--paired    Paired mapping input file\n",f);
 	fprintf(f,"  -F|--fastq     select fastq quality coding         %s\n",DEFAULT_QUAL==QUAL_FASTQ?"(default)":"");
@@ -299,10 +307,14 @@ int main(int argc,char *argv[])
       }
       break;
 		case 'z':
+#ifdef HAVE_ZLIB
 			param.compress=GZIP;
+#endif
 			break;
 		case 'j':
+#ifdef HAVE_BZLIB
 			param.compress=BZIP2;
+#endif
 			break;
 		case 'Z':
 			param.compress=NONE;
@@ -323,7 +335,9 @@ int main(int argc,char *argv[])
 			param.mmap_input=true;
 			break;
 		case 't':
+#ifdef HAVE_OPENMP
 			param.num_threads=atoi(optarg);
+#endif
 			break;
 		case 'r':
 			if(param.input_files[0]) {
@@ -387,9 +401,14 @@ int main(int argc,char *argv[])
   		if(input_file1->file_format!=MAP || input_file2->file_format!=MAP) {
   			gt_fatal_error_msg("Fatal error: paired files '%s','%s' are not in MAP format\n",param.input_files[0],param.input_files[1]);
   		}
+#ifdef HAVE_OPENMP
 #pragma omp parallel num_threads(param.num_threads)
   		{
   			uint64_t tid=omp_get_thread_num();
+#else
+  		{
+  			uint64_t tid=0;
+#endif
   			gt_buffered_input_file* buffered_input1=gt_buffered_input_file_new(input_file1);
   			gt_buffered_input_file* buffered_input2=gt_buffered_input_file_new(input_file2);
   			gt_status error_code;
@@ -442,9 +461,14 @@ int main(int argc,char *argv[])
   		gt_input_file_close(input_file2);
   	} else { // Single input file (could be singled end or paired end)
   		gt_input_file* input_file=param.input_files[0]?gt_input_file_open(param.input_files[0],param.mmap_input):gt_input_stream_open(stdin);
+#ifdef OPENMP
   #pragma omp parallel num_threads(param.num_threads)
   		{
   			uint64_t tid=omp_get_thread_num();
+#else
+  		{
+    		uint64_t tid=0;
+#endif
   			gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
   			gt_status error_code;
   			gt_template *template=gt_template_new();

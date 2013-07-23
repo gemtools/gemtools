@@ -13,8 +13,12 @@
 #include "gt_attributes.h"
 #include "gt_sam_attributes.h"
 
+#ifdef HAVE_ZLIB
 #include <zlib.h>
+#endif
+#ifdef HAVE_BZLIB
 #include <bzlib.h>
+#endif
 
 // Codes gt_status
 #define GT_INPUT_FILE_OK 0
@@ -38,7 +42,7 @@ typedef struct {
   /* Input file */
   char* file_name;
   gt_file_type file_type;
-  void* file;
+  FILE* file;
   int fildes;
   bool eof;
   uint64_t file_size;

@@ -5,8 +5,9 @@
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
  * DESCRIPTION: Application to filter {MAP,SAM,FASTQ} files and output the filtered result
  */
-
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 
 #include "gem_tools.h"
 
@@ -1207,7 +1208,9 @@ GT_INLINE void gt_filter_sample_read() {
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
             gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
   // Parallel I/O
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
     GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,parameters.paired_end,buffered_output,template) {
         GT_TEMPLATE_ITERATE_ALIGNMENT(template,alignment) {
@@ -1277,7 +1280,9 @@ GT_INLINE void gt_filter_print_insert_size_distribution() {
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
             gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
   // Parallel I/O
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
     GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,parameters.paired_end,buffered_output,template) {
       // Print insert size
@@ -1300,7 +1305,9 @@ GT_INLINE void gt_filter_print_error_distribution() {
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
             gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
   // Parallel I/O
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
     GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,parameters.paired_end,buffered_output,template) {
       // Print levenshtein distance of the maps
@@ -1396,7 +1403,9 @@ void gt_filter_read__write() {
 
   // Parallel reading+process
   uint64_t total_algs_checked=0, total_algs_correct=0, total_maps_checked=0, total_maps_correct=0;
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads) reduction(+:total_algs_checked,total_algs_correct,total_maps_checked,total_maps_correct)
+#endif
   {
     // Prepare IN/OUT buffers & printers
     gt_status error_code;
@@ -1905,7 +1914,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     /* Misc */
     case 't': // threads
+#ifdef HAVE_OPENMP
       parameters.num_threads = atol(optarg);
+#endif
       gt_cond_fatal_error_msg(parameters.num_threads > GT_MAX_OUTPUT_BUFFERS,
           "Excessive number of threads (maximum %"PRId32")",GT_MAX_OUTPUT_BUFFERS);
       break;

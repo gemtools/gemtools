@@ -7,7 +7,9 @@
  */
 
 #include <getopt.h>
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 
 #include "gem_tools.h"
 
@@ -183,9 +185,16 @@ void gt_stats_parallel_generate_stats() {
   }
 
   // Parallel reading+process
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
+#ifdef HAVE_OPENMP
     uint64_t tid = omp_get_thread_num();
+#else
+    uint64_t tid = 0;
+#endif
+
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
 
     gt_status error_code;
@@ -314,7 +323,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     /* Misc */
     case 't':
+#ifdef HAVE_OPENMP
       parameters.num_threads = atol(optarg);
+#endif
       break;
     case 'v':
       parameters.verbose = true;

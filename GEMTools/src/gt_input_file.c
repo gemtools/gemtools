@@ -6,8 +6,12 @@
  * DESCRIPTION: // TODO
  */
 
+#ifdef ZLIB
 #include <zlib.h>
+#endif
+#ifdef ZLIB
 #include <bzlib.h>
+#endif
 #include "gt_input_file.h"
 
 // Internal constants
@@ -74,12 +78,20 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
       if(tbuf[0]==0x1f && tbuf[1]==0x8b && tbuf[2]==0x08) {
         input_file->file_type=GZIPPED_FILE;
         fclose(input_file->file);
-        gt_cond_fatal_error(!(input_file->file=gzopen(file_name,"r")),FILE_GZIP_OPEN,file_name);
+#ifdef HAVE_ZLIB
+        gt_cond_fatal_error(!(input_file->file=(void *)gzopen(file_name,"r")),FILE_GZIP_OPEN,file_name);
+#else
+        gt_fatal_error(FILE_GZIP_NO_ZLIB,file_name);
+#endif
       } else if(tbuf[0]=='B' && tbuf[1]=='Z' && tbuf[2]=='h' && tbuf[3]>='0' && tbuf[3]<='9') {
         fseek(input_file->file,0L,SEEK_SET);
         input_file->file_type=BZIPPED_FILE;
+#ifdef HAVE_BZLIB
         input_file->file=BZ2_bzReadOpen(&i,input_file->file,0,0,NULL,0);
         gt_cond_fatal_error(i!=BZ_OK,FILE_BZIP2_OPEN,file_name);
+#else
+        gt_fatal_error(FILE_BZIP2_NO_BZLIB,file_name);
+#endif
       } else {
         fseek(input_file->file,0L,SEEK_SET);
       }
@@ -107,7 +119,9 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
 gt_status gt_input_file_close(gt_input_file* const input_file) {
   GT_INPUT_FILE_CHECK(input_file);
   gt_status status = GT_INPUT_FILE_OK;
+#ifdef HAVE_BZLIB
   int bzerr;
+#endif
   switch (input_file->file_type) {
     case REGULAR_FILE:
       gt_free(input_file->file_buffer);
@@ -115,12 +129,16 @@ gt_status gt_input_file_close(gt_input_file* const input_file) {
       break;
     case GZIPPED_FILE:
       gt_free(input_file->file_buffer);
-      if (gzclose(input_file->file)) status = GT_INPUT_FILE_CLOSE_ERR;
+#ifdef HAVE_ZLIB
+      if (gzclose((gzFile)input_file->file)) status = GT_INPUT_FILE_CLOSE_ERR;
+#endif
       break;
     case BZIPPED_FILE:
       gt_free(input_file->file_buffer);
+#ifdef HAVE_BZLIB
       BZ2_bzReadClose(&bzerr,input_file->file);
       if (bzerr!=BZ_OK) status = GT_INPUT_FILE_CLOSE_ERR;
+#endif
       break;
     case MAPPED_FILE:
       gt_cond_error(munmap(input_file->file,input_file->file_size)==-1,SYS_UNMAP);
@@ -168,7 +186,9 @@ GT_INLINE size_t gt_input_file_dump_to_buffer(gt_input_file* const input_file,gt
   return chunk_size;
 }
 GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
+#ifdef HAVE_BZLIB
   int bzerr;
+#endif
   GT_INPUT_FILE_CHECK(input_file);
   input_file->global_pos += input_file->buffer_size;
   input_file->buffer_pos = 0;
@@ -185,18 +205,22 @@ GT_INLINE size_t gt_input_file_fill_buffer(gt_input_file* const input_file) {
   } else if (input_file->file_type==MAPPED_FILE && input_file->global_pos < input_file->file_size) {
     input_file->buffer_size = input_file->file_size-input_file->global_pos;
     return input_file->buffer_size;
-  } else if (input_file->file_type==GZIPPED_FILE && !gzeof(input_file->file)) {
-    input_file->buffer_size = gzread(input_file->file,input_file->file_buffer,GT_INPUT_BUFFER_SIZE);
+#ifdef HAVE_ZLIB
+  } else if (input_file->file_type==GZIPPED_FILE && !gzeof((gzFile)input_file->file)) {
+    input_file->buffer_size = gzread((gzFile)input_file->file,input_file->file_buffer,GT_INPUT_BUFFER_SIZE);
     if (input_file->buffer_size==0) {
       input_file->eof = true;
     }
     return input_file->buffer_size;
+#endif
+#ifdef HAVE_BZLIB
   } else if (input_file->file_type==BZIPPED_FILE) {
     input_file->buffer_size = BZ2_bzRead(&bzerr,input_file->file,input_file->file_buffer,GT_INPUT_BUFFER_SIZE);
     if(input_file->buffer_size==0) {
       input_file->eof=true;
     }
     return input_file->buffer_size;
+#endif
   } else {
     input_file->eof = true;
     return 0;

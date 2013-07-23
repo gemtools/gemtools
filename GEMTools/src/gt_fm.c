@@ -77,10 +77,16 @@ GT_INLINE void gt_fm_bulk_read_file_parallel(
   // Calculate size of each chunk
   const uint64_t size_to_read = (size==0) ? stat_info.st_size : size;
   const uint64_t chunk_size = size_to_read/num_threads; // stat_info.st_size > num_threads
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(num_threads)
+#endif
   {
     // Calculate offsets
+#ifdef HAVE_OPENMP
     const uint64_t tid = omp_get_thread_num();
+#else
+    const uint64_t tid = 0;
+#endif
     const uint64_t thread_mem_offset = tid*chunk_size;
     const uint64_t thread_file_offset = offset + thread_mem_offset;
     const uint64_t thread_size = (tid < (num_threads-1)) ? chunk_size : stat_info.st_size-chunk_size*tid;

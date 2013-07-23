@@ -7,7 +7,9 @@
  */
 
 #include <getopt.h>
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 
 #include "gem_tools.h"
 
@@ -295,7 +297,9 @@ void gt_mapset_perform_merge_map() {
   pthread_mutex_t input_mutex = PTHREAD_MUTEX_INITIALIZER;
 
   // Parallel reading+process
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
     if (parameters.files_contain_same_reads) {
       gt_merge_synch_map_files(&input_mutex,parameters.paired_end,output_file,input_file_1,input_file_2);
@@ -315,8 +319,9 @@ void gt_mapset_display_compact_map() {
       gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file_1,parameters.mmap_input);
   gt_output_file* output_file = (parameters.name_output_file==NULL) ?
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
-
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
     gt_output_map_attributes* const output_map_attributes = gt_output_map_attributes_new();
     output_map_attributes->compact = true;
@@ -435,7 +440,9 @@ void parse_arguments(int argc,char** argv) {
       parameters.verbose = true;
       break;
     case 't':
+#ifdef HAVE_OPENMP
       parameters.num_threads = atol(optarg);
+#endif
       break;
     case 'h':
       fprintf(stderr, "USE: ./gt.mapset [OPERATION] [ARGS]...\n");

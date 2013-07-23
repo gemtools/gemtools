@@ -16,7 +16,9 @@
 #include "gt_string.h"
 
 #include <unistd.h>
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 
 /*
  * I/O Constants/Values
