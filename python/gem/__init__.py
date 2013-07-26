@@ -137,6 +137,7 @@ executables = execs_dict({
     "gt.filter": "gt.filter",
     "gt.map.2.sam": "gt.map.2.sam",
     "gt.mapset": "gt.mapset",
+    "gt.gtfcount": "gt.gtfcount",
     "gt.stats": "gt.stats"
     })
 
@@ -725,6 +726,7 @@ def pairalign(input, index, output=None,
         pa.append("--map-both-ends")
 
     tools = [pa]
+    tools.append([executables["gt.filter"], "-t", "8", "-p"])
     if compress:
         gzip = _compressor(threads=max(1, threads / 2))
         tools.append(gzip)
@@ -815,7 +817,7 @@ def score(input,
         #input = input.raw_stream()
 
     tools = [score_p]
-    tools.append(["/home/devel/thasso/git/github/gemtools/GEMTools/bin/gt.filter", "-t", "8"])
+
     if compress:
         gzip = _compressor(threads=max(1, threads / 2))
         tools.append(gzip)
@@ -1011,6 +1013,33 @@ def index(input, output, content="dna", threads=1):
     if process.wait() != 0:
         raise ValueError("Error while executing the gem-indexer")
     return os.path.abspath("%s.gem" % output)
+
+
+def gtfcounts(inputs, annotation, output=None, threads=1,
+              counts=None, weight=True, multimaps=False, exon_threshold=0,
+              paired=False):
+    """Run thtf count stats"""
+    p = [
+        executables['gt.gtfcount'],
+        '--threads', str(threads),
+        '-a', annotation
+    ]
+    if paired:
+        p.append("-p")
+
+    if counts is not None:
+        p.extend(["-g", counts])
+        if weight:
+            p.append("-w")
+        if multimaps:
+            p.append("-m")
+        if exon_threshold > 0:
+            p.extend(["-e", str(exon_threshold)])
+
+    process = utils.run_tools([p], name="gtfcounts", input=inputs,
+                              output=output, raw=True, write_map=True)
+    if process.wait() != 0:
+        raise ValueError("Error while running gt.gtfcounts")
 
 
 def _compressor(threads=1):

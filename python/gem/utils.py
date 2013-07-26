@@ -465,8 +465,11 @@ class ProcessWrapper(object):
             self.exit_value = exit_value
             return ev
         except Exception, e:
-            print "An error occured while waiting for one the child processes:", e
-            self.exit_value = 1
+            if isinstance(e, OSError) and e.errno == 10:
+                pass
+            else:
+                print "An error occured while waiting for one the child processes:", e
+                self.exit_value = 1
         finally:
             if not self.keep_logfiles:
                 for p in self.processes:

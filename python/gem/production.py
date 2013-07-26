@@ -329,6 +329,23 @@ class RnaPipeline(Command):
             if pipeline.bam_index:
                 pipeline.index_bam(name="index-bam", dependencies=[bam], final=True)
 
+        # add filter step
+        if pipeline.filtered_create:
+            filtered = pipeline.filtered_map(name="filtered", dependencies=[merged], final=True)
+            if pipeline.counts_create and pipeline.annotation is not None:
+                pipeline.create_gtfcounts(name="filtered.counts", suffix=".filtered", dependencies=[filtered], final=True)
+            if pipeline.stats_create:
+                pipeline.create_stats(name="filtered.stats", dependencies=[filtered], suffix=".filtered", final=True)
+            if pipeline.bam_create:
+                filtered_bam = pipeline.bam(name="filtered.bam", suffix=".filtered", dependencies=[filtered], final=True)
+                if pipeline.bam_index:
+                    pipeline.index_bam(name="filtered.index-bam", suffix=".filtered", dependencies=[filtered_bam], final=True)
+
+        if pipeline.counts_create and pipeline.annotation is not None:
+            pipeline.create_gtfcounts(name="counts", dependencies=[merged], final=True)
+
+
+
         # show parameter and step configuration
         pipeline.log_parameter()
 

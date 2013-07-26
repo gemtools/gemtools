@@ -27,9 +27,12 @@ class PipelineError(Exception):
 
 class PipelineStep(object):
     """General mapping pipeline step"""
-    def __init__(self, name, dependencies=None, final=False, description=""):
+    def __init__(self, name, dependencies=None, final=False, description="",
+                 name_suffix=None, file_suffix=None):
         self.id = None
         self.name = name
+        self.name_suffix = name_suffix
+        self.file_suffix = file_suffix
         self.description = description
         self.pipeline = None
         self.dependencies = []
@@ -64,7 +67,10 @@ class PipelineStep(object):
         """
         if self._files is None:
             self._files = []
-            self._files.append(self.pipeline.create_file_name(self.name, final=self.final))
+            self._files.append(self.pipeline.create_file_name(self.name,
+                                                              name_suffix=self.name_suffix,
+                                                              file_suffix=self.file_suffix,
+                                                              final=self.final))
         return self._files
 
     def _compress(self):
@@ -182,6 +188,37 @@ class MergeStep(PipelineStep):
         return [self.pipeline.open_step(i) for i in self.dependencies if i >= 0]
 
 
+class FilterStep(PipelineStep):
+    """Filter the result mapping"""
+    def files(self):
+        if self._files is None:
+            self._files = []
+            self._files.append(
+                self.pipeline.create_file_name(
+                    self.name,
+                    name_suffix=".filtered",
+                    file_suffix="map",
+                    final=self.final))
+        return self._files
+
+    def run(self):
+        cfg = self.configuration
+        inputs = self._input()
+        gem.filter.rnaseq_filter(
+            inputs,
+            output=self._final_output(),
+            compress=self.pipeline.compress,
+            annotation=cfg['annotation'],
+            min_intron=cfg['min_intron'],
+            min_block=cfg['min_block'],
+            level=cfg['level'],
+            max_multi_maps=cfg['max_multi_maps'],
+            gene_pairing=cfg['filter_annotation'] if cfg['annotation'] is not None else False,
+            junction_filter=cfg['filter_annotation'] if cfg['annotation'] is not None else False,
+            keep_unique=True,
+        )
+
+
 class MergeAndPairStep(PipelineStep):
     """Do merging and pairing in one single step"""
     def run(self):
@@ -236,10 +273,11 @@ class CreateStatsStep(PipelineStep):
     def files(self):
         if self._files is None:
             self._files = []
-            self._files.append(self.pipeline.create_file_name(self.name, name_suffix=".stats.all", file_suffix="txt", final=self.final))
-            self._files.append(self.pipeline.create_file_name(self.name, name_suffix=".stats.all", file_suffix="json", final=self.final))
-            self._files.append(self.pipeline.create_file_name(self.name, name_suffix=".stats.best", file_suffix="txt", final=self.final))
-            self._files.append(self.pipeline.create_file_name(self.name, name_suffix=".stats.best", file_suffix="json", final=self.final))
+            s = self.name_suffix if self.name_suffix is not None else ""
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.stats" % s, file_suffix="txt", final=self.final))
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.stats" % s, file_suffix="json", final=self.final))
+            #self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.stats.best" % s, file_suffix="txt", final=self.final))
+            #self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.stats.best" % s, file_suffix="json", final=self.final))
         return self._files
 
     def run(self):
@@ -249,14 +287,13 @@ class CreateStatsStep(PipelineStep):
             if cfg['stats_json'] is not None:
                 with open(out[1], 'w') as f:
                     json.dump(all_stats.__dict__, f)
-                with open(out[3], 'w') as f:
-                    json.dump(best_stats.__dict__, f)
-
+                #with open(out[3], 'w') as f:
+                    #json.dump(best_stats.__dict__, f)
             with open(out[0], 'w') as f:
                 all_stats.write(f)
 
-            with open(out[2], 'w') as f:
-                best_stats.write(f)
+            #with open(out[2], 'w') as f:
+                #best_stats.write(f)
 
         cfg = self.configuration
         infile = self._input()
@@ -272,14 +309,39 @@ class CreateStatsStep(PipelineStep):
         process.join()
 
 
-class CreateBamStep(PipelineStep):
-    """Create BAM file"""
+class CreateGtfStatsStep(PipelineStep):
+    """Create gtf stats file"""
 
     def files(self):
         if self._files is None:
             self._files = []
-            self._files.append(self.pipeline.create_file_name(self.name, file_suffix="bam", final=self.final))
+            s = self.name_suffix if self.name_suffix is not None else ""
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.gtf.counts" % s, file_suffix="txt", final=self.final))
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.gtf.stats" % s, file_suffix="txt", final=self.final))
         return self._files
+
+    def run(self):
+        cfg = self.configuration
+        infile = self._input()
+        output = self._final_output()
+        gene_counts = self._files[0]
+        counts_weighted = cfg['counts_weighted']
+        counts_multimaps = cfg['counts_multimaps']
+        counts_exon_threshold = cfg['counts_exon_threshold']
+        gem.gtfcounts(infile, cfg['annotation'], output, counts=gene_counts,
+                      threads=self.pipeline.threads, weight=counts_weighted,
+                      multimaps=counts_multimaps, paired=cfg['paired'],
+                      exon_threshold=counts_exon_threshold)
+
+
+class CreateBamStep(PipelineStep):
+    """Create BAM file"""
+
+#    def files(self):
+        #if self._files is None:
+            #self._files = []
+            #self._files.append(self.pipeline.create_file_name(self.name, file_suffix="bam", final=self.final))
+        #return self._files
 
     def run(self):
         cfg = self.configuration
@@ -296,11 +358,11 @@ class CreateBamStep(PipelineStep):
 class IndexBamStep(PipelineStep):
     """Index BAM file"""
 
-    def files(self):
-        if self._files is None:
-            self._files = []
-            self._files.append(self.pipeline.create_file_name(self.name, file_suffix="bam.bai", final=self.final))
-        return self._files
+    #def files(self):
+        #if self._files is None:
+            #self._files = []
+            #self._files.append(self.pipeline.create_file_name(self.name, file_suffix="bam.bai", final=self.final))
+        #return self._files
 
     def run(self):
         #cfg = self.configuration
@@ -675,6 +737,21 @@ class MappingPipeline(object):
         self.stats_create = True
         self.stats_json = False
 
+        # filtering parameter
+        self.filtered_create = True
+        self.filter_annotation = True
+        self.filter_intron_length = 20
+        self.filter_block_length = 5
+        self.filter_level = 0
+        self.filter_max_multi_maps = 5
+        self.filter_keep_unique = True
+
+        # gtf stats and counts
+        self.counts_create = True
+        self.counts_weighted = True
+        self.counts_multimaps = True
+        self.counts_exon_threshold = 1.0
+
         if args is not None:
             # initialize from arguments
             # load configuration
@@ -709,7 +786,7 @@ class MappingPipeline(object):
 
     def map(self, name, configuration=None, dependencies=None, final=False, description=""):
         """Add mapping step"""
-        step = MapStep(name, final=final, dependencies=dependencies, description=description)
+        step = MapStep(name, final=final, dependencies=dependencies, description=description, file_suffix="map")
         config = dotdict()
 
         config.index = self.index
@@ -734,7 +811,7 @@ class MappingPipeline(object):
 
     def splitmap(self, name, configuration=None, dependencies=None, final=False, description=""):
         """Add split-mapping step"""
-        step = SplitMapStep(name, final=final, dependencies=dependencies, description=description)
+        step = SplitMapStep(name, final=final, dependencies=dependencies, description=description, file_suffix="map")
         config = dotdict()
 
         config.index = self.index
@@ -761,7 +838,7 @@ class MappingPipeline(object):
 
     def pair(self, name, configuration=None, dependencies=None, final=False, description=""):
         """Add mapping step"""
-        step = PairalignStep(name, dependencies=dependencies, final=final, description=description)
+        step = PairalignStep(name, dependencies=dependencies, final=final, description=description, file_suffix="map")
         config = dotdict()
 
         config.index = self.index
@@ -787,7 +864,7 @@ class MappingPipeline(object):
         if self.annotation is None:
             logging.gemtools.info("No annotation specified, skipping annotation mapping")
             return -1
-        step = TranscriptMapStep(name, dependencies=dependencies, final=final, description=description)
+        step = TranscriptMapStep(name, dependencies=dependencies, final=final, description=description, file_suffix="map")
         config = dotdict()
         config.denovo = False
         config.annotation = self.annotation
@@ -813,7 +890,7 @@ class MappingPipeline(object):
 
     def transcripts_denovo(self, name=None, configuration=None, dependencies=None, final=False, description=""):
         """Create annotation based transcriptom and map"""
-        step = TranscriptMapStep(name, dependencies=dependencies, final=final, description=description)
+        step = TranscriptMapStep(name, dependencies=dependencies, final=final, description=description, file_suffix="map")
 
         config = dotdict()
         config.denovo = True
@@ -887,8 +964,8 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def create_stats(self, name, configuration=None, dependencies=None, final=False, description="Create stats"):
-        step = CreateStatsStep(name, dependencies=dependencies, final=final, description=description)
+    def create_stats(self, name, suffix=None, configuration=None, dependencies=None, final=False, description="Create stats"):
+        step = CreateStatsStep(name, dependencies=dependencies, final=final, description=description, name_suffix=suffix)
         config = dotdict()
 
         config.stats_json = self.stats_json
@@ -901,8 +978,27 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def bam(self, name, configuration=None, dependencies=None, final=False, description="Create BAM file"):
-        step = CreateBamStep(name, dependencies=dependencies, final=final, description=description)
+    def create_gtfcounts(self, name, suffix=None, configuration=None, dependencies=None, final=False, description="Create GTF gene counts and stats"):
+        step = CreateGtfStatsStep(name, dependencies=dependencies, final=final, description=description, name_suffix=suffix)
+        config = dotdict()
+
+        config.counts_weighted = self.counts_weighted
+        config.counts_multimaps = self.counts_multimaps
+        config.counts_exon_threshold = self.counts_exon_threshold
+        config.annotation = self.annotation
+        config.paired = not self.single_end
+
+        if configuration is not None:
+            self.__update_dict(config, configuration)
+
+        step.prepare(len(self.steps), self, config)
+        self.steps.append(step)
+        return step.id
+
+
+    def bam(self, name, suffix=None, configuration=None, dependencies=None, final=False, description="Create BAM file"):
+        step = CreateBamStep(name, dependencies=dependencies, final=final, description=description,
+                             file_suffix="bam", name_suffix=suffix)
         config = dotdict()
 
         config.index = self.index
@@ -931,8 +1027,8 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
-    def index_bam(self, name, configuration=None, dependencies=None, final=False, description="Index BAM file"):
-        step = IndexBamStep(name, dependencies=dependencies, final=final, description=description)
+    def index_bam(self, name, suffix=None, configuration=None, dependencies=None, final=False, description="Index BAM file"):
+        step = IndexBamStep(name, dependencies=dependencies, final=final, description=description, name_suffix=suffix, file_suffix="bam.bai")
         config = dotdict()
 
         if configuration is not None:
@@ -942,8 +1038,28 @@ class MappingPipeline(object):
         self.steps.append(step)
         return step.id
 
+    def filtered_map(self, name, configuration=None, dependencies=None, final=False, description="Create filtered .map"):
+        step = FilterStep(name, dependencies=dependencies, final=final, description=description)
+        config = dotdict()
+
+        config.annotation = self.annotation
+        config.min_intron = self.filter_intron_length
+        config.min_block = self.filter_block_length
+        config.level = self.filter_level
+        config.max_multi_maps = self.filter_max_multi_maps
+        config.gene_pairing = self.filter_annotation
+        config.junction_filter = self.filter_annotation
+        config.filter_annotation = self.filter_annotation
+
+        if configuration is not None:
+            self.__update_dict(config, configuration)
+
+        step.prepare(len(self.steps), self, config)
+        self.steps.append(step)
+        return step.id
+
     def merge(self, name, configuration=None, dependencies=None, final=False, description="Merge alignments"):
-        step = MergeStep(name, dependencies=dependencies, final=final, description=description)
+        step = MergeStep(name, dependencies=dependencies, final=final, description=description, file_suffix="map")
         config = dotdict()
 
         config.same_content = True
@@ -957,7 +1073,7 @@ class MappingPipeline(object):
         return step.id
 
     def merge_and_pair(self, name, configuration=None, dependencies=None, final=False, description="Merge and Pair alignments"):
-        step = MergeAndPairStep(name, dependencies=dependencies, final=final, description=description)
+        step = MergeAndPairStep(name, dependencies=dependencies, final=final, description=description, file_suffix="map")
         config = dotdict()
 
         config.same_content = True
@@ -1457,6 +1573,7 @@ index generated from your annotation.""")
         self.register_general(parser)
         self.register_output(parser)
         self.register_filtering(parser)
+        self.register_counts(parser)
         self.register_mapping(parser)
         self.register_transcript_mapping(parser)
         self.register_junctions(parser)
@@ -1464,6 +1581,26 @@ index generated from your annotation.""")
         self.register_bam(parser)
         self.register_stats(parser)
         self.register_execution(parser)
+
+    def register_counts(self, parser):
+        """Register all filtering parameters with given
+        argparse parser
+
+        parser -- the argparse parser
+        """
+        counts_group = parser.add_argument_group('GTF gene counts and stats')
+        counts_group.add_argument('--no-count', dest="counts_create",
+                                     action="store_false", default=True,
+                                     help='''Do not create GTF stats and counts results''')
+        counts_group.add_argument('--count-no-weights', dest="counts_weighted",
+                                     action="store_false", default=True,
+                                     help='''Do not weight multimap and multi gene hits but overcount''')
+        counts_group.add_argument('--count-unique-only', dest="counts_multimaps",
+                                     action="store_false", default=True,
+                                     help='''Do not considere multi-maps for counting''')
+        counts_group.add_argument('--count-exon-threshold', dest="counts_exon_threshold",
+                                     default=1.0, type=float,
+                                     help='''Minimum overlap of a mapping with exonic region to be counted for a gene''')
 
     def register_filtering(self, parser):
         """Register all filtering parameters with given
@@ -1476,6 +1613,31 @@ index generated from your annotation.""")
         filtering_group.add_argument('--filter-max-matches', dest="filter_max_matches", metavar="max_matches", type=int, help='''Maximum number of printed matches. Default %d''' % self.filter_max_matches)
         filtering_group.add_argument('--filter-min-strata', dest="filter_min_strata", metavar="min_strata", type=int, help='''Minimum number of printed strata. Default %d''' % self.filter_min_strata)
         filtering_group.add_argument('--filter-max-strata', dest="filter_max_strata", metavar="max_strata", type=int, help='''Maximum number of printed strata. Default %d''' % self.filter_max_strata)
+        filtering_group.add_argument('--no-filtered', dest="filtered_create",
+                                     action="store_false", default=True,
+                                     help='''Do not create filtered results''')
+        filtering_group.add_argument('--no-annotation-filter', dest="filter_annotation",
+                                     action="store_false", default=True,
+                                     help='''Do not filter by annotation. The annotation
+                                     filter checks that pairs and splits fall into the same gene
+                                     (assuming the gene_id is set in the annotation)''')
+        filtering_group.add_argument('--filter-intron-length', dest="filter_intron_length",
+                                     default=self.filter_intron_length,
+                                     help='''Filter multimaps preferring ones with intron
+                                     length > threshold''')
+        filtering_group.add_argument('--filter-block-length', dest="filter_block_length",
+                                     default=self.filter_block_length,
+                                     help='''Filter multimaps preferring ones with block
+                                     length > threshold''')
+        filtering_group.add_argument('--filter-level', dest="filter_level",
+                                     default=self.filter_level,
+                                     help='''Reduce multimaps using the specified uniqueness level.
+                                     Set this to -1 to disable''')
+        filtering_group.add_argument('--filter-max-multi-maps', dest="filter_max_multi_maps",
+                                     default=self.filter_max_multi_maps,
+                                     help='''Set multi-maps with more than <threshold> mappings to unmapped.
+                                     Set this to -1 to disable''')
+
 
     def register_bam(self, parser):
         """Register all bam parameters with given
