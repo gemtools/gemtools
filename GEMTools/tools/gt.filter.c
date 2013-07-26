@@ -952,7 +952,7 @@ GT_INLINE bool gt_filter_apply_filters(
   if(gt_template_get_num_blocks(template) == 2 && gt_template_is_mapped(template)){
     gt_template *template_filtered = gt_template_dup(template,false,false);
     const uint64_t num_blocks = gt_template_get_num_blocks(template);
-    GT_TEMPLATE_ITERATE_MMAP__ATTR(template,mmap,mmap_attributes) {
+    GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attributes) {
       if (!gt_filter_are_overlapping_pairs_coherent(mmap))continue;
       gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
       gt_template_insert_mmap(template_filtered,mmap_copy,mmap_attributes);
