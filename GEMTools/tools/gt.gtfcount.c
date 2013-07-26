@@ -44,6 +44,8 @@ typedef struct {
   uint64_t num_se_mappings; // total number of mappings from SE reads or unpaired PE-reads (counts per unmapped read)
   uint64_t num_unique_pe_maps; // # uniquely mapped pe-templates (counts 2 per template)
   uint64_t num_unique_se_maps; // # uniquely mapped se reads (counts 1 per read)
+  uint64_t num_junctions; // # total number of junctions for single mapping reads
+  uint64_t num_annotated_junctions; // # total number of junctions for single mapping reads that are found in the annotation
 
   uint64_t counted_reads; // total number of reads counted for gene counts (raw reads, counts 2 for a pe-template)
   uint64_t considered_pe_mappings; // total number of pe-mappings taken into account for counting (count 2 per template)
@@ -82,6 +84,8 @@ GT_INLINE gt_gtfcount_count_stats* gt_gtfcount_count_stats_new(void){
   s->num_se_mappings = 0;
   s->num_unique_pe_maps = 0;
   s->num_unique_se_maps = 0;
+  s->num_junctions = 0;
+  s->num_annotated_junctions = 0;
   s->counted_reads = 0;
   s->counted_pe_single_gene = 0;
   s->counted_pe_multi_gene = 0;
@@ -106,6 +110,8 @@ GT_INLINE void gt_gtfcount_count_stats_merge(gt_gtfcount_count_stats* target, gt
   target->num_se_mappings += source->num_se_mappings;
   target->num_unique_pe_maps += source->num_unique_pe_maps;
   target->num_unique_se_maps += source->num_unique_se_maps;
+  target->num_junctions += source->num_junctions;
+  target->num_annotated_junctions += source->num_annotated_junctions;
   target->counted_reads += source->counted_reads;
   target->counted_pe_single_gene += source->counted_pe_single_gene;
   target->counted_pe_multi_gene += source->counted_pe_multi_gene;
@@ -326,6 +332,9 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
         }
       }
     }
+
+    stats_list[tid]->num_junctions += params->num_junctions;
+    stats_list[tid]->num_annotated_junctions += params->num_annotated_junctions;
     // Clean
     gt_gtf_count_params_delete(params);
     gt_shash_delete(private_gene_counts, true);
@@ -570,6 +579,9 @@ GT_INLINE void gt_gtfcount_print_count_stats(FILE* output, gt_gtfcount_count_sta
   GT_GTFCOUNT_PRINT_P(output, "40", "Single Reads fall in single gene", (stats->counted_se_single_gene), stats->counted_reads);
   GT_GTFCOUNT_PRINT_P(output, "40", "Paired Reads fall in multiple gene", (stats->counted_pe_multi_gene), stats->counted_reads);
   GT_GTFCOUNT_PRINT_P(output, "40", "Single Reads fall in multiple gene", (stats->counted_se_multi_gene), stats->counted_reads);
+  fprintf(output, "\n");
+  GT_GTFCOUNT_PRINT_P(output, "40", "Annotated junction hits", (stats->num_annotated_junctions), stats->num_junctions);
+  GT_GTFCOUNT_PRINT_P(output, "40", "Denovo junction hits", (stats->num_junctions-stats->num_annotated_junctions), stats->num_junctions);
 }
 
 GT_INLINE void gt_gtfcount_print_type_counts(FILE* output, gt_gtfcount_count_stats* stats, gt_shash* type_counts){

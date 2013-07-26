@@ -115,6 +115,8 @@ typedef struct {
   bool unweighted_counts;
   bool single_pair_counts;
   double exon_overlap;
+  uint64_t num_junctions; // total number of junctions found in uniquely mapping reads
+  uint64_t num_annotated_junctions; // total number of junctions that are covered by the annotation
 } gt_gtf_count_parms;
 
 GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(void);
@@ -196,6 +198,7 @@ GT_INLINE void gt_gtf_count_weight_(gt_shash* const table, char* const element, 
 GT_INLINE void gt_gtf_count_sum_(gt_shash* const table, char* const element, uint64_t value);
 
 
+GT_INLINE uint64_t gt_gtf_count_junction(gt_gtf* const gtf, gt_map* const map);
 /**
  * Search
  */
