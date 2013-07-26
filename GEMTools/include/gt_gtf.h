@@ -88,6 +88,7 @@ typedef struct {
   uint64_t num_genes; // number of hit genes
   uint64_t num_paired_genes; // number of hit paired genes
   uint64_t num_protein_coding; // number of protein coding exons
+  double junction_hit_ration; // max ratio of junctionhits/junctions
 }gt_gtf_hits;
 
 
@@ -100,6 +101,7 @@ typedef struct {
   float exon_overlap;
   float junction_hits;
   uint64_t num_junctions;
+  uint64_t num_junctions_hits;
   uint64_t intron_length;
   uint64_t num_template_blocks;
   bool is_protein_coding;
@@ -198,7 +200,11 @@ GT_INLINE void gt_gtf_count_weight_(gt_shash* const table, char* const element, 
 GT_INLINE void gt_gtf_count_sum_(gt_shash* const table, char* const element, uint64_t value);
 
 
-GT_INLINE uint64_t gt_gtf_count_junction(gt_gtf* const gtf, gt_map* const map);
+GT_INLINE uint64_t gt_gtf_count_junction(const gt_gtf* const gtf, gt_map* const map);
+GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1, gt_map* const map2,
+                                    gt_shash* const pattern_counts, gt_shash* const gene_counts,
+                                    gt_string* pattern, gt_gtf_count_parms* params);
+
 /**
  * Search
  */

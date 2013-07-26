@@ -68,6 +68,7 @@ typedef struct {
   bool reduce_by_gene_id;
   bool reduce_to_protein_coding;
   /* RNA Seq to recalculate counters */
+  bool reduce_by_junctions;
   bool no_split_maps;
   bool only_split_maps;
   bool no_penalty_for_splitmaps;
@@ -172,6 +173,7 @@ gt_filter_args parameters = {
     /* Make templates unique */
     .reduce_to_unique_strata=-1,
     .reduce_by_gene_id=false,
+    .reduce_by_junctions=false,
     .reduce_to_protein_coding=false,
     .reduce_to_unique=UINT64_MAX,
     .reduce_to_pairs=false,
@@ -437,20 +439,18 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation_alignment(gt_template* const 
   gt_gtf_search_alignment_hits(parameters.gtf, hits, alignment);
   bool prot_coding = (parameters.reduce_to_protein_coding && hits->num_protein_coding >= 1);
   bool gene_id = (parameters.reduce_by_gene_id && hits->num_paired_genes >= 1);
-  bool single_gene = (parameters.reduce_by_gene_id && hits->num_genes == 1);
+  bool junction_hits = (parameters.reduce_by_junctions && hits->junction_hit_ration > 0.0);
   if(gene_id || prot_coding){
     GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
       gt_gtf_hit* hit = *e;
-      if(single_gene){
-        if(!prot_coding || hit->is_protein_coding){
-          filtered = true;
-          gt_filter_add_from_hit(template_dst, hit, block);
-        }
-      }else if(prot_coding && hit->is_protein_coding){
-        filtered = true;
-        gt_filter_add_from_hit(template_dst, hit, block);
+      if(junction_hits){
+        double junction_ratio = hit->num_junctions == 0 ? -1.0 : (double)hit->num_junctions_hits/(double)hit->num_junctions;
+        if(junction_ratio > 0.0 && junction_ratio != hits->junction_hit_ration) continue;
       }
-      if(single_gene && filtered) break; // we found a single gene and it was added so we stop adding more
+      if(gene_id && !hit->pairs_gene)continue;
+      if(prot_coding && !hit->is_protein_coding)continue;
+      filtered = true;
+      gt_filter_add_from_hit(template_dst, hit, block);
     }
   }
   return filtered;
@@ -492,20 +492,19 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_d
       gt_gtf_search_template_hits(parameters.gtf, hits, template_src);
       bool prot_coding = (parameters.reduce_to_protein_coding && hits->num_protein_coding >= 1);
       bool gene_id = (parameters.reduce_by_gene_id && hits->num_paired_genes >= 1);
-      bool single_gene = (parameters.reduce_by_gene_id && hits->num_genes == 1);
-      if(gene_id || prot_coding){
+      bool junction_hits = (parameters.reduce_by_junctions && hits->junction_hit_ration > 0.0);
+      if(gene_id || prot_coding || junction_hits){
         GT_VECTOR_ITERATE(hits->exon_hits, e, c, gt_gtf_hit*){
           gt_gtf_hit* hit = *e;
-          if(gene_id && hit->pairs_gene){
-            if(!prot_coding || hit->is_protein_coding){
-              filtered = true;
-              gt_filter_add_from_hit(template_dst, hit, 0);
-            }
-          }else if(prot_coding && hit->is_protein_coding){
-            filtered = true;
-            gt_filter_add_from_hit(template_dst, hit, 0);
+          if(junction_hits){
+            double junction_ratio = hit->num_junctions == 0 ? -1.0 : (double)hit->num_junctions_hits/(double)hit->num_junctions;
+            if(junction_ratio > 0.0 && junction_ratio != hits->junction_hit_ration)continue;
           }
-          if(single_gene && filtered)break; // we found a single gene and it was added so we stop adding more
+          if(gene_id && !hit->pairs_gene)continue;
+          if(prot_coding && !hit->is_protein_coding)continue;
+
+          filtered = true;
+          gt_filter_add_from_hit(template_dst, hit, 0);
         }
       }
       gt_gtf_hits_delete(hits);
@@ -1806,6 +1805,10 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 517: // reduce-to-protein-coding
       parameters.reduce_to_protein_coding = true;
+      parameters.perform_annotation_filter = true;
+      break;
+    case 518: // reduce-by_junctions
+      parameters.reduce_by_junctions = true;
       parameters.perform_annotation_filter = true;
       break;
     /* Filter RNA-Maps */

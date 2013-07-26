@@ -74,6 +74,7 @@ GT_INLINE void gt_gtf_hits_clear(gt_gtf_hits* const hits){
   hits->num_genes = 0;
   hits->num_protein_coding =0;
   hits->num_paired_genes =0;
+  hits->junction_hit_ration = 0.0;
   gt_vector_clear(hits->exon_hits);
 }
 
@@ -413,7 +414,7 @@ bool gt_gtf_hits_junction(gt_map* map, gt_gtf_entry* e){
 /**
  * Iterate over the map blocks and count exon-exon junctions that are annotated
  */
-GT_INLINE uint64_t gt_gtf_count_junction(gt_gtf* const gtf, gt_map* const map){
+GT_INLINE uint64_t gt_gtf_count_junction(const gt_gtf* const gtf, gt_map* const map){
   uint64_t blocks = gt_map_get_num_blocks(map);
   if(blocks <= 1) return 0; // single block map
   uint64_t num_junctions = 0;
@@ -497,6 +498,7 @@ GT_INLINE gt_gtf_hit* gt_gtf_hit_new(void){
   hit->pairs_transcript = false;
   hit->pairs_splits = false;
   hit->pairs_gene = false;
+  hit->num_junctions_hits =0;
   hit->num_template_blocks = 0;
   hit->transcripts = NULL;
   hit->genes = NULL;
@@ -802,30 +804,28 @@ GT_INLINE void gt_gtf_create_hit(gt_vector* search_hits, gt_shash* all_genes, gt
   template_hit->is_protein_coding = false;
   template_hit->hits_exon = false;
   bool counted_protein = false;
+  // set gene count
+  GT_SHASH_BEGIN_ITERATE(all_genes, gene_id, c, uint64_t){
+    gt_gtf_count_sum_(template_hit->genes, gene_id, *c);
+  }GT_SHASH_END_ITERATE;
+
   GT_VECTOR_ITERATE(search_hits, v, c, gt_gtf_entry*){
     gt_gtf_entry* e = *v;
-    // count gene id
-    if(e->gene_id != NULL){
-      gt_gtf_count_(template_hit->genes, gt_string_get_string(e->gene_id));
-      gt_gtf_count_(all_genes, gt_string_get_string(e->gene_id));
-    }
+    // count transcript
     if(e->transcript_id != NULL){
       gt_gtf_count_(template_hit->transcripts, gt_string_get_string(e->transcript_id));
     }
-    if(strcmp(e->type->buffer, "exon") == 0){
+    if(!template_hit->hits_exon && strcmp(e->type->buffer, "exon") == 0){
       template_hit->hits_exon = true;
     }
-    if(e->gene_type != NULL){
+    if(!counted_protein && e->gene_type != NULL){
       template_hit->is_protein_coding |= (strcmp(e->gene_type->buffer, "protein_coding") == 0);
-      if(!counted_protein){
-        hits->num_protein_coding++;
-        counted_protein = true;
-      }
+      hits->num_protein_coding++;
+      counted_protein = true;
     }
   }
-  template_hit->pairs_gene = (gt_shash_get_num_elements(template_hit->genes) == 1); // single gene
+  template_hit->pairs_gene = (gt_shash_get_num_elements(all_genes) > 1); // single gene
   template_hit->pairs_transcript = (gt_shash_get_num_elements(template_hit->transcripts) == 1); // single gene
-
   hits->num_paired_genes += (template_hit->pairs_gene ? 1 : 0);
   gt_vector_insert(hits->exon_hits, template_hit, gt_gtf_hit*);
 }
@@ -835,20 +835,24 @@ GT_INLINE void gt_gtf_search_template_hits(const gt_gtf* const gtf, gt_gtf_hits*
   // reset the hits
   gt_gtf_hits_clear(hits);
   gt_shash* all_genes = gt_shash_new();
-
   // process paired alignment
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template_src,mmap,mmap_attr) {
-    gt_gtf_search_map(gtf, search_hits, mmap[0], true);
-    gt_gtf_search_map(gtf, search_hits, mmap[1], false);
     gt_gtf_hit* template_hit = gt_gtf_hit_new();
     template_hit->num_template_blocks = gt_template_get_num_blocks(template_src);
     template_hit->mmap = mmap;
     template_hit->map = NULL;
     template_hit->map_attributes = mmap_attr;
     template_hit->num_junctions = (gt_map_get_num_blocks(mmap[0]) + gt_map_get_num_blocks(mmap[1])) - 2;
+    template_hit->num_junctions_hits = gt_gtf_count_junction(gtf, mmap[0]) + gt_gtf_count_junction(gtf, mmap[1]);
+    double junction_ratio = template_hit->num_junctions == 0 ? -1.0 : (double)template_hit->num_junctions_hits/(double)template_hit->num_junctions;
+    if(junction_ratio > 0 && junction_ratio > hits->junction_hit_ration) hits->junction_hit_ration = junction_ratio;
+    gt_shash_clear(all_genes, true);
+    gt_gtf_count_map(gtf, mmap[0], mmap[1], NULL, all_genes, NULL, NULL);
+    gt_gtf_search_map(gtf, search_hits, mmap[0], true);
+    gt_gtf_search_map(gtf, search_hits, mmap[1], false);
     gt_gtf_create_hit(search_hits, all_genes, hits, template_hit);
+    hits->num_genes += gt_shash_get_num_elements(all_genes);
   }
-  hits->num_genes = gt_shash_get_num_elements(all_genes);
   gt_shash_delete(all_genes, true);
   gt_vector_delete(search_hits);
 }
@@ -861,16 +865,23 @@ GT_INLINE void gt_gtf_search_alignment_hits(const gt_gtf* const gtf, gt_gtf_hits
 
   // process paired alignment
   GT_ALIGNMENT_ITERATE(alignment, map){
-    gt_gtf_search_map(gtf, search_hits, map, true);
+
     gt_gtf_hit* template_hit = gt_gtf_hit_new();
     template_hit->map = map;
     template_hit->mmap = NULL;
-    template_hit->num_junctions = gt_map_get_num_blocks(map);
+    template_hit->num_junctions = gt_map_get_num_blocks(map) - 1;
+    template_hit->num_junctions_hits = gt_gtf_count_junction(gtf, map);
     template_hit->num_template_blocks = 1;
+    double junction_ratio = template_hit->num_junctions == 0 ? -1.0 : (double)template_hit->num_junctions_hits/(double)template_hit->num_junctions;
+    if(junction_ratio > 0 && junction_ratio > hits->junction_hit_ration) hits->junction_hit_ration = junction_ratio;
+
+    gt_shash_clear(all_genes, false);
+    gt_gtf_count_map(gtf, map, NULL, NULL, all_genes, NULL, NULL);
+    gt_gtf_search_map(gtf, search_hits, map, true);
     gt_gtf_create_hit(search_hits, all_genes, hits, template_hit);
+    hits->num_genes += gt_shash_get_num_elements(all_genes);
   }
-  hits->num_genes = gt_shash_get_num_elements(all_genes);
-  gt_shash_delete(all_genes, true);
+  gt_shash_delete(all_genes, false);
   gt_vector_delete(search_hits);
 }
 
@@ -902,7 +913,7 @@ GT_INLINE void gt_gtf_count_add_(gt_shash* const source, gt_shash* const target)
  * @param float* overlap             float pointer that is set to the maximum exon overlap of this block
  * @return uint64_t num_gene_exons   number of unique gene_ids hit by exons
  */
-GT_INLINE uint64_t gt_gtf_count_map_(gt_gtf* const gtf, gt_map* const map,
+GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
                                      gt_shash* const type_counts,
                                      gt_shash* const gene_counts,
                                      gt_shash* const exon_counts,
@@ -1036,11 +1047,11 @@ GT_INLINE double gt_gtf_count_get_sum_(gt_shash* table){
  * @param gt_string pattern        the pattern string filled based on the types
  * @return uint64_t num_gene_hits  the number of gene_ids hit by the map
  */
-GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_map* const map2,
+GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1, gt_map* const map2,
                                     gt_shash* const pattern_counts, gt_shash* const gene_counts,
                                     gt_string* pattern, gt_gtf_count_parms* params){
   // clear patterns
-  gt_string_clear(pattern);
+  if(pattern != NULL)gt_string_clear(pattern);
   // get number of blocks and ensure we have at least one
   uint64_t blocks = gt_map_get_num_blocks(map1);
   if(map2 != NULL){
@@ -1184,7 +1195,7 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
   float overlap = (block_1_overlap + block_2_overlap) / (float) (map2==NULL?1.0:2.0);
   uint64_t map2_hits = map2 != NULL ? gt_shash_get_num_elements(local_gene_counts_2) : 0;
   GT_SHASH_BEGIN_ITERATE(local_gene_counts_1, gene_id, count, uint64_t){
-    if( (gt_shash_is_contained(local_gene_counts_2, gene_id) || map2_hits == 0) && (params->exon_overlap <= 0.0 || overlap >= params->exon_overlap)){
+    if( (gt_shash_is_contained(local_gene_counts_2, gene_id) || map2_hits == 0) && (params == NULL || params->exon_overlap <= 0.0 || overlap >= params->exon_overlap)){
       uint64_t nv  =*count + gt_gtf_get_count_(local_gene_counts_2, gene_id);
       gt_gtf_count_sum_(merged_counts, gene_id, nv);
       if(overlap > 1.000001){
@@ -1207,10 +1218,10 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     // merge the gene counts weighted to a single map
     GT_SHASH_BEGIN_KEY_ITERATE(merged_counts, gene_id){
       double v = 0.0;
-      if(gt_shash_is_contained(local_exon_counts_1, gene_id) || (params->exon_overlap <= 0.0 && gt_shash_is_contained(local_gene_counts_1, gene_id))){
+      if(gt_shash_is_contained(local_exon_counts_1, gene_id) || ((params == NULL || params->exon_overlap <= 0.0) && gt_shash_is_contained(local_gene_counts_1, gene_id))){
         v+= 1.0;
       }
-      if(gt_shash_is_contained(local_exon_counts_2, gene_id) || (params->exon_overlap <= 0.0 && gt_shash_is_contained(local_gene_counts_2, gene_id))){
+      if(gt_shash_is_contained(local_exon_counts_2, gene_id) || ((params == NULL || params->exon_overlap <= 0.0 )&& gt_shash_is_contained(local_gene_counts_2, gene_id))){
         v+=1.0;
       }
       if(v > 0.0) gt_gtf_count_weight_(local_gene_counts, gene_id, v);
@@ -1239,7 +1250,7 @@ GT_INLINE uint64_t gt_gtf_count_map(gt_gtf* const gtf, gt_map* const map1, gt_ma
     gt_gtf_count_(pattern_counts, gt_string_get_string(pattern));
   }
 
-  if(params->num_maps == 1){
+  if(params != NULL && params->num_maps == 1){
     // count junctions for single mapping reads
     if(blocks1 > 1){
       params->num_junctions += blocks1 - 1;
@@ -1298,10 +1309,8 @@ GT_INLINE uint64_t gt_gtf_count_template(gt_gtf* const gtf, gt_template* const t
   uint64_t hits = 0;
   gt_string* pattern = gt_string_new(16);
   params->num_maps = gt_template_get_num_mmaps(template);
-//  fprintf(stderr, "COUNT: %s %.2f\n", gt_template_get_tag(template), params->exon_overlap);
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
     hits = gt_gtf_count_map(gtf, mmap[0], mmap[1], pattern_count, gene_counts, pattern, params);
-//    fprintf(stderr, "\tHITS: %d\n", hits);
     gt_string_clear(pattern);
   }
   gt_string_delete(pattern);
