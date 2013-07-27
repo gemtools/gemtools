@@ -11,6 +11,7 @@ import traceback
 from gem.utils import Timer
 import gem.gemtools as gt
 import gem.filter
+import gem.utils
 
 class dotdict(dict):
     def __getattr__(self, attr):
@@ -496,6 +497,15 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
             gem.junctions.write_junctions(filtered_denovo_junctions, self.junctions_out, cfg["index"])
 
         logging.gemtools.gt("Computing denovo transcriptome")
+        max_len = self.pipeline.max_read_length
+        if max_len <= 0:
+            logging.gemtools.gt("Calculating max read length")
+            max_len = gem.utils.get_max_read_length(self._input(),
+                                                    threads=self.pipeline.threads)
+            if max_len < 0:
+                raise PipelineError("Unable to calculate max read length: %s" % file)
+            logging.gemtools.gt("Max read length: %d", max_len)
+
         (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(self.pipeline.max_read_length, cfg["index"], self.junctions_out, junctions_gtf_out)
 
         logging.gemtools.gt("Indexing denovo transcriptome")
@@ -657,7 +667,7 @@ class MappingPipeline(object):
         self.output_dir = None  # Output directory
         self.annotation = None  # GTF annotation to use
         self.threads = 1  # number of threads
-        self.max_read_length = 150  # max read length
+        self.max_read_length = 0  # max read length
         self.transcript_index = None  # transcriptome index
         self.transcript_keys = None  # transcriptome keys file
         self.denovo_index = None  # the denovo index to use
@@ -1745,7 +1755,7 @@ index generated from your annotation.""")
         transcript_mapping_group.add_argument('--transcript-mismatch-alphabet', dest="transcript_mismatch_alphabet", metavar="alphabet", help='The mismatch alphabet. Default to genome setting.')
         transcript_mapping_group.add_argument('--transcript-strata-after-best', dest="transcript_strata_after_best", metavar="strata", help='The number of strata examined after the best one. Default to genome setting.')
         transcript_mapping_group.add_argument('--max-read-length', dest="max_read_length", type=int, help='''The maximum read length. This is used to create the de-novo
-            transcriptome and acts as an upper bound. Default %d''' % (self.max_read_length))
+            transcriptome and acts as an upper bound. Default auto-detect''')
 
     def register_junctions(self, parser):
         """Register the junction detection parameter with the

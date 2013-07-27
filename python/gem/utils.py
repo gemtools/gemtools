@@ -714,3 +714,20 @@ class retriever(object):
             self.__process.stdout.close()
             self.__process = None
 
+
+def get_max_read_length(input, threads=1, paired=False):
+    p = [gem.executables['gt.stats'], "--threads", str(threads)]
+    if paired:
+        p.append("-p")
+
+    process = run_tool(p, input=input, output=None, name="stats")
+    import re
+    pattern = re.compile(r'.*Reads.Length \(min,avg,max\) \(\d+,\d+,(\d+)\)')
+    max_len = -1
+    for line in process.processes[0].process.stdout:
+        m = pattern.match(line)
+        if m:
+            max_len = int(m.groups()[0])
+    if process.wait() != 0:
+        raise ValueError("Error while getting max read length from stats!")
+    return max_len
