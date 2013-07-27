@@ -688,6 +688,7 @@ def pairalign(input, index, output=None,
               max_matches_per_extension=0,
               unique_pairing=False,
               map_both_ends=False,
+              filter_max_matches=0,
               threads=1,
               compress=False,
               extra=None):
@@ -726,7 +727,10 @@ def pairalign(input, index, output=None,
         pa.append("--map-both-ends")
 
     tools = [pa]
-    tools.append([executables["gt.filter"], "-t", "8", "-p"])
+    filter_pa = [executables["gt.filter"], "-t", str(threads), "-p"]
+    if filter_max_matches > 0:
+        filter_pa.extend(["--max-output-matches", str(filter_max_matches)])
+    tools.append(filter_pa)
     if compress:
         gzip = _compressor(threads=max(1, threads / 2))
         tools.append(gzip)
@@ -819,7 +823,7 @@ def score(input,
     tools = [score_p]
 
     if compress:
-        gzip = _compressor(threads=max(1, threads / 2))
+        gzip = _compressor(threads=threads)
         tools.append(gzip)
 
     process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=False)

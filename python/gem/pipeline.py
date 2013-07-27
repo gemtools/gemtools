@@ -229,7 +229,7 @@ class MergeAndPairStep(PipelineStep):
         slaves = inputs[1:]
 
         mapping = gem.merge(master, slaves, output=None,
-                            threads=self.pipeline.threads,
+                            threads=max(1, self.pipeline.threads / 2),  # self.pipeline.threads,
                             same_content=same_content,
                             paired=False,
                             compress=self._compress())
@@ -247,14 +247,15 @@ class MergeAndPairStep(PipelineStep):
           min_matched_bases=cfg["min_matched_bases"],
           max_extendable_matches=cfg["max_extendable_matches"],
           max_matches_per_extension=cfg["max_matches_per_extension"],
-          threads=max(2, self.pipeline.threads / 2),  # self.pipeline.threads,
+          threads=max(1, self.pipeline.threads / 2),  # self.pipeline.threads,
+          filter_max_matches=0,
           quality=self.pipeline.quality,
           compress=self._compress())
 
         if self.final:
             gem.score(pair_mapping, cfg["index"], self._final_output(),
                 filter=self.pipeline.filter,
-                threads=self.pipeline.threads,  # max(2, self.pipeline.threads / 2),
+                threads=max(1, self.pipeline.threads / 2),
                 quality=self.pipeline.quality,
                 compress=self.pipeline.compress,
                 raw=True)
