@@ -506,7 +506,7 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
                 raise PipelineError("Unable to calculate max read length: %s" % file)
             logging.gemtools.gt("Max read length: %d", max_len)
 
-        (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(self.pipeline.max_read_length, cfg["index"], self.junctions_out, junctions_gtf_out)
+        (denovo_transcriptome, denovo_keys) = gem.compute_transcriptome(max_len, cfg["index"], self.junctions_out, junctions_gtf_out)
 
         logging.gemtools.gt("Indexing denovo transcriptome")
         gem.index(denovo_transcriptome, self.index_denovo_out, threads=self.pipeline.threads)
