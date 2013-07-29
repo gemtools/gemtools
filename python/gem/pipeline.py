@@ -216,6 +216,7 @@ class FilterStep(PipelineStep):
             max_multi_maps=cfg['max_multi_maps'],
             gene_pairing=cfg['filter_annotation'] if cfg['annotation'] is not None else False,
             junction_filter=cfg['filter_annotation'] if cfg['annotation'] is not None else False,
+            threads=self.pipeline.threads,
             keep_unique=True,
         )
 
