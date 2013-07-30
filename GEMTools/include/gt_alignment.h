@@ -46,8 +46,13 @@ typedef struct {
   gt_ihash* begin_position; /* (uint64_t) */
   gt_ihash* end_position;   /* (uint64_t) */
 } gt_alignment_dictionary_element;
+typedef struct {
+  gt_map* map; /* the map*/
+  uint64_t pos; /* the map position in the alignment map list */
+} gt_alignment_dictionary_map_element;
 struct _gt_alignment_dictionary {
   gt_shash* maps_dictionary; /* (gt_alignment_dictionary_element*) */
+  gt_shash* refs_dictionary; /* (gt_alignment_dictionary_map_element*) */
   gt_alignment* alignment;
 };
 
@@ -64,7 +69,8 @@ struct _gt_alignment_dictionary {
   GT_ATTRIBUTES_CHECK(alignment->attributes)
 #define GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary) \
   GT_NULL_CHECK(alignment_dictionary); \
-  GT_HASH_CHECK(alignment_dictionary->maps_dictionary)
+  GT_HASH_CHECK(alignment_dictionary->maps_dictionary); \
+  GT_HASH_CHECK(alignment_dictionary->refs_dictionary)
 
 /*
  *  TODO: Scheduled for v2.0 (all lazy parsing)
@@ -155,6 +161,7 @@ GT_INLINE uint64_t gt_alignment_next_map_pos(gt_alignment_map_iterator* const al
  */
 GT_INLINE gt_alignment_dictionary* gt_alignment_dictionary_new(gt_alignment* const alignment);
 GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const alignment_dictionary);
+GT_INLINE void gt_alignment_dictionary_add_ref(gt_alignment_dictionary* const alignment_dictionary, gt_alignment* const alignment);
 GT_INLINE bool gt_alignment_dictionary_try_add(
     gt_alignment_dictionary* const alignment_dictionary,gt_map* const map,
     const uint64_t begin_position,const uint64_t end_position,
