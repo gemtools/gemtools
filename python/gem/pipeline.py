@@ -279,24 +279,17 @@ class CreateStatsStep(PipelineStep):
             s = self.name_suffix if self.name_suffix is not None else ""
             self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.stats" % s, file_suffix="txt", final=self.final))
             self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.stats" % s, file_suffix="json", final=self.final))
-            #self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.stats.best" % s, file_suffix="txt", final=self.final))
-            #self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.stats.best" % s, file_suffix="json", final=self.final))
         return self._files
 
     def run(self):
-        def __read__write_stats(cfg, all_stats, best_stats, threads, out, infile):
+        def __read__write_stats(cfg, all_stats, best_stats,
+                                threads, out, infile):
             gt.read_stats(infile, all_stats, best_stats, threads=threads)
-            # out = self.files()
-            if cfg['stats_json'] is not None:
+            if cfg['stats_json'] is not None and cfg['stats_json']:
                 with open(out[1], 'w') as f:
                     json.dump(all_stats.__dict__, f)
-                #with open(out[3], 'w') as f:
-                    #json.dump(best_stats.__dict__, f)
             with open(out[0], 'w') as f:
                 all_stats.write(f)
-
-            #with open(out[2], 'w') as f:
-                #best_stats.write(f)
 
         cfg = self.configuration
         infile = self._input()
@@ -306,7 +299,10 @@ class CreateStatsStep(PipelineStep):
         import gem.utils
         import multiprocessing
 
-        process = multiprocessing.Process(target=__read__write_stats, args=(cfg, all_stats, best_stats, self.pipeline.threads, self.files(), infile))
+        process = multiprocessing.Process(target=__read__write_stats,
+                                          args=(cfg, all_stats, best_stats,
+                                                self.pipeline.threads,
+                                                self.files(), infile))
         gem.utils.register_process(process)
         process.start()
         process.join()
@@ -747,7 +743,7 @@ class MappingPipeline(object):
 
         # stats parameter
         self.stats_create = True
-        self.stats_json = False
+        self.stats_json = True
 
         # filtering parameter
         self.filtered_create = True

@@ -20,6 +20,7 @@ import tempfile
 import multiprocessing as mp
 import json
 import subprocess
+import signal
 
 
 # clobal process registry
@@ -41,6 +42,8 @@ def terminate_processes():
     for p in _process_registry:
         if p.is_alive() and p._popen is not None:
             p.terminate()
+            if p.is_alive():  # terminate send a SIGTERM, now kill it properly
+                os.kill(p._popen.pid, signal.SIGKILL)
 
 
 class Timer(object):
