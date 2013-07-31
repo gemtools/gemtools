@@ -326,8 +326,11 @@ GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const ali
   } GT_SHASH_END_ITERATE;
   gt_shash_delete(alignment_dictionary->maps_dictionary,false);
 
-  GT_SHASH_BEGIN_ELEMENT_ITERATE(alignment_dictionary->refs_dictionary,alg_dicc_elem,gt_alignment_dictionary_map_element) {
-    gt_free(alg_dicc_elem);
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(alignment_dictionary->refs_dictionary,ref_data,gt_vector) {
+    GT_VECTOR_ITERATE(ref_data, e, c, gt_alignment_dictionary_map_element*){
+      gt_free(*e);
+    }
+    gt_vector_delete(ref_data);
   } GT_SHASH_END_ITERATE;
   gt_shash_delete(alignment_dictionary->refs_dictionary,false);
 
