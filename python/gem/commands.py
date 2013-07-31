@@ -31,7 +31,6 @@ def gemtools():
             "stats": gem.production.Stats,
             "filter": gem.production.Filter,
             "report": gem.production.StatsReport,
-            "sam": gem.production.SamConverter
         }
         instances = {}
 

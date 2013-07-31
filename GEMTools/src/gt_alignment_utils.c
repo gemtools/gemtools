@@ -244,10 +244,14 @@ GT_INLINE uint64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const align
   GT_ALIGNMENT_CHECK(alignment);
   const char* const qualities = gt_alignment_get_qualities(alignment);
   uint64_t qv = 0;
-  GT_MISMS_ITERATE(map, misms) {
-    if (misms->misms_type == MISMS) {
-      qv =+ qualities[misms->position];
+  uint64_t split_map_offset = 0;
+  GT_MAP_ITERATE_MAP_BLOCK(map, block){
+    GT_MISMS_ITERATE(block, misms) {
+      if (misms->misms_type == MISMS) {
+        qv =+ qualities[misms->position + split_map_offset];
+      }
     }
+    split_map_offset += gt_map_get_base_length(block);
   }
   return qv;
 }
