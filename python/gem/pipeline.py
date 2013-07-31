@@ -285,11 +285,12 @@ class CreateStatsStep(PipelineStep):
         def __read__write_stats(cfg, all_stats, best_stats,
                                 threads, out, infile):
             gt.read_stats(infile, all_stats, best_stats, threads=threads)
+            with open(out[0], 'w') as f:
+                all_stats.write(f)
             if cfg['stats_json'] is not None and cfg['stats_json']:
                 with open(out[1], 'w') as f:
                     json.dump(all_stats.__dict__, f)
-            with open(out[0], 'w') as f:
-                all_stats.write(f)
+
 
         cfg = self.configuration
         infile = self._input()
