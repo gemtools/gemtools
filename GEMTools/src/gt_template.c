@@ -437,6 +437,45 @@ GT_INLINE void gt_template_add_mmap_gtvector(
     gt_template_mmap_attributes_clear(&mmap_ph->attributes);
   }
 }
+/**
+ * dictionary based indexing
+ */
+GT_INLINE gt_template_dictionary* gt_template_dictionary_new(gt_template* const template){
+  gt_template_dictionary* template_dictionary = gt_alloc(gt_template_dictionary);
+  template_dictionary->refs_dictionary = gt_shash_new();
+  template_dictionary->template = template;
+  return template_dictionary;
+}
+GT_INLINE void gt_template_dictionary_delete(gt_template_dictionary* const template_dictionary){
+  GT_TEMPLATE_DICTIONARY_CHECK(template_dictionary);
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(template_dictionary->refs_dictionary,alg_dicc_elem,gt_template_dictionary_map_element) {
+    gt_free(alg_dicc_elem);
+  } GT_SHASH_END_ITERATE;
+  gt_shash_delete(template_dictionary->refs_dictionary,false);
+  gt_free(template_dictionary);
+}
+
+GT_INLINE void gt_template_dictionary_add_ref(gt_template_dictionary* const template_dictionary, gt_template* const template){
+  GT_TEMPLATE_DICTIONARY_CHECK(template_dictionary);
+  uint64_t pos = 0;
+  GT_TEMPLATE_ITERATE_MMAP__ATTR(template, mmap, mmap_attr){
+    char* ref = gt_map_get_seq_name(mmap[0]);
+    gt_vector* dictionary_elements = NULL;
+    if(!gt_shash_is_contained(template_dictionary->refs_dictionary, ref)){
+      dictionary_elements = gt_vector_new(16, sizeof(gt_template_dictionary_map_element*));
+      gt_shash_insert(template_dictionary->refs_dictionary, ref, dictionary_elements, gt_vector);
+    }else{
+      dictionary_elements = gt_shash_get(template_dictionary->refs_dictionary, ref, gt_vector);
+    }
+    gt_template_dictionary_map_element* e = gt_alloc(gt_template_dictionary_map_element);
+    e->mmap = mmap;
+    e->mmap_attrs = mmap_attr;
+    e->pos = pos;
+    gt_vector_insert(dictionary_elements, e, gt_template_dictionary_map_element*);
+    pos++;
+  }
+}
+
 
 /*
  * Miscellaneous

@@ -162,14 +162,35 @@ GT_INLINE bool gt_template_find_mmap_fx(
   // Search for the mmap
   const uint64_t num_blocks = gt_template_get_num_blocks(template);
   uint64_t pos = 0;
-  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,template_mmap,mmap_attribute) {
-    if (gt_mmap_cmp_fx(template_mmap,mmap,num_blocks)==0) {
-      *found_mmap_pos = pos;
-      *found_mmap = template_mmap;
-      if (found_mmap_attributes) *found_mmap_attributes = mmap_attribute;
-      return true;
+  if(template->alg_dictionary == NULL){
+    GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,template_mmap,mmap_attribute) {
+      if (gt_mmap_cmp_fx(template_mmap,mmap,num_blocks)==0) {
+        *found_mmap_pos = pos;
+        *found_mmap = template_mmap;
+        if (found_mmap_attributes) *found_mmap_attributes = mmap_attribute;
+        return true;
+      }
+      ++pos;
     }
-    ++pos;
+  }else{
+    // indexed search only through other templates
+    // with the first map on the same chromosome
+    char* seq_name = gt_map_get_seq_name(mmap[0]);
+    if(!gt_shash_is_contained(template->alg_dictionary->refs_dictionary, seq_name)){
+      return false;
+    }
+    gt_vector* dict_elements = gt_shash_get(template->alg_dictionary->refs_dictionary, seq_name, gt_vector);
+    GT_VECTOR_ITERATE(dict_elements, e, c, gt_template_dictionary_map_element*){
+      gt_map** template_mmap = (*e)->mmap;
+      if (gt_mmap_cmp_fx(template_mmap,mmap,num_blocks)==0) {
+        *found_mmap_pos = pos;
+        *found_mmap = template_mmap;
+        if (found_mmap_attributes) *found_mmap_attributes = (*e)->mmap_attrs;
+        return true;
+      }
+      ++pos;
+    }
+
   }
   return false;
 }
@@ -437,6 +458,12 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
     } GT_TEMPLATE_END_REDUCTION;
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Merge mmaps
+  bool use_hash = gt_template_get_num_mmaps(template_src) > 100 || gt_template_get_num_mmaps(template_dst) > 100;
+  if(use_hash){
+    template_dst->alg_dictionary = gt_template_dictionary_new(template_dst);
+    gt_template_dictionary_add_ref(template_dst->alg_dictionary, template_dst);
+  }
+
   GT_TEMPLATE_CHECK(template_dst);
   GT_TEMPLATE_CHECK(template_src);
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
@@ -445,6 +472,10 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
     gt_free(mmap_copy); // Free array handler
   }
   gt_template_set_mcs(template_dst,GT_MIN(gt_template_get_mcs(template_dst),gt_template_get_mcs(template_src)));
+  if(use_hash){
+    gt_template_dictionary_delete(template_dst->alg_dictionary);
+    template_dst->alg_dictionary = NULL;
+  }
 }
 GT_INLINE gt_template* gt_template_union_template_mmaps_v(
     const uint64_t num_src_templates,gt_template* const template_src,va_list v_args) {

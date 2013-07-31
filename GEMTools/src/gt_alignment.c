@@ -339,17 +339,17 @@ GT_INLINE void gt_alignment_dictionary_add_ref(gt_alignment_dictionary* const al
   uint64_t pos = 0;
   GT_ALIGNMENT_ITERATE(alignment,map) {
     char* ref = gt_map_get_seq_name(map);
-    gt_vector* maps = NULL;
+    gt_vector* dictionary_elements = NULL;
     if(!gt_shash_is_contained(alignment_dictionary->refs_dictionary, ref)){
-      maps = gt_vector_new(16, sizeof(gt_map*));
-      gt_shash_insert(alignment_dictionary->refs_dictionary, ref, maps, gt_vector);
+      dictionary_elements = gt_vector_new(16, sizeof(gt_alignment_dictionary_map_element*));
+      gt_shash_insert(alignment_dictionary->refs_dictionary, ref, dictionary_elements, gt_vector);
     }else{
-      maps = gt_shash_get(alignment_dictionary->refs_dictionary, ref, gt_vector);
+      dictionary_elements = gt_shash_get(alignment_dictionary->refs_dictionary, ref, gt_vector);
     }
     gt_alignment_dictionary_map_element* e = gt_alloc(gt_alignment_dictionary_map_element);
     e->map = map;
     e->pos = pos;
-    gt_vector_insert(maps, e, gt_alignment_dictionary_map_element*);
+    gt_vector_insert(dictionary_elements, e, gt_alignment_dictionary_map_element*);
     pos++;
   }
 }
