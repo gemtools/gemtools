@@ -690,17 +690,20 @@ GT_INLINE void gt_stats_make_maps_error_profile(
     gt_string* const quals = alignment->qualities;
     const bool has_qualities = gt_alignment_has_qualities(alignment);
     char quality_misms = 0;
+    uint64_t multi_block_offset = 0;
+    uint64_t position = 0;
     GT_MAP_ITERATE(map,map_block) { // Iterate over splits (map blocks)
       total_bases += gt_map_get_base_length(map_block);
       GT_MISMS_ITERATE(map_block,misms) { // Iterate over mismatches/indels
         ++total_errors_events;
+        position = misms->position + multi_block_offset;
         // Records position of misms/indel
-        if (misms->position < GT_STATS_LARGE_READ_POS_RANGE) {
-          maps_error_profile->error_position[misms->position]++;
+        if (position < GT_STATS_LARGE_READ_POS_RANGE) {
+          maps_error_profile->error_position[position]++;
         }
         // Record quality of misms/indel
         if (has_qualities) {
-          quality_misms = gt_string_get_string(quals)[misms->position];
+          quality_misms = gt_string_get_string(quals)[position];
           maps_error_profile->qual_score_errors[(uint8_t)quality_misms]++;
         }
         switch (misms->misms_type) {
@@ -709,18 +712,18 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             ++total_levenshtein;
             ++total_bases_not_matching;
             // Record transition
-            gt_check(misms->base==gt_string_get_string(read)[misms->position],MISMS_TRANSITION);
+            gt_check(misms->base==gt_string_get_string(read)[position],MISMS_TRANSITION);
             uint64_t idx = 0;
-            idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
+            idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[position]];
             idx *= GT_STATS_MISMS_BASE_RANGE;
             idx += gt_cdna_encode[(uint8_t)misms->base];
             maps_error_profile->misms_transition[idx]++;
-            if (misms->position>0 && misms->position<gt_map_get_base_length(map_block)-1) { // 1-context
-              idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-1]];
+            if (position>0 && position<gt_map_get_base_length(map_block)-1) { // 1-context
+              idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[position-1]];
               idx *= GT_STATS_MISMS_BASE_RANGE;
-              idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
+              idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[position]];
               idx *= GT_STATS_MISMS_BASE_RANGE;
-              idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+1]];
+              idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[position+1]];
               idx *= GT_STATS_MISMS_BASE_RANGE;
               idx += gt_cdna_encode[(uint8_t)misms->base];
               maps_error_profile->misms_1context[idx]++;
@@ -735,7 +738,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             total_del_length += misms->size;
             total_bases_not_matching += misms->size;
             // Record trim
-            if (misms->position==0 || misms->position+misms->size==gt_map_get_base_length(map_block)) {
+            if (position==0 || position+misms->size==gt_map_get_base_length(map_block)) {
               total_bases_trimmed += misms->size;
             }
             break;
@@ -745,6 +748,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             break;
         }
       }
+      multi_block_offset += gt_map_get_base_length(map_block);
     }
   }
   // Record general error stats
