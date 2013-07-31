@@ -117,13 +117,18 @@ GT_INLINE gt_map** gt_template_put_mmap(
   }
   return template_mmap;
 }
-
 GT_INLINE void gt_template_insert_mmap(
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes) {
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes,
+    bool check_duplicates) {
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(mmap);
   GT_NULL_CHECK(mmap_attributes);
-  gt_template_insert_mmap_fx(gt_mmap_cmp,template,mmap,mmap_attributes);
+  if(check_duplicates){
+    gt_template_insert_mmap_fx(gt_mmap_cmp,template,mmap,mmap_attributes);
+  }else{
+    gt_template_inc_counter(template,mmap_attributes->distance);
+    gt_template_add_mmap_array(template,mmap,mmap_attributes);
+  }
 }
 GT_INLINE void gt_template_insert_mmap_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),

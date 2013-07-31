@@ -54,9 +54,14 @@ GT_INLINE gt_map* gt_alignment_put_map(
   }
 }
 
-GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map) {
+GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map, const bool check_duplicates) {
   GT_ALIGNMENT_CHECK(alignment); GT_MAP_CHECK(map);
-  gt_alignment_insert_map_fx(gt_map_cmp,alignment,map);
+  if(check_duplicates){
+    gt_alignment_insert_map_fx(gt_map_cmp,alignment,map);
+  }else{
+    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
+    gt_alignment_add_map(alignment,map);
+  }
 }
 GT_INLINE void gt_alignment_insert_map_fx(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map) {
@@ -69,7 +74,7 @@ GT_INLINE void gt_alignment_insert_map_gt_vector(gt_alignment* const alignment,g
   GT_ALIGNMENT_CHECK(alignment);
   GT_VECTOR_CHECK(map_vector);
   GT_VECTOR_ITERATE(map_vector,map_it,map_pos,gt_map*) {
-    gt_alignment_insert_map(alignment,*map_it);
+    gt_alignment_insert_map(alignment,*map_it, true);
   }
 }
 GT_INLINE void gt_alignment_insert_map_fx_gt_vector(

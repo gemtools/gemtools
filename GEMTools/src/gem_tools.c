@@ -23,6 +23,7 @@ gt_option gt_filter_options[] = {
   { 202, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'FASTA'|'MAP'|'SAM' (default='InputFormat')" , "" },
   { 203, "discarded-output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "" , "" },
   { 204, "no-output", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 205, "check-duplicates", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "Check for duplicated mappings" },
   /* Filter Read/Qualities */
   { 300, "hard-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , true, "<left>,<right>" , "" },
   { 301, "quality-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , false, "<quality-threshold>,<min-read-length>" , "" },

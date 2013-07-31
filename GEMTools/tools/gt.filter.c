@@ -38,6 +38,7 @@ typedef struct {
   bool no_output;
   gt_file_format output_format;
   bool discarded_output;
+  bool check_duplicates;
   char* name_discarded_output_file;
   gt_file_format discarded_output_format;
   /* Filter Read/Qualities */
@@ -150,6 +151,7 @@ gt_filter_args parameters = {
     .discarded_output = false,
     .name_discarded_output_file=NULL,
     .discarded_output_format=FILE_FORMAT_UNKNOWN,
+    .check_duplicates=false,
     /* Filter Read/Qualities */
     .hard_trim=false,
     .left_trim=0,
@@ -417,19 +419,19 @@ GT_INLINE void gt_filter_add_from_hit(gt_template* const template,gt_gtf_hit* hi
   if (hit->mmap != NULL) {
     // add PE
     gt_map** mmap_copy = gt_mmap_array_copy(hit->mmap, hit->num_template_blocks);
-    gt_template_insert_mmap(template,mmap_copy,hit->map_attributes);
+    gt_template_insert_mmap(template,mmap_copy,hit->map_attributes, parameters.check_duplicates);
     free(mmap_copy);
   } else if(hit->map != NULL) {
     if(target_block > 0){
       GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_1, alignment_2);
       if(target_block == 1){
-        gt_alignment_insert_map(alignment_1,gt_map_copy(hit->map));
+        gt_alignment_insert_map(alignment_1,gt_map_copy(hit->map), parameters.check_duplicates);
       }else{
-        gt_alignment_insert_map(alignment_2,gt_map_copy(hit->map));
+        gt_alignment_insert_map(alignment_2,gt_map_copy(hit->map), parameters.check_duplicates);
       }
     }else{
       GT_TEMPLATE_REDUCTION(template,alignment_dst);
-      gt_alignment_insert_map(alignment_dst,gt_map_copy(hit->map));
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(hit->map), parameters.check_duplicates);
     }
   }
 }
@@ -518,11 +520,11 @@ void gt_alignment_reduction_filter(gt_alignment* const alignment_dst,gt_alignmen
   GT_ALIGNMENT_ITERATE(alignment_src,map) {
     if (parameters.reduce_to_unique_strata >= 0 &&
        (gt_alignment_get_uniq_degree(alignment_src) >= parameters.reduce_to_unique_strata)) {
-      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(map), parameters.check_duplicates);
       break;
     }
     if(gt_alignment_get_num_maps(alignment_src) > parameters.reduce_to_unique) break;
-    gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+    gt_alignment_insert_map(alignment_dst,gt_map_copy(map), parameters.check_duplicates);
   }
 }
 
@@ -589,7 +591,7 @@ void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* con
     /*
      * Insert the map
      */
-    gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+    gt_alignment_insert_map(alignment_dst,gt_map_copy(map), parameters.check_duplicates);
     // Skip the rest if first map is enabled
     if (parameters.first_map || pick_only_first_map) break;
   }
@@ -598,7 +600,7 @@ void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* con
    */
   if (parameters.keep_first_map) {
     if (gt_alignment_get_num_maps(alignment_dst)==0) {
-      gt_alignment_insert_map(alignment_dst,first_map);
+      gt_alignment_insert_map(alignment_dst,first_map, parameters.check_duplicates);
     } else {
       gt_map_delete(first_map);
     }
@@ -621,13 +623,13 @@ void gt_template_reduction_filter(gt_template* const template_dst,gt_template* c
       GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attributes) {
         if (parameters.reduce_to_unique_strata >= 0 && (gt_template_get_uniq_degree(template_src) >= parameters.reduce_to_unique_strata)) {
           gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
-          gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+          gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes, parameters.check_duplicates);
           free(mmap_copy);
           break;
         }
         if(gt_template_get_num_mmaps(template_src) >= parameters.reduce_to_unique) break;
         gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
-        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes, parameters.check_duplicates);
         free(mmap_copy);
 
       }
@@ -736,7 +738,7 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
          * Insert the map
          */
         gt_map** mmap_copy = gt_mmap_array_copy(mmap,__mmap_num_blocks);
-        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes, parameters.check_duplicates);
         free(mmap_copy);
         // Skip the rest if first map is enabled
         if (parameters.first_map || pick_only_first_map) break;
@@ -746,7 +748,7 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
        */
       if (parameters.keep_first_map) {
         if (gt_template_get_num_mmaps(template_dst)==0) {
-          gt_template_insert_mmap(template_dst,first_mmap,&first_mmap_attributes);
+          gt_template_insert_mmap(template_dst,first_mmap,&first_mmap_attributes, parameters.check_duplicates);
         }
         free(first_mmap);
       }
@@ -778,7 +780,7 @@ void gt_alignment_rna_filter(gt_alignment* const alignment_dst,gt_alignment* con
       }
     }
     // Insert the map
-    gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+    gt_alignment_insert_map(alignment_dst,gt_map_copy(map), parameters.check_duplicates);
     // Skip the rest if best
     if (parameters.first_map) return;
   }
@@ -836,7 +838,7 @@ void gt_template_rna_filter(gt_template* const template_dst,gt_template* const t
         }
         // Add the mmap
         gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes);
+        gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes, parameters.check_duplicates);
         free(mmap_copy);
         // Skip the rest if best
         if (parameters.first_map) return;
@@ -954,7 +956,7 @@ GT_INLINE bool gt_filter_apply_filters(
     GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attributes) {
       if (!gt_filter_are_overlapping_pairs_coherent(mmap))continue;
       gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
-      gt_template_insert_mmap(template_filtered,mmap_copy,mmap_attributes);
+      gt_template_insert_mmap(template_filtered,mmap_copy,mmap_attributes, parameters.check_duplicates);
       free(mmap_copy);
     }
     gt_template_swap(template,template_filtered);
@@ -1661,6 +1663,9 @@ void parse_arguments(int argc,char** argv) {
       break;
     case 204: // no-output
       parameters.no_output = true;
+      break;
+    case 205: // check-duplicates
+      parameters.check_duplicates = true;
       break;
     /* Filter Read/Qualities */
     case 300: // hard-trim
