@@ -162,7 +162,7 @@ GT_INLINE bool gt_template_find_mmap_fx(
   // Search for the mmap
   const uint64_t num_blocks = gt_template_get_num_blocks(template);
   uint64_t pos = 0;
-  if(template->alg_dictionary == NULL){
+  if(template->alg_dictionary == NULL || template->alg_dictionary->refs_dictionary == NULL){
     GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,template_mmap,mmap_attribute) {
       if (gt_mmap_cmp_fx(template_mmap,mmap,num_blocks)==0) {
         *found_mmap_pos = pos;

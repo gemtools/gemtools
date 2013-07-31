@@ -90,7 +90,7 @@ GT_INLINE bool gt_alignment_find_map_fx(
   GT_NULL_CHECK(found_map_pos); GT_NULL_CHECK(found_map);
   // Search for the map
   uint64_t pos = 0;
-  if(alignment->alg_dictionary == NULL){
+  if(alignment->alg_dictionary == NULL || alignment->alg_dictionary->refs_dictionary == NULL){
     GT_ALIGNMENT_ITERATE(alignment,map_it) {
       if (gt_map_cmp_fx(map_it,map)==0) {
         *found_map_pos = pos;
