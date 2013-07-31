@@ -295,7 +295,7 @@ def from_gtf(annotation):
     junctions = {}
     line_count = 0
     for line in in_fd:
-        if line.strip()[0] == '#':
+        if len(line.strip()) == 0 or line.strip()[0] == '#':
             logging.debug("Skipping comment line")
             # skip comment
             continue
