@@ -28,6 +28,7 @@ GT_INLINE gt_template* gt_template_new() {
   template->counters = gt_vector_new(GT_TEMPLATE_NUM_INITIAL_COUNTERS,sizeof(uint64_t));
   template->mmaps = gt_vector_new(GT_TEMPLATE_NUM_INITIAL_MMAPS,sizeof(gt_mmap));
   template->attributes = gt_attributes_new();
+  template->alg_dictionary = NULL;
   return template;
 }
 GT_INLINE void gt_template_clear_handler(gt_template* const template) {
