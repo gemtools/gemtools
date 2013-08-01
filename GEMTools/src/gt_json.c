@@ -21,5 +21,3 @@ GT_INLINE JsonNode* gt_json_int_array(const uint64_t start, const uint64_t len, 
   }
   return a;
 }
-
-

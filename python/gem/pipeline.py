@@ -282,31 +282,10 @@ class CreateStatsStep(PipelineStep):
         return self._files
 
     def run(self):
-        def __read__write_stats(cfg, all_stats, best_stats,
-                                threads, out, infile):
-            gt.read_stats(infile, all_stats, best_stats, threads=threads)
-            with open(out[0], 'w') as f:
-                all_stats.write(f)
-            if cfg['stats_json'] is not None and cfg['stats_json']:
-                with open(out[1], 'w') as f:
-                    json.dump(all_stats.__dict__, f)
-
-
         cfg = self.configuration
+        outputs = self.files()
         infile = self._input()
-        best_stats = gt.Stats(True, cfg["stats_paired"])
-        all_stats = gt.Stats(False, cfg["stats_paired"])
-
-        import gem.utils
-        import multiprocessing
-
-        process = multiprocessing.Process(target=__read__write_stats,
-                                          args=(cfg, all_stats, best_stats,
-                                                self.pipeline.threads,
-                                                self.files(), infile))
-        gem.utils.register_process(process)
-        process.start()
-        process.join()
+        gem.stats(infile, output=outputs[0], json_output=outputs[1], paired=cfg['paired'], threads=self.pipeline.threads)
 
 
 class CreateGtfStatsStep(PipelineStep):
