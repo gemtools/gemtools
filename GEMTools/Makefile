@@ -18,10 +18,12 @@ static:	setup
 
 release: setup	
 	$(MAKE) --directory=src
+	$(MAKE) --directory=resources/src
 	$(MAKE) --directory=tools
 
 debug: setup
 	$(MAKE) --directory=src   debug
+	$(MAKE) --directory=resources/src   debug
 	$(MAKE) --directory=tools debug
 
 check: setup debug
