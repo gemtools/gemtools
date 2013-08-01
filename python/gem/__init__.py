@@ -1017,13 +1017,14 @@ def index(input, output, content="dna", threads=1):
     return os.path.abspath("%s.gem" % output)
 
 
-def gtfcounts(inputs, annotation, output=None, threads=1,
+def gtfcounts(inputs, annotation, output=None, json_output=None, threads=1,
               counts=None, weight=True, multimaps=False, exon_threshold=0,
               paired=False):
-    """Run the count stats"""
+    """Run the count stats. This returns the gtf count stats as dictionary"""
     p = [
         executables['gt.gtfcount'],
         '--threads', str(threads),
+        '-f', 'both',
         '-a', annotation
     ]
     if paired:
@@ -1038,10 +1039,27 @@ def gtfcounts(inputs, annotation, output=None, threads=1,
         if exon_threshold > 0:
             p.extend(["-e", str(exon_threshold)])
 
+    from subprocess import PIPE
     process = utils.run_tools([p], name="gtfcounts", input=inputs,
-                              output=output, raw=True, write_map=True)
+                              output=output, raw=True, write_map=True,
+                              logfile=PIPE)
+
+    if json_output is not None:
+        json_output = open(json_output, 'w')
+
+    lines = []
+    for line in process.processes[0].process.stderr:
+        lines.append(line.strip())
+        if json_output is not None:
+            json_output.write(line)
+
+    if json_output is not None:
+        json_output.close()
+
     if process.wait() != 0:
         raise ValueError("Error while running gt.gtfcounts")
+    import json
+    return json.loads("\n".join(lines))
 
 
 def stats(inputs, output=None, json_output=None, threads=1, paired=False):

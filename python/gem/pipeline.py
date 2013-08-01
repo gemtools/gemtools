@@ -296,6 +296,7 @@ class CreateGtfStatsStep(PipelineStep):
             self._files = []
             s = self.name_suffix if self.name_suffix is not None else ""
             self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.gtf.counts" % s, file_suffix="txt", final=self.final))
+            self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.gtf.stats" % s, file_suffix="json", final=self.final))
             self._files.append(self.pipeline.create_file_name(self.name, name_suffix="%s.gtf.stats" % s, file_suffix="txt", final=self.final))
         return self._files
 
@@ -304,10 +305,12 @@ class CreateGtfStatsStep(PipelineStep):
         infile = self._input()
         output = self._final_output()
         gene_counts = self._files[0]
+        json_stats = self._files[1]
         counts_weighted = cfg['counts_weighted']
         counts_multimaps = cfg['counts_multimaps']
         counts_exon_threshold = cfg['counts_exon_threshold']
-        gem.gtfcounts(infile, cfg['annotation'], output, counts=gene_counts,
+        gem.gtfcounts(infile, cfg['annotation'], output=output,
+                      counts=gene_counts, json_output=json_stats,
                       threads=self.pipeline.threads, weight=counts_weighted,
                       multimaps=counts_multimaps, paired=cfg['paired'],
                       exon_threshold=counts_exon_threshold)
