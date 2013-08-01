@@ -1477,8 +1477,8 @@ GT_INLINE void gt_stats_print_maps_stats(FILE* stream,gt_stats* const stats,cons
   gt_stats_print_uniq_distribution(stream,stats->uniq,num_templates);
   fprintf(stream,"Strand.combinations \n");
   if (paired_end) {
-    fprintf(stream,"  --> F+R %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_fr,GT_GET_PERCENTAGE(maps_profile->pair_strand_rf,stats->num_maps));
-    fprintf(stream,"  --> R+F %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_rf,GT_GET_PERCENTAGE(maps_profile->pair_strand_fr,stats->num_maps));
+    fprintf(stream,"  --> F+R %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_fr,GT_GET_PERCENTAGE(maps_profile->pair_strand_fr,stats->num_maps));
+    fprintf(stream,"  --> R+F %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_rf,GT_GET_PERCENTAGE(maps_profile->pair_strand_rf,stats->num_maps));
     fprintf(stream,"  --> F+F %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_ff,GT_GET_PERCENTAGE(maps_profile->pair_strand_ff,stats->num_maps));
     fprintf(stream,"  --> R+R %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_rr,GT_GET_PERCENTAGE(maps_profile->pair_strand_rr,stats->num_maps));
     gt_stats_print_inss_distribution(stream,stats->maps_profile->inss,stats->num_maps,false);

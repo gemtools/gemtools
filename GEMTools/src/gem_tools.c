@@ -131,7 +131,7 @@ gt_option gt_stats_options[] = {
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
   { 'n', "num-reads", GT_OPT_REQUIRED, GT_OPT_INT, 2 , true, "<number>" , "" },
   { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
-  { 'f', "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'report'|'JSON' (default='report')" , "" },
+  { 'f', "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'report'|'json'|'both' (default='report')" , "" },
   /* Analysis */
   { 300, "first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
   { 'a', "all-tests", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},

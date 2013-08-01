@@ -50,6 +50,9 @@
 #include "gt_stats.h"
 #include "gt_gtf.h"
 
+// Utilities
+#include "gt_json.h"
+
 // GEM Idx Loader
 #include "gt_gemIdx_loader.h"
 

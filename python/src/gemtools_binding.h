@@ -37,4 +37,5 @@ void gt_write_stream(gt_output_file* output, gt_input_file** inputs, uint64_t nu
 void gt_stats_fill(gt_input_file* input_file, gt_stats* target_all_stats, gt_stats* target_best_stats, uint64_t num_threads, bool paired_end);
 bool gt_input_file_has_qualities(gt_input_file* file);
 void gt_stats_print_stats(FILE* output, gt_stats* const stats, const bool paired_end);
+void gt_stats_print_json_stats(FILE* output, gt_stats* const stats, const bool paired_end);
 #endif /* GEMTOOLS_BINDING_H */
