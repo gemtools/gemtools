@@ -555,7 +555,6 @@ void parse_arguments(int argc,char** argv) {
       }else{
         gt_fatal_error_msg("Unknown format %s, supported formats are 'report' or 'json' or 'both'", optarg);
       }
-
       break;
     /* Analysis */
     case 300: // first-map

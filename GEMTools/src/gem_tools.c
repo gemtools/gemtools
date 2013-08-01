@@ -263,6 +263,7 @@ gt_option gt_gtfcount_options[] = {
   { 'g', "counts", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "Output file for the gene counts" },
   { 'a', "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GTF annotation" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 'f', "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'report'|'json'|'both' (default='report')" , "" },
   /*Counts*/
   { 'w', "weighted", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count multi-gene hits (and multi-maps if non unique counts are on) weighted"},
   { 'm', "multi-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count multi-maps"},

@@ -21,3 +21,10 @@ GT_INLINE JsonNode* gt_json_int_array(const uint64_t start, const uint64_t len, 
   }
   return a;
 }
+GT_INLINE JsonNode* gt_json_int_hash(gt_shash* const data){
+  JsonNode* a = json_mkobject();
+  GT_SHASH_BEGIN_ITERATE(data, key, e, uint64_t){
+    json_append_member(a, key, json_mknumber((double)(*e)));
+  }GT_SHASH_END_ITERATE
+  return a;
+}

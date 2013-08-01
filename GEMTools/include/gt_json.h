@@ -6,6 +6,7 @@
 #define GT_JSON_H_
 
 #include "gt_commons.h"
+#include "gt_shash.h"
 #include "json.h"
 
 /**
@@ -26,5 +27,8 @@ GT_INLINE JsonNode* gt_json_int_named_tuple(const uint64_t num_elements,...);
  * Convert the given data into a json array
  */
 GT_INLINE JsonNode* gt_json_int_array(const uint64_t start, const uint64_t len, uint64_t* const data);
-
+/**
+ * Convert a counter hash from string->uint64_t to a json object
+ */
+GT_INLINE JsonNode* gt_json_int_hash(gt_shash* const data);
 #endif /* GT_JSON_H_ */

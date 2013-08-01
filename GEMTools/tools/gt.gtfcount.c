@@ -19,9 +19,11 @@
 
 typedef struct {
   char *input_file;
-  char *output_file;
+  char *name_output_file;
   char *gene_counts_file;
   char *annotation;
+  FILE *output_file;
+  FILE *output_file_json;
   bool shell;
   bool paired;
   bool weighted_counts;
@@ -29,6 +31,8 @@ typedef struct {
   bool single_hit_only;
   bool single_end_counts;
   bool verbose;
+  bool print_json;
+  bool print_both;
   float exon_overlap;
   uint64_t num_threads;
 } gt_gtfcount_args;
@@ -59,7 +63,9 @@ typedef struct {
 
 gt_gtfcount_args parameters = {
     .input_file=NULL,
+    .name_output_file=NULL,
     .output_file=NULL,
+    .output_file_json=NULL,
     .gene_counts_file=NULL,
     .annotation=NULL,
     .paired=false,
@@ -69,6 +75,8 @@ gt_gtfcount_args parameters = {
     .single_end_counts=false,
     .shell=false,
     .exon_overlap=0.0,
+    .print_both=false,
+    .print_json=false,
     .verbose=false,
     .num_threads=1
 };
@@ -379,7 +387,7 @@ void parse_arguments(int argc,char** argv) {
       parameters.input_file = optarg;
       break;
     case 'o':
-      parameters.output_file = optarg;
+      parameters.name_output_file = optarg;
       break;
     case 'g':
       parameters.gene_counts_file = optarg;
@@ -403,9 +411,18 @@ void parse_arguments(int argc,char** argv) {
     case 's':
       parameters.single_end_counts = true;
       break;
-//    case 's':
-//      parameters.single_hit_only = false;
-//      break;
+    case 'f':
+      if(strcmp("report", optarg) == 0){
+        parameters.print_json = false;
+      }else if(strcmp("json", optarg) == 0){
+        parameters.print_json = true;
+      }else if(strcmp("both", optarg) == 0){
+        parameters.print_json = true;
+        parameters.print_both = true;
+      }else{
+        gt_fatal_error_msg("Unknown format %s, supported formats are 'report' or 'json' or 'both'", optarg);
+      }
+      break;
     /* Misc */
     case 500:
       parameters.shell = true;
@@ -538,6 +555,7 @@ GT_INLINE void gt_gtfcount_print_general(FILE* output, gt_gtfcount_count_stats* 
 
   uint64_t total_reads = stats->num_pe_reads + stats->num_se_reads;
   uint64_t total_unmapped_reads = stats->num_pe_unmapped + stats->num_se_unmapped;
+  uint64_t total_mapped_reads = total_reads-total_unmapped_reads;
   GT_GTFCOUNT_HEAD(output, "General stats");
   fprintf(output, "General:\n");
   GT_GTFCOUNT_PRINT(output, "40", "Templates", stats->num_templates);
@@ -545,7 +563,7 @@ GT_INLINE void gt_gtfcount_print_general(FILE* output, gt_gtfcount_count_stats* 
   GT_GTFCOUNT_PRINT_P(output, "40", "Paired reads", stats->num_pe_reads, total_reads);
   GT_GTFCOUNT_PRINT_P(output, "40", "Single reads", stats->num_se_reads, total_reads);
   fprintf(output, "General mapping:\n");
-  GT_GTFCOUNT_PRINT_P(output, "40", "Mapped reads",(total_reads-total_unmapped_reads), total_reads);
+  GT_GTFCOUNT_PRINT_P(output, "40", "Mapped reads",(total_mapped_reads), total_reads);
   GT_GTFCOUNT_PRINT_P(output, "40", "Unmapped reads",(total_unmapped_reads), total_reads);
   fprintf(output, "\n");
   GT_GTFCOUNT_PRINT_P(output, "40", "Mapped Paired reads",(stats->num_pe_reads-stats->num_pe_unmapped), stats->num_pe_reads);
@@ -554,15 +572,44 @@ GT_INLINE void gt_gtfcount_print_general(FILE* output, gt_gtfcount_count_stats* 
   GT_GTFCOUNT_PRINT_P(output, "40", "Mapped Single reads",(stats->num_se_reads-stats->num_se_unmapped), stats->num_se_reads);
   GT_GTFCOUNT_PRINT_P(output, "40", "Unmapped Single reads",(stats->num_se_unmapped), stats->num_se_reads);
   fprintf(output, "Multimaps:\n");
-  GT_GTFCOUNT_PRINT_P(output, "40", "Uniquely mapped reads",(stats->num_unique_pe_maps+stats->num_unique_se_maps), total_reads);
-  GT_GTFCOUNT_PRINT_P(output, "40", "Ambiguously mapped reads",(total_reads-(stats->num_unique_pe_maps+stats->num_unique_se_maps)), total_reads);
+  GT_GTFCOUNT_PRINT_P(output, "40", "Uniquely mapped reads",(stats->num_unique_pe_maps+stats->num_unique_se_maps), total_mapped_reads);
+  GT_GTFCOUNT_PRINT_P(output, "40", "Ambiguously mapped reads",(total_mapped_reads-(stats->num_unique_pe_maps+stats->num_unique_se_maps)), total_mapped_reads);
   fprintf(output, "\n");
-  GT_GTFCOUNT_PRINT_P(output, "40", "Uniquely mapped Paired reads",(stats->num_unique_pe_maps), total_reads);
-  GT_GTFCOUNT_PRINT_P(output, "40", "Ambiguously mapped Paired reads",(stats->num_pe_reads-stats->num_unique_pe_maps), total_reads);
+  GT_GTFCOUNT_PRINT_P(output, "40", "Uniquely mapped Paired reads",(stats->num_unique_pe_maps), total_mapped_reads);
+  GT_GTFCOUNT_PRINT_P(output, "40", "Ambiguously mapped Paired reads",(stats->num_pe_reads-stats->num_unique_pe_maps-stats->num_pe_unmapped), total_mapped_reads);
   fprintf(output, "\n");
-  GT_GTFCOUNT_PRINT_P(output, "40", "Uniquely mapped Single reads",(stats->num_unique_se_maps), total_reads);
-  GT_GTFCOUNT_PRINT_P(output, "40", "Ambiguously mapped Single reads",(stats->num_se_reads-stats->num_unique_se_maps), total_reads);
+  GT_GTFCOUNT_PRINT_P(output, "40", "Uniquely mapped Single reads",(stats->num_unique_se_maps), total_mapped_reads);
+  GT_GTFCOUNT_PRINT_P(output, "40", "Ambiguously mapped Single reads",(stats->num_se_reads-stats->num_unique_se_maps-stats->num_se_unmapped), total_mapped_reads);
 }
+
+GT_INLINE JsonNode* gt_gtfcount_print_general_json(gt_gtfcount_count_stats* stats){
+  uint64_t total_reads = stats->num_pe_reads + stats->num_se_reads;
+  uint64_t total_unmapped_reads = stats->num_pe_unmapped + stats->num_se_unmapped;
+  uint64_t total_mapped_reads = total_reads-total_unmapped_reads;
+  JsonNode* node = json_mkobject();
+  json_append_member(node, "templates", json_mknumber(stats->num_templates));
+  json_append_member(node, "reads", json_mknumber(total_reads));
+  json_append_member(node, "paired_reads", json_mknumber(stats->num_pe_reads));
+  json_append_member(node, "single_reads", json_mknumber(stats->num_se_reads));
+  json_append_member(node, "mapped_reads", json_mknumber(total_mapped_reads));
+  json_append_member(node, "unmapped_reads", json_mknumber(total_unmapped_reads));
+
+  json_append_member(node, "mapped_paired_reads", json_mknumber(stats->num_pe_reads-stats->num_pe_unmapped));
+  json_append_member(node, "unmapped_paired_reads", json_mknumber(stats->num_pe_unmapped));
+  json_append_member(node, "mapped_single_reads", json_mknumber(stats->num_se_reads-stats->num_se_unmapped));
+  json_append_member(node, "unmapped_single_reads", json_mknumber(stats->num_se_unmapped));
+
+  json_append_member(node, "mapped_unique_reads", json_mknumber(stats->num_unique_pe_maps+stats->num_unique_se_maps));
+  json_append_member(node, "mapped_ambigous_reads", json_mknumber(total_mapped_reads-(stats->num_unique_pe_maps+stats->num_unique_se_maps)));
+
+  json_append_member(node, "mapped_unique_paired_reads", json_mknumber(stats->num_unique_pe_maps));
+  json_append_member(node, "mapped_ambigous_paired_reads", json_mknumber(stats->num_pe_reads - stats->num_unique_pe_maps - stats->num_pe_unmapped));
+
+  json_append_member(node, "mapped_unique_single_reads", json_mknumber(stats->num_unique_se_maps));
+  json_append_member(node, "mapped_ambigous_single_reads", json_mknumber(stats->num_se_reads - stats->num_unique_se_maps - stats->num_se_unmapped));
+  return node;
+}
+
 
 GT_INLINE void gt_gtfcount_print_count_stats(FILE* output, gt_gtfcount_count_stats* stats){
   uint64_t total_reads = stats->num_pe_reads + stats->num_se_reads;
@@ -582,6 +629,22 @@ GT_INLINE void gt_gtfcount_print_count_stats(FILE* output, gt_gtfcount_count_sta
   fprintf(output, "\n");
   GT_GTFCOUNT_PRINT_P(output, "40", "Annotated junction hits", (stats->num_annotated_junctions), stats->num_junctions);
   GT_GTFCOUNT_PRINT_P(output, "40", "Denovo junction hits", (stats->num_junctions-stats->num_annotated_junctions), stats->num_junctions);
+}
+GT_INLINE JsonNode* gt_gtfcount_print_count_stats_json(gt_gtfcount_count_stats* stats){
+  uint64_t total_reads = stats->num_pe_reads + stats->num_se_reads;
+  JsonNode* node = json_mkobject();
+  json_append_member(node, "total_counted_reads", json_mknumber(stats->counted_reads));
+  json_append_member(node, "total_considered_single_reads", json_mknumber(stats->considered_se_mappings));
+  json_append_member(node, "total_considered_paired_reads", json_mknumber(stats->considered_pe_mappings));
+  json_append_member(node, "reads_single_gene", json_mknumber(stats->counted_pe_single_gene+stats->counted_se_single_gene));
+  json_append_member(node, "reads_multiple_genes", json_mknumber(stats->counted_pe_multi_gene+stats->counted_se_multi_gene));
+  json_append_member(node, "reads_single_gene_se", json_mknumber(stats->counted_se_single_gene));
+  json_append_member(node, "reads_multiple_genes_se", json_mknumber(stats->counted_se_multi_gene));
+  json_append_member(node, "reads_single_gene_pe", json_mknumber(stats->counted_pe_single_gene));
+  json_append_member(node, "reads_multiple_genes_pe", json_mknumber(stats->counted_pe_multi_gene));
+  json_append_member(node, "annotated_junction_hits", json_mknumber(stats->num_annotated_junctions));
+  json_append_member(node, "denovo_junction_hits", json_mknumber(stats->num_junctions - stats->num_annotated_junctions));
+  return node;
 }
 
 GT_INLINE void gt_gtfcount_print_type_counts(FILE* output, gt_gtfcount_count_stats* stats, gt_shash* type_counts){
@@ -666,42 +729,59 @@ int main(int argc,char** argv) {
   gt_gtfcount_read(gtf, gene_counts, type_counts, single_pattern_counts, pair_pattern_counts, counting_stats);
   gt_gtfcount_warn("Done\n");
 
-  // write output for stats
-  FILE* output = stdout;
-  if(parameters.output_file != NULL){
-    output = fopen(parameters.output_file, "w");
-    if(output == NULL){
-      gt_perror();
-      exit(1);
+  // init output paramters
+  parameters.output_file = stdout;
+  parameters.output_file_json = stderr;
+  if(parameters.name_output_file != NULL){
+    parameters.output_file = fopen(parameters.name_output_file, "w");
+    gt_cond_fatal_error(parameters.output_file==NULL,FILE_OPEN,parameters.name_output_file);
+  }
+  if(parameters.print_json && !parameters.print_both){
+    parameters.output_file_json = parameters.output_file;
+  }
+
+  if(parameters.print_both || !parameters.print_json){
+    /**
+     * Print human readable stats
+     */
+    fprintf(parameters.output_file, "\n");
+    gt_gtfcount_print_general(parameters.output_file, counting_stats);
+    fprintf(parameters.output_file, "\n");
+    gt_gtfcount_print_count_stats(parameters.output_file, counting_stats);
+    fprintf(parameters.output_file, "\n");
+    gt_gtfcount_print_type_counts(parameters.output_file, counting_stats, type_counts);
+    if(gt_shash_get_num_elements(pair_pattern_counts) > 0){
+      fprintf(parameters.output_file, "\n");
+      gt_gtfcount_print_pair_patterns(parameters.output_file, counting_stats, pair_pattern_counts);
     }
+    if(gt_shash_get_num_elements(single_pattern_counts) > 0){
+      fprintf(parameters.output_file, "\n");
+      gt_gtfcount_print_single_patterns(parameters.output_file, counting_stats, single_pattern_counts);
+    }
+    fprintf(parameters.output_file, "\n");
+  }
+  if(parameters.print_both || parameters.print_json){
+    // print JSON stats
+    JsonNode* root = json_mkobject();
+    json_append_member(root, "general", gt_gtfcount_print_general_json(counting_stats));
+    json_append_member(root, "counts", gt_gtfcount_print_count_stats_json(counting_stats));
+    json_append_member(root, "type_counts", gt_json_int_hash(type_counts));
+    json_append_member(root, "pair_patterns", gt_json_int_hash(pair_pattern_counts));
+    json_append_member(root, "single_patterns", gt_json_int_hash(single_pattern_counts));
+
+    fprintf(parameters.output_file_json, "%s\n", json_stringify(root, "  "));
+    json_delete(root);
+  }
+
+  if(parameters.name_output_file != NULL){
+    fclose(parameters.output_file);
   }
 
 
-  /**
-   * Print general stats
-   */
-  fprintf(output, "\n");
-  gt_gtfcount_print_general(output, counting_stats);
-  fprintf(output, "\n");
-  gt_gtfcount_print_count_stats(output, counting_stats);
-  fprintf(output, "\n");
-  gt_gtfcount_print_type_counts(output, counting_stats, type_counts);
-  if(gt_shash_get_num_elements(pair_pattern_counts) > 0){
-    fprintf(output, "\n");
-    gt_gtfcount_print_pair_patterns(output, counting_stats, pair_pattern_counts);
-  }
-  if(gt_shash_get_num_elements(single_pattern_counts) > 0){
-    fprintf(output, "\n");
-    gt_gtfcount_print_single_patterns(output, counting_stats, single_pattern_counts);
-  }
-  fprintf(output, "\n");
-  if(parameters.output_file != NULL){
-    fclose(output);
-  }
 
   // print gene counts
   if(parameters.gene_counts_file != NULL){
-    output = fopen(parameters.gene_counts_file, "w");
+    FILE* output = fopen(parameters.gene_counts_file, "w");
     if(output == NULL){
       gt_perror();
       exit(1);
