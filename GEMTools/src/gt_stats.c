@@ -521,6 +521,7 @@ GT_INLINE gt_stats* gt_stats_new() {
   stats->num_alignments=0;
   stats->num_maps=0;
   stats->num_mapped=0;
+  stats->num_mapped_reads=0;
   stats->mmap = gt_calloc(GT_STATS_MMAP_RANGE,uint64_t,true); // MMaps
   stats->uniq = gt_calloc(GT_STATS_UNIQ_RANGE,uint64_t,true); // Uniq
   // Maps Error Profile
