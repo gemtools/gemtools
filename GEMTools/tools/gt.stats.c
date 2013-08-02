@@ -90,7 +90,8 @@ JsonNode* gt_stats_print_json_general_stats(gt_stats* const stats,uint64_t num_r
   json_append_member(general_stats, "read_lenght_min", json_mknumber(stats->min_length));
   json_append_member(general_stats, "read_lenght_avg", json_mknumber(GT_DIV(stats->total_bases,stats->num_blocks)));
   json_append_member(general_stats, "read_lenght_max", json_mknumber(stats->max_length));
-  json_append_member(general_stats, "reads_mapped", json_mknumber(stats->num_mapped));
+  json_append_member(general_stats, "templates_mapped", json_mknumber(stats->num_mapped));
+  json_append_member(general_stats, "reads_mapped", json_mknumber(stats->num_mapped_reads));
   json_append_member(general_stats, "reads_mapped_length_min", json_mknumber(stats->mapped_min_length));
   json_append_member(general_stats, "reads_mapped_length_avg", json_mknumber(GT_DIV(stats->total_bases_aligned,(paired_end)?stats->num_mapped*2:stats->num_mapped)));
   json_append_member(general_stats, "reads_mapped_length_max", json_mknumber(stats->mapped_max_length));
@@ -331,7 +332,6 @@ void gt_stats_print_json_stats(gt_stats* const stats,uint64_t num_reads,const bo
   json_append_member(root, "general", gt_stats_print_json_general_stats(stats, num_reads, paired_end));
   json_append_member(root, "maps_profile", gt_stats_print_json_maps_profile(stats, num_reads, paired_end));
   json_append_member(root, "splits_profile", gt_stats_print_json_splits_profile(stats, num_reads, paired_end));
-
 
   fprintf(parameters.output_file_json, "%s\n", json_stringify(root, "  "));
   json_delete(root);

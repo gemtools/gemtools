@@ -552,6 +552,7 @@ GT_INLINE void gt_stats_clear(gt_stats* const stats) {
   stats->num_alignments=0;
   stats->num_maps=0;
   stats->num_mapped=0;
+  stats->num_mapped_reads=0;
   // MMap Distribution
   memset(stats->mmap,0,GT_STATS_MMAP_RANGE*sizeof(uint64_t)); // MMaps
   // Uniq Distribution
@@ -605,6 +606,7 @@ GT_INLINE void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_
     stats[0]->num_alignments += stats[i]->num_alignments;
     stats[0]->num_maps += stats[i]->num_maps;
     stats[0]->num_mapped += stats[i]->num_mapped;
+    stats[0]->num_mapped_reads += stats[i]->num_mapped_reads;
     // MMap Distribution
     GT_STATS_VECTOR_ADD(stats[0]->mmap,stats[i]->mmap,GT_STATS_MMAP_RANGE);
     // Uniq Distribution
@@ -905,6 +907,10 @@ GT_INLINE void gt_stats_calculate_template_stats(
     }
     // Nucleotide stats
     gt_stats_get_nucleotide_stats(stats->nt_counting,alignment->read);
+    // read mapped stats
+    if(gt_alignment_get_num_maps(alignment) > 0){
+      ++stats->num_mapped_reads;
+    }
   }
   stats->total_bases += alignment_total_length;
   /*
@@ -1523,11 +1529,13 @@ GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,c
   // Print
   fprintf(stream,"  --> Num.Reads %" PRIu64 "\n",num_reads);
   if (num_reads==0) return;
-  if (paired_end) fprintf(stream,"    --> Num.Paired.Templates %" PRIu64 "\n",num_templates);
+  if (paired_end) fprintf(stream,"    --> Num.Templates %" PRIu64 "\n",num_templates);
   fprintf(stream,"    --> Reads.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
       stats->min_length,GT_DIV(stats->total_bases,stats->num_blocks),stats->max_length);
-  fprintf(stream,"  --> Reads.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
+  fprintf(stream,"  --> Templates.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
       num_templates?100.0*(float)stats->num_mapped/(float)num_templates:0.0);
+  fprintf(stream,"  --> Reads.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped_reads,
+      num_reads?100.0*(float)stats->num_mapped_reads/(float)num_reads:0.0);
   fprintf(stream,"    --> Reads.Mapped.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
       stats->mapped_min_length,GT_DIV(stats->total_bases_aligned,(paired_end)?stats->num_mapped*2:stats->num_mapped),stats->mapped_max_length);
   fprintf(stream,"  --> Num.Bases %" PRIu64 "\n",stats->total_bases);
