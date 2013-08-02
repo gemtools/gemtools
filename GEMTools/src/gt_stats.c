@@ -416,7 +416,7 @@ GT_INLINE void gt_stats_get_inss_distribution(uint64_t* const inss,const int64_t
   // Check boundaries
   if (insert_size<GT_STATS_INSS_MIN) {
     ++inss[0];
-  } else if (insert_size>GT_STATS_INSS_MAX) {
+  } else if (insert_size>=GT_STATS_INSS_MAX) {
     ++inss[GT_STATS_INSS_RANGE-1];
   } else { // Fit insert_size into the buckets
     ++inss[GT_STATS_INSS_GET_BUCKET(insert_size)];
