@@ -10,7 +10,7 @@ import subprocess
 
 import gem
 import gem.commands
-import gem.stats
+import gem.reports
 import gem.gemtools as gt
 
 from gem.pipeline import MappingPipeline, PipelineError
@@ -173,7 +173,7 @@ plots of the main statistics.
         output = args.output
         if output is None:
             output = os.path.abspath(args.input) + "_stats"
-        gem.stats.create_report(args.input, output, paired=args.paired, extract=args.extract)
+        gem.reports.create_report(args.input, output, paired=args.paired, extract=args.extract)
 
 
 class Junctions(Command):
