@@ -285,7 +285,9 @@ class CreateStatsStep(PipelineStep):
         cfg = self.configuration
         outputs = self.files()
         infile = self._input()
-        gem.stats(infile, output=outputs[0], json_output=outputs[1], paired=cfg['paired'], threads=self.pipeline.threads)
+        gem.stats(infile, output=outputs[0], json_output=outputs[1],
+                  paired=cfg['paired'],
+                  threads=self.pipeline.threads)
 
 
 class CreateGtfStatsStep(PipelineStep):
@@ -960,7 +962,7 @@ class MappingPipeline(object):
         config = dotdict()
 
         config.stats_json = self.stats_json
-        config.stats_paired = not self.single_end
+        config.paired = not self.single_end
 
         if configuration is not None:
             self.__update_dict(config, configuration)
