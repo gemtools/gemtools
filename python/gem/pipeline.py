@@ -496,7 +496,6 @@ class CreateDenovoTranscriptomeStep(PipelineStep):
 
     def cleanup(self, force=False):
         if force or (not self.final and self.pipeline.remove_temp):
-            files = self._files()
             keep = [self.junctions_out, self.denovo_keys, self.denovo_out]
             for f in self.files():
                 if os.path.exists(f) and f not in keep:
