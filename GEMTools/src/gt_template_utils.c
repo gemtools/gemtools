@@ -128,14 +128,14 @@ GT_INLINE void gt_template_insert_mmap(
   }else{
 	const uint64_t num_blocks = gt_template_get_num_blocks(template);
 	uint64_t i;
+	gt_map** uniq_mmaps = gt_calloc(gt_template_get_num_blocks(template),gt_map*,false);
 	for (i=0;i<num_blocks;++i) {
 	  GT_NULL_CHECK(mmap[i]);
-	  gt_alignment* alignment = gt_template_get_block(template,i);
-      gt_alignment_inc_counter(alignment,gt_map_get_global_distance(mmap[i]));
-	  gt_alignment_add_map(alignment,mmap[i]);
+      uniq_mmaps[i] = gt_alignment_put_map(gt_map_cmp,gt_template_get_block(template,i),mmap[i],false);
 	}
     gt_template_inc_counter(template,mmap_attributes->distance);
     gt_template_add_mmap_array(template,mmap,mmap_attributes);
+    free(uniq_mmaps);
   }
 }
 GT_INLINE void gt_template_insert_mmap_fx(
