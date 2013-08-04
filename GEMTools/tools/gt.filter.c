@@ -832,10 +832,6 @@ void gt_template_rna_filter(gt_template* const template_dst,gt_template* const t
         if (parameters.min_block_length > 0 && min_block_length != UINT64_MAX){
           if(min_block_length < parameters.min_block_length) continue;
         }
-        // Filter pairs that aren't coherent at overlapping chunk (if overlapping and SM contained)
-        if (!gt_filter_are_overlapping_pairs_coherent(mmap)){
-          continue;
-        }
         // Add the mmap
         gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
         gt_template_insert_mmap(template_dst,mmap_copy,mmap_attributes, parameters.check_duplicates);

@@ -126,6 +126,14 @@ GT_INLINE void gt_template_insert_mmap(
   if(check_duplicates){
     gt_template_insert_mmap_fx(gt_mmap_cmp,template,mmap,mmap_attributes);
   }else{
+	const uint64_t num_blocks = gt_template_get_num_blocks(template);
+	uint64_t i;
+	for (i=0;i<num_blocks;++i) {
+	  GT_NULL_CHECK(mmap[i]);
+	  gt_alignment* alignment = gt_template_get_block(template,i);
+      gt_alignment_inc_counter(alignment,gt_map_get_global_distance(mmap[i]));
+	  gt_alignment_add_map(alignment,mmap[i]);
+	}
     gt_template_inc_counter(template,mmap_attributes->distance);
     gt_template_add_mmap_array(template,mmap,mmap_attributes);
   }
