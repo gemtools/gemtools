@@ -134,7 +134,7 @@ GT_INLINE void gt_template_insert_mmap(
       uniq_mmaps[i] = gt_alignment_put_map(gt_map_cmp,gt_template_get_block(template,i),mmap[i],false);
 	}
     gt_template_inc_counter(template,mmap_attributes->distance);
-    gt_template_add_mmap_array(template,mmap,mmap_attributes);
+    gt_template_add_mmap_array(template,uniq_mmaps,mmap_attributes);
     free(uniq_mmaps);
   }
 }
