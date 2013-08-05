@@ -186,3 +186,37 @@ GT_INLINE void gt_shash_copy(gt_shash* const shash_dst,gt_shash* const shash_src
     }
   } GT_SHASH_END_ITERATE;
 }
+
+/*
+ * Iterator
+ */
+GT_INLINE gt_shash_iterator* gt_shash_iterator_new(gt_shash* const shash) {
+  GT_HASH_CHECK(shash);
+  // Allocate
+  gt_shash_iterator* const shash_iterator = gt_alloc(gt_shash_iterator);
+  // Init
+  shash_iterator->shash = shash;
+  shash_iterator->next = shash;
+  return shash_iterator;
+}
+GT_INLINE void gt_shash_iterator_delete(gt_shash_iterator* const shash_iterator) {
+  GT_HASH_CHECK(shash_iterator->shash);
+  gt_free(shash_iterator);
+}
+GT_INLINE bool gt_shash_iterator_next(gt_shash_iterator* const shash_iterator) {
+  GT_HASH_CHECK(shash_iterator->shash);
+  if (gt_expect_false(shash_iterator->next==NULL)) return false;
+  shash_iterator->next = shash_iterator->next->hh.next;
+  return true;
+}
+GT_INLINE int64_t gt_shash_iterator_get_key(gt_shash_iterator* const shash_iterator) {
+  GT_HASH_CHECK(shash_iterator->shash);
+  GT_HASH_CHECK(shash_iterator->next);
+  return shash_iterator->next->key;
+}
+GT_INLINE void* gt_shash_iterator_get_element(gt_shash_iterator* const shash_iterator) {
+  GT_HASH_CHECK(shash_iterator->shash);
+  GT_HASH_CHECK(shash_iterator->next);
+  return shash_iterator->next->element;
+}
+

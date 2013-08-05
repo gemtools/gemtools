@@ -234,12 +234,12 @@ int gt_sequence_archive_karyotypic_sort_fx(char *a,char *b) {
   return str_cmp_ab;
 }
 
-#define gt_cmp_string_wrapper(arg1,arg2) gt_cmp_string((char*)arg1,(char*)arg2)
+#define gt_string_cmp_wrapper(arg1,arg2) gt_string_cmp((char*)arg1,(char*)arg2)
 #define gt_sequence_archive_lexicographical_sort_fx_wrapper(arg1,arg2) gt_sequence_archive_lexicographical_sort_fx((char*)arg1,(char*)arg2)
 #define gt_sequence_archive_karyotypic_sort_fx_wrapper(arg1,arg2) gt_sequence_archive_karyotypic_sort_fx((char*)arg1,(char*)arg2)
-GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int (*gt_cmp_string)(char*,char*)) {
+GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int (*gt_string_cmp)(char*,char*)) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);
-  HASH_SORT(seq_archive->sequences->shash_head,gt_cmp_string_wrapper);
+  HASH_SORT(seq_archive->sequences->shash_head,gt_string_cmp_wrapper);
 }
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive) {
   GT_SEQUENCE_ARCHIVE_CHECK(seq_archive);

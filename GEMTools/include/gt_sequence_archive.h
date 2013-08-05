@@ -95,7 +95,7 @@ GT_INLINE gt_status gt_sequence_archive_retrieve_sequence_chunk(
 /*
  * SequenceARCHIVE sorting functions
  */
-GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int (*gt_cmp_string)(char*,char*));
+GT_INLINE void gt_sequence_archive_sort(gt_sequence_archive* const seq_archive,int (*gt_string_cmp)(char*,char*));
 GT_INLINE void gt_sequence_archive_lexicographical_sort(gt_sequence_archive* const seq_archive);
 GT_INLINE void gt_sequence_archive_karyotypic_sort(gt_sequence_archive* const seq_archive);
 /*
