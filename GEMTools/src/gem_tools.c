@@ -23,6 +23,7 @@ gt_option gt_filter_options[] = {
   { 202, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'FASTA'|'MAP'|'SAM' (default='InputFormat')" , "" },
   { 203, "discarded-output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "" , "" },
   { 204, "no-output", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 205, "check-duplicates", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "Check for duplicated mappings" },
   /* Filter Read/Qualities */
   { 300, "hard-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , true, "<left>,<right>" , "" },
   { 301, "quality-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , false, "<quality-threshold>,<min-read-length>" , "" },
@@ -61,8 +62,11 @@ gt_option gt_filter_options[] = {
   { 511, "filter-quality", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<min-quality>,<max-quality>" , "" },
   { 512, "reduce-to-unique-strata", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number>" , "" },
   { 513, "reduce-by-quality", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<number> (Quality difference)" , "" },
-  { 514, "reduce-by-annotation", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
-  { 515, "reduce-to-unique", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 514, "reduce-by-gene-id", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 515, "reduce-to-max-maps", GT_OPT_REQUIRED, GT_OPT_INT, 5 , true, "<maps>" , "Reduce reads with > <maps> mappings to unmapped" },
+  { 516, "reduce-to-pairs", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "Set all unpaired templates to unmapped" },
+  { 517, "reduce-to-protein-coding", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 518, "reduce-by-junctions", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "Reduce mappings by checking junction sites. Annotated junctions are preferred." },
   /* Filter RNA-Maps */
   { 600, "no-split-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },
   { 601, "only-split-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , true, "" , "" },
@@ -90,7 +94,9 @@ gt_option gt_filter_options[] = {
   { 1002, "sequence-list", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 10 , true, "" , "" },
   { 1003, "display-pretty", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 10 , true, "" , "" },
   /* Misc */
+#ifdef HAVE_OPENMP
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 11 , true, "" , "" },
+#endif
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , false, "" , "" },
@@ -125,7 +131,7 @@ gt_option gt_stats_options[] = {
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
   { 'n', "num-reads", GT_OPT_REQUIRED, GT_OPT_INT, 2 , true, "<number>" , "" },
   { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
-  { 'f', "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'report'|'JSON' (default='report')" , "" },
+  { 'f', "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'report'|'json'|'both' (default='report')" , "" },
   /* Analysis */
   { 300, "first-map", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
   { 'a', "all-tests", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", ""},
@@ -139,7 +145,9 @@ gt_option gt_stats_options[] = {
   { 400, "use-only-decoded-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "(instead of counters)", ""},
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+#ifdef HAVE_OPENMP
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
+#endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
@@ -183,7 +191,9 @@ gt_option gt_mapset_options[] = {
   { 401, "strict", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "(Strict comparison of mappings)" , "" },
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+#ifdef HAVE_OPENMP
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
+#endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
@@ -224,7 +234,9 @@ gt_option gt_map2sam_options[] = {
   { 'c', "compact", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , false, "" , "" },
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
+#ifdef HAVE_OPENMP
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 7, true, "", ""},
+#endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
@@ -241,6 +253,70 @@ char* gt_map2sam_groups[] = {
   /*  6 */ "Format",
   /*  7 */ "Misc",
 };
+/*
+ * gt.gtfcount menu options
+ */
+gt_option gt_gtfcount_options[] = {
+  /* I/O */
+  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'g', "counts", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "Output file for the gene counts" },
+  { 'a', "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GTF annotation" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 'f', "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'report'|'json'|'both' (default='report')" , "" },
+  /*Counts*/
+  { 'w', "weighted", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count multi-gene hits (and multi-maps if non unique counts are on) weighted"},
+  { 'm', "multi-maps", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count multi-maps"},
+  //{ 's', "multi-genes", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count hits to multiple genes"},
+  { 's', "count-single-ends", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Treat paired reads as single ends for counting (not for matching)"},
+  { 'e', "exon-overlap", GT_OPT_REQUIRED, GT_OPT_INT, 3, true, "<overlap>" , "Fraction (0<=overlap<=1) of overlap of the fragment with exon to be counted (default 0, disabled)" },
+  /* Misc */
+  { 500, "shell", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", "Interactive shell to query the annotation"},
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", ""},
+  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 4, true, "", ""},
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", ""},
+  { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , false, "" , "" },
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , false, "" , "" },
+  {  0, "", 0, 0, 0, false, "", ""}
+};
+char* gt_gtfcount_options_short = "i:o:a:p:t:mwhHv";
+char* gt_gtfcount_groups[] = {
+  /*  0 */ "Null",
+  /*  1 */ "Unclassified",
+  /*  2 */ "I/O",
+  /*  3 */ "Counts",
+  /*  4 */ "Misc",
+};
+
+/*
+ * gt.gtfcount menu options
+ */
+gt_option gt_region_options[] = {
+  /* I/O */
+  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+  { 'a', "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GTF annotation" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+
+  /* Misc */
+  { 'g', "gene-id", GT_OPT_REQUIRED, GT_OPT_NONE, 5 , true, "" , "" },
+  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
+  {  0, "", 0, 0, 0, false, "", ""}
+};
+char* gt_region_options_short = "i:o:a:p:t:hH";
+char* gt_region_groups[] = {
+  /*  0 */ "Null",
+  /*  1 */ "Unclassified",
+  /*  2 */ "I/O",
+  /*  3 */ "Optional Fields",
+  /*  4 */ "Format",
+  /*  5 */ "Misc",
+};
+
+
 
 GT_INLINE uint64_t gt_options_get_num_options(const gt_option* const options) {
   uint64_t num_options = 0, i = 0;
@@ -349,12 +425,12 @@ GT_INLINE void gt_options_fprint_json_menu(
       case GT_OPT_BOOL: fprintf(stream,"\t  \"argumentType\": \"bool\",\n"); break;
     }
     // Print extra command line syntax info
-    fprintf(stream,"\t  \"commandInfo\": \"%s\"\n",options[i].command_info);
+    fprintf(stream,"\t  \"commandInfo\": \"%s\"",options[i].command_info);
     // Print description (@print_description)
     if (print_description && !gt_streq(options[i].description,"")) {
-      fprintf(stream,"\t  \"description\": \"%s\"\n",options[i].description);
+      fprintf(stream,",\n\t  \"description\": \"%s\"",options[i].description);
     }
-    fprintf(stream,"\t}");
+    fprintf(stream,"\n\t}");
   }
   fprintf(stream,"\n    ]\n");
   fprintf(stream,"}\n");

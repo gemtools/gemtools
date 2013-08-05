@@ -22,6 +22,8 @@
 typedef enum { GT_PE_MAPPED_PAIRED, GT_PE_MAPPED_UNPAIRED, GT_PE_UNMAPPED,
                GT_SE_MAPPED, GT_SE_UNMAPPED } gt_template_t;
 
+typedef struct _gt_template_dictionary gt_template_dictionary; // Forward declaration of gt_alignment_dictionary
+
 typedef struct {
   uint32_t template_id;
   uint32_t in_block_id;
@@ -31,6 +33,8 @@ typedef struct {
   gt_vector* counters; /* (uint64_t) */
   gt_vector* mmaps; /* (gt_mmap) */
   gt_attributes* attributes;
+  /* Hashed Dictionary */
+  gt_template_dictionary* alg_dictionary;
 } gt_template;
 typedef struct {
   uint64_t distance;
@@ -42,6 +46,18 @@ typedef struct {
   gt_map* mmap[2];
   gt_mmap_attributes attributes;
 } gt_mmap;
+
+// Map Dictionary (For Fast Indexing)
+typedef struct {
+  gt_map** mmap; /* the map*/
+  gt_mmap_attributes* mmap_attrs; /* the map attributes*/
+  uint64_t pos; /* the map position in the alignment map list */
+} gt_template_dictionary_map_element;
+struct _gt_template_dictionary {
+  gt_shash* refs_dictionary; /* (gt_template_dictionary_map_element*) */
+  gt_template* template;
+};
+
 
 // Iterators
 typedef struct {
@@ -68,6 +84,9 @@ typedef struct {
   gt_cond_fatal_error(mmap[0]==NULL && mmap[1]==NULL,TEMPLATE_MMAP_NULL);
 #define GT_MMAP_CHECK(mmap) \
   GT_MMAP_ARRAY_CHECK(mmap->mmap)
+#define GT_TEMPLATE_DICTIONARY_CHECK(template_dictionary) \
+  GT_NULL_CHECK(template_dictionary); \
+  GT_HASH_CHECK(template_dictionary->refs_dictionary)
 
 /*
  * Reduction to single alignment
@@ -166,6 +185,13 @@ GT_INLINE void gt_template_get_mmap_gtvector(
     gt_template* const template,const uint64_t position,gt_vector* const mmap,gt_mmap_attributes* const mmap_attributes);
 GT_INLINE void gt_template_add_mmap_gtvector(
     gt_template* const template,gt_vector* const mmap,gt_mmap_attributes* const mmap_attributes);
+
+/**
+ * indexing dictionary
+ */
+GT_INLINE gt_template_dictionary* gt_template_dictionary_new(gt_template* const template);
+GT_INLINE void gt_template_dictionary_delete(gt_template_dictionary* const template_dictionary);
+GT_INLINE void gt_template_dictionary_add_ref(gt_template_dictionary* const template_dictionary, gt_template* const template);
 
 /*
  * Miscellaneous

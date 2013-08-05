@@ -10,7 +10,7 @@ import subprocess
 
 import gem
 import gem.commands
-import gem.stats
+import gem.reports
 import gem.gemtools as gt
 
 from gem.pipeline import MappingPipeline, PipelineError
@@ -124,6 +124,24 @@ class Stats(Command):
         sys.exit(p.wait())
 
 
+class GtfCount(Command):
+    title = "Create gene counts and gtf statistics"
+    description = """This tools can be used to create GTF statistics and
+    simple gene read counts. The assumtion here is that the given annotation
+    containes a gene model (different transcript_ids belonging to the same
+    gene_id, i.e. gencode or ensemble). In addition, the GTF entries should
+    contain a gene_type attribute to count different types, for example rRNA.
+    """
+
+    def register(self, parser):
+        self.add_options('gt.gtfcount', parser)
+
+    def run(self, args):
+        cmd = self.get_command(args)
+        p = subprocess.Popen(cmd)
+        sys.exit(p.wait())
+
+
 class Filter(Command):
     title = "Filter .map files"
     description = """Filter .map files"""
@@ -155,7 +173,7 @@ plots of the main statistics.
         output = args.output
         if output is None:
             output = os.path.abspath(args.input) + "_stats"
-        gem.stats.create_report(args.input, output, paired=args.paired, extract=args.extract)
+        gem.reports.create_report(args.input, output, paired=args.paired, extract=args.extract)
 
 
 class Junctions(Command):
@@ -311,6 +329,23 @@ class RnaPipeline(Command):
             if pipeline.bam_index:
                 pipeline.index_bam(name="index-bam", dependencies=[bam], final=True)
 
+        # add filter step
+        if pipeline.filtered_create:
+            filtered = pipeline.filtered_map(name="filtered", dependencies=[merged], final=True)
+            if pipeline.counts_create and pipeline.annotation is not None:
+                pipeline.create_gtfcounts(name="filtered.counts", suffix=".filtered", dependencies=[filtered], final=True)
+            if pipeline.stats_create:
+                pipeline.create_stats(name="filtered.stats", dependencies=[filtered], suffix=".filtered", final=True)
+            if pipeline.bam_create:
+                filtered_bam = pipeline.bam(name="filtered.bam", suffix=".filtered", dependencies=[filtered], final=True)
+                if pipeline.bam_index:
+                    pipeline.index_bam(name="filtered.index-bam", suffix=".filtered", dependencies=[filtered_bam], final=True)
+
+        if pipeline.counts_create and pipeline.annotation is not None:
+            pipeline.create_gtfcounts(name="counts", dependencies=[merged], final=True)
+
+
+
         # show parameter and step configuration
         pipeline.log_parameter()
 
@@ -371,41 +406,3 @@ class JunctionExtraction(Command):
         except PipelineError, e:
             sys.stderr.write("\nERROR: " + e.message + "\n")
             exit(1)
-
-
-class SamConverter(Command):
-    description = """Convert a .map or .map.gz file to SAM/BAM and index/sort it
-    """
-    title = "Convert to SAM/BAM"
-
-    def register(self, parser):
-        pipeline = MappingPipeline()
-        pipeline.register_general(parser)
-        pipeline.register_bam(parser)
-        pipeline.register_execution(parser)
-
-
-    def run(self, args):
-        ## parsing command line arguments
-        try:
-            ## initialize pipeline and check values
-            pipeline = MappingPipeline(args=args)
-        except PipelineError, e:
-            sys.stderr.write("\nERROR: " + e.message + "\n")
-            exit(1)
-
-        # add the bam step
-        bam = pipeline.bam(name="bam", dependencies=[], final=True)
-        if pipeline.bam_index:
-            pipeline.index_bam(name="index-bam", dependencies=[bam], final=True)
-
-        # show parameter and step configuration
-        pipeline.log_parameter()
-
-        # run the pipeline
-        try:
-            pipeline.run()
-        except PipelineError, e:
-            sys.stderr.write("\nERROR: " + e.message + "\n")
-            exit(1)
-

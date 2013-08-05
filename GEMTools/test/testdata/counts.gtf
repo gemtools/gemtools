@@ -1,0 +1,10 @@
+chr1	HAVANA	gene	1	500	.	+	.	gene_id "Gene_A"; transcript_id "Gene_A";
+chr1	ENSEMBL	exon	1	500	.	+	.	gene_id "Gene_A"; transcript_id "A_1";
+chr1	HAVANA	gene	600	1100	.	+	.	gene_id "Gene_B"; transcript_id "Gene_B";
+chr1	ENSEMBL	exon	600	800	.	+	.	gene_id "Gene_B"; transcript_id "B_1";
+chr1	ENSEMBL	exon	950	1100	.	+	.	gene_id "Gene_B"; transcript_id "B_1";
+chr1	ENSEMBL	exon	600	800	.	+	.	gene_id "Gene_B"; transcript_id "B_2";
+chr1	ENSEMBL	exon	900	1100	.	+	.	gene_id "Gene_B"; transcript_id "B_2";
+chr1	HAVANA	gene	1000	1500	.	-	.	gene_id "Gene_C"; transcript_id "Gene_C";
+chr1	ENSEMBL	exon	1000	1200	.	-	.	gene_id "Gene_C"; transcript_id "C_1";
+chr1	ENSEMBL	exon	1300	1500	.	-	.	gene_id "Gene_C"; transcript_id "C_1";

@@ -244,7 +244,9 @@ typedef struct {
   uint64_t num_blocks;     // SE => 1 block. PE => 2 blocks
   uint64_t num_alignments; // Number of alignments (independently of the type{SE,PE} or the syntax used in the file)
   uint64_t num_maps;
-  uint64_t num_mapped;
+  uint64_t num_mapped; // number of mapped reads for SE and number of mapped properly paired for templates
+  // SE/PE read and mapping counts
+  uint64_t num_mapped_reads; // number of total mapped reads, counts 2 for a mapped paired template and checks unpaired pairs
   // MMap Distribution
   uint64_t *mmap;          /* GT_STATS_MMAP_RANGE */
   // Uniq Distribution

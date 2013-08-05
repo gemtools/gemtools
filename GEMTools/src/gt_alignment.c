@@ -315,6 +315,7 @@ GT_INLINE void gt_alignment_dictionary_element_delete(gt_alignment_dictionary_el
 GT_INLINE gt_alignment_dictionary* gt_alignment_dictionary_new(gt_alignment* const alignment) {
   gt_alignment_dictionary* alignment_dictionary = gt_alloc(gt_alignment_dictionary);
   alignment_dictionary->maps_dictionary = gt_shash_new();
+  alignment_dictionary->refs_dictionary = gt_shash_new();
   alignment_dictionary->alignment = alignment;
   return alignment_dictionary;
 }
@@ -324,7 +325,36 @@ GT_INLINE void gt_alignment_dictionary_delete(gt_alignment_dictionary* const ali
     gt_alignment_dictionary_element_delete(alg_dicc_elem);
   } GT_SHASH_END_ITERATE;
   gt_shash_delete(alignment_dictionary->maps_dictionary,false);
+
+  GT_SHASH_BEGIN_ELEMENT_ITERATE(alignment_dictionary->refs_dictionary,ref_data,gt_vector) {
+    GT_VECTOR_ITERATE(ref_data, e, c, gt_alignment_dictionary_map_element*){
+      gt_free(*e);
+    }
+    gt_vector_delete(ref_data);
+  } GT_SHASH_END_ITERATE;
+  gt_shash_delete(alignment_dictionary->refs_dictionary,false);
+
   gt_free(alignment_dictionary);
+}
+
+GT_INLINE void gt_alignment_dictionary_add_ref(gt_alignment_dictionary* const alignment_dictionary, gt_alignment* const alignment){
+  GT_ALIGNMENT_DICTIONARY_CHECK(alignment_dictionary);
+  uint64_t pos = 0;
+  GT_ALIGNMENT_ITERATE(alignment,map) {
+    char* ref = gt_map_get_seq_name(map);
+    gt_vector* dictionary_elements = NULL;
+    if(!gt_shash_is_contained(alignment_dictionary->refs_dictionary, ref)){
+      dictionary_elements = gt_vector_new(16, sizeof(gt_alignment_dictionary_map_element*));
+      gt_shash_insert(alignment_dictionary->refs_dictionary, ref, dictionary_elements, gt_vector);
+    }else{
+      dictionary_elements = gt_shash_get(alignment_dictionary->refs_dictionary, ref, gt_vector);
+    }
+    gt_alignment_dictionary_map_element* e = gt_alloc(gt_alignment_dictionary_map_element);
+    e->map = map;
+    e->pos = pos;
+    gt_vector_insert(dictionary_elements, e, gt_alignment_dictionary_map_element*);
+    pos++;
+  }
 }
 GT_INLINE void gt_alignment_dictionary_element_add_position(
     gt_alignment_dictionary_element* const alg_dicc_elem,const uint64_t begin_position,const uint64_t end_position,uint64_t const vector_position) {

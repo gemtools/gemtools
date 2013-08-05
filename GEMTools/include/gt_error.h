@@ -306,9 +306,10 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_FILE_CLOSE "Could not close file '%s'"
 #define GT_ERROR_FILE_FORMAT "Could not determine file format"
 #define GT_ERROR_FILE_GZIP_OPEN "Could not open GZIPPED file '%s'"
+#define GT_ERROR_FILE_GZIP_NO_ZLIB "Could not open GZIPPED file '%s': no zlib support compiled in"
 #define GT_ERROR_FILE_BZIP2_OPEN "Could not open BZIPPED file '%s'"
+#define GT_ERROR_FILE_BZIP2_NO_BZLIB "Could not open BZIPPED file '%s': no bzlib support compiled in"
 #define GT_ERROR_FILE_FDOPEN "Could not fdopen file descriptor"
-#define GT_ERROR_FILE_BZIP_OPEN "Could not open bzip file '%s'"
 
 // Output errors
 #define GT_ERROR_FPRINTF "Printing output. 'fprintf' call failed"

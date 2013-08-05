@@ -87,7 +87,7 @@ GT_INLINE gt_map** gt_template_put_mmap(
   GT_NULL_CHECK(mmap_attr);
   // Check mmap duplicates
   gt_map** found_mmap;
-  gt_mmap_attributes* found_mmap_attributes;
+  gt_mmap_attributes* found_mmap_attributes=0;
   uint64_t found_mmap_pos=0;
   bool is_duplicated = gt_expect_false(gt_template_find_mmap_fx(gt_mmap_cmp_fx,
       template,mmap,&found_mmap_pos,&found_mmap,&found_mmap_attributes));
@@ -117,13 +117,26 @@ GT_INLINE gt_map** gt_template_put_mmap(
   }
   return template_mmap;
 }
-
 GT_INLINE void gt_template_insert_mmap(
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes) {
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes,
+    bool check_duplicates) {
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(mmap);
   GT_NULL_CHECK(mmap_attributes);
-  gt_template_insert_mmap_fx(gt_mmap_cmp,template,mmap,mmap_attributes);
+  if(check_duplicates){
+    gt_template_insert_mmap_fx(gt_mmap_cmp,template,mmap,mmap_attributes);
+  }else{
+	const uint64_t num_blocks = gt_template_get_num_blocks(template);
+	uint64_t i;
+	for (i=0;i<num_blocks;++i) {
+	  GT_NULL_CHECK(mmap[i]);
+	  gt_alignment* alignment = gt_template_get_block(template,i);
+      gt_alignment_inc_counter(alignment,gt_map_get_global_distance(mmap[i]));
+	  gt_alignment_add_map(alignment,mmap[i]);
+	}
+    gt_template_inc_counter(template,mmap_attributes->distance);
+    gt_template_add_mmap_array(template,mmap,mmap_attributes);
+  }
 }
 GT_INLINE void gt_template_insert_mmap_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
@@ -162,14 +175,35 @@ GT_INLINE bool gt_template_find_mmap_fx(
   // Search for the mmap
   const uint64_t num_blocks = gt_template_get_num_blocks(template);
   uint64_t pos = 0;
-  GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,template_mmap,mmap_attribute) {
-    if (gt_mmap_cmp_fx(template_mmap,mmap,num_blocks)==0) {
-      *found_mmap_pos = pos;
-      *found_mmap = template_mmap;
-      if (found_mmap_attributes) *found_mmap_attributes = mmap_attribute;
-      return true;
+  if(template->alg_dictionary == NULL || template->alg_dictionary->refs_dictionary == NULL){
+    GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,template_mmap,mmap_attribute) {
+      if (gt_mmap_cmp_fx(template_mmap,mmap,num_blocks)==0) {
+        *found_mmap_pos = pos;
+        *found_mmap = template_mmap;
+        if (found_mmap_attributes) *found_mmap_attributes = mmap_attribute;
+        return true;
+      }
+      ++pos;
     }
-    ++pos;
+  }else{
+    // indexed search only through other templates
+    // with the first map on the same chromosome
+    char* seq_name = gt_map_get_seq_name(mmap[0]);
+    if(!gt_shash_is_contained(template->alg_dictionary->refs_dictionary, seq_name)){
+      return false;
+    }
+    gt_vector* dict_elements = gt_shash_get(template->alg_dictionary->refs_dictionary, seq_name, gt_vector);
+    GT_VECTOR_ITERATE(dict_elements, e, c, gt_template_dictionary_map_element*){
+      gt_map** template_mmap = (*e)->mmap;
+      if (gt_mmap_cmp_fx(template_mmap,mmap,num_blocks)==0) {
+        *found_mmap_pos = pos;
+        *found_mmap = template_mmap;
+        if (found_mmap_attributes) *found_mmap_attributes = (*e)->mmap_attrs;
+        return true;
+      }
+      ++pos;
+    }
+
   }
   return false;
 }
@@ -437,6 +471,12 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
     } GT_TEMPLATE_END_REDUCTION;
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Merge mmaps
+  bool use_hash = gt_template_get_num_mmaps(template_src) > 100 || gt_template_get_num_mmaps(template_dst) > 100;
+  if(use_hash){
+    template_dst->alg_dictionary = gt_template_dictionary_new(template_dst);
+    gt_template_dictionary_add_ref(template_dst->alg_dictionary, template_dst);
+  }
+
   GT_TEMPLATE_CHECK(template_dst);
   GT_TEMPLATE_CHECK(template_src);
   GT_TEMPLATE_ITERATE_MMAP__ATTR(template_src,mmap,mmap_attr) {
@@ -445,6 +485,10 @@ GT_INLINE void gt_template_merge_template_mmaps_fx(
     gt_free(mmap_copy); // Free array handler
   }
   gt_template_set_mcs(template_dst,GT_MIN(gt_template_get_mcs(template_dst),gt_template_get_mcs(template_src)));
+  if(use_hash){
+    gt_template_dictionary_delete(template_dst->alg_dictionary);
+    template_dst->alg_dictionary = NULL;
+  }
 }
 GT_INLINE gt_template* gt_template_union_template_mmaps_v(
     const uint64_t num_src_templates,gt_template* const template_src,va_list v_args) {

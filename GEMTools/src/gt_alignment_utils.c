@@ -54,9 +54,14 @@ GT_INLINE gt_map* gt_alignment_put_map(
   }
 }
 
-GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map) {
+GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map, const bool check_duplicates) {
   GT_ALIGNMENT_CHECK(alignment); GT_MAP_CHECK(map);
-  gt_alignment_insert_map_fx(gt_map_cmp,alignment,map);
+  if(check_duplicates){
+    gt_alignment_insert_map_fx(gt_map_cmp,alignment,map);
+  }else{
+    gt_alignment_inc_counter(alignment,gt_map_get_global_distance(map));
+    gt_alignment_add_map(alignment,map);
+  }
 }
 GT_INLINE void gt_alignment_insert_map_fx(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map) {
@@ -69,7 +74,7 @@ GT_INLINE void gt_alignment_insert_map_gt_vector(gt_alignment* const alignment,g
   GT_ALIGNMENT_CHECK(alignment);
   GT_VECTOR_CHECK(map_vector);
   GT_VECTOR_ITERATE(map_vector,map_it,map_pos,gt_map*) {
-    gt_alignment_insert_map(alignment,*map_it);
+    gt_alignment_insert_map(alignment,*map_it, true);
   }
 }
 GT_INLINE void gt_alignment_insert_map_fx_gt_vector(
@@ -90,13 +95,30 @@ GT_INLINE bool gt_alignment_find_map_fx(
   GT_NULL_CHECK(found_map_pos); GT_NULL_CHECK(found_map);
   // Search for the map
   uint64_t pos = 0;
-  GT_ALIGNMENT_ITERATE(alignment,map_it) {
-    if (gt_map_cmp_fx(map_it,map)==0) {
-      *found_map_pos = pos;
-      *found_map = map_it;
-      return true;
+  if(alignment->alg_dictionary == NULL || alignment->alg_dictionary->refs_dictionary == NULL){
+    GT_ALIGNMENT_ITERATE(alignment,map_it) {
+      if (gt_map_cmp_fx(map_it,map)==0) {
+        *found_map_pos = pos;
+        *found_map = map_it;
+        return true;
+      }
+      ++pos;
     }
-    ++pos;
+  }else{
+    char* ref = gt_map_get_seq_name(map);
+    if(!gt_shash_is_contained(alignment->alg_dictionary->refs_dictionary, ref)){
+      return false;
+    }
+    gt_vector* maps = gt_shash_get(alignment->alg_dictionary->refs_dictionary, ref, gt_vector);
+    GT_VECTOR_ITERATE(maps, e, c, gt_alignment_dictionary_map_element*){
+      if (gt_map_cmp_fx((*e)->map,map)==0) {
+        *found_map_pos = (*e)->pos;
+        *found_map = (*e)->map;
+        return true;
+      }
+      ++pos;
+    }
+
   }
   return false;
 }
@@ -227,10 +249,14 @@ GT_INLINE uint64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const align
   GT_ALIGNMENT_CHECK(alignment);
   const char* const qualities = gt_alignment_get_qualities(alignment);
   uint64_t qv = 0;
-  GT_MISMS_ITERATE(map, misms) {
-    if (misms->misms_type == MISMS) {
-      qv =+ qualities[misms->position];
+  uint64_t split_map_offset = 0;
+  GT_MAP_ITERATE_MAP_BLOCK(map, block){
+    GT_MISMS_ITERATE(block, misms) {
+      if (misms->misms_type == MISMS) {
+        qv =+ qualities[misms->position + split_map_offset];
+      }
     }
+    split_map_offset += gt_map_get_base_length(block);
   }
   return qv;
 }
@@ -334,11 +360,30 @@ GT_INLINE void gt_alignment_merge_alignment_maps_fx(
     gt_alignment* const alignment_dst,gt_alignment* const alignment_src) {
   GT_ALIGNMENT_CHECK(alignment_dst);
   GT_ALIGNMENT_CHECK(alignment_src);
+
+  // if alignment_src or alignment_dst have 0 maps, just copy
+  bool copy_only = gt_alignment_get_num_maps(alignment_src) == 0 || gt_alignment_get_num_maps(alignment_dst) == 0;
+  bool use_hash = gt_alignment_get_num_maps(alignment_src) > 100 || gt_alignment_get_num_maps(alignment_dst) > 100;
+  if(!copy_only && use_hash){
+    alignment_dst->alg_dictionary = gt_alignment_dictionary_new(alignment_dst);
+    gt_alignment_dictionary_add_ref(alignment_dst->alg_dictionary, alignment_dst);
+  }
+
   GT_ALIGNMENT_ITERATE(alignment_src,map_src) {
     gt_map* const map_src_cp = gt_map_copy(map_src);
-    gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,true);
+    if(copy_only){
+      gt_alignment_inc_counter(alignment_dst,gt_map_get_global_distance(map_src_cp));
+      gt_alignment_add_map(alignment_dst,map_src_cp);
+    }else{
+      gt_alignment_put_map(gt_map_cmp_fx,alignment_dst,map_src_cp,true);
+    }
   }
   gt_alignment_set_mcs(alignment_dst,GT_MIN(gt_alignment_get_mcs(alignment_dst),gt_alignment_get_mcs(alignment_src)));
+
+  if(!copy_only && use_hash){
+    gt_alignment_dictionary_delete(alignment_dst->alg_dictionary);
+    alignment_dst->alg_dictionary = NULL;
+  }
 }
 
 GT_INLINE gt_alignment* gt_alignment_union_alignment_maps_v(

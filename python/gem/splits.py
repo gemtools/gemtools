@@ -17,11 +17,12 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
                 to be considered, default is 0 and therefore disabled
     """
     splits2junctions_p = [
-        gem.executables['splits-2-junctions'],
-        str(minsplit),
-        str(maxsplit),
-        str(max_junction_matches),
-        str(threads)
+        gem.executables['gem-rna-tools'],
+        'splits-2-junctions',
+        '--min-split-size', str(minsplit),
+        '--max-split-size', str(maxsplit),
+        '--max-matches', str(max_junction_matches),
+        '--threads', str(threads)
     ]
     p = gem.utils.run_tool(splits2junctions_p, input=input, write_map=True)
 

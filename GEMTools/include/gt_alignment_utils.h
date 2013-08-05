@@ -30,7 +30,7 @@ GT_INLINE gt_map* gt_alignment_put_map(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,
     gt_map* const map,const bool replace_duplicated);
 
-GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map);
+GT_INLINE void gt_alignment_insert_map(gt_alignment* const alignment,gt_map* const map, const bool check_duplicates);
 GT_INLINE void gt_alignment_insert_map_fx(
     int64_t (*gt_map_cmp_fx)(gt_map*,gt_map*),gt_alignment* const alignment,gt_map* const map);
 GT_INLINE void gt_alignment_insert_map_gt_vector(gt_alignment* const alignment,gt_vector* const map_vector);
