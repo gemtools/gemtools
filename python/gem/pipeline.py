@@ -212,6 +212,7 @@ class FilterStep(PipelineStep):
             annotation=cfg['annotation'],
             min_intron=cfg['min_intron'],
             min_block=cfg['min_block'],
+            max_strata=cfg['max_strata'],
             level=cfg['level'],
             max_multi_maps=cfg['max_multi_maps'],
             gene_pairing=cfg['filter_annotation'] if cfg['annotation'] is not None else False,
@@ -747,6 +748,7 @@ class MappingPipeline(object):
         self.filter_level = 0
         self.filter_max_multi_maps = 5
         self.filter_keep_unique = True
+        self.filter_max_error_events = 0
 
         # gtf stats and counts
         self.counts_create = True
@@ -1052,7 +1054,7 @@ class MappingPipeline(object):
         config.gene_pairing = self.filter_annotation
         config.junction_filter = self.filter_annotation
         config.filter_annotation = self.filter_annotation
-
+        config.max_strata = self.filter_max_error_events
         if configuration is not None:
             self.__update_dict(config, configuration)
 
@@ -1645,6 +1647,10 @@ index generated from your annotation.""")
                                      default=self.filter_max_multi_maps,
                                      help='''Set multi-maps with more than <threshold> mappings to unmapped.
                                      Set this to -1 to disable''')
+        filtering_group.add_argument('--filter-max-error-events', dest="filter_max_error_events",
+                                     default=self.filter_max_error_events,
+                                     help='''Set maps with more than <threshold> error events to unmapped.
+                                     Set this to 0 to disable''')
 
 
     def register_bam(self, parser):
