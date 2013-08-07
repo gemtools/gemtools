@@ -26,6 +26,7 @@ typedef struct {
   FILE *output_file_json;
   bool shell;
   bool paired;
+  bool coverage_profiles;
   bool weighted_counts;
   bool unique_only;
   bool single_hit_only;
@@ -58,6 +59,7 @@ typedef struct {
   uint64_t counted_pe_multi_gene; // # PE-templates matched to multiple genes (2 per template)
   uint64_t counted_se_single_gene; // # SE-templates or unpaired PE-reads matched to single gene
   uint64_t counted_se_multi_gene; // # SE-templates or unpaired PE-reads matched to multiple genes
+  uint64_t* coverage_profiles; // # SE-templates or unpaired PE-reads matched to multiple genes
 } gt_gtfcount_count_stats;
 
 
@@ -67,6 +69,7 @@ gt_gtfcount_args parameters = {
     .output_file=NULL,
     .output_file_json=NULL,
     .gene_counts_file=NULL,
+    .coverage_profiles=false,
     .annotation=NULL,
     .paired=false,
     .unique_only=true,
@@ -101,10 +104,14 @@ GT_INLINE gt_gtfcount_count_stats* gt_gtfcount_count_stats_new(void){
   s->counted_se_multi_gene = 0;
   s->considered_pe_mappings = 0;
   s->considered_se_mappings = 0;
+  s->coverage_profiles = NULL;
   return s;
 }
 
 GT_INLINE void gt_gtfcount_count_stats_delete(gt_gtfcount_count_stats* stats){
+  if(stats->coverage_profiles != NULL){
+    free(stats->coverage_profiles);
+  }
   free(stats);
 }
 
@@ -224,6 +231,7 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
   // Open file IN/OUT
   gt_input_file* input_file = NULL;
   uint64_t i = 0;
+  uint64_t j = 0;
   if(parameters.input_file != NULL){
     input_file = gt_input_file_open(parameters.input_file,false);
   }else{
@@ -235,7 +243,7 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
   gt_shash** single_patterns_list = gt_calloc(parameters.num_threads, gt_shash*, true);
   gt_shash** pair_patterns_list = gt_calloc(parameters.num_threads, gt_shash*, true);
   gt_gtfcount_count_stats** stats_list =  gt_calloc(parameters.num_threads, gt_gtfcount_count_stats*, true);
-
+  gt_gtf_count_parms** thread_params = gt_calloc(parameters.num_threads, gt_gtf_count_parms*, true);
 
   for(i=0; i<parameters.num_threads; i++){
     gene_counts_list[i] = gt_shash_new();
@@ -260,7 +268,8 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
     gt_shash* l_single_patterns = single_patterns_list[tid];
     gt_shash* l_pair_patterns = pair_patterns_list[tid];
 
-    gt_gtf_count_parms* params = gt_gtf_count_params_new();
+    gt_gtf_count_parms* params = gt_gtf_count_params_new(parameters.coverage_profiles);
+    thread_params[tid] = params;
     params->exon_overlap = parameters.exon_overlap;
     gt_shash* private_gene_counts = gt_shash_new();
 
@@ -344,29 +353,42 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
     stats_list[tid]->num_junctions += params->num_junctions;
     stats_list[tid]->num_annotated_junctions += params->num_annotated_junctions;
     // Clean
-    gt_gtf_count_params_delete(params);
+
     gt_shash_delete(private_gene_counts, true);
     gt_template_delete(template);
     gt_buffered_input_file_close(buffered_input);
   }
-  // merge the count tables and delete them
-  for(i=0; i<parameters.num_threads; i++){
-    if(parameters.weighted_counts){
-      gt_gtfcount_merge_counts_weighted_(gene_counts_list[i], gene_counts);
-    }else{
-      gt_gtfcount_merge_counts_(gene_counts_list[i], gene_counts);
-    }
-    gt_gtfcount_merge_counts_(type_counts_list[i], type_counts);
-    gt_gtfcount_merge_counts_(single_patterns_list[i], single_patterns_counts);
-    gt_gtfcount_merge_counts_(pair_patterns_list[i], pair_patterns_counts);
-    gt_gtfcount_count_stats_merge(pair_counts, stats_list[i]);
 
-    gt_shash_delete(gene_counts_list[i], true);
-    gt_shash_delete(type_counts_list[i], true);
-    gt_shash_delete(pair_patterns_list[i], true);
-    gt_shash_delete(single_patterns_list[i], true);
-    gt_gtfcount_count_stats_delete(stats_list[i]);
+
+  // merge the count tables and delete them
+  // and merge and delete coverage
+  if(parameters.coverage_profiles){
+    uint64_t* coverage = GT_GTF_INIT_COUNT_PARAMS;
+    for(i=0; i<parameters.num_threads; i++){
+      if(parameters.weighted_counts){
+        gt_gtfcount_merge_counts_weighted_(gene_counts_list[i], gene_counts);
+      }else{
+        gt_gtfcount_merge_counts_(gene_counts_list[i], gene_counts);
+      }
+      gt_gtfcount_merge_counts_(type_counts_list[i], type_counts);
+      gt_gtfcount_merge_counts_(single_patterns_list[i], single_patterns_counts);
+      gt_gtfcount_merge_counts_(pair_patterns_list[i], pair_patterns_counts);
+      gt_gtfcount_count_stats_merge(pair_counts, stats_list[i]);
+
+      gt_shash_delete(gene_counts_list[i], true);
+      gt_shash_delete(type_counts_list[i], true);
+      gt_shash_delete(pair_patterns_list[i], true);
+      gt_shash_delete(single_patterns_list[i], true);
+      gt_gtfcount_count_stats_delete(stats_list[i]);
+
+      for(j=0; j<GT_GTF_COUNT_PARAMS_MAX_BUCKETS;j++){
+        coverage[j] += thread_params[i]->coverage_counts[j];
+      }
+      gt_gtf_count_params_delete(thread_params[i]);
+    }
+    pair_counts->coverage_profiles = coverage;
   }
+
   // Clean
   gt_input_file_close(input_file);
 }
@@ -426,6 +448,9 @@ void parse_arguments(int argc,char** argv) {
     /* Misc */
     case 500:
       parameters.shell = true;
+      break;
+    case 'c':
+      parameters.coverage_profiles = true;
       break;
     case 'v':
       parameters.verbose = true;
@@ -543,7 +568,7 @@ GT_INLINE void gt_gtfcount_run_shell(gt_gtf* const gtf){
       GT_VECTOR_ITERATE(hits, v, c, gt_gtf_entry*){
         gt_gtf_entry* e = *v;
         if(type != NULL && (e->type == NULL || strcmp(type, e->type->buffer) != 0)) continue;
-        gt_gtf_print_entry_(e, NULL);
+        gt_gtf_print_entry_(stdout,e, NULL);
       }
     }
     fprintf(stdout, ">");
@@ -607,6 +632,25 @@ GT_INLINE JsonNode* gt_gtfcount_print_general_json(gt_gtfcount_count_stats* stat
 
   json_append_member(node, "mapped_unique_single_reads", json_mknumber(stats->num_unique_se_maps));
   json_append_member(node, "mapped_ambigous_single_reads", json_mknumber(stats->num_se_reads - stats->num_unique_se_maps - stats->num_se_unmapped));
+  return node;
+}
+
+GT_INLINE JsonNode* gt_gtf_count_print_coverage_json(gt_gtfcount_count_stats* stats){
+  JsonNode* node = json_mkarray();
+  uint64_t i=0;
+  uint64_t j=0;
+  for(i=0;i<GT_GTF_COUNT_PARAMS_MAX_EXONS;i++){
+    JsonNode* container = json_mkarray();
+    uint64_t x = 0;
+    for(x=0; x<=i; x++){
+      JsonNode* exon_coverage = json_mkarray();
+      for(j=0; j<GT_GTF_COUNT_PARAMS_LENGTH;j++){
+        json_append_element(exon_coverage, json_mknumber(stats->coverage_profiles[(x*GT_GTF_COUNT_PARAMS_LENGTH) + GT_GTF_COUNT_BUCKET_START(i+1) + j]));
+      }
+      json_append_element(container, exon_coverage);
+    }
+    json_append_element(node, container);
+  }
   return node;
 }
 
@@ -725,9 +769,7 @@ int main(int argc,char** argv) {
   gt_gtfcount_count_stats* counting_stats = gt_gtfcount_count_stats_new();
 
   /// MAIN CALL TO COUNTING
-  gt_gtfcount_warn("Counting...");
   gt_gtfcount_read(gtf, gene_counts, type_counts, single_pattern_counts, pair_pattern_counts, counting_stats);
-  gt_gtfcount_warn("Done\n");
 
   // init output paramters
   parameters.output_file = stdout;
@@ -768,6 +810,9 @@ int main(int argc,char** argv) {
     json_append_member(root, "type_counts", gt_json_int_hash(type_counts));
     json_append_member(root, "pair_patterns", gt_json_int_hash(pair_pattern_counts));
     json_append_member(root, "single_patterns", gt_json_int_hash(single_pattern_counts));
+    if(parameters.coverage_profiles){
+      json_append_member(root, "coverage", gt_gtf_count_print_coverage_json(counting_stats));
+    }
 
     fprintf(parameters.output_file_json, "%s\n", json_stringify(root, "  "));
     json_delete(root);

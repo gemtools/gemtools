@@ -16,6 +16,8 @@
 
 
 #define GT_GTF_TYPE_EXON "exon"
+#define GT_GTF_TYPE_GENE "gene"
+#define GT_GTF_TYPE_TRANSCRIPT "transcript"
 #define GT_GTF_TYPE_INTRON "intron"
 #define GT_GTF_TYPE_UNKNOWN "unknown"
 #define GT_GTF_TYPE_NA "na"
@@ -33,7 +35,11 @@
     GT_GTF_NEXT_CHAR(text_line); \
   }
 
-
+#define GT_GTF_COUNT_PARAMS_LENGTH 100
+#define GT_GTF_COUNT_PARAMS_MAX_EXONS 10
+#define GT_GTF_COUNT_BUCKET_START(exons) (((exons-1)*exons)/2) * GT_GTF_COUNT_PARAMS_LENGTH
+#define GT_GTF_COUNT_PARAMS_MAX_BUCKETS ((GT_GTF_COUNT_PARAMS_MAX_EXONS * (GT_GTF_COUNT_PARAMS_MAX_EXONS + 1))/2) * GT_GTF_COUNT_PARAMS_LENGTH
+#define GT_GTF_INIT_COUNT_PARAMS gt_calloc(GT_GTF_COUNT_PARAMS_MAX_BUCKETS, uint64_t,true)
 /*
  * Single gtf entry
  */
@@ -41,6 +47,7 @@ typedef struct {
   uint64_t uid;
 	uint64_t start; // the start position
 	uint64_t end; // the end position
+	uint64_t num_children; // the number of transcript for genes and the number of exons for transcripts
 	gt_strand strand; // the strand
 	gt_string* type; // the type, i.e. exon, gene
 	gt_string* gene_id; // the gene id if it exists
@@ -78,6 +85,7 @@ typedef struct {
 	gt_shash* transcript_ids; // maps from char* to gt_string* for gene_ids char* -> gt_string*
 	gt_shash* gene_types; // maps from char* to gt_string* for gene_types char* -> gt_string*
 	gt_shash* genes; // maps from char* to gt_gtf_entry for genes
+	gt_shash* transcripts; // maps from char* to gt_gtf_entry for genes
 }gt_gtf;
 
 /**
@@ -119,9 +127,10 @@ typedef struct {
   double exon_overlap;
   uint64_t num_junctions; // total number of junctions found in uniquely mapping reads
   uint64_t num_annotated_junctions; // total number of junctions that are covered by the annotation
+  uint64_t* coverage_counts; // list of coverage arrays per number of exons
 } gt_gtf_count_parms;
 
-GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(void);
+GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(bool coverage);
 GT_INLINE void gt_gtf_count_params_delete(gt_gtf_count_parms* params);
 
 GT_INLINE gt_gtf_hit* gt_gtf_hit_new(void);
@@ -193,9 +202,11 @@ GT_INLINE bool gt_gtf_contains_gene_type(const gt_gtf* const gtf, char* const na
 /**
  * Get gt_gtf_entry for gene by its gene_id
  */
-GT_INLINE gt_gtf_entry* gt_gtf_get_gene_by_id(gt_gtf* const gtf, char* const key);
+GT_INLINE gt_gtf_entry* gt_gtf_get_gene_by_id(const gt_gtf* const gtf, char* const key);
+GT_INLINE gt_gtf_entry* gt_gtf_get_transcript_by_id(const gt_gtf* const gtf, char* const key);
 
 GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element);
+GT_INLINE uint64_t gt_gtf_get_count_(gt_shash* const table, char* const element);
 GT_INLINE void gt_gtf_count_weight_(gt_shash* const table, char* const element, double weight);
 GT_INLINE void gt_gtf_count_sum_(gt_shash* const table, char* const element, uint64_t value);
 
@@ -233,6 +244,6 @@ GT_INLINE void gt_gtf_search_template(const gt_gtf* const gtf, gt_vector* const 
 
 
 /*MISC helpers*/
-void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map);
+void gt_gtf_print_entry_(FILE* target, gt_gtf_entry* e, gt_map* map);
 
 #endif /* GT_GTF_H_ */
