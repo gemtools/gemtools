@@ -193,7 +193,7 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
 
 
   // now we have the full counts for this alignment and we have to add weighted counts to the l_gene_counts
-  if(hits > 0 && ((!parameters.unique_only || hits == 1) )){
+  if(hits > 0 && ((!parameters.unique_only || hits == 1)) && (!parameters.paired || parameters.single_end_counts)){
     stats->counted_reads++;
     stats->considered_se_mappings += num_maps;
     switch(hits){
@@ -293,7 +293,9 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
         gt_gtfcount_count_alignment(gtf, alignment, stats_list[tid],
                                     l_type_counts, l_gene_counts, l_single_patterns, private_gene_counts, params);
       } else {
-        if (!gt_template_is_mapped(template)) {
+        if (!gt_template_is_mapped(template) &&
+            (gt_alignment_get_num_maps(gt_template_get_block(template, 0)) > 0
+             || gt_alignment_get_num_maps(gt_template_get_block(template, 1)) > 0)) {
           // paired-end reads with unpaired alignments
           GT_TEMPLATE_REDUCE_BOTH_ENDS(template,alignment_end1,alignment_end2);
           gt_gtfcount_count_alignment(gtf, alignment_end1, stats_list[tid],
@@ -367,26 +369,28 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
 
   // merge the count tables and delete them
   // and merge and delete coverage
+  uint64_t* coverage = NULL;
+  uint64_t* gene_body = NULL;
   if(parameters.coverage_profiles){
     uint64_t* coverage = GT_GTF_INIT_COUNT_PARAMS;
     uint64_t* gene_body = gt_calloc(GT_GTF_COUNT_PARAMS_LENGTH, uint64_t,true);
-    for(i=0; i<parameters.num_threads; i++){
-      if(parameters.weighted_counts){
-        gt_gtfcount_merge_counts_weighted_(gene_counts_list[i], gene_counts);
-      }else{
-        gt_gtfcount_merge_counts_(gene_counts_list[i], gene_counts);
-      }
-      gt_gtfcount_merge_counts_(type_counts_list[i], type_counts);
-      gt_gtfcount_merge_counts_(single_patterns_list[i], single_patterns_counts);
-      gt_gtfcount_merge_counts_(pair_patterns_list[i], pair_patterns_counts);
-      gt_gtfcount_count_stats_merge(pair_counts, stats_list[i]);
+  }
+  for(i=0; i<parameters.num_threads; i++){
+    if(parameters.weighted_counts){
+      gt_gtfcount_merge_counts_weighted_(gene_counts_list[i], gene_counts);
+    }else{
+      gt_gtfcount_merge_counts_(gene_counts_list[i], gene_counts);
+    }
+    gt_gtfcount_merge_counts_(type_counts_list[i], type_counts);
+    gt_gtfcount_merge_counts_(single_patterns_list[i], single_patterns_counts);
+    gt_gtfcount_merge_counts_(pair_patterns_list[i], pair_patterns_counts);
+    gt_gtfcount_count_stats_merge(pair_counts, stats_list[i]);
 
-      gt_shash_delete(gene_counts_list[i], true);
-      gt_shash_delete(type_counts_list[i], true);
-      gt_shash_delete(pair_patterns_list[i], true);
-      gt_shash_delete(single_patterns_list[i], true);
-      gt_gtfcount_count_stats_delete(stats_list[i]);
-
+    gt_shash_delete(gene_counts_list[i], true);
+    gt_shash_delete(type_counts_list[i], true);
+    gt_shash_delete(pair_patterns_list[i], true);
+    gt_shash_delete(single_patterns_list[i], true);
+    if(parameters.coverage_profiles){
       for(j=0; j<GT_GTF_COUNT_PARAMS_MAX_BUCKETS;j++){
         coverage[j] += thread_params[i]->coverage_counts[j];
       }
@@ -395,6 +399,10 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
       }
       gt_gtf_count_params_delete(thread_params[i]);
     }
+
+    gt_gtfcount_count_stats_delete(stats_list[i]);
+  }
+  if(parameters.coverage_profiles){
     pair_counts->coverage_profiles = coverage;
     pair_counts->gene_body_coverage = gene_body;
   }
