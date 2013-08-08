@@ -11,6 +11,7 @@ GT_INLINE gt_gtf_entry* gt_gtf_entry_new(const uint64_t start, const uint64_t en
   entry->gene_type = NULL;
   entry->gene_id = NULL;
   entry->transcript_id = NULL;
+  entry->length = 0;
   return entry;
 }
 GT_INLINE void gt_gtf_entry_delete(gt_gtf_entry* const entry){
@@ -91,8 +92,10 @@ GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(bool coverage){
   p->num_annotated_junctions = 0;
   if(coverage){
     p->coverage_counts = GT_GTF_INIT_COUNT_PARAMS;
+    p->gene_body_coverage = gt_calloc(GT_GTF_COUNT_PARAMS_LENGTH, uint64_t,true);
   }else{
     p->coverage_counts = NULL;
+    p->gene_body_coverage = NULL;
   }
   return p;
 }
@@ -100,6 +103,9 @@ GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(bool coverage){
 GT_INLINE void gt_gtf_count_params_delete(gt_gtf_count_parms* params){
   if(params->coverage_counts != NULL){
     free(params->coverage_counts);
+  }
+  if(params->gene_body_coverage != NULL){
+    free(params->gene_body_coverage);
   }
   free(params);
 }
@@ -697,6 +703,8 @@ GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads)
           gt_gtf_entry* transcript = gt_gtf_get_transcript_by_id(gtf, gt_string_get_string(entry->transcript_id));
           if(transcript != NULL){
             transcript->num_children++;
+            entry->length = transcript->length;
+            transcript->length += (entry->end - entry->start) + 1;
           }
         }
       }else if(entry->type != NULL && gt_string_equals(transcript_t, entry->type)){
@@ -1056,24 +1064,28 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
         int64_t rel_end = rel_start + map_length;
         if(rel_start >= 0 && rel_start + map_length <= last_exon->end && end <= last_exon->end){
           // contained in range
+          // count for exon count
+          uint64_t s = 0;
+          uint64_t e = 0;
           uint64_t start_bucket = (((rel_start/(double)exon_length) * 100.0) + 0.5) - 1;
           uint64_t end_bucket = (((rel_end/(double)exon_length) * 100.0) + 0.5) - 1;
-
-          uint64_t j = 0;
           if(start_bucket >= 0 && start_bucket < 100 && end_bucket >= start_bucket && end_bucket < 100){
             if(transcript->num_children <= GT_GTF_COUNT_PARAMS_MAX_EXONS){
-              for(;start_bucket<=end_bucket; start_bucket++){
-                params->coverage_counts[  (GT_GTF_COUNT_PARAMS_LENGTH * last_exon->num_children) + GT_GTF_COUNT_BUCKET_START(transcript->num_children) + start_bucket] += 1;
+              for(s=start_bucket,e=end_bucket;s<=e; s++){
+                params->coverage_counts[  (GT_GTF_COUNT_PARAMS_LENGTH * last_exon->num_children) + GT_GTF_COUNT_BUCKET_START(transcript->num_children) + s] += 1;
               }
             }
+            // count for global count and make exon coordinates relative to transcript
+            // coordinate range
+            uint64_t trans_start_bucket = ((((double)last_exon->length / (double)transcript->length) * 100.0) + 0.5) - 1;
+            double scale = (double)exon_length / (double) transcript->length;
+            start_bucket = (scale * (double)start_bucket) + trans_start_bucket;
+            end_bucket = (scale * (double)end_bucket) + trans_start_bucket;
+            if(start_bucket >= 0 && start_bucket < 100 && end_bucket >= start_bucket && end_bucket < 100){
+                for(s=start_bucket,e=end_bucket;s<=e; s++)params->gene_body_coverage[s] += 1;
+            }
           }else{
-            fprintf(stderr, "OVERLAP OUT OF RANGE %d %d!\n", start_bucket, end_bucket);
-            gt_gtf_print_entry_(stderr, last_exon, map);
-            fprintf(stderr, "\n start %d  end %d exon start %d exon end %d rel_start %d rel_end %d exon length %d base length %d!\n", start, end, last_exon->start, last_exon->end, rel_start, rel_end, exon_length, map_length);
-            fprintf(stderr, "base length %"PRIu64"\n", gt_map_get_base_length(map));
-            fprintf(stderr, "global base length %"PRIu64"\n", gt_map_get_global_base_length(map));
-            fprintf(stderr, "global length %"PRIu64"\n", gt_map_get_global_length(map));
-            fprintf(stderr, "length %"PRIu64"\n", gt_map_get_length(map));
+            gt_fatal_error_msg("Coverage overlap out of range %"PRIu64" %"PRIu64, start_bucket, end_bucket);
           }
         }
       }

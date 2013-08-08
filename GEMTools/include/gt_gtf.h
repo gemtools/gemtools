@@ -48,6 +48,7 @@ typedef struct {
 	uint64_t start; // the start position
 	uint64_t end; // the end position
 	uint64_t num_children; // the number of transcript for genes and the number of exons for transcripts
+	uint64_t length; // the number of transcript for genes and the number of exons for transcripts
 	gt_strand strand; // the strand
 	gt_string* type; // the type, i.e. exon, gene
 	gt_string* gene_id; // the gene id if it exists
@@ -128,6 +129,7 @@ typedef struct {
   uint64_t num_junctions; // total number of junctions found in uniquely mapping reads
   uint64_t num_annotated_junctions; // total number of junctions that are covered by the annotation
   uint64_t* coverage_counts; // list of coverage arrays per number of exons
+  uint64_t* gene_body_coverage; // list of coverage arrays per number of exons
 } gt_gtf_count_parms;
 
 GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(bool coverage);
