@@ -372,8 +372,8 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
   uint64_t* coverage = NULL;
   uint64_t* gene_body = NULL;
   if(parameters.coverage_profiles){
-    uint64_t* coverage = GT_GTF_INIT_COUNT_PARAMS;
-    uint64_t* gene_body = gt_calloc(GT_GTF_COUNT_PARAMS_LENGTH, uint64_t,true);
+    coverage = GT_GTF_INIT_COUNT_PARAMS;
+    gene_body = gt_calloc(GT_GTF_COUNT_PARAMS_LENGTH, uint64_t,true);
   }
   for(i=0; i<parameters.num_threads; i++){
     if(parameters.weighted_counts){
@@ -702,7 +702,6 @@ GT_INLINE void gt_gtfcount_print_count_stats(FILE* output, gt_gtfcount_count_sta
   GT_GTFCOUNT_PRINT_P(output, "40", "Denovo junction hits", (stats->num_junctions-stats->num_annotated_junctions), stats->num_junctions);
 }
 GT_INLINE JsonNode* gt_gtfcount_print_count_stats_json(gt_gtfcount_count_stats* stats){
-  uint64_t total_reads = stats->num_pe_reads + stats->num_se_reads;
   JsonNode* node = json_mkobject();
   json_append_member(node, "total_counted_reads", json_mknumber(stats->counted_reads));
   json_append_member(node, "total_considered_single_reads", json_mknumber(stats->considered_se_mappings));
