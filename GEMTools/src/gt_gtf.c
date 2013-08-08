@@ -967,7 +967,11 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
                                      gt_gtf_count_parms* params){
   // get coordinates
   uint64_t start = gt_map_get_begin_mapping_position(map) + gt_map_get_left_trim_length(map) ; //(block == 0 ? gt_map_get_left_trim_length(map) : 0);
-  uint64_t end   = gt_map_get_end_mapping_position(map) - gt_map_get_right_trim_length(map); //(block == num_block ? gt_map_get_right_trim_length(map) : 0);
+  uint64_t end   = gt_map_get_end_mapping_position(map);// - gt_map_get_right_trim_length(map); //(block == num_block ? gt_map_get_right_trim_length(map) : 0);
+  if(start > end){
+    gt_fatal_error_msg("Mapping start > end %"PRIu64" %"PRIu64, start, end);
+  }
+
   GT_MISMS_ITERATE(map,misms_it) {
     switch (misms_it->misms_type) {
       case MISMS: break;
@@ -980,7 +984,7 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
   // store the search hits and search
   gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
   gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end, true);
-
+  fprintf(stderr, "SEARCH %"PRIu64" %"PRIu64"\n", start, end);
   // we do a complete local count for this block
   // and then merge the local count with the global count
   // to be able to resolve genes/gene_types that are
@@ -1055,14 +1059,21 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
     // single gene hit
     // hits an exon, check the gene and transcript counts for coverage calc
     if(last_gene_id != NULL && last_transcript_id != NULL){
+      //gt_gtf_print_entry_(stderr, last_exon, map);
       gt_gtf_entry* gene = gt_gtf_get_gene_by_id(gtf, last_gene_id->buffer);
       gt_gtf_entry* transcript = gt_gtf_get_transcript_by_id(gtf, last_transcript_id->buffer);
-      if(gene->num_children == 1 && strcmp("protein_coding", gene->gene_type->buffer) == 0){
+      if(gene->num_children == 1){ // && strcmp("protein_coding", gene->gene_type->buffer) == 0
         uint64_t exon_length = (last_exon->end - last_exon->start) + 1;
         //uint64_t map_length = gt_map_get_base_length(map);
         int64_t rel_start = start - last_exon->start;
-        int64_t rel_end = rel_start + map_length;
-        if(rel_start >= 0 && rel_start + map_length <= last_exon->end && end <= last_exon->end){
+        int64_t rel_end = (rel_start + map_length) - 1;
+        if(rel_start < 0){
+          rel_start = 0;
+        }
+        if(rel_end > exon_length){
+          rel_end = exon_length;
+        }
+        if(rel_start >= 0 && rel_end <= exon_length){
           // contained in range
           // count for exon count
           uint64_t s = 0;
@@ -1071,7 +1082,14 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
           uint64_t end_bucket = (((rel_end/(double)exon_length) * 100.0) + 0.5) - 1;
           if(start_bucket >= 0 && start_bucket < 100 && end_bucket >= start_bucket && end_bucket < 100){
             if(transcript->num_children <= GT_GTF_COUNT_PARAMS_MAX_EXONS){
-              for(s=start_bucket,e=end_bucket;s<=e; s++){
+              if(last_exon->strand == REVERSE){
+                s = (GT_GTF_COUNT_PARAMS_LENGTH - 1) - end_bucket;
+                e = (GT_GTF_COUNT_PARAMS_LENGTH - 1) - start_bucket;
+              }else{
+                s = start_bucket;
+                e = end_bucket;
+              }
+              for(;s<=e; s++){
                 params->coverage_counts[  (GT_GTF_COUNT_PARAMS_LENGTH * last_exon->num_children) + GT_GTF_COUNT_BUCKET_START(transcript->num_children) + s] += 1;
               }
             }
@@ -1081,8 +1099,16 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
             double scale = (double)exon_length / (double) transcript->length;
             start_bucket = (scale * (double)start_bucket) + trans_start_bucket;
             end_bucket = (scale * (double)end_bucket) + trans_start_bucket;
+
             if(start_bucket >= 0 && start_bucket < 100 && end_bucket >= start_bucket && end_bucket < 100){
-                for(s=start_bucket,e=end_bucket;s<=e; s++)params->gene_body_coverage[s] += 1;
+              if(last_exon->strand == REVERSE){
+                s = (GT_GTF_COUNT_PARAMS_LENGTH - 1) - end_bucket;
+                e = (GT_GTF_COUNT_PARAMS_LENGTH - 1) - start_bucket;
+              }else{
+                s = start_bucket;
+                e = end_bucket;
+              }
+              for(;s<=e; s++)params->gene_body_coverage[s] += 1;
             }
           }else{
             gt_fatal_error_msg("Coverage overlap out of range %"PRIu64" %"PRIu64, start_bucket, end_bucket);
@@ -1091,7 +1117,6 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
       }
     }
   }
-
 
   gt_shash_delete(local_gene_counts, true);
   gt_shash_delete(local_type_counts, true);
