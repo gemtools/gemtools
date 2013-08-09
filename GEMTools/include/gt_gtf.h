@@ -21,6 +21,7 @@
 #define GT_GTF_TYPE_INTRON "intron"
 #define GT_GTF_TYPE_UNKNOWN "unknown"
 #define GT_GTF_TYPE_NA "na"
+#define GT_GTF_TYPE_EMPTY_BLOCK "empty_block"
 
 #define GTF_DEFAULT_ENTRIES 1000
 #define GTF_MAX_LINE_LENGTH 2048
