@@ -36,11 +36,23 @@
     GT_GTF_NEXT_CHAR(text_line); \
   }
 
-#define GT_GTF_COUNT_PARAMS_LENGTH 100
-#define GT_GTF_COUNT_PARAMS_MAX_EXONS 10
-#define GT_GTF_COUNT_BUCKET_START(exons) (((exons-1)*exons)/2) * GT_GTF_COUNT_PARAMS_LENGTH
-#define GT_GTF_COUNT_PARAMS_MAX_BUCKETS ((GT_GTF_COUNT_PARAMS_MAX_EXONS * (GT_GTF_COUNT_PARAMS_MAX_EXONS + 1))/2) * GT_GTF_COUNT_PARAMS_LENGTH
-#define GT_GTF_INIT_COUNT_PARAMS gt_calloc(GT_GTF_COUNT_PARAMS_MAX_BUCKETS, uint64_t,true)
+#define GT_GTF_COVERAGE_BUCKETS 100
+#define GT_GTF_COVERAGE_LENGTH_RANGE 11
+#define GT_GTF_COVERAGE_LENGTH_ALL 0
+#define GT_GTF_COVERAGE_LENGTH_150 1
+#define GT_GTF_COVERAGE_LENGTH_250 2
+#define GT_GTF_COVERAGE_LENGTH_500 3
+#define GT_GTF_COVERAGE_LENGTH_1000 4
+#define GT_GTF_COVERAGE_LENGTH_2500 5
+#define GT_GTF_COVERAGE_LENGTH_5000 6
+#define GT_GTF_COVERAGE_LENGTH_7500 7
+#define GT_GTF_COVERAGE_LENGTH_10000 8
+#define GT_GTF_COVERAGE_LENGTH_15000 9
+#define GT_GTF_COVERAGE_LENGTH_20000 10
+
+#define GT_GTF_COVERGAGE_GET_BUCKET(range, bucket) ((range * GT_GTF_COVERAGE_BUCKETS) + bucket)
+#define GT_GTF_COVERAGE_LENGTH (GT_GTF_COVERAGE_BUCKETS * GT_GTF_COVERAGE_LENGTH_RANGE)
+#define GT_GTF_INIT_COVERAGE() gt_calloc(GT_GTF_COVERAGE_LENGTH, uint64_t,true)
 /*
  * Single gtf entry
  */
@@ -129,8 +141,8 @@ typedef struct {
   double exon_overlap;
   uint64_t num_junctions; // total number of junctions found in uniquely mapping reads
   uint64_t num_annotated_junctions; // total number of junctions that are covered by the annotation
-  uint64_t* coverage_counts; // list of coverage arrays per number of exons
-  uint64_t* gene_body_coverage; // list of coverage arrays per number of exons
+  uint64_t* single_transcript_coverage; // coverage store for single transcript gene coverage
+  uint64_t* gene_body_coverage; // coverage store for gene body coverage
 } gt_gtf_count_parms;
 
 GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(bool coverage);

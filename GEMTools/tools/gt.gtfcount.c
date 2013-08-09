@@ -59,7 +59,7 @@ typedef struct {
   uint64_t counted_pe_multi_gene; // # PE-templates matched to multiple genes (2 per template)
   uint64_t counted_se_single_gene; // # SE-templates or unpaired PE-reads matched to single gene
   uint64_t counted_se_multi_gene; // # SE-templates or unpaired PE-reads matched to multiple genes
-  uint64_t* coverage_profiles; // # coverage profiles for exons
+  uint64_t* single_transcript_coverage; // # coverage profiles for exons
   uint64_t* gene_body_coverage; // # coverage profiles for gene body
 } gt_gtfcount_count_stats;
 
@@ -105,14 +105,14 @@ GT_INLINE gt_gtfcount_count_stats* gt_gtfcount_count_stats_new(void){
   s->counted_se_multi_gene = 0;
   s->considered_pe_mappings = 0;
   s->considered_se_mappings = 0;
-  s->coverage_profiles = NULL;
+  s->single_transcript_coverage = NULL;
   s->gene_body_coverage = NULL;
   return s;
 }
 
 GT_INLINE void gt_gtfcount_count_stats_delete(gt_gtfcount_count_stats* stats){
-  if(stats->coverage_profiles != NULL){
-    free(stats->coverage_profiles);
+  if(stats->single_transcript_coverage != NULL){
+    free(stats->single_transcript_coverage);
   }
   if(stats->gene_body_coverage != NULL){
     free(stats->gene_body_coverage);
@@ -369,11 +369,11 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
 
   // merge the count tables and delete them
   // and merge and delete coverage
-  uint64_t* coverage = NULL;
+  uint64_t* single_transcript_coverage = NULL;
   uint64_t* gene_body = NULL;
   if(parameters.coverage_profiles){
-    coverage = GT_GTF_INIT_COUNT_PARAMS;
-    gene_body = gt_calloc(GT_GTF_COUNT_PARAMS_LENGTH, uint64_t,true);
+    single_transcript_coverage = GT_GTF_INIT_COVERAGE();
+    gene_body = GT_GTF_INIT_COVERAGE();
   }
   for(i=0; i<parameters.num_threads; i++){
     if(parameters.weighted_counts){
@@ -391,10 +391,10 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
     gt_shash_delete(pair_patterns_list[i], true);
     gt_shash_delete(single_patterns_list[i], true);
     if(parameters.coverage_profiles){
-      for(j=0; j<GT_GTF_COUNT_PARAMS_MAX_BUCKETS;j++){
-        coverage[j] += thread_params[i]->coverage_counts[j];
+      for(j=0; j<GT_GTF_COVERAGE_LENGTH;j++){
+        single_transcript_coverage[j] += thread_params[i]->single_transcript_coverage[j];
       }
-      for(j=0; j<GT_GTF_COUNT_PARAMS_LENGTH;j++){
+      for(j=0; j<GT_GTF_COVERAGE_LENGTH;j++){
         gene_body[j] += thread_params[i]->gene_body_coverage[j];
       }
       gt_gtf_count_params_delete(thread_params[i]);
@@ -403,7 +403,7 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
     gt_gtfcount_count_stats_delete(stats_list[i]);
   }
   if(parameters.coverage_profiles){
-    pair_counts->coverage_profiles = coverage;
+    pair_counts->single_transcript_coverage = single_transcript_coverage;
     pair_counts->gene_body_coverage = gene_body;
   }
 
@@ -653,31 +653,46 @@ GT_INLINE JsonNode* gt_gtfcount_print_general_json(gt_gtfcount_count_stats* stat
   return node;
 }
 
+GT_INLINE JsonNode* gt_gtf_count_coverage_array_(uint64_t* data, uint64_t range){
+  JsonNode* node = json_mkarray();
+  uint64_t i = 0;
+  for(i=0; i<GT_GTF_COVERAGE_BUCKETS;i++){
+    json_append_element(node, json_mknumber(data[GT_GTF_COVERGAGE_GET_BUCKET(range, i)]));
+  }
+  return node;
+}
+
 GT_INLINE JsonNode* gt_gtf_count_print_coverage_json(gt_gtfcount_count_stats* stats){
   JsonNode* node = json_mkobject();
-  JsonNode* exon_coverages = json_mkarray();
-  JsonNode* gene_coverages = json_mkarray();
-  uint64_t i=0;
-  uint64_t j=0;
-  for(i=0;i<GT_GTF_COUNT_PARAMS_MAX_EXONS;i++){
-    JsonNode* container = json_mkarray();
-    uint64_t x = 0;
-    for(x=0; x<=i; x++){
-      JsonNode* exon_coverage = json_mkarray();
-      for(j=0; j<GT_GTF_COUNT_PARAMS_LENGTH;j++){
-        json_append_element(exon_coverage, json_mknumber(stats->coverage_profiles[(x*GT_GTF_COUNT_PARAMS_LENGTH) + GT_GTF_COUNT_BUCKET_START(i+1) + j]));
-      }
-      json_append_element(container, exon_coverage);
-    }
-    json_append_element(exon_coverages, container);
-  }
+  JsonNode* single_transcripts = json_mkobject();
+  JsonNode* gene_body = json_mkobject();
+  // gene body
+  json_append_member(gene_body, "all", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_ALL));
+  json_append_member(gene_body, "150", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_150));
+  json_append_member(gene_body, "250", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_250));
+  json_append_member(gene_body, "500", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_500));
+  json_append_member(gene_body, "1000", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_1000));
+  json_append_member(gene_body, "2500", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_2500));
+  json_append_member(gene_body, "5000", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_5000));
+  json_append_member(gene_body, "7500", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_7500));
+  json_append_member(gene_body, "10000", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_10000));
+  json_append_member(gene_body, "15000", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_15000));
+  json_append_member(gene_body, "20000", gt_gtf_count_coverage_array_(stats->gene_body_coverage, GT_GTF_COVERAGE_LENGTH_20000));
+  // single transcript
+  json_append_member(single_transcripts, "all", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_ALL));
+  json_append_member(single_transcripts, "150", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_150));
+  json_append_member(single_transcripts, "250", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_250));
+  json_append_member(single_transcripts, "500", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_500));
+  json_append_member(single_transcripts, "1000", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_1000));
+  json_append_member(single_transcripts, "2500", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_2500));
+  json_append_member(single_transcripts, "5000", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_5000));
+  json_append_member(single_transcripts, "7500", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_7500));
+  json_append_member(single_transcripts, "10000", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_10000));
+  json_append_member(single_transcripts, "15000", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_15000));
+  json_append_member(single_transcripts, "20000", gt_gtf_count_coverage_array_(stats->single_transcript_coverage, GT_GTF_COVERAGE_LENGTH_20000));
 
-  for(j=0; j<GT_GTF_COUNT_PARAMS_LENGTH;j++){
-    json_append_element(gene_coverages, json_mknumber(stats->gene_body_coverage[j]));
-  }
-
-  json_append_member(node, "exons", exon_coverages);
-  json_append_member(node, "gene_body", gene_coverages);
+  json_append_member(node, "single_transcript", single_transcripts);
+  json_append_member(node, "gene_body", gene_body);
   return node;
 }
 
