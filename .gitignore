@@ -33,3 +33,4 @@ environment/
 .settings/
 .cproject
 .pydevproject
+.ropeproject/
