@@ -19,9 +19,8 @@ import time
 import tempfile
 import multiprocessing as mp
 import json
-import subprocess
 import signal
-
+import sys
 
 # clobal process registry
 # which is used to save multiprocessing.Process instances
@@ -64,7 +63,7 @@ class Timer(object):
         self.start_time = time.time()
         self.end = None
 
-    def stop(self, message, loglevel="info"):
+    def stop(self, message=None, loglevel="info"):
         """Stop timing and print result to logger.
         NOTE you have to add a "%s" into your message string to
         print the time
@@ -81,6 +80,7 @@ class Timer(object):
                     logging.error(message % (str(self.end)))
                 elif ll == "debug":
                     logging.error(message % (str(self.end)))
+        return self.end
 
 
 class CommandException(Exception):
@@ -105,12 +105,31 @@ class Command(object):
         """
         pass
 
+    def validate(self, args):
+        return True
+
+    def parse_args(self, args):
+        import argparse
+        parser = argparse.ArgumentParser(prog="gemtools %s" % self.name)
+        self.register(parser)
+        return vars(parser.parse_args(args[1:]))
+
     def run(self, args):
         """Run the command
 
         args -- the parsed arguments"""
         pass
-    def add_options(self, tool, parser):
+
+    def __call__(self, **kwargs):
+        """Call delegate for jip commands"""
+        # delegate to run
+        self.run(kwargs)
+
+    def jip_command(self, args):
+        return "%s %s {{jip.opts()}}" % \
+            (gem.executables["gemtools"], self.name)
+
+    def add_options(self, tool, parser, stream_in=None, stream_out=None):
         """Reads the tools JSON options and adds them to the
         command line parser. The commands 'tool_options' dict is
         set after execution and the parsed args can be translated to
@@ -172,14 +191,20 @@ class Command(object):
                 if optionType == "noArgument":
                     kwargs['action'] = "store_true"
                     del kwargs['metavar']
+                if stream_in and stream_in == longOption:
+                    kwargs['default'] = sys.stdin
+                if stream_out and stream_out == longOption:
+                    kwargs['default'] = sys.stdout
                 opt_parser.add_argument(*all_options, **kwargs)
                 self.tool_opts[longOption] = kwargs
 
     def get_command(self, args):
         cmd = [gem.executables[self.tool]]
-        dargs = vars(args)
-        for k, v in dargs.items():
+        #args = vars(args)
+        for k, v in args.items():
             if k in self.tool_opts and v is not None:
+                if isinstance(v, file):
+                    continue
                 if not isinstance(v, bool):
                     cmd.append("--" + k)
                     cmd.append(str(v))
@@ -188,6 +213,12 @@ class Command(object):
         return cmd
 
 
+def dict_2_tuple(dictionary):
+    if isinstance(dictionary, dict):
+        from collections import namedtuple
+        Dict = namedtuple('Dict', dictionary.keys())
+        return Dict(**dictionary)
+    return dictionary
 
 # complement translation
 __complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
@@ -501,6 +532,9 @@ def _prepare_output(output):
     if isinstance(output, basestring):
         return output
     if isinstance(output, file):
+        import sys
+        if output == sys.stdout or output == sys.stderr:
+            return output
         if output.name is not None and output.name is not "<fdopen>":
             output.close()
             return output.name

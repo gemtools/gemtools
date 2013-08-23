@@ -118,12 +118,12 @@ class execs_dict(dict):
                     return binary
             except Exception:
                 pass
-
         logging.debug("Using binary from PATH: %s" % item)
         return dict.__getitem__(self, item)
 
 ## paths to the executables
 executables = execs_dict({
+    "gemtools": "gemtools",
     "gem-indexer": "gem-indexer",
     "gem-mapper": "gem-mapper",
     "gem-2-gem": "gem-2-gem",
@@ -281,7 +281,7 @@ def _prepare_output(process, output=None, quality=None, bam=False):
                        next_process.stdin is not None:
                         next_process.stdin.close()
         logging.debug("Opening output file %s" % (output))
-        if output.endswith(".bam") or bam:
+        if not isinstance(output, file) and output.endswith(".bam") or bam:
             return gt.InputFile(gem.files.open_bam(output), quality=quality, process=process[0])
         return gt.InputFile(output, quality=quality, process=process[0])
     else:
@@ -360,7 +360,7 @@ def mapper(input, index, output=None,
     #     logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
     #         str(min_decoded_strata), str(delta + 1), str(delta)))
     #     min_decoded_strata = delta + 1
-    if compress and output is None:
+    if compress and (output is None or isinstance(output, file)):
         logging.warning("Disabeling stream compression")
         compress = False
 
@@ -940,17 +940,20 @@ def bamIndex(input, output=None):
     return output
 
 
-def compute_transcriptome(max_read_length, index, junctions, substract=None, output_name=None):
-    """Compute the transcriptome based on a set of junctions. You can optionally specify
-    a *substract* junction set. In that case only junctions not in substract are passed
-    to compute the transcriptome.
-    The function returns a tuple of a .fa file with the transcriptome genome and a
-    .keys file with the translation table.
+def compute_transcriptome(max_read_length, index, junctions,
+                          substract=None, output_name=None):
+    """Compute the transcriptome based on a set of junctions. You can
+    optionally specify a *substract* junction set. In that case only
+    junctions not in substract are passed to compute the transcriptome.
+
+    The function returns a tuple of a .fa file with the transcriptome
+    genome and a .keys file with the translation table.
 
     max_read_length -- the maximum read length
     index -- path to the gem index
     junctions -- path to the junctions file
-    substract -- additional juntions that are not taken into account and substracted from the main junctions
+    substract -- additional juntions that are not taken into
+                 account and substracted from the main junctions
     """
     if output_name is None:
         output_name = os.path.basename(junctions)
@@ -965,11 +968,13 @@ def compute_transcriptome(max_read_length, index, junctions, substract=None, out
     if substract is not None:
         transcriptome_p.extend(['-J', substract])
 
-    process = utils.run_tools([transcriptome_p], input=None, output=None, name="compute-transcriptome")
+    process = utils.run_tools([transcriptome_p], input=None,
+                              output=None, name="compute-transcriptome")
     if process.wait() != 0:
         raise ValueError("Error while computing transcriptome")
 
-    return (os.path.abspath("%s.fa" % junctions), os.path.abspath("%s.keys" % junctions))
+    return (os.path.abspath("%s.fa" % output_name),
+            os.path.abspath("%s.keys" % output_name))
 
 
 def index(input, output, content="dna", threads=1):

@@ -209,16 +209,17 @@ def write_junctions(junctions, output=None, index=None):
     @return: void
     @rtype: void
     """
+    output = sys.stdout if output is None else output
     chrs = None
     if index:
         chrs = _get_chromosomes(index)
-    jf = sys.stdout
-    if output:
+    jf = output
+    if output and not isinstance(output, file):
         jf = open(output, 'w')
-
     ## write the junctions
     for junction in junctions:
-        if (chrs is None) or (junction.descriptor[0] in chrs and junction.descriptor[3] in chrs):
+        if (chrs is None) or (junction.descriptor[0] in chrs and
+                              junction.descriptor[3] in chrs):
             jf.write(str(junction))
             jf.write("\n")
     if output:
