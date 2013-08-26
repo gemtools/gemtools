@@ -73,6 +73,58 @@ class Merge(Command):
                   paired=args.paired, compress=args.compress)
 
 
+@cli("score",
+     inputs=['--input'],
+     outputs=['--output'])
+class Score(Command):
+    title = "Score .map files"
+    description = """Apply the gemtools default scoring scheme to the
+    given mappings
+    """
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-I', '--index', dest="index",
+                            metavar="<index>",
+                            help='The GEM index',
+                            required=True)
+        parser.add_argument('-q', '--quality', dest="quality",
+                            metavar="<quality>",
+                            help='Quality offset (33/64/ignore)',
+                            required=True)
+        parser.add_argument('-i', '--input',
+                            default=sys.stdin,
+                            help='Input .map file. Reads from stdin if '
+                            'not specified')
+        parser.add_argument('-o', '--output',
+                            default=sys.stdout,
+                            help='Output file name, prints to stdout '
+                            'if nothing is specified')
+        parser.add_argument('-f', '--filter',
+                            help='Apply an additional filtering step where. '
+                            'The expectex value is s string with: '
+                            '<max_strata>,<max_distance>,<max_alignments>')
+        parser.add_argument('-t', '--threads',
+                            dest="threads",
+                            type=int,
+                            default=1,
+                            help='Number of threads')
+        parser.add_argument('-c', '--compress', dest='compress',
+                            action="store_true", default=False,
+                            help="Write gzip compressed output if a output "
+                            "file is specified")
+
+    def run(self, args):
+        args = gem.utils.dict_2_tuple(args)
+        gem.score(args.input,
+                  args.index,
+                  args.output,
+                  quality=args.quality,
+                  filter=args.filter,
+                  threads=args.threads,
+                  compress=args.compress)
+
+
 @cli("prepare",
      inputs=['--input'],
      outputs=['--output'])
@@ -267,6 +319,131 @@ class GemMapper(Command):
         )
 
 
+@cli("pairalign",
+     inputs=['--input'],
+     outputs=['--output'])
+class GemPairalign(Command):
+    title = "Run the GEM-Mapper to find pairs"
+    description = """Runs the GEM-mapper in pair align mode"""
+
+    def register(self, parser):
+        ## required parameters
+        parser.add_argument('-I', '--index', dest="index",
+                            metavar="<index>",
+                            help='The GEM index',
+                            required=True)
+        parser.add_argument('-q', '--quality', dest="quality",
+                            metavar="<quality>",
+                            help='Quality offset (33/64/ignore)',
+                            required=True)
+        parser.add_argument('-i', '--input', dest="input",
+                            metavar="<input>",
+                            default=sys.stdin,
+                            help='Input File. Reads from stdin if nothing '
+                            'is specified.')
+        parser.add_argument('-o', '--output', dest="output",
+                            metavar="<output>",
+                            default=sys.stdout,
+                            help='Output file name, prints to stdout '
+                            'if nothing is specified')
+        parser.add_argument('-t', '--threads', dest="threads",
+                            metavar="<threads>",
+                            default=1,
+                            type=int,
+                            help='Number of threads')
+        parser.add_argument('-s', '--strata-after-best',
+                            dest="strata_after_best", type=int,
+                            metavar="strata",
+                            default=0,
+                            help='The number of strata examined after '
+                            'the best one. Default 0')
+        parser.add_argument('--min-insert-size',
+                            type=int,
+                            default=0,
+                            help='The minimum insert size for a pair')
+        parser.add_argument('--max-insert-size',
+                            type=int,
+                            default=1000,
+                            help='The maximum insert size for a pair')
+        parser.add_argument('--quality-threshold', dest="quality_threshold",
+                            type=int, metavar="qth",
+                            default=26,
+                            help='Good quality threshold. Bases with a '
+                            'quality score >= threshold are considered '
+                            'good. Default 26')
+        parser.add_argument('--max-decoded-matches',
+                            dest="max_decoded_matches",
+                            type=int,
+                            default=20,
+                            metavar="mdm",
+                            help='Maximum decoded matches. Default 20')
+        parser.add_argument('--min-decoded-strata',
+                            dest="min_decoded_strata",
+                            type=int,
+                            default=1,
+                            metavar="mds",
+                            help='Minimum decoded strata. '
+                            'Default to 1')
+        parser.add_argument('--min-matched-bases',
+                            dest="min_matched_bases",
+                            type=float,
+                            default=0.80,
+                            metavar="mmb",
+                            help='Minimum ratio of bases that '
+                            'must be matched. Default 0.80')
+        parser.add_argument('--max-edit-distance',
+                            dest="max_edit_distance",
+                            metavar="med",
+                            default=0.30,
+                            type=float,
+                            help='Maximum edit distance (ratio) '
+                            'allowed for an alignment. Default 0.20')
+        parser.add_argument('--max-extendable-matches',
+                            default=0,
+                            type=int,
+                            help='Maximal extendable matches. 0 disables '
+                            'extension mode.')
+        parser.add_argument('--max-matches-per-extension',
+                            default=0,
+                            type=int,
+                            help='Maximum matches per extension')
+        parser.add_argument('-C', '--compress', dest="compress",
+                            default=False,
+                            action="store_true",
+                            help="Compress the output file")
+
+    def validate(self, args):
+        _check("No index specified", not args['index'])
+        return True
+
+    def run(self, args):
+        self.validate(args)
+
+        args = gem.utils.dict_2_tuple(args)
+        outfile = args.output if not isinstance(args.output, file) \
+            else args.output
+        infile = gem.files.open(args.input) \
+            if not isinstance(args.input, file) else args.input
+
+        gem.pairalign(
+            infile,
+            args.index,
+            outfile,
+            quality=args.quality,
+            quality_threshold=args.quality_threshold,
+            max_decoded_matches=args.max_decoded_matches,
+            min_decoded_strata=args.min_decoded_strata,
+            min_insert_size=args.min_insert_size,
+            max_insert_size=args.max_insert_size,
+            min_matched_bases=args.min_matched_bases,
+            max_edit_distance=args.max_edit_distance,
+            max_extendable_matches=args.max_extendable_matches,
+            max_matches_per_extension=args.max_matches_per_extension,
+            threads=args.threads,
+            compress=args.compress
+        )
+
+
 @cli("convert",
      inputs=['--input'],
      outputs=['--output'])
@@ -289,7 +466,7 @@ class Convert(Command):
         parser.add_argument("-t", "--threads", dest="threads", type=int,
                             default=1,
                             help="Number of threads")
-        parser.add_argument("-m", "--memory", dest="sort_memory",
+        parser.add_argument("-m", "--memory",
                             default="768M",
                             help="Memory to use per sorting threads. "
                             "Default 768M")
@@ -324,7 +501,7 @@ class Convert(Command):
         gem.sam2bam(sam, output=args.output,
                     sorted=not args.no_sort,
                     threads=args.threads,
-                    sort_memory=str(args.sort_memory))
+                    sort_memory=str(args.memory))
         if not args.no_index:
             gem.bamIndex(args.output)
 
@@ -378,12 +555,33 @@ class Filter(Command):
     def register(self, parser):
         self.add_options('gt.filter', parser, stream_in="input",
                          stream_out="output")
+        parser.add_argument("--compress", action="store_true",
+                            default=False,
+                            help="Compress output. Only works if "
+                            "an output file is specified.")
 
     def run(self, args):
         """Run gt filter"""
+        outstream = sys.stdout
+        threads = args.get('threads', 1)
+        if not threads:
+            threads = 1
+        compressor = None
+        if not isinstance(args['output'], file) and args['compress']:
+            outstream, out, compressor = gem.filter.create_output_stream(
+                args['output'],
+                compress=True,
+                threads=threads
+            )
+            args['output'] = None
+
         cmd = self.get_command(args)
-        p = subprocess.Popen(cmd)
-        sys.exit(p.wait())
+        p = subprocess.Popen(cmd, stdout=outstream)
+        r = p.wait()
+        if compressor:
+            compressor.stdin.close()
+            compressor.wait()
+        sys.exit(r)
 
 
 @cli("gtf-junctions",
@@ -435,8 +633,12 @@ class Index(Command):
                             help='Number of threads')
 
     def validate(self, oargs):
+        from jip.model import parameter
+
         args = gem.utils.dict_2_tuple(oargs)
         input = args.input
+        if isinstance(input, parameter):
+            input = input.value
         output = os.path.basename(input)
         if args.output is not None:
             output = args.output
@@ -444,7 +646,7 @@ class Index(Command):
             output = output[:output.rfind(".")] + ".gem"
         if not output.endswith(".gem"):
             raise CommandException("Output file name has to end in .gem")
-        if not os.path.exists(input):
+        if not isinstance(args.input, parameter) and not os.path.exists(input):
             raise CommandException("Input file not found : %s" % input)
         if input.endswith(".gz"):
             raise CommandException("Compressed input is currently "
@@ -531,9 +733,9 @@ class TranscriptIndex(Command):
 
 @cli("compute-transcriptome",
      add_outputs=[
-         "fasta_out",
-         "keys_out",
-         "junctions_out"
+         "fasta-out",
+         "keys-out",
+         "junctions-out"
      ])
 class ComputeTranscriptome(Command):
     title = "Create a transcriptome from a genome index"
@@ -574,6 +776,7 @@ class ComputeTranscriptome(Command):
                             default=150)
 
     def validate(self, oargs):
+        from jip.model import parameter
         args = gem.utils.dict_2_tuple(oargs)
         if not args.index.endswith(".gem"):
             raise CommandException("No valid GEM index specified, "
@@ -582,15 +785,20 @@ class ComputeTranscriptome(Command):
             raise CommandException("GEM index not found")
         if args.annotation and not os.path.exists(args.annotation):
             raise CommandException("Annotation not found")
-        if args.junctions and not os.path.exists(args.junctions):
+        if args.junctions and not isinstance(args.junctions, parameter) \
+           and not os.path.exists(args.junctions):
             raise CommandException("Junctions file not found")
         if not args.junctions and not args.annotation:
             raise CommandException("You have to specify either the "
                                    "junctions file or a reference annotation")
         name = args.name
         if name is None:
-            name = os.path.basename(args.annotation if args.annotation
-                                    else args.junctions)
+            fname = args.annotation
+            if not fname:
+                fname = args.junctions
+                if isinstance(args.junctions, parameter):
+                    fname = args.junctions.value
+            name = os.path.basename(fname)
             i = name.index('.')
             name = name[:i] if i > 0 else name
 
@@ -676,6 +884,14 @@ class RnaPipeline(Command):
                                  'denovo transcriptome index. This '
                                  'is optionan and if not specified, only '
                                  'denovo-transcript mapping will be performed')
+        input_group.add_argument('-r', '--transcript-index',
+                                 help='Path to the .gem transcript index '
+                                 'that was generated from the given '
+                                 'annotation. ')
+        input_group.add_argument('-k', '--transcript-keys',
+                                 help='Path to the .keys file that '
+                                 'was generated from the given transcript '
+                                 'index. ')
         input_group.add_argument('-n', '--name',
                                  help="Specify a prefix for all result files. "
                                  "If no name is specified, the name of the "
@@ -698,6 +914,13 @@ class RnaPipeline(Command):
                                  default=False,
                                  action="store_true",
                                  help="Compress also intermediate files")
+        ######################################################################
+        # Job control
+        #####################################################################
+        ctrl_group = parser.add_argument_group('Job and Pipeline controls')
+        ctrl_group.add_argument("--dry", action="store_true", default=False,
+                                help="Show the pipeline configuraiton but "
+                                "do not execute the pipeline")
 
     def _find_second_pair(self, args):
         ## try to guess the second file
@@ -722,6 +945,34 @@ class RnaPipeline(Command):
             compress = args["compress_all"]
         return "%s%s%s" % (args['name'], "" if suffix is None else suffix,
                            ".gz" if compress else "")
+
+    def _find_transcript_index(self, args):
+        from os.path import basename, dirname, join, exists
+        from jip.utils import rreplace
+        # try to detect the transcript index based on the annotation
+        # file name. We remove the .gtf[.gz] extension and check for
+        # a <name>.gem and <name>.junctions.gem
+        name = basename(args['annotation'])
+        base = dirname(args['annotation'])
+        i = name.rindex(".")
+        if i > 0:
+            name = name[:i]
+
+        if not args['transcript_index']:
+            t_index = join(base, "%s.gem" % (name))
+            if not exists(t_index):
+                t_index = join(base, "%s.junctions.gem" % (name))
+            args['transcript_index'] = t_index
+
+        if not args['transcript_keys']:
+            # we look for the key file just next to the transcript_index
+            # replacing the .gem extension with .keys. If that fails,
+            # we try .junctions.keys
+            t_keys = rreplace(args['transcript_index'], ".gem", ".keys", 1)
+            if not exists(t_keys):
+                t_keys = rreplace(args['transcript_index'], ".gem",
+                                  ".junctions.keys", 1)
+            args['transcript_keys'] = t_keys
 
     def validate(self, args):
         from os.path import exists
@@ -752,18 +1003,55 @@ class RnaPipeline(Command):
         _check("Genome GEM does not end in .gem: %s" % args['index'],
                not args['index'].endswith(".gem"))
 
-        ## check annotation
-        if args['annotation']:
-            _check("GTF annotation not found: %s" % args['annotation'],
-                   not exists(args['annotation']))
         ## check quality value
         _check("Quality offset value is not valid! Supported are 33|64|ignore",
                not args['quality'] in ("33", "64", "ignore"))
 
-        ## define output file names
+        ###########################################################
+        # Transcriptome mapping with annotation
+        ###########################################################
+        if args['annotation']:
+            _check("GTF annotation not found: %s" % args['annotation'],
+                   not exists(args['annotation']))
+            # check the transcript index and keys
+            self._find_transcript_index(args)
+            _check("No Transcript index found: %s" %
+                   args['transcript_index'],
+                   not exists(args['transcript_index']))
+            _check("No Transcript keys found: %s" %
+                   args['transcript_keys'],
+                   not exists(args['transcript_keys']))
+
+        ###########################################################
+        # Output file configuration
+        ###########################################################
         args['prepare_out'] = self._file_name("_prepare.fq", args,
                                               compress=False)
         args['initial_map_out'] = self._file_name("_initial.map", args)
+        args['transcript_map_out'] = self._file_name("_transcripts.map", args)
+        args['denovo_junctions_out'] = self._file_name("_denovo.junctions",
+                                                       args,
+                                                       compress=False)
+        args['denovo_map_out'] = self._file_name("_denovo.map", args)
+        args['final_out'] = self._file_name(".map", args, compress=True)
+        args['bam_out'] = self._file_name(".bam", args, compress=False)
+        args['filtered_out'] = self._file_name(".filtered.map", args,
+                                               compress=True)
+        args['filtered_bam_out'] = self._file_name(".filtered.bam", args,
+                                                   compress=False)
+        args['stats_out'] = self._file_name(".stats.txt", args,
+                                            compress=False)
+        args['filtered_stats_out'] = self._file_name(".filtered.stats.txt",
+                                                     args,
+                                                     compress=False)
+        args['gtf_stats_out'] = self._file_name(".gtf.stats.txt", args,
+                                                compress=False)
+        args['gtf_counts_out'] = self._file_name(".gtf.counts.txt", args,
+                                                 compress=False)
+        args['filtered_gtf_stats_out'] = self._file_name(".filtered.gtf.stats.txt", args,
+                                                         compress=False)
+        args['filtered_gtf_counts_out'] = self._file_name(".filtered.gtf.counts.txt", args,
+                                                          compress=False)
         return True
 
     def pipeline(self, args):
@@ -782,26 +1070,166 @@ class RnaPipeline(Command):
                                    output=args['prepare_out'],
                                    threads=threads)
 
-        initial_mapping = p.run('gemtools_mapper',
-                                input=mapping_inputs,
-                                index=index,
-                                output=args['initial_map_out'],
-                                quality=quality)
+        # we collect all mapping steps here for mergin
+        all_mappings = []
 
-        #transcript_mapping = None
-        #if args['annotation']:
-            #transcript_mapping = p.run('gemtools_mapper',
-                                        #input=mappings_inputs,
-                                        #index=index,
-                                        #output=args['initial_map_out'],
-                                        #quality=quality)
+        ###################################################################
+        # Initial mapping step
+        ###################################################################
+        mapper_cfg = dict(input=mapping_inputs,
+                          threads=threads,
+                          index=index,
+                          output=args['initial_map_out'],
+                          compress=args['compress_all'],
+                          quality=quality)
+        initial_mapping = p.run('gemtools_mapper', **mapper_cfg)
+        all_mappings.append(initial_mapping)
+
+        ###################################################################
+        # Transcriptome mapping
+        ###################################################################
+        if args['annotation']:
+            t_map_cfg = dict(input=mapping_inputs,
+                             threads=threads,
+                             index=args['transcript_index'],
+                             keys=args['transcript_keys'],
+                             quality=quality)
+            t_map_filter_cfg = dict(only_split_maps=True,
+                                    threads=threads,
+                                    compress=args['compress_all'],
+                                    output=args['transcript_map_out'])
+            t_mapping = p.run('gemtools_mapper', **t_map_cfg)
+            # filter for splitmaps
+            transcript_mapping = t_mapping | p.run('gemtools_filter',
+                                                   **t_map_filter_cfg)
+            all_mappings.append(transcript_mapping)
+
+        ###################################################################
+        # Denovo transcriptome mapping
+        ###################################################################
+        junctions = p.run('gemtools_denovo_junctions',
+                          index=args['index'],
+                          threads=threads,
+                          input=mapping_inputs,
+                          quality=quality,
+                          output=args["denovo_junctions_out"])
+        denovo_transcriptome = p.run('gemtools_compute_transcriptome',
+                                     index=args['index'],
+                                     junctions=junctions.output,
+                                     max_length=150)  # todo add auto calc
+
+        junctions_index = p.run('gemtools_index',
+                                threads=threads,
+                                input=denovo_transcriptome.fasta_out)
+        mapper_cfg = dict(input=mapping_inputs,
+                          index=junctions_index,
+                          threads=threads,
+                          keys=denovo_transcriptome.keys_out,
+                          output=args['denovo_map_out'],
+                          compress=args['compress_all'],
+                          quality=quality)
+        denovo_mapping = p.run('gemtools_mapper', **mapper_cfg)
+        all_mappings.append(denovo_mapping)
+
+        merge = p.run('gemtools_merge',
+                      same=True,
+                      threads=threads,
+                      input=all_mappings)
+        pair = p.run('gemtools_pairalign',
+                     quality=quality,
+                     threads=threads,
+                     index=args['index'])
+        score = p.run('gemtools_score',
+                      index=args['index'],
+                      threads=threads,
+                      quality=quality,
+                      compress=True,
+                      output=args['final_out'])
+        merge | pair | score
+
+        # create sorted bam
+        bam_cfg = dict(
+            threads=threads,
+            index=args['index'],
+            quality=quality,
+            memory="768M",
+            paired=True,
+            no_sort=False,
+            no_xs=False,
+            no_index=False
+        )
+        p.run('gemtools_convert',
+              input=score,
+              output=args['bam_out'],
+              **bam_cfg)
+        # create filtered output
+        filtered = p.run('gemtools_filter',
+                         input=score,
+                         threads=threads,
+                         output=args['filtered_out'],
+                         annotation=args['annotation'],
+                         no_penalty_for_splitmaps=True,
+                         paired_end=True,  # paired
+                         keep_unique=True,
+                         min_intron_length=20,
+                         min_block_length=5,
+                         reduce_by_gene_id=False,
+                         reduce_by_junctions=False,
+                         reduce_to_unique_strata=0,
+                         reduce_to_max_maps=5,
+                         max_strata=0,  # max error events
+                         compress=True)
+        p.run('gemtools_convert',
+              input=filtered,
+              output=args['filtered_bam_out'],
+              **bam_cfg)
+
+        # create stats
+        p.run('gemtools_stats',
+              input=score,
+              threads=threads,
+              output=args['stats_out'],
+              paired_end=True,
+              all_tests=True)
+
+        p.run('gemtools_stats',
+              input=filtered,
+              threads=threads,
+              output=args['filtered_stats_out'],
+              paired_end=True,
+              all_tests=True)
+
+        # create counts
+        p.run('gemtools_gtf_stats',
+              input=score,
+              threads=threads,
+              annotation=args['annotation'],
+              output=args['gtf_stats_out'],
+              paired_end=True,
+              exon_overlap=1,
+              counts=args['gtf_counts_out'],
+              multi_maps=True,
+              weighted=True
+              )
+        p.run('gemtools_gtf_stats',
+              input=filtered,
+              threads=threads,
+              annotation=args['annotation'],
+              output=args['filtered_gtf_stats_out'],
+              paired_end=True,
+              exon_overlap=1,
+              counts=args['filtered_gtf_counts_out'],
+              multi_maps=True,
+              weighted=True
+              )
+
         return p
-
 
     def run(self, args):
         pipeline = self.pipeline(args)
         from jip.cli.jip_run import run_script
-        run_script(pipeline, force=False, dry=False)
+        run_script(pipeline, force=False, dry=args['dry'])
+
 
         #run the thing
         #pipeline._sort_nodes()

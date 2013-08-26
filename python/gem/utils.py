@@ -176,7 +176,7 @@ class Command(object):
 
                 if metaVar is not None:
                     metaVar = metaVar.split(" ")[0]
-                kwargs = {"dest": longOption,
+                kwargs = {"dest": longOption.replace("-", "_"),
                           "metavar": metaVar,
                           "help": description
                           }
@@ -196,13 +196,14 @@ class Command(object):
                 if stream_out and stream_out == longOption:
                     kwargs['default'] = sys.stdout
                 opt_parser.add_argument(*all_options, **kwargs)
-                self.tool_opts[longOption] = kwargs
+                self.tool_opts[longOption.replace("-", "_")] = kwargs
 
     def get_command(self, args):
         cmd = [gem.executables[self.tool]]
         #args = vars(args)
         for k, v in args.items():
             if k in self.tool_opts and v is not None:
+                k = k.replace("_", "-")
                 if isinstance(v, file):
                     continue
                 if not isinstance(v, bool):
