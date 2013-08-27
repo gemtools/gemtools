@@ -19,13 +19,15 @@ _cmd_registry = None
 class cli(object):
     """Command decorator"""
     def __init__(self, name, inputs=None, outputs=None,
-                 title=None, description=None, add_outputs=None):
+                 title=None, description=None, add_outputs=None,
+                 pipeline=None):
         self.name = name
         self.inputs = inputs
         self.outputs = outputs
         self.title = title
         self.description = description
         self.add_outputs = add_outputs
+        self.pipeline = pipeline
 
     def __call__(self, cls):
         global _cmd_registry
@@ -74,6 +76,7 @@ class cli(object):
                  outputs=self.outputs,
                  validate='validate',
                  add_outputs=self.add_outputs,
+                 pipeline=self.pipeline,
                  argparse='register' if not wrapped_function else None,
                  get_command='jip_command')(cls)
         return cls

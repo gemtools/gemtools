@@ -516,10 +516,18 @@ class Stats(Command):
     def register(self, parser):
         self.add_options('gt.stats', parser, stream_in="input",
                          stream_out="output")
+        parser.add_argument("--json", help="Write json stats to a file")
 
     def run(self, args):
+        stderr = None
+        if args["json"]:
+            args["output_format"] = "both"
+            stderr = open(args["json"], 'wb')
         cmd = self.get_command(args)
-        p = subprocess.Popen(cmd)
+        p = subprocess.Popen(cmd, stderr=stderr)
+        p.wait()
+        if stderr is not None:
+            stderr.close()
         sys.exit(p.wait())
 
 
@@ -538,11 +546,18 @@ class GtfCount(Command):
     def register(self, parser):
         self.add_options('gt.gtfcount', parser, stream_in="input",
                          stream_out="output")
+        parser.add_argument("--json", help="Write json stats to a file")
 
     def run(self, args):
+        stderr = None
+        if args["json"]:
+            args["output_format"] = "both"
+            stderr = open(args["json"], 'wb')
         cmd = self.get_command(args)
-        p = subprocess.Popen(cmd)
-        sys.exit(p.wait())
+        p = subprocess.Popen(cmd, stderr=stderr)
+        p.wait()
+        if stderr is not None:
+            stderr.close()
 
 
 @cli("filter",
@@ -835,6 +850,7 @@ class ComputeTranscriptome(Command):
 
 
 @cli("rna-pipeline",
+     pipeline='pipeline',
      add_outputs=[
      ])
 class RnaPipeline(Command):
@@ -1041,14 +1057,23 @@ class RnaPipeline(Command):
                                                    compress=False)
         args['stats_out'] = self._file_name(".stats.txt", args,
                                             compress=False)
+        args['stats_json_out'] = self._file_name(".stats.json", args,
+                                                 compress=False)
         args['filtered_stats_out'] = self._file_name(".filtered.stats.txt",
                                                      args,
                                                      compress=False)
+        args['filtered_stats_json_out'] = self._file_name(".filtered.stats.json",
+                                                          args,
+                                                          compress=False)
         args['gtf_stats_out'] = self._file_name(".gtf.stats.txt", args,
+                                                compress=False)
+        args['gtf_stats_json_out'] = self._file_name(".gtf.stats.json", args,
                                                 compress=False)
         args['gtf_counts_out'] = self._file_name(".gtf.counts.txt", args,
                                                  compress=False)
         args['filtered_gtf_stats_out'] = self._file_name(".filtered.gtf.stats.txt", args,
+                                                         compress=False)
+        args['filtered_gtf_stats_json_out'] = self._file_name(".filtered.gtf.stats.json", args,
                                                          compress=False)
         args['filtered_gtf_counts_out'] = self._file_name(".filtered.gtf.counts.txt", args,
                                                           compress=False)
@@ -1064,11 +1089,13 @@ class RnaPipeline(Command):
 
         p = Pipeline()
         mapping_inputs = args['files']
+        prepare_step = None
         if not args['direct_input']:
             ## run the prepare step
-            mapping_inputs = p.run('gemtools_prepare', input=args['files'],
-                                   output=args['prepare_out'],
-                                   threads=threads)
+            prepare_step = p.run('gemtools_prepare', input=args['files'],
+                                 output=args['prepare_out'],
+                                 threads=threads)
+            mapping_inputs = prepare_step
 
         # we collect all mapping steps here for mergin
         all_mappings = []
@@ -1189,6 +1216,7 @@ class RnaPipeline(Command):
               input=score,
               threads=threads,
               output=args['stats_out'],
+              json=args['stats_json_out'],
               paired_end=True,
               all_tests=True)
 
@@ -1196,6 +1224,7 @@ class RnaPipeline(Command):
               input=filtered,
               threads=threads,
               output=args['filtered_stats_out'],
+              json=args['filtered_stats_json_out'],
               paired_end=True,
               all_tests=True)
 
@@ -1205,6 +1234,7 @@ class RnaPipeline(Command):
               threads=threads,
               annotation=args['annotation'],
               output=args['gtf_stats_out'],
+              json=args['gtf_stats_json_out'],
               paired_end=True,
               exon_overlap=1,
               counts=args['gtf_counts_out'],
@@ -1216,13 +1246,21 @@ class RnaPipeline(Command):
               threads=threads,
               annotation=args['annotation'],
               output=args['filtered_gtf_stats_out'],
+              json=args['gtf_stats_json_out'],
               paired_end=True,
               exon_overlap=1,
               counts=args['filtered_gtf_counts_out'],
               multi_maps=True,
               weighted=True
               )
-
+        clean = p.run('cleanup', files=all_mappings)
+        clean << junctions
+        clean << denovo_transcriptome.keys_out
+        clean << denovo_transcriptome.fasta_out
+        clean << denovo_transcriptome.junctions_out
+        clean << junctions_index
+        if prepare_step:
+            clean << prepare_step
         return p
 
     def run(self, args):
