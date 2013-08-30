@@ -209,7 +209,7 @@ GT_INLINE bool gt_shash_iterator_next(gt_shash_iterator* const shash_iterator) {
   shash_iterator->next = shash_iterator->next->hh.next;
   return true;
 }
-GT_INLINE int64_t gt_shash_iterator_get_key(gt_shash_iterator* const shash_iterator) {
+GT_INLINE char* gt_shash_iterator_get_key(gt_shash_iterator* const shash_iterator) {
   GT_HASH_CHECK(shash_iterator->shash);
   GT_HASH_CHECK(shash_iterator->next);
   return shash_iterator->next->key;

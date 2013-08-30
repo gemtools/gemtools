@@ -94,7 +94,7 @@ GT_INLINE gt_shash_iterator* gt_shash_iterator_new(gt_shash* const shash);
 GT_INLINE void gt_shash_iterator_delete(gt_shash_iterator* const shash_iterator);
 
 GT_INLINE bool gt_shash_iterator_next(gt_shash_iterator* const shash_iterator);
-GT_INLINE int64_t gt_shash_iterator_get_key(gt_shash_iterator* const shash_iterator);
+GT_INLINE char* gt_shash_iterator_get_key(gt_shash_iterator* const shash_iterator);
 GT_INLINE void* gt_shash_iterator_get_element(gt_shash_iterator* const shash_iterator);
 
 
