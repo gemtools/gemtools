@@ -5,11 +5,13 @@ GT_INLINE gt_gtf_entry* gt_gtf_entry_new(const uint64_t start, const uint64_t en
   entry->uid = 0;
   entry->start = start;
   entry->end = end;
+  entry->num_children = 0;
   entry->type = type;
   entry->strand = strand;
   entry->gene_type = NULL;
   entry->gene_id = NULL;
   entry->transcript_id = NULL;
+  entry->length = 0;
   return entry;
 }
 GT_INLINE void gt_gtf_entry_delete(gt_gtf_entry* const entry){
@@ -39,6 +41,7 @@ GT_INLINE gt_gtf* gt_gtf_new(void){
   gtf->transcript_ids = gt_shash_new();
   gtf->gene_types = gt_shash_new();
   gtf->genes = gt_shash_new();
+  gtf->transcripts = gt_shash_new();
   return gtf;
 }
 
@@ -49,6 +52,7 @@ GT_INLINE void gt_gtf_delete(gt_gtf* const gtf){
   gt_shash_delete(gtf->transcript_ids, true);
   gt_shash_delete(gtf->gene_types, true);
   gt_shash_delete(gtf->genes, false);
+  gt_shash_delete(gtf->transcripts, false);
   free(gtf);
 }
 
@@ -78,7 +82,7 @@ GT_INLINE void gt_gtf_hits_clear(gt_gtf_hits* const hits){
   gt_vector_clear(hits->exon_hits);
 }
 
-GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(void){
+GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(bool coverage){
   gt_gtf_count_parms* p = gt_malloc_(1, sizeof(gt_gtf_count_parms), false, false);
   p->num_maps = 0;
   p->exon_overlap = 0;
@@ -86,10 +90,23 @@ GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(void){
   p->single_pair_counts = false;
   p->num_junctions = 0;
   p->num_annotated_junctions = 0;
+  if(coverage){
+    p->single_transcript_coverage = GT_GTF_INIT_COVERAGE();
+    p->gene_body_coverage = GT_GTF_INIT_COVERAGE();
+  }else{
+    p->single_transcript_coverage = NULL;
+    p->gene_body_coverage = NULL;
+  }
   return p;
 }
 
 GT_INLINE void gt_gtf_count_params_delete(gt_gtf_count_parms* params){
+  if(params->single_transcript_coverage != NULL){
+    free(params->single_transcript_coverage);
+  }
+  if(params->gene_body_coverage != NULL){
+    free(params->gene_body_coverage);
+  }
   free(params);
 }
 
@@ -148,9 +165,16 @@ GT_INLINE bool gt_gtf_contains_gene_type(const gt_gtf* const gtf, char* const na
 	return gt_shash_is_contained(gtf->gene_types, name);
 }
 
-GT_INLINE gt_gtf_entry* gt_gtf_get_gene_by_id(gt_gtf* const gtf, char* const key){
+GT_INLINE gt_gtf_entry* gt_gtf_get_gene_by_id(const gt_gtf* const gtf, char* const key){
   if(gt_shash_is_contained(gtf->genes, key)){
     return gt_shash_get_element(gtf->genes, key);
+  }
+  return NULL;
+}
+
+GT_INLINE gt_gtf_entry* gt_gtf_get_transcript_by_id(const gt_gtf* const gtf, char* const key){
+  if(gt_shash_is_contained(gtf->transcripts, key)){
+    return gt_shash_get_element(gtf->transcripts, key);
   }
   return NULL;
 }
@@ -401,6 +425,9 @@ GT_INLINE gt_status gt_gtf_read_line(char* line, gt_gtf* const gtf, uint64_t cou
   if(strcmp(e->type->buffer, "gene") == 0){
     gt_shash_insert(gtf->genes, e->gene_id->buffer, e, gt_gtf_entry*);
   }
+  if(strcmp(e->type->buffer, "transcript") == 0){
+    gt_shash_insert(gtf->transcripts, e->transcript_id->buffer, e, gt_gtf_entry*);
+  }
   return GT_STATUS_OK;
 }
 
@@ -410,6 +437,17 @@ bool gt_gtf_hits_junction(gt_map* map, gt_gtf_entry* e){
   bool hit = (rs==e->start) || (rs==e->end) || (re == e->end) || (re == e->start);
   return hit;
 }
+
+GT_INLINE uint64_t gt_gtf_get_map_begin(gt_map* const map){
+  return gt_map_get_begin_mapping_position(map) + gt_map_get_left_trim_length(map);
+}
+
+GT_INLINE uint64_t gt_gtf_get_map_end(gt_map* const map){
+  return gt_map_get_end_mapping_position(map);
+}
+
+
+
 
 /**
  * Iterate over the map blocks and count exon-exon junctions that are annotated
@@ -455,34 +493,34 @@ GT_INLINE uint64_t gt_gtf_count_junction(const gt_gtf* const gtf, gt_map* const 
 
 
 
-void gt_gtf_print_entry_(gt_gtf_entry* e, gt_map* map){
+void gt_gtf_print_entry_(FILE* target, gt_gtf_entry* e, gt_map* map){
   if(map != NULL){
-    gt_output_map_fprint_map(stdout, map, NULL);
-    printf(" ==> ");
+    gt_output_map_fprint_map(target, map, NULL);
+    fprintf(target, " ==> ");
   }
   if(e->type != NULL){
-    printf("%s : %"PRIu64" - %"PRIu64" (%c)", e->type->buffer, e->start, e->end, (e->strand==FORWARD?'+':'-') );
+    fprintf(target, "%s : %"PRIu64" - %"PRIu64" (%c)", e->type->buffer, e->start, e->end, (e->strand==FORWARD?'+':'-') );
 
   }
   if(e->gene_id != NULL){
-    printf(" GID:%s", e->gene_id->buffer);
+    fprintf(target, " GID:%s", e->gene_id->buffer);
   }
   if(e->transcript_id != NULL){
-    printf(" TID:%s", e->transcript_id->buffer);
+    fprintf(target, " TID:%s", e->transcript_id->buffer);
   }
 
   if(e->type != NULL){
-    printf(" [%s]", e->type->buffer);
+    fprintf(target, " [%s]", e->type->buffer);
   }
 
   if(e->gene_type != NULL){
-    printf(" [%s]", e->gene_type->buffer);
+    fprintf(target, " [%s]", e->gene_type->buffer);
   }
-
+  fprintf(target, " [#transcripts: %"PRIu64"]", e->num_children);
   if(map != NULL && gt_gtf_hits_junction(map, e)){
-    printf(" [Hits JS]");
+    fprintf(target, " [Hits JS]");
   }
-  printf("\n");
+  fprintf(target, "\n");
 }
 
 
@@ -566,8 +604,11 @@ GT_INLINE uint64_t gt_gtf_merge_(const gt_gtf* const target, gt_gtf* source, uin
       if(e->gene_type != NULL)e->gene_type = gt_gtf_get_gene_type(target, gt_string_get_string(e->gene_type));
       gt_vector_insert(target_ref->entries, e, gt_gtf_entry*);
 
-      if(strcmp(e->type->buffer, "gene") == 0 && !gt_shash_is_contained(target->genes, e->gene_id->buffer)){
+      if(strcmp(e->type->buffer, GT_GTF_TYPE_GENE) == 0 && !gt_shash_is_contained(target->genes, e->gene_id->buffer)){
         gt_shash_insert(target->genes, e->gene_id->buffer, e, gt_gtf_entry*);
+      }
+      if(strcmp(e->type->buffer, GT_GTF_TYPE_TRANSCRIPT) == 0 && !gt_shash_is_contained(target->transcripts, e->transcript_id->buffer)){
+        gt_shash_insert(target->transcripts, e->transcript_id->buffer, e, gt_gtf_entry*);
       }
 
     }
@@ -634,6 +675,7 @@ GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads)
 
 
   gt_string* const exon_t = gt_string_set_new("exon");
+  gt_string* const transcript_t = gt_string_set_new("transcript");
   gt_string* const intron_t = gt_string_set_new("intron");
   // sort the refs
   GT_SHASH_BEGIN_ELEMENT_ITERATE(gtf->refs,shash_element,gt_gtf_ref) {
@@ -642,12 +684,16 @@ GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads)
     uint64_t size = gt_vector_get_used(shash_element->entries);
     uint64_t i = 0;
     gt_shash* last_exons = gt_shash_new();
+    gt_shash* exons_counts = gt_shash_new();
 
     for(i=0; i<size; i++){
       gt_gtf_entry* entry = *gt_vector_get_elm(shash_element->entries, i, gt_gtf_entry*);
       if(entry->type != NULL && gt_string_equals(exon_t, entry->type)){
         gt_string* transcript_id = entry->transcript_id;
         if(transcript_id != NULL){
+          // set exon id and count the exon for the transcript
+          entry->num_children = gt_gtf_get_count_(exons_counts, transcript_id->buffer);
+          gt_gtf_count_(exons_counts, transcript_id->buffer);
           if(!gt_shash_is_contained(last_exons, gt_string_get_string(transcript_id))){
             gt_shash_insert(last_exons, gt_string_get_string(transcript_id), entry, gt_gtf_entry*);
           }else{
@@ -662,16 +708,26 @@ GT_INLINE gt_gtf* gt_gtf_read(gt_input_file* input_file, const uint64_t threads)
             gt_vector_insert(shash_element->entries, intron, gt_gtf_entry*);
             gt_shash_remove(last_exons, gt_string_get_string(transcript_id),false);
             gt_shash_insert(last_exons, gt_string_get_string(transcript_id), entry, gt_gtf_entry*);
-//            gt_gtf_print_entry_(prev_exon);
-//            gt_gtf_print_entry_(intron);
-//            gt_gtf_print_entry_(entry);
+          }
+
+          // add exon counts
+          gt_gtf_entry* transcript = gt_gtf_get_transcript_by_id(gtf, gt_string_get_string(entry->transcript_id));
+          if(transcript != NULL){
+            transcript->num_children++;
+            entry->length = transcript->length;
+            transcript->length += (entry->end - entry->start) + 1;
           }
         }
-
+      }else if(entry->type != NULL && gt_string_equals(transcript_t, entry->type)){
+        // sum transcript counts for gene id
+        if(entry->gene_id != NULL){
+          gt_gtf_entry* gene = gt_gtf_get_gene_by_id(gtf, gt_string_get_string(entry->gene_id));
+          gene->num_children++;
+        }
       }
     }
     gt_shash_delete(last_exons, false);
-
+    gt_shash_delete(exons_counts, true);
 
     // create a interval tree node for each ref
     shash_element->node = gt_gtf_create_node(shash_element->entries);
@@ -885,8 +941,6 @@ GT_INLINE void gt_gtf_search_alignment_hits(const gt_gtf* const gtf, gt_gtf_hits
   gt_vector_delete(search_hits);
 }
 
-
-
 GT_INLINE void gt_gtf_count_add_(gt_shash* const source, gt_shash* const target){
   GT_SHASH_BEGIN_ITERATE(source, key, value, uint64_t){
     if(!gt_shash_is_contained(target, key)){
@@ -899,6 +953,133 @@ GT_INLINE void gt_gtf_count_add_(gt_shash* const source, gt_shash* const target)
     }
   }GT_SHASH_END_ITERATE;
 }
+
+GT_INLINE void gt_gtf_add_coverage(uint64_t* store, const uint64_t transcript_length, const uint64_t bucket){
+  // add to all
+  store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_ALL, bucket)] += 1;
+  if(transcript_length <= 150){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_150, bucket)] += 1;
+  }
+  if(transcript_length > 150 && transcript_length <= 250){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_250, bucket)] += 1;
+  }
+  if(transcript_length > 250 && transcript_length <= 500){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_500, bucket)] += 1;
+  }
+  if(transcript_length > 500 && transcript_length <= 1000){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_1000, bucket)] += 1;
+  }
+  if(transcript_length > 1000 && transcript_length <= 2500){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_2500, bucket)] += 1;
+  }
+  if(transcript_length > 2500 && transcript_length <= 5000){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_5000, bucket)] += 1;
+  }
+  if(transcript_length > 5000 && transcript_length <= 7500){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_7500, bucket)] += 1;
+  }
+  if(transcript_length > 7500 && transcript_length <= 10000){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_10000, bucket)] += 1;
+  }
+  if(transcript_length > 10000 && transcript_length <= 15000){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_15000, bucket)] += 1;
+  }
+  if(transcript_length > 15000 && transcript_length <= 20000){
+    store[GT_GTF_COVERGAGE_GET_BUCKET(GT_GTF_COVERAGE_LENGTH_20000, bucket)] += 1;
+  }
+}
+
+GT_INLINE void gt_gtf_count_coverage_(const gt_gtf* const gtf, gt_map* const map, char* gene_id,
+                                           gt_gtf_count_parms* params){
+  // get coordinates
+  uint64_t start = gt_gtf_get_map_begin(map);
+  uint64_t end   = gt_gtf_get_map_end(map);
+  if(start > end){
+    return; // happens for (1)>123*... trim followed by split
+  }
+  uint64_t map_length = (end-start)+1;
+  if(map_length <= 1){
+    // count only maps with at least 2 bases in length
+    return;
+  }
+
+  // store the search hits and search
+  gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
+  gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end, true);
+
+  GT_VECTOR_ITERATE(hits, e, i, gt_gtf_entry*){
+    gt_gtf_entry* hit = *e;
+    if(hit->transcript_id == NULL) continue; // no transcript id
+    if(hit->type == NULL || strcmp("exon", hit->type->buffer) != 0) continue; // no exon or no type
+    if(gene_id != NULL && (hit->gene_id == NULL || strcmp(hit->gene_id->buffer, gene_id) != 0)) continue; // we are looking for a specific gene_id
+
+    gt_gtf_entry* transcript = gt_gtf_get_transcript_by_id(gtf, hit->transcript_id->buffer);
+    if(transcript == NULL || transcript->length <= 100){
+      continue;
+    }
+
+    if(hit->gene_id == NULL) continue; // no gene id on the hit
+    gt_gtf_entry* gene = gt_gtf_get_gene_by_id(gtf,hit->gene_id->buffer);
+    if(gene == NULL) continue; // no gene found
+    if(gene_id != NULL && strcmp(gene_id, gene->gene_id->buffer) != 0) continue; // we are looking for a specific hit
+
+    uint64_t exon_length = (hit->end - hit->start) + 1;
+    int64_t rel_start = start - hit->start;
+    int64_t rel_end = (rel_start + map_length) - 1;
+    if(rel_start < 0){
+      rel_start = 0;
+    }
+    if(rel_end > exon_length){
+      rel_end = exon_length;
+    }
+    if(rel_start >= 0 && rel_end <= exon_length){
+      // contained in range
+      // count for exon count
+      uint64_t start_bucket = (((rel_start/(double)exon_length) * 100.0) + 0.5) - 1;
+      uint64_t end_bucket = (((rel_end/(double)exon_length) * 100.0) + 0.5) - 1;
+      uint64_t s = 0;
+      if(start_bucket >= 0 && start_bucket < 100 && end_bucket >= start_bucket && end_bucket < 100){
+        // handle reverse strand and flip coordinates
+        if(hit->strand == REVERSE){
+          uint64_t tmp = start_bucket;
+          start_bucket = (GT_GTF_COVERAGE_BUCKETS - 1) - end_bucket;
+          end_bucket = (GT_GTF_COVERAGE_BUCKETS - 1) - tmp;
+        }
+        // scale up
+        // count for global count and make exon coordinates relative to transcript
+        // coordinate range
+        uint64_t hit_start_on_transcript = hit->length;
+        if(hit->strand == REVERSE){
+          // flip the bucket start if this is a gene on reverse strand
+          // the exon start/end is already flipped
+          // so we just flip the order of the exons here
+          hit_start_on_transcript = (transcript->length - hit_start_on_transcript) - exon_length;
+        }
+        uint64_t trans_start_bucket = ((((double)hit_start_on_transcript / (double)transcript->length) * 100.0) + 0.5) - 1;
+        double scale = (double)exon_length / (double) transcript->length;
+        start_bucket = (scale * (double)start_bucket) + trans_start_bucket;
+        end_bucket = (scale * (double)end_bucket) + trans_start_bucket;
+
+        if(start_bucket >= 0 && start_bucket < 100 && end_bucket >= start_bucket && end_bucket < 100){
+          for(s=start_bucket;s<=end_bucket; s++){
+            //fprintf(stderr, ">>>GLOBAL COUNT %s : %"PRIu64" S/E: %"PRIu64" %"PRIu64" (%"PRIu64") Exon: %"PRIu64" %"PRIu64"\n", transcript->transcript_id->buffer, s, start, end, map_length, hit->start, hit->end);
+            // count gene body coverage
+            gt_gtf_add_coverage(params->gene_body_coverage, transcript->length, s);
+            // count single transcript
+            if( gene->num_children == 1){
+              gt_gtf_add_coverage(params->single_transcript_coverage, transcript->length, s);
+            }
+          }
+        }
+      }else{
+        gt_fatal_error_msg("Coverage overlap out of range %"PRIu64" %"PRIu64, start_bucket, end_bucket);
+      }
+    }
+  }
+  gt_vector_delete(hits);
+}
+
+
 
 /**
  * This counts a single continuous block and takes the. Note that we do not perform any checks on
@@ -918,10 +1099,17 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
                                      gt_shash* const gene_counts,
                                      gt_shash* const exon_counts,
                                      gt_shash* const junction_counts,
-                                     float* overlap, uint64_t total_map_length){
+                                     float* overlap, uint64_t total_map_length,
+                                     gt_gtf_count_parms* params){
   // get coordinates
-  uint64_t start = gt_map_get_begin_mapping_position(map);
-  uint64_t end   = gt_map_get_end_mapping_position(map);
+  uint64_t start = gt_gtf_get_map_begin(map);
+  uint64_t end   = gt_gtf_get_map_end(map);
+  if(start > end){
+    gt_gtf_count_(type_counts, GT_GTF_TYPE_EMPTY_BLOCK);
+    return 0; // happens for (1)>123*... where map starts with trim followed by split
+  }
+  uint64_t map_length = (end-start)+1;
+
   // store the search hits and search
   gt_vector* const hits = gt_vector_new(32, sizeof(gt_gtf_entry*));
   gt_gtf_search(gtf, hits, gt_map_get_seq_name(map), start, end, true);
@@ -941,7 +1129,9 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
     // count type
     gt_gtf_count_(local_type_counts, gt_string_get_string(hit->type));
     // count gene id
-    if(hit->gene_id != NULL) gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
+    if(hit->gene_id != NULL){
+      gt_gtf_count_(local_gene_counts, gt_string_get_string(hit->gene_id));
+    }
     // count gene_id from exons
     if(hit->type != NULL && hit->gene_id != NULL && strcmp("exon", hit->type->buffer) == 0){
       if(gt_gtf_hits_junction(map, hit)){
@@ -950,13 +1140,18 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
       gt_gtf_count_(local_exon_gene_counts, gt_string_get_string(hit->gene_id));
       gt_gtf_count_(exon_counts, gt_string_get_string(hit->gene_id));
       int64_t o = ((hit->end < end ? hit-> end : end) - (hit->start > start ? hit->start : start)) + 1;
-      float block_overlap = o <= 0 ? 0.0 : ((float)o)/((float)((end-start)+1));
+      float block_overlap = o <= 0 ? 0.0 : ((float)o)/((float)(map_length));
       if(block_overlap > max_overlap) max_overlap = block_overlap;
+      if(block_overlap > 1.0){
+        gt_fatal_error_msg("Block overlap > 1.0\nMap  : %"PRIu64" %"PRIu64" (%"PRIu64")\nExon :%"PRIu64" %"PRIu64" ", start, end, map_length, hit->start, hit->end);
+      }
     }
   }
-  const float map_length = (float) gt_map_get_base_length(map);
-  *overlap += (max_overlap * ( map_length / (float) total_map_length));
-
+  *overlap += (max_overlap * ( (float)map_length / (float) total_map_length));
+  if(*overlap > 1.000001){
+    gt_output_map_fprint_map(stderr, map, NULL); fprintf(stderr, "\n");
+    gt_fatal_error_msg("Block overlap > 1.0 :: %.10f\nMap length  : %"PRIu64" Total length: %"PRIu64" max overlap: %.10f", *overlap, map_length, total_map_length, max_overlap);
+  }
   uint64_t num_gene_hit_exons = gt_shash_get_num_elements(local_exon_gene_counts);
   // count types and merge them with the global
   // counts. NOTE that the order matters here, so
@@ -989,6 +1184,9 @@ GT_INLINE uint64_t gt_gtf_count_map_(const gt_gtf* const gtf, gt_map* const map,
     }GT_SHASH_END_ITERATE;
   }
 
+//  if(params->single_transcript_coverage != NULL){
+//    gt_gtf_count_coverage_(gtf, map, NULL, params);
+//  }
 
   gt_shash_delete(local_gene_counts, true);
   gt_shash_delete(local_type_counts, true);
@@ -1020,6 +1218,19 @@ GT_INLINE double gt_gtf_count_get_sum_(gt_shash* table){
     v += *value;
   }GT_SHASH_END_ITERATE;
   return v;
+}
+GT_INLINE uint64_t gt_gtf_get_map_length(gt_map* const maps){
+  uint64_t map_length = 0;
+  GT_MAP_ITERATE(maps, map){
+    // get coordinates
+    uint64_t start = gt_gtf_get_map_begin(map);
+    uint64_t end   = gt_gtf_get_map_end(map);
+    if(start > end){
+      continue; // happens for wired thigs like (1)>231*... where the map start with a trim followed by a split
+    }
+    map_length += (end-start)+1;
+  }
+  return map_length;
 }
 /**
  * Count a map. This respects split maps and unifies gene_id's based on the
@@ -1057,7 +1268,6 @@ GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1,
   if(map2 != NULL){
     blocks += gt_map_get_num_blocks(map2);
   }
-
   if(blocks == 0) return 0;
 
   // local counts for all blocks
@@ -1073,26 +1283,30 @@ GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1,
   gt_shash* local_exon_counts_2 = gt_shash_new();
   uint64_t* const local_exon_gene_hits = malloc(blocks * sizeof(uint64_t));
   gt_vector* const local_type_patterns = gt_vector_new(2, sizeof(char*));
-  uint64_t exons, introns, unknown, not_annotated;
-  exons = introns = unknown = not_annotated = 0;
+  uint64_t exons, introns, unknown, not_annotated, empty_blocks;
+  exons = introns = unknown = not_annotated = empty_blocks =0;
   uint64_t i = 0;
   float block_1_overlap = 0.0;
   float block_2_overlap = 0.0;
+  uint64_t map_1_length = gt_gtf_get_map_length(map1);
   GT_MAP_ITERATE(map1, map_block){
-    local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_1, local_exon_counts_1,local_junction_counts_1, &block_1_overlap, gt_map_get_global_base_length(map1));
+    local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_1, local_exon_counts_1,local_junction_counts_1, &block_1_overlap, map_1_length, params);
     uint64_t _exons = exons + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
     uint64_t _introns = introns + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
     uint64_t _unknown = unknown + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
     uint64_t _not_annotated = not_annotated + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_NA);
+    uint64_t _empty_block = empty_blocks + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EMPTY_BLOCK);
     // add the pattern string based in the count value that changed
     if(_exons > exons) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_EXON, char*);
     if(_introns > introns) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_INTRON, char*);
     if(_unknown > unknown) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_UNKNOWN, char*);
     if(_not_annotated > not_annotated) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_NA, char*);
+    if(_empty_block > empty_blocks) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_EMPTY_BLOCK, char*);
     exons = _exons;
     introns = _introns;
     unknown = _unknown;
     not_annotated = _not_annotated;
+    empty_blocks = _empty_block;
   }
   // if we hit more than one gene,
   // try to unify the gene by checking the other blocks for
@@ -1130,21 +1344,26 @@ GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1,
   }
 
   if(map2 != NULL){
+    uint64_t map_2_length = gt_gtf_get_map_length(map2);
+
     GT_MAP_ITERATE(map2, map_block){
-      local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_2, local_exon_counts_2, local_junction_counts_2, &block_2_overlap, gt_map_get_global_base_length(map2));
+      local_exon_gene_hits[i++] = gt_gtf_count_map_(gtf, map_block, local_type_counts, local_gene_counts_2, local_exon_counts_2, local_junction_counts_2, &block_2_overlap, map_2_length, params);
       uint64_t _exons = exons + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EXON);
       uint64_t _introns = introns + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_INTRON);
       uint64_t _unknown = unknown + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_UNKNOWN);
       uint64_t _not_annotated = not_annotated + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_NA);
+      uint64_t _empty_block = empty_blocks + gt_gtf_get_count_(local_type_counts, GT_GTF_TYPE_EMPTY_BLOCK);
       // add the pattern string based in the count value that changed
       if(_exons > exons) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_EXON, char*);
       if(_introns > introns) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_INTRON, char*);
       if(_unknown > unknown) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_UNKNOWN, char*);
       if(_not_annotated > not_annotated) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_NA, char*);
+      if(_empty_block > empty_blocks) gt_vector_insert(local_type_patterns, GT_GTF_TYPE_EMPTY_BLOCK, char*);
       exons = _exons;
       introns = _introns;
       unknown = _unknown;
       not_annotated = _not_annotated;
+      empty_blocks = _empty_block;
     }
     // unify the gene counts based on the number of blocks.
     // the gene_counts are reduced to either the ones that are found in
@@ -1199,7 +1418,7 @@ GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1,
       uint64_t nv  =*count + gt_gtf_get_count_(local_gene_counts_2, gene_id);
       gt_gtf_count_sum_(merged_counts, gene_id, nv);
       if(overlap > 1.000001){
-        gt_fatal_error_msg("Exon Overlap %.10f > 1.0 !", overlap);
+        gt_fatal_error_msg("Exon Overlap %.10f > 1.0 from %.10f %.10f!", overlap, block_1_overlap, block_2_overlap);
       }
     }
   }GT_SHASH_END_ITERATE;
@@ -1234,6 +1453,7 @@ GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1,
     // now iterate the blocks and construct final pattern
     for(i=0; i<blocks; i++){
       char* p = *(gt_vector_get_elm(local_type_patterns, i, char*));
+      if(strcmp(p, GT_GTF_TYPE_EMPTY_BLOCK) == 0) continue;
       // for exons check that in case we have a single gene hit, its exons, in case of a multi-gene hit, append _mg if
       // the multi gene hit comes from the current block
       gt_gtf_join_(pattern, p, (strcmp("exon",p) == 0) ? ((num_gene_hits == 1) ? false : (local_exon_gene_hits[i] > 1)) : false, 1);
@@ -1246,6 +1466,7 @@ GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1,
         }
       }
     }
+    gt_string_append_eos(pattern);
     // count global type based on the constructed pattern
     gt_gtf_count_(pattern_counts, gt_string_get_string(pattern));
   }
@@ -1273,6 +1494,21 @@ GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1,
         }
       }else{
         gt_gtf_count_weight_(gene_counts, key, *e);
+      }
+    }GT_SHASH_END_ITERATE;
+  }
+
+  if(params->single_transcript_coverage != NULL){
+    // do coverage counts for merged genes
+    GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
+      // count map1
+      GT_MAP_ITERATE(map1, map_block){
+        gt_gtf_count_coverage_(gtf, map_block, key, params);
+      }
+      if(map2 != NULL){
+        GT_MAP_ITERATE(map2, map_block){
+          gt_gtf_count_coverage_(gtf, map_block, key, params);
+        }
       }
     }GT_SHASH_END_ITERATE;
   }

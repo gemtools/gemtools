@@ -71,6 +71,7 @@ def rnaseq_filter(mappings, output=None, threads=1, paired=False,
                   min_intron=0,
                   min_block=0,
                   level=-1,
+                  max_strata=0,
                   max_multi_maps=0,
                   gene_pairing=False,
                   junction_filter=False,
@@ -94,6 +95,9 @@ def rnaseq_filter(mappings, output=None, threads=1, paired=False,
         args.extend(["--reduce-to-unique-strata", str(level)])
     if max_multi_maps >= 1:
         args.extend(["--reduce-to-max-maps", str(max_multi_maps)])
+    if max_strata > 0:
+        args.extend(["--max-strata", str(max_strata)])
+
 
     return run_filter(mappings, args, output=output, threads=threads,
                       paired=paired, compress=compress, rna_seq=True)
