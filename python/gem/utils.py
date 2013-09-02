@@ -105,12 +105,13 @@ class Command(object):
         """
         pass
 
-    def validate(self, args):
+    def validate(self):
         return True
 
     def parse_args(self, args):
         import argparse
-        parser = argparse.ArgumentParser(prog="gemtools %s" % self.name)
+        parser = argparse.ArgumentParser(prog="gemtools %s" % self.name,
+                                         description=self.description)
         self.register(parser)
         return vars(parser.parse_args(args[1:]))
 
@@ -120,10 +121,10 @@ class Command(object):
         args -- the parsed arguments"""
         pass
 
-    def __call__(self, **kwargs):
+    def __call__(self):
         """Call delegate for jip commands"""
         # delegate to run
-        self.run(kwargs)
+        self.run(self.options.to_dict())
 
     def jip_command(self):
         return "bash", "%s %s ${options()}" % \

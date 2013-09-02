@@ -48,7 +48,7 @@ class cli(object):
                     ref_fun(args)
 
                 def register(self, parser):
-                    pass
+                    pass                
 
                 @property
                 def __doc__(self):
@@ -59,14 +59,24 @@ class cli(object):
         cls.name = self.name
         _cmd_registry[self.name] = cls
 
-        def _help_delegate(self):
-            return ">>>The help"
+        def _help(inst):
+            from jip.tools import Tool
+            return "%s\n%s" % (cls.description, Tool.help(inst))
+
+        def _validate(inst):
+            args = inst.options.to_dict()
+            inst.instance.validate(args)
+            for k, v in args.iteritems():
+                opt = inst.options[k]
+                if opt is not None:
+                    opt.set(v)
+
         # register as jip tool
         jip_name = "gemtools_%s" % (self.name.replace("-", "_"))
         jip.tool(jip_name, inputs=self.inputs,
                  outputs=self.outputs,
-                 validate='validate',
-                 help=_help_delegate,
+                 validate="validate",
+                 help=_help,
                  add_outputs=self.add_outputs,
                  pipeline=self.pipeline,
                  argparse='register' if not wrapped_function else None,
@@ -79,13 +89,15 @@ def gemtools():
     The gemtools driver executes different sub-commands and pipelines.
 
     Usage:
-        gemtools [--loglevel <log>] <cmd> [<args>...]
+        gemtools [--loglevel <log>] [--dry] [--show] <cmd> [<args>...]
         gemtools --help
         gemtools --version
 
     Options:
         <cmd>               The sub-command
         <args>              The sub-commands arguments
+        --dry               Show an overview of the execution
+        --show              Show the command line that will be executed
         -h, --help          Show this help message
         -v, --version       Show version information
         --loglevel <log>    Set the log level to one of
@@ -118,14 +130,30 @@ def gemtools():
         if not cmd in _cmd_registry:
             print >>sys.stderr, "gemtools command '%s' not found!" % cmd
             print >>sys.stderr, "See gemtools --help for a list of commands"
+            sys.exit(1)
 
-        instance = _cmd_registry[cmd]()
+        
+        jip_name = "gemtools_%s" % (cmd.replace("-", "_"))
         try:
-            cmd_args = instance.parse_args([instance.name] + args["<args>"])
-            instance.run(cmd_args)
-        except gem.utils.CommandException, e:
+            tool = jip.find(jip_name)
+            tool.parse_args(args["<args>"])
+            tool.validate()
+            if args['--dry'] or args['--show']:
+                jip.run(tool, dry=args['--dry'], show=args['--show'])
+            else:
+                tool.run()
+        except Exception as e:
+            raise
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
+
+        #instance = _cmd_registry[cmd]()
+        #try:
+            #cmd_args = instance.parse_args([instance.name] + args["<args>"])
+            #instance.run(cmd_args)
+        #except gem.utils.CommandException, e:
+            #sys.stderr.write("%s\n" % (str(e)))
+            #exit(1)
 
 
         #parser = ArgumentParser(prog="gemtools",

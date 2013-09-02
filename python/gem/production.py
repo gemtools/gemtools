@@ -31,6 +31,7 @@ class Merge(Command):
     """
 
     def register(self, parser):
+        parser.description = Merge.description
         ## required parameters
         parser.add_argument('-i', '--input',
                             nargs="+",
@@ -134,6 +135,7 @@ class PrepareInput(Command):
     """
 
     def register(self, parser):
+        parser.description = PrepareInput.description
         ## required parameters
         parser.add_argument('-i', '--input', dest="input",
                             nargs="+",
@@ -153,20 +155,18 @@ class PrepareInput(Command):
                             action="store_true",
                             help="Search for a second paird-end reads file")
 
-    def validate(self, args):
-        input = args['input']
+    def validate(self):        
+        input = self.options['input'].raw()
         _check("No input specified", input is None or len(input) == 0)
         _check("You can not perpare more than 2 files", len(input) > 2)
         if len(input) == 1 and args['discover']:
             # search for second file
             (n, p) = gem.utils.find_pair(input[0])
             if p is not None:
-                input.append(p)
+                self.options['input'].append(p)
         return True
 
     def run(self, args):
-        if not self.validate(args):
-            raise CommandException("Validation error!")
         args = gem.utils.dict_2_tuple(args)
         threads = args.threads
         input = args.input
@@ -194,6 +194,7 @@ class GemMapper(Command):
     description = """Runs the GEM-mapper"""
 
     def register(self, parser):
+        parser.description = GemMapper.description
         ## required parameters
         parser.add_argument('-I', '--index', dest="index",
                             metavar="<index>",
@@ -284,13 +285,11 @@ class GemMapper(Command):
                             action="store_true",
                             help="Compress the output file")
 
-    def validate(self, args):
-        _check("No index specified", not args['index'])
+    def validate(self):
+        _check("No index specified", not self.options['index'].get())
         return True
 
     def run(self, args):
-        self.validate(args)
-
         args = gem.utils.dict_2_tuple(args)
         outfile = args.output if not isinstance(args.output, file) \
             else args.output
@@ -326,6 +325,7 @@ class GemPairalign(Command):
     description = """Runs the GEM-mapper in pair align mode"""
 
     def register(self, parser):
+        parser.description = GemPairalign.description
         ## required parameters
         parser.add_argument('-I', '--index', dest="index",
                             metavar="<index>",
@@ -411,13 +411,11 @@ class GemPairalign(Command):
                             action="store_true",
                             help="Compress the output file")
 
-    def validate(self, args):
-        _check("No index specified", not args['index'])
+    def validate(self):
+        _check("No index specified", not self.options['index'].get())
         return True
 
     def run(self, args):
-        self.validate(args)
-
         args = gem.utils.dict_2_tuple(args)
         outfile = args.output if not isinstance(args.output, file) \
             else args.output
@@ -453,6 +451,7 @@ class Convert(Command):
     """
 
     def register(self, parser):
+        parser.description = Convert.description
         parser.add_argument("-i", "--input", dest="input",
                             default=sys.stdin,
                             help="The .map file. Defaults to stdin")
@@ -513,6 +512,7 @@ class Stats(Command):
     description = """Calculate stats on a map file"""
 
     def register(self, parser):
+        parser.description = Stats.description
         self.add_options('gt.stats', parser, stream_in="input",
                          stream_out="output")
         parser.add_argument("--json", help="Write json stats to a file")
@@ -567,6 +567,7 @@ class Filter(Command):
     description = """Filter .map files"""
 
     def register(self, parser):
+        parser.description = Filter.description
         self.add_options('gt.filter', parser, stream_in="input",
                          stream_out="output")
         parser.add_argument("--compress", action="store_true",
@@ -633,6 +634,7 @@ class Index(Command):
     """
 
     def register(self, parser):
+        parser.description = Index.description
         ## required parameters
         parser.add_argument('-i', '--input',
                             help='Path to a single uncompressed '
@@ -646,29 +648,24 @@ class Index(Command):
                             default=2,
                             help='Number of threads')
 
-    def validate(self, oargs):
-        from jip.model import parameter
-
-        args = gem.utils.dict_2_tuple(oargs)
-        input = args.input
-        if isinstance(input, parameter):
-            input = input.value
+    def validate(self):
+        input = self.options['input'].get()
         output = os.path.basename(input)
-        if args.output is not None:
-            output = args.output
+        if self.options['output'].raw() is not None:
+            output = self.options['output'].get()
         else:
             output = output[:output.rfind(".")] + ".gem"
         if not output.endswith(".gem"):
             raise CommandException("Output file name has to end in .gem")
-        if not isinstance(args.input, parameter) and not os.path.exists(input):
+        if not self.options['input'].is_dependency() and \
+                not os.path.exists(input):
             raise CommandException("Input file not found : %s" % input)
         if input.endswith(".gz"):
             raise CommandException("Compressed input is currently "
                                    "not supported!")
-        oargs['output'] = output
+        self.options['output'] = output
 
     def run(self, args):
-        self.validate(args)
         gem.index(args['input'], args['output'], threads=args['threads'])
         logfile = args['output'][:-4] + ".log"
         if os.path.exists(logfile):
@@ -699,6 +696,7 @@ class TranscriptIndex(Command):
     """
 
     def register(self, parser):
+        parser.description = TranscriptIndex.description
         ## required parameters
         parser.add_argument('-i', '--index',
                             help='Path to the GEM genome index',
@@ -723,7 +721,7 @@ class TranscriptIndex(Command):
                             help='Number of threads',
                             default=2)
 
-    def validate(self, oargs):
+    def validate(self):
         trans = ComputeTranscriptome()
         trans.validate(oargs)
         args = gem.utils.dict_2_tuple(oargs)
@@ -733,7 +731,6 @@ class TranscriptIndex(Command):
         return True
 
     def run(self, args):
-        self.validate(args)
         trans = ComputeTranscriptome()
         trans.run(args)
         print "Indexing transcriptome"
@@ -769,6 +766,7 @@ class ComputeTranscriptome(Command):
     """
 
     def register(self, parser):
+        parser.description = ComputeTranscriptome.description
         ## required parameters
         parser.add_argument('-i', '--index',
                             help='Path to the GEM genome index',
@@ -789,29 +787,22 @@ class ComputeTranscriptome(Command):
                             help='Maximum read length, defaults to 150',
                             default=150)
 
-    def validate(self, oargs):
-        from jip.model import parameter
-        args = gem.utils.dict_2_tuple(oargs)
-        if not args.index.endswith(".gem"):
+    def validate(self):
+        args = self.options.to_dict()
+        if not args['index'].endswith(".gem"):
             raise CommandException("No valid GEM index specified, "
                                    "the file has to end in .gem")
-        if not os.path.exists(args.index):
-            raise CommandException("GEM index not found")
-        if args.annotation and not os.path.exists(args.annotation):
-            raise CommandException("Annotation not found")
-        if args.junctions and not isinstance(args.junctions, parameter) \
-           and not os.path.exists(args.junctions):
-            raise CommandException("Junctions file not found")
-        if not args.junctions and not args.annotation:
+        self.options['index'].check_files()
+        self.options['annotation'].check_files()
+        self.options['junctions'].check_files()
+        if not args['junctions'] and not args['annotation']:
             raise CommandException("You have to specify either the "
                                    "junctions file or a reference annotation")
-        name = args.name
+        name = args['name']
         if name is None:
-            fname = args.annotation
+            fname = args['annotation']
             if not fname:
-                fname = args.junctions
-                if isinstance(args.junctions, parameter):
-                    fname = args.junctions.value
+                fname = args['junctions']
             name = os.path.basename(fname)
             i = name.index('.')
             name = name[:i] if i > 0 else name
@@ -820,15 +811,14 @@ class ComputeTranscriptome(Command):
         keys_out = name + ".junctions.keys"
         fasta_out = name + ".junctions.fa"
 
-        oargs['name'] = name
-        oargs['junctions_out'] = junctions_out if args.annotation \
-            else args.junctions
-        oargs['keys_out'] = keys_out
-        oargs['fasta_out'] = fasta_out
+        self.options['name'] = name
+        self.options.add_output('junctions_out', 
+            junctions_out if args['annotation'] else args['junctions'])
+        self.options.add_output('keys_out', keys_out)
+        self.options.add_output('fasta_out', fasta_out)
         return True
 
     def run(self, args):
-        self.validate(args)
         print "Loading Junctions"
         if args['junctions']:
             junctions = set(gem.junctions.from_junctions(args['junctions']))
@@ -873,6 +863,7 @@ class RnaPipeline(Command):
     title = "GEMTools RNASeq Pipeline"
 
     def register(self, parser):
+        parser.description = RnaPipeline.description
         input_group = parser.add_argument_group('Input and names')
         ## general pipeline paramters
         input_group.add_argument(
@@ -989,8 +980,9 @@ class RnaPipeline(Command):
                                   ".junctions.keys", 1)
             args['transcript_keys'] = t_keys
 
-    def validate(self, args):
+    def validate(self):
         from os.path import exists
+        args = self.options.to_dict()
         ###########################################################
         # General input data checks
         ###########################################################
@@ -1009,8 +1001,7 @@ class RnaPipeline(Command):
         if not args['name']:
             self._guess_name(args)
         ## check that all input files exists
-        for infile in args['files']:
-            _check("File not found: %s" % infile, not exists(infile))
+        self.options['files'].check_files()
 
         ## check the .gem index
         _check("Genome GEM index not found: %s" % args['index'],
@@ -1040,49 +1031,41 @@ class RnaPipeline(Command):
         ###########################################################
         # Output file configuration
         ###########################################################
-        args['prepare_out'] = self._file_name("_prepare.fq", args,
-                                              compress=False)
-        args['initial_map_out'] = self._file_name("_initial.map", args)
-        args['transcript_map_out'] = self._file_name("_transcripts.map", args)
-        args['denovo_junctions_out'] = self._file_name("_denovo.junctions",
-                                                       args,
-                                                       compress=False)
-        args['denovo_map_out'] = self._file_name("_denovo.map", args)
-        args['final_out'] = self._file_name(".map", args, compress=True)
-        args['bam_out'] = self._file_name(".bam", args, compress=False)
-        args['filtered_out'] = self._file_name(".filtered.map", args,
-                                               compress=True)
-        args['filtered_bam_out'] = self._file_name(".filtered.bam", args,
-                                                   compress=False)
-        args['stats_out'] = self._file_name(".stats.txt", args,
-                                            compress=False)
-        args['stats_json_out'] = self._file_name(".stats.json", args,
-                                                 compress=False)
-        args['filtered_stats_out'] = self._file_name(".filtered.stats.txt",
-                                                     args,
-                                                     compress=False)
-        args['filtered_stats_json_out'] = self._file_name(".filtered.stats.json",
-                                                          args,
-                                                          compress=False)
-        args['gtf_stats_out'] = self._file_name(".gtf.stats.txt", args,
-                                                compress=False)
-        args['gtf_stats_json_out'] = self._file_name(".gtf.stats.json", args,
-                                                compress=False)
-        args['gtf_counts_out'] = self._file_name(".gtf.counts.txt", args,
-                                                 compress=False)
-        args['filtered_gtf_stats_out'] = self._file_name(".filtered.gtf.stats.txt", args,
-                                                         compress=False)
-        args['filtered_gtf_stats_json_out'] = self._file_name(".filtered.gtf.stats.json", args,
-                                                         compress=False)
-        args['filtered_gtf_counts_out'] = self._file_name(".filtered.gtf.counts.txt", args,
-                                                          compress=False)
+        def fn(name, c=None):
+            return self._file_name(name, args, compress=c)
+
+        opts = self.options
+        opts.add_output('prepare_out', fn("_prepare.fq", c=False))
+        opts.add_output('initial_map_out', fn("_initial.map"))
+        opts.add_output('transcript_map_out', fn("_transcripts.map"))
+        opts.add_output('denovo_junctions_out', fn("_denovo.junctions", 
+                                                    c=False))
+        opts.add_output('denovo_map_out', fn("_denovo.map"))
+        opts.add_output('final_out', fn(".map", c=True))
+        opts.add_output('bam_out', fn(".bam", c=False))
+        opts.add_output('filtered_out', fn(".filtered.map", c=True))
+        opts.add_output('filtered_bam_out', fn(".filtered.bam", c=False))
+        opts.add_output('stats_out', fn(".stats.txt", c=False))
+        opts.add_output('stats_json_out', fn(".stats.json", c=False))
+        opts.add_output('filtered_stats_out', 
+                        fn(".filtered.stats.txt", c=False))
+        opts.add_output('filtered_stats_json_out',
+                        fn(".filtered.stats.json", c=False))
+        opts.add_output('gtf_stats_out', fn(".gtf.stats.txt", c=False))
+        opts.add_output('gtf_stats_json_out', fn(".gtf.stats.json", c=False))
+        opts.add_output('gtf_counts_out', fn(".gtf.counts.txt", c=False))
+        opts.add_output('filtered_gtf_stats_out', 
+                        fn(".filtered.gtf.stats.txt", c=False))
+        opts.add_output('filtered_gtf_stats_json_out', 
+                        fn(".filtered.gtf.stats.json", c=False))
+        opts.add_output('filtered_gtf_counts_out',
+                        fn(".filtered.gtf.counts.txt", c=False))
         return True
 
-    def pipeline(self, args):
-        self.validate(args)
-        from jip.model import Pipeline
-
-        threads = args['threads']
+    def pipeline(self):
+        from jip import Pipeline
+        args = self.options.to_dict()
+        threads = int(args['threads'])
         quality = args['quality']
         index = args['index']
 
@@ -1108,7 +1091,8 @@ class RnaPipeline(Command):
                           output=args['initial_map_out'],
                           compress=args['compress_all'],
                           quality=quality)
-        initial_mapping = p.run('gemtools_mapper', **mapper_cfg)
+        initial_mapping = p.run('gemtools_mapper', 'Initial Mapping', 
+                                **mapper_cfg)
         all_mappings.append(initial_mapping)
 
         ###################################################################
@@ -1154,7 +1138,13 @@ class RnaPipeline(Command):
                           output=args['denovo_map_out'],
                           compress=args['compress_all'],
                           quality=quality)
-        denovo_mapping = p.run('gemtools_mapper', **mapper_cfg)
+        d_map_filter_cfg = dict(only_split_maps=True,
+                                threads=threads,
+                                compress=args['compress_all'],
+                                output=args['transcript_map_out'])
+        denovo_mapping = p.run('gemtools_mapper', **mapper_cfg) | p.run('gemtools_filter',
+                                                                        **t_map_filter_cfg)
+
         all_mappings.append(denovo_mapping)
 
         merge = p.run('gemtools_merge',
@@ -1263,9 +1253,8 @@ class RnaPipeline(Command):
         return p
 
     def run(self, args):
-        pipeline = self.pipeline(args)
-        from jip.cli.jip_run import run_script
-        run_script(pipeline, force=False, dry=args['dry'])
+        import jip
+        jip.run(self.tool_instance, force=False, dry=self.options['dry'].raw())
 
 
         #run the thing
