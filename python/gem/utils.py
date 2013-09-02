@@ -125,8 +125,8 @@ class Command(object):
         # delegate to run
         self.run(kwargs)
 
-    def jip_command(self, args):
-        return "%s %s {{jip.opts()}}" % \
+    def jip_command(self):
+        return "bash", "%s %s ${options()}" % \
             (gem.executables["gemtools"], self.name)
 
     def add_options(self, tool, parser, stream_in=None, stream_out=None):

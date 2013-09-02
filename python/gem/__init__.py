@@ -850,7 +850,7 @@ def gem2sam(input, index=None, output=None,
     if quality is not None and not quality == "ignore":
         gem_2_sam_p.extend(["-q", quality])
 
-    if consensus is not None and calc_xs:
+    if consensus is not None and calc_xs and index is not None:
         gem_2_sam_p.extend(['-s', _prepare_splice_consensus_parameter(consensus)])
 
     if single_end:

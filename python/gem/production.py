@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Production pipelines"""
-#!/usr/bin/env python
 import os
 import logging
 import sys
@@ -457,10 +456,10 @@ class Convert(Command):
         parser.add_argument("-i", "--input", dest="input",
                             default=sys.stdin,
                             help="The .map file. Defaults to stdin")
-        parser.add_argument("-I", "--index", dest="index",
-                            help="The GEM index", required=True)
         parser.add_argument("-o", "--output", dest="output",
                             help="Output .bam file", required=True)
+        parser.add_argument("-I", "--index", dest="index",
+                            help="The GEM index")
         parser.add_argument("-q", "--quality", dest="quality",
                             help="Quality offset (33,64,ignore)")
         parser.add_argument("-t", "--threads", dest="threads", type=int,

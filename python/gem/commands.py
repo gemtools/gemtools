@@ -50,31 +50,23 @@ class cli(object):
                 def register(self, parser):
                     pass
 
-                def parse_args(self, args):
-                    from jip.model import Script
-                    from jip.parser import parse_script_options
-                    script = Script(None)
-                    script.doc_string = dedent(ref_fun.__doc__)
-                    parse_script_options(script)
-                    script.parse_args(args)
-                    args = script._clean_args()
-                    if args.get("--help", False):
-                        print script.doc_string
-                        exit(0)
-                    if not script.validate_args(exclude=[self.name]):
-                        exit(1)
-
-                    return args
+                @property
+                def __doc__(self):
+                    return ref_fun.__doc__
 
             cls = __command_wrapper
 
         cls.name = self.name
         _cmd_registry[self.name] = cls
+
+        def _help_delegate(self):
+            return ">>>The help"
         # register as jip tool
         jip_name = "gemtools_%s" % (self.name.replace("-", "_"))
         jip.tool(jip_name, inputs=self.inputs,
                  outputs=self.outputs,
                  validate='validate',
+                 help=_help_delegate,
                  add_outputs=self.add_outputs,
                  pipeline=self.pipeline,
                  argparse='register' if not wrapped_function else None,
