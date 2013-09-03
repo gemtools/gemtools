@@ -9,6 +9,7 @@ import types
 from textwrap import dedent
 
 import jip
+from .utils import CommandException
 
 __VERSION__ = "1.7"
 
@@ -142,6 +143,9 @@ def gemtools():
                 jip.run(tool, dry=args['--dry'], show=args['--show'])
             else:
                 tool.run()
+        except CommandException as e:
+            sys.stderr.write("%s\n" % (str(e)))
+            exit(1)
         except Exception as e:
             raise
             sys.stderr.write("%s\n" % (str(e)))

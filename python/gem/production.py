@@ -988,7 +988,7 @@ class RnaPipeline(Command):
         # General input data checks
         ###########################################################
         # check for at least one input file
-        _check("No input files specified!", len(args['files']) == 0)
+        _check("No input files specified!", not args['files'])
         # check input files for single end alignments
         _check("Single end runs take only one input file!",
                args['single_end'] and len(args['files']) > 1)
@@ -1129,7 +1129,7 @@ class RnaPipeline(Command):
             quality=quality,
             output=args["denovo_junctions_out"]
         )
-        denovo_transcriptome = job('Denovo.Transcriptome').run(
+        denovo_transcriptome = job('Denovo.Transcriptome', 1).run(
             'gemtools_compute_transcriptome',
             index=args['index'],
             junctions=junctions.output,
