@@ -11,7 +11,6 @@ import gem
 import gem.commands
 import gem.gemtools as gt
 
-from gem.pipeline import MappingPipeline, PipelineError
 from gem.utils import Command, CommandException
 
 
@@ -155,11 +154,11 @@ class PrepareInput(Command):
                             action="store_true",
                             help="Search for a second paird-end reads file")
 
-    def validate(self):        
+    def validate(self):
         input = self.options['input'].raw()
         _check("No input specified", input is None or len(input) == 0)
         _check("You can not perpare more than 2 files", len(input) > 2)
-        if len(input) == 1 and args['discover']:
+        if len(input) == 1 and self.options['discover'].raw():
             # search for second file
             (n, p) = gem.utils.find_pair(input[0])
             if p is not None:
@@ -655,6 +654,8 @@ class Index(Command):
             output = self.options['output'].get()
         else:
             output = output[:output.rfind(".")] + ".gem"
+        self.options['output'] = output
+
         if not output.endswith(".gem"):
             raise CommandException("Output file name has to end in .gem")
         if not self.options['input'].is_dependency() and \
@@ -663,7 +664,6 @@ class Index(Command):
         if input.endswith(".gz"):
             raise CommandException("Compressed input is currently "
                                    "not supported!")
-        self.options['output'] = output
 
     def run(self, args):
         gem.index(args['input'], args['output'], threads=args['threads'])
@@ -812,8 +812,9 @@ class ComputeTranscriptome(Command):
         fasta_out = name + ".junctions.fa"
 
         self.options['name'] = name
-        self.options.add_output('junctions_out', 
-            junctions_out if args['annotation'] else args['junctions'])
+        self.options.add_output('junctions_out',
+                                junctions_out if args['annotation']
+                                else args['junctions'])
         self.options.add_output('keys_out', keys_out)
         self.options.add_output('fasta_out', fasta_out)
         return True
@@ -1038,8 +1039,8 @@ class RnaPipeline(Command):
         opts.add_output('prepare_out', fn("_prepare.fq", c=False))
         opts.add_output('initial_map_out', fn("_initial.map"))
         opts.add_output('transcript_map_out', fn("_transcripts.map"))
-        opts.add_output('denovo_junctions_out', fn("_denovo.junctions", 
-                                                    c=False))
+        opts.add_output('denovo_junctions_out', fn("_denovo.junctions",
+                                                   c=False))
         opts.add_output('denovo_map_out', fn("_denovo.map"))
         opts.add_output('final_out', fn(".map", c=True))
         opts.add_output('bam_out', fn(".bam", c=False))
@@ -1047,16 +1048,16 @@ class RnaPipeline(Command):
         opts.add_output('filtered_bam_out', fn(".filtered.bam", c=False))
         opts.add_output('stats_out', fn(".stats.txt", c=False))
         opts.add_output('stats_json_out', fn(".stats.json", c=False))
-        opts.add_output('filtered_stats_out', 
+        opts.add_output('filtered_stats_out',
                         fn(".filtered.stats.txt", c=False))
         opts.add_output('filtered_stats_json_out',
                         fn(".filtered.stats.json", c=False))
         opts.add_output('gtf_stats_out', fn(".gtf.stats.txt", c=False))
         opts.add_output('gtf_stats_json_out', fn(".gtf.stats.json", c=False))
         opts.add_output('gtf_counts_out', fn(".gtf.counts.txt", c=False))
-        opts.add_output('filtered_gtf_stats_out', 
+        opts.add_output('filtered_gtf_stats_out',
                         fn(".filtered.gtf.stats.txt", c=False))
-        opts.add_output('filtered_gtf_stats_json_out', 
+        opts.add_output('filtered_gtf_stats_json_out',
                         fn(".filtered.gtf.stats.json", c=False))
         opts.add_output('filtered_gtf_counts_out',
                         fn(".filtered.gtf.counts.txt", c=False))
@@ -1070,13 +1071,15 @@ class RnaPipeline(Command):
         index = args['index']
 
         p = Pipeline()
+        job = p.job(threads=threads)
         mapping_inputs = args['files']
         prepare_step = None
         if not args['direct_input']:
             ## run the prepare step
-            prepare_step = p.run('gemtools_prepare', input=args['files'],
-                                 output=args['prepare_out'],
-                                 threads=threads)
+            prepare_step = job('Prepare').run('gemtools_prepare',
+                                              input=args['files'],
+                                              output=args['prepare_out'],
+                                              threads=threads)
             mapping_inputs = prepare_step
 
         # we collect all mapping steps here for mergin
@@ -1091,8 +1094,8 @@ class RnaPipeline(Command):
                           output=args['initial_map_out'],
                           compress=args['compress_all'],
                           quality=quality)
-        initial_mapping = p.run('gemtools_mapper', 'Initial Mapping', 
-                                **mapper_cfg)
+        initial_mapping = job('Initial.Mapping').run('gemtools_mapper',
+                                                     **mapper_cfg)
         all_mappings.append(initial_mapping)
 
         ###################################################################
@@ -1108,29 +1111,34 @@ class RnaPipeline(Command):
                                     threads=threads,
                                     compress=args['compress_all'],
                                     output=args['transcript_map_out'])
-            t_mapping = p.run('gemtools_mapper', **t_map_cfg)
+            t_mapping = job('GTF.Mapping').run('gemtools_mapper', **t_map_cfg)
             # filter for splitmaps
-            transcript_mapping = t_mapping | p.run('gemtools_filter',
-                                                   **t_map_filter_cfg)
+            transcript_mapping = t_mapping | \
+                job('GTF.Filter').run('gemtools_filter',
+                                      **t_map_filter_cfg)
             all_mappings.append(transcript_mapping)
 
         ###################################################################
         # Denovo transcriptome mapping
         ###################################################################
-        junctions = p.run('gemtools_denovo_junctions',
-                          index=args['index'],
-                          threads=threads,
-                          input=mapping_inputs,
-                          quality=quality,
-                          output=args["denovo_junctions_out"])
-        denovo_transcriptome = p.run('gemtools_compute_transcriptome',
-                                     index=args['index'],
-                                     junctions=junctions.output,
-                                     max_length=150)  # todo add auto calc
+        junctions = job('Denovo.Junctions').run(
+            'gemtools_denovo_junctions',
+            index=args['index'],
+            threads=threads,
+            input=mapping_inputs,
+            quality=quality,
+            output=args["denovo_junctions_out"]
+        )
+        denovo_transcriptome = job('Denovo.Transcriptome').run(
+            'gemtools_compute_transcriptome',
+            index=args['index'],
+            junctions=junctions.output,
+            max_length=150)  # todo add auto calc
 
-        junctions_index = p.run('gemtools_index',
-                                threads=threads,
-                                input=denovo_transcriptome.fasta_out)
+        junctions_index = job('Denovo.Index').run(
+            'gemtools_index',
+            threads=threads,
+            input=denovo_transcriptome.fasta_out)
         mapper_cfg = dict(input=mapping_inputs,
                           index=junctions_index,
                           threads=threads,
@@ -1142,25 +1150,29 @@ class RnaPipeline(Command):
                                 threads=threads,
                                 compress=args['compress_all'],
                                 output=args['transcript_map_out'])
-        denovo_mapping = p.run('gemtools_mapper', **mapper_cfg) | p.run('gemtools_filter',
-                                                                        **t_map_filter_cfg)
+        denovo_mapping = job('Denovo.Mapping').run(
+            'gemtools_mapper', **mapper_cfg) | job('Denovo.Filter').run(
+                'gemtools_filter', **d_map_filter_cfg)
 
         all_mappings.append(denovo_mapping)
 
-        merge = p.run('gemtools_merge',
-                      same=True,
-                      threads=threads,
-                      input=all_mappings)
-        pair = p.run('gemtools_pairalign',
-                     quality=quality,
-                     threads=threads,
-                     index=args['index'])
-        score = p.run('gemtools_score',
-                      index=args['index'],
-                      threads=threads,
-                      quality=quality,
-                      compress=True,
-                      output=args['final_out'])
+        merge = job('Merge').run(
+            'gemtools_merge',
+            same=True,
+            threads=threads,
+            input=all_mappings)
+        pair = job('Pair').run(
+            'gemtools_pairalign',
+            quality=quality,
+            threads=threads,
+            index=args['index'])
+        score = job('Score').run(
+            'gemtools_score',
+            index=args['index'],
+            threads=threads,
+            quality=quality,
+            compress=True,
+            output=args['final_out'])
         merge | pair | score
 
         # create sorted bam
@@ -1174,75 +1186,82 @@ class RnaPipeline(Command):
             no_xs=False,
             no_index=False
         )
-        p.run('gemtools_convert',
-              input=score,
-              output=args['bam_out'],
-              **bam_cfg)
+        job('Covert.BAM').run(
+            'gemtools_convert',
+            input=score,
+            output=args['bam_out'],
+            **bam_cfg)
         # create filtered output
-        filtered = p.run('gemtools_filter',
-                         input=score,
-                         threads=threads,
-                         output=args['filtered_out'],
-                         annotation=args['annotation'],
-                         no_penalty_for_splitmaps=True,
-                         paired_end=True,  # paired
-                         keep_unique=True,
-                         min_intron_length=20,
-                         min_block_length=5,
-                         reduce_by_gene_id=False,
-                         reduce_by_junctions=False,
-                         reduce_to_unique_strata=0,
-                         reduce_to_max_maps=5,
-                         max_strata=0,  # max error events
-                         compress=True)
-        p.run('gemtools_convert',
-              input=filtered,
-              output=args['filtered_bam_out'],
-              **bam_cfg)
+        filtered = job('Filter').run(
+            'gemtools_filter',
+            input=score,
+            threads=threads,
+            output=args['filtered_out'],
+            annotation=args['annotation'],
+            no_penalty_for_splitmaps=True,
+            paired_end=True,  # paired
+            keep_unique=True,
+            min_intron_length=20,
+            min_block_length=5,
+            reduce_by_gene_id=False,
+            reduce_by_junctions=False,
+            reduce_to_unique_strata=0,
+            reduce_to_max_maps=5,
+            max_strata=0,  # max error events
+            compress=True)
+        job('Filter.Convert.BAM').run(
+            'gemtools_convert',
+            input=filtered,
+            output=args['filtered_bam_out'],
+            **bam_cfg)
 
         # create stats
-        p.run('gemtools_stats',
-              input=score,
-              threads=threads,
-              output=args['stats_out'],
-              json=args['stats_json_out'],
-              paired_end=True,
-              all_tests=True)
+        job('Stats').run(
+            'gemtools_stats',
+            input=score,
+            threads=threads,
+            output=args['stats_out'],
+            json=args['stats_json_out'],
+            paired_end=True,
+            all_tests=True)
 
-        p.run('gemtools_stats',
-              input=filtered,
-              threads=threads,
-              output=args['filtered_stats_out'],
-              json=args['filtered_stats_json_out'],
-              paired_end=True,
-              all_tests=True)
+        job('Filter.Stats').run(
+            'gemtools_stats',
+            input=filtered,
+            threads=threads,
+            output=args['filtered_stats_out'],
+            json=args['filtered_stats_json_out'],
+            paired_end=True,
+            all_tests=True)
 
         # create counts
-        p.run('gemtools_gtf_stats',
-              input=score,
-              threads=threads,
-              annotation=args['annotation'],
-              output=args['gtf_stats_out'],
-              json=args['gtf_stats_json_out'],
-              paired_end=True,
-              exon_overlap=1,
-              counts=args['gtf_counts_out'],
-              multi_maps=True,
-              weighted=True
-              )
-        p.run('gemtools_gtf_stats',
-              input=filtered,
-              threads=threads,
-              annotation=args['annotation'],
-              output=args['filtered_gtf_stats_out'],
-              json=args['gtf_stats_json_out'],
-              paired_end=True,
-              exon_overlap=1,
-              counts=args['filtered_gtf_counts_out'],
-              multi_maps=True,
-              weighted=True
-              )
-        clean = p.run('cleanup', files=all_mappings)
+        job('GTF.Stats').run(
+            'gemtools_gtf_stats',
+            input=score,
+            threads=threads,
+            annotation=args['annotation'],
+            output=args['gtf_stats_out'],
+            json=args['gtf_stats_json_out'],
+            paired_end=True,
+            exon_overlap=1,
+            counts=args['gtf_counts_out'],
+            multi_maps=True,
+            weighted=True
+        )
+        job('Filter.GTF.Stats').run(
+            'gemtools_gtf_stats',
+            input=filtered,
+            threads=threads,
+            annotation=args['annotation'],
+            output=args['filtered_gtf_stats_out'],
+            json=args['gtf_stats_json_out'],
+            paired_end=True,
+            exon_overlap=1,
+            counts=args['filtered_gtf_counts_out'],
+            multi_maps=True,
+            weighted=True
+        )
+        clean = job('Cleanup').run('cleanup', files=all_mappings)
         clean << junctions
         clean << denovo_transcriptome.keys_out
         clean << denovo_transcriptome.fasta_out
@@ -1255,75 +1274,6 @@ class RnaPipeline(Command):
     def run(self, args):
         import jip
         jip.run(self.tool_instance, force=False, dry=self.options['dry'].raw())
-
-
-        #run the thing
-        #pipeline._sort_nodes()
-        #for node in pipeline.nodes:
-            #node.script.validate()
-
-        #for node in pipeline.nodes:
-            #self.run_step(node.script)
-
-        # parsing command line arguments
-        #try:
-            ## initialize pipeline and check values
-            #pipeline = MappingPipeline(args=args)
-        #except PipelineError, e:
-            #sys.stderr.write("\nERROR: " + e.message + "\n")
-            #exit(1)
-
-         #check if we want to do a preparation step
-        #input_dep = []
-        #if not pipeline.direct_input and (pipeline.input is not None and ((len(pipeline.input) > 1 or len(filter(lambda x: x.endswith(".gz"), pipeline.input)) > 0))):
-            #input_dep.append(pipeline.prepare_input(name="prepare"))
-
-         #basic pipeline steps
-        #map_initial = pipeline.map(name="initial", description="Map to index", dependencies=input_dep)
-        #map_gtf = pipeline.transcripts_annotation(name="annotation-mapping", dependencies=input_dep, description="Map to transcript-index")
-        #map_denovo = pipeline.transcripts_denovo(name="denovo-mapping", dependencies=input_dep, description="Map to denovo transcript-index")
-
-         #for single end, just merge, otherwise merge and pair
-        #merged = -1
-        #if not pipeline.single_end:
-            #merged = pipeline.merge_and_pair(name="merge_and_pair", dependencies=[map_initial, map_gtf, map_denovo], final=True)
-        #else:
-            #merged = pipeline.merge(name="merge", dependencies=[map_initial, map_gtf, map_denovo], final=True)
-
-         #add stats
-        #if pipeline.stats_create:
-            #pipeline.create_stats(name="stats", dependencies=[merged], final=True)
-
-         #add the bam step
-        #if pipeline.bam_create:
-            #bam = pipeline.bam(name="bam", dependencies=[merged], final=True)
-            #if pipeline.bam_index:
-                #pipeline.index_bam(name="index-bam", dependencies=[bam], final=True)
-
-         #add filter step
-        #if pipeline.filtered_create:
-            #filtered = pipeline.filtered_map(name="filtered", dependencies=[merged], final=True)
-            #if pipeline.counts_create and pipeline.annotation is not None:
-                #pipeline.create_gtfcounts(name="filtered.counts", suffix=".filtered", dependencies=[filtered], final=True)
-            #if pipeline.stats_create:
-                #pipeline.create_stats(name="filtered.stats", dependencies=[filtered], suffix=".filtered", final=True)
-            #if pipeline.bam_create:
-                #filtered_bam = pipeline.bam(name="filtered.bam", suffix=".filtered", dependencies=[filtered], final=True)
-                #if pipeline.bam_index:
-                    #pipeline.index_bam(name="filtered.index-bam", suffix=".filtered", dependencies=[filtered_bam], final=True)
-
-        #if pipeline.counts_create and pipeline.annotation is not None:
-            #pipeline.create_gtfcounts(name="counts", dependencies=[merged], final=True)
-
-         #show parameter and step configuration
-        #pipeline.log_parameter()
-
-         #run the pipeline
-        #try:
-            #pipeline.run()
-        #except PipelineError, e:
-            #sys.stderr.write("\nERROR: " + e.message + "\n")
-            #exit(1)
 
 
 @cli("denovo-junctions",
