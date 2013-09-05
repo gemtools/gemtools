@@ -49,7 +49,7 @@ class cli(object):
                     ref_fun(args)
 
                 def register(self, parser):
-                    pass                
+                    pass
 
                 @property
                 def __doc__(self):
@@ -133,7 +133,6 @@ def gemtools():
             print >>sys.stderr, "See gemtools --help for a list of commands"
             sys.exit(1)
 
-        
         jip_name = "gemtools_%s" % (cmd.replace("-", "_"))
         try:
             tool = jip.find(jip_name)

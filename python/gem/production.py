@@ -3,7 +3,6 @@
 import os
 import logging
 import sys
-from sys import exit
 import subprocess
 
 from gem.commands import cli
@@ -12,6 +11,8 @@ import gem.commands
 import gem.gemtools as gt
 
 from gem.utils import Command, CommandException
+
+from jip import Pipeline
 
 
 def _check(msg, statement=None):
@@ -59,17 +60,16 @@ class Merge(Command):
                             "file is specified")
 
     def run(self, args):
-        args = gem.utils.dict_2_tuple(args)
-        if len(args.input) < 2:
-            logging.error("You have to specify at least 2 files")
-            exit(1)
-        files = args.input
-        output = args.output
+        if len(args['input']) < 2:
+            args['input'].append(args['input'][0])
+            args['same'] = True
+        files = args['input']
+        output = args['output']
         if output is None:
             output = sys.stdout
         gem.merge(files[0], files[1:], output,
-                  threads=int(args.threads), same_content=args.same,
-                  paired=args.paired, compress=args.compress)
+                  threads=int(args['threads']), same_content=args['same'],
+                  paired=args['paired'], compress=args['compress'])
 
 
 @cli("score",
@@ -505,7 +505,7 @@ class Convert(Command):
 
 @cli("stats",
      inputs=['--input'],
-     outputs=['--output'])
+     outputs=['--output', '--json'])
 class Stats(Command):
     title = "Create .map stats"
     description = """Calculate stats on a map file"""
@@ -531,7 +531,7 @@ class Stats(Command):
 
 @cli("gtf-stats",
      inputs=['--input'],
-     outputs=['--output'])
+     outputs=['--output', '--json'])
 class GtfCount(Command):
     title = "Create gene counts and gtf statistics"
     description = """This tools can be used to create GTF statistics and
@@ -620,7 +620,6 @@ def gtf_junctions(args):
     """
     infile = args["input"]
     junctions = set([x for x in gem.junctions.from_gtf(infile)])
-    logging.info("%d Junctions loaded from file" % (len(junctions)))
     gem.junctions.write_junctions(junctions, args["output"])
 
 
@@ -673,9 +672,7 @@ class Index(Command):
 
 
 @cli("t-index",
-     add_outputs=[
-         "index_out",
-     ])
+     pipeline='pipeline')
 class TranscriptIndex(Command):
     title = "Create and index transcriptomes"
     description = """This command creates a transcriptome and its index
@@ -685,14 +682,11 @@ class TranscriptIndex(Command):
     file given if its not explicitly set. The command creates a set of files:
 
 
+        <name>.junctions       -- the junction sites of the GTF
         <name>.junctions.fa    -- the transcriptome sequences
         <name>.junctions.keys  -- the translation table from transcriptome
                                   to genome coordinates
         <name>.junctions.gem   -- the GEM transcriptome index
-
-    If a GTF annotation is specified, the junctions found are reported as
-
-        <name>.junctions       -- the junction sites of the GTF
     """
 
     def register(self, parser):
@@ -703,18 +697,16 @@ class TranscriptIndex(Command):
                             required=True)
         parser.add_argument('-a', '--annotation',
                             dest="annotation",
+                            required=True,
                             help='Path to the GTF annotation')
-        parser.add_argument('-j', '--junctions',
-                            dest="junctions",
-                            help='Path to a .junctions file')
         parser.add_argument('-n', '--name',
                             help='Optional output prefix. '
-                            'If this is not set, the annotation/junctions '
+                            'If this is not set, the annotation'
                             'file name will be used',
                             default=None)
         parser.add_argument('-m', '--max-length',
-                            type=int,
                             help='Maximum read length, defaults to 150',
+                            type=int,
                             default=150)
         parser.add_argument('-t', '--threads',
                             type=int,
@@ -722,36 +714,75 @@ class TranscriptIndex(Command):
                             default=2)
 
     def validate(self):
-        trans = ComputeTranscriptome()
-        trans.validate(oargs)
-        args = gem.utils.dict_2_tuple(oargs)
-        name = args.name
-        index_out = name + ".junctions.gem"
-        oargs['index_out'] = index_out
-        return True
+        args = self.options.to_dict()
+        self.options['index'].check_files()
+        if not args['index'].endswith(".gem"):
+            raise CommandException("No valid GEM index specified, "
+                                   "the file has to end in .gem")
+        self.options['annotation'].check_files()
+        name = self.options['name'].raw()
+        if name is None:
+            fname = self.options['annotation'].get()
+            name = os.path.basename(fname)
+            if name.endswith(".gz"):
+                name = name[:-3]
+            if name.endswith(".gtf"):
+                name = name[:-4]
+            self.options['name'] = name
+        self.options.add_output('junctions_out', name + ".junctions")
+
+    def pipeline(self):
+        p = Pipeline()
+        gtf_junctions = p.job('GTF-Junctions').run(
+            'gemtools_gtf_junctions',
+            input=self.options['annotation'].get(),
+            output=self.options['junctions_out'].get()
+        )
+        trans = p.job('Compute-Transcriptome', 1).run(
+            'gemtools_compute_transcriptome',
+            index=self.options['index'].raw(),
+            name=self.options['name'].raw(),
+            max_length=self.options['max_length'].raw(),
+            junctions=gtf_junctions
+        )
+        p.job('Index-Transcriptome', self.options['threads'].raw()).run(
+            'gemtools_index',
+            input=trans.fasta_out,
+            threads=self.options['threads'].raw()
+        )
+        return p
 
     def run(self, args):
-        trans = ComputeTranscriptome()
-        trans.run(args)
-        print "Indexing transcriptome"
-        gem.index(args['fasta_out'], args['index_out'],
-                  threads=args['threads'])
-        logfile = args['index_out'][:-4] + ".log"
-        if os.path.exists(logfile):
-            os.remove(logfile)
-        print "Done"
+        import jip
+        jobs = jip.create_jobs(self.tool_instance)
+        # group the jobs
+        for group in jip.group(jobs):
+            job = group[0]
+            name = ", ".join(str(j) for j in group)
+            if job.state == jip.STATE_DONE and not args['force']:
+                print "Skipping jobs: {name:30} Done".format(name=name)
+            else:
+                t = gem.utils.Timer()
+                print "Running jobs: {name:30} Running".format(name=name)
+                success = jip.run_job(job)
+                if success:
+                    print "Finished jobs: {name:29} {time}" \
+                        .format(name=name, time=str(t.stop()))
+                else:
+                    print "Execution failed for:", name
+                    sys.exit(1)
 
 
 @cli("compute-transcriptome",
-     add_outputs=[
-         "fasta-out",
-         "keys-out",
-         "junctions-out"
-     ])
+     inputs=['--junctions']
+     )
 class ComputeTranscriptome(Command):
     title = "Create a transcriptome from a genome index"
     description = """This command creates a transcriptome from a gem index
-    and a GTF annotation or a junctions file.
+    and a junctions file. If an annotation is given, the junctions
+    in the annotation are substracted from the set of junctions given
+    in the junctions file. The latter is used to create denovo-transcriptomes.
+
 
     The output name is created from the name of the annotation/junctions
     file given if its not explicitly set. The command creates a set of files:
@@ -759,10 +790,6 @@ class ComputeTranscriptome(Command):
         <name>.junctions.fa    -- the transcriptome sequences
         <name>.junctions.keys  -- the translation table from transcriptome
                                   to genome coordinates
-
-    If a GTF annotation is specified, the junctions found are reported as
-
-        <name>.junctions       -- the junction sites of the GTF
     """
 
     def register(self, parser):
@@ -776,14 +803,14 @@ class ComputeTranscriptome(Command):
                             help='Path to the GTF annotation')
         parser.add_argument('-j', '--junctions',
                             dest="junctions",
+                            required=True,
                             help='Path to a .junctions file')
         parser.add_argument('-n', '--name',
                             help='Optional output prefix. '
-                            'If this is not set, the annotation/junctions '
+                            'If this is not set, the junctions '
                             'file name will be used',
                             default=None)
         parser.add_argument('-m', '--max-length',
-                            type=int,
                             help='Maximum read length, defaults to 150',
                             default=150)
 
@@ -794,49 +821,52 @@ class ComputeTranscriptome(Command):
                                    "the file has to end in .gem")
         self.options['index'].check_files()
         self.options['annotation'].check_files()
+        if not args['junctions']:
+            raise CommandException("You have to specify the junctions file")
         self.options['junctions'].check_files()
-        if not args['junctions'] and not args['annotation']:
-            raise CommandException("You have to specify either the "
-                                   "junctions file or a reference annotation")
+
         name = args['name']
         if name is None:
-            fname = args['annotation']
-            if not fname:
-                fname = args['junctions']
+            fname = args['junctions']
             name = os.path.basename(fname)
             i = name.index('.')
             name = name[:i] if i > 0 else name
 
-        junctions_out = name + ".junctions"
         keys_out = name + ".junctions.keys"
         fasta_out = name + ".junctions.fa"
 
         self.options['name'] = name
-        self.options.add_output('junctions_out',
-                                junctions_out if args['annotation']
-                                else args['junctions'])
         self.options.add_output('keys_out', keys_out)
         self.options.add_output('fasta_out', fasta_out)
+        if args['annotation']:
+            junctions_out = name + ".gtf.junctions"
+            self.options.add_output('junctions_out', junctions_out)
         return True
 
     def run(self, args):
-        print "Loading Junctions"
-        if args['junctions']:
-            junctions = set(gem.junctions.from_junctions(args['junctions']))
-        else:
-            junctions = set(gem.junctions.from_gtf(args['annotation']))
-        print "%d Junctions loaded" % (len(junctions))
+        substract = None
         if args['annotation']:
-            gem.junctions.write_junctions(junctions, args['junctions_out'])
-            print "Junctions writen to %s " % (args['junctions_out'])
+            gtf_junctions = set(gem.junctions.from_gtf(args['annotation']))
+            gem.junctions.write_junctions(gtf_junctions, args['junctions_out'])
+            substract = args['junctions_out']
 
-        print "Computing transcriptome..."
-        (transcriptome, keys) = gem.compute_transcriptome(
-            args['max_length'],
+        max_len = 150
+        try:
+            max_len = int(args['max_length'])
+        except:
+            # see if this is a json file
+            import json
+            with open(args['max_length']) as f:
+                data = json.load(f)
+                max_len = data['general']['read_lenght_max']
+
+        gem.compute_transcriptome(
+            max_len,
             args['index'],
-            args['junctions_out'],
-            output_name=args['name'] + ".junctions")
-        print "Done"
+            args['junctions'],
+            substract=substract,
+            output_name=args['name'] + ".junctions"
+        )
 
 
 @cli("rna-pipeline",
@@ -908,6 +938,13 @@ class RnaPipeline(Command):
                                  default=1,
                                  type=int,
                                  help="Number of threads")
+        input_group.add_argument('-l', '--read-length',
+                                 default=None,
+                                 type=int,
+                                 help="Specify the maximum reads length."
+                                 "This is used to compute the "
+                                 "denovo-transcriptome and will be calclulated"
+                                 " dynamically if not specified")
         input_group.add_argument('--single-end',
                                  action="store_true",
                                  default=False,
@@ -928,6 +965,17 @@ class RnaPipeline(Command):
         ctrl_group.add_argument("--dry", action="store_true", default=False,
                                 help="Show the pipeline configuraiton but "
                                 "do not execute the pipeline")
+        ctrl_group.add_argument("--force", action="store_true", default=False,
+                                help="Force execution")
+        ctrl_group.add_argument("--keep", action="store_true", default=False,
+                                help="Keep temporary files")
+        ctrl_group.add_argument("--skip",
+                                nargs="*",
+                                help="Exclude steps from the pipeline. This "
+                                "parameter takes a space separated list of "
+                                "job names that will be excluded. Try "
+                                "the pipeline with --dry to see a list of "
+                                "active jobs")
 
     def _find_second_pair(self, args):
         ## try to guess the second file
@@ -953,7 +1001,7 @@ class RnaPipeline(Command):
         return "%s%s%s" % (args['name'], "" if suffix is None else suffix,
                            ".gz" if compress else "")
 
-    def _find_transcript_index(self, args):
+    def _find_transcript_index(self, args, options):
         from os.path import basename, dirname, join, exists
         from jip.utils import rreplace
         # try to detect the transcript index based on the annotation
@@ -969,6 +1017,7 @@ class RnaPipeline(Command):
             t_index = join(base, "%s.gem" % (name))
             if not exists(t_index):
                 t_index = join(base, "%s.junctions.gem" % (name))
+            options['transcript_index'] = t_index
             args['transcript_index'] = t_index
 
         if not args['transcript_keys']:
@@ -979,6 +1028,7 @@ class RnaPipeline(Command):
             if not exists(t_keys):
                 t_keys = rreplace(args['transcript_index'], ".gem",
                                   ".junctions.keys", 1)
+            options['transcript_keys'] = t_keys
             args['transcript_keys'] = t_keys
 
     def validate(self):
@@ -1021,7 +1071,7 @@ class RnaPipeline(Command):
             _check("GTF annotation not found: %s" % args['annotation'],
                    not exists(args['annotation']))
             # check the transcript index and keys
-            self._find_transcript_index(args)
+            self._find_transcript_index(args, self.options)
             _check("No Transcript index found: %s" %
                    args['transcript_index'],
                    not exists(args['transcript_index']))
@@ -1061,10 +1111,11 @@ class RnaPipeline(Command):
                         fn(".filtered.gtf.stats.json", c=False))
         opts.add_output('filtered_gtf_counts_out',
                         fn(".filtered.gtf.counts.txt", c=False))
+        opts.add_output('read_length_stats_out',
+                        fn("_rl.stats.json", c=False))
         return True
 
     def pipeline(self):
-        from jip import Pipeline
         args = self.options.to_dict()
         threads = int(args['threads'])
         quality = args['quality']
@@ -1072,15 +1123,36 @@ class RnaPipeline(Command):
 
         p = Pipeline()
         job = p.job(threads=threads)
-        mapping_inputs = args['files']
         prepare_step = None
+
+        # small helper to create
+        # a prepare stream quickly
+        def create_prepare(name):
+            return job(name).run(
+                'gemtools_prepare',
+                input=args['files'],
+                threads=threads
+            )
+
+        # set the input of a mapping job
+        def set_mapping_input(map_job):
+            if prepare_step is not None:
+                map_job.input = prepare_step
+            else:
+                create_prepare("Prepare") | map_job
+            return map_job
+
+        ###################################################################
+        # Prepare
+        ###################################################################
         if not args['direct_input']:
             ## run the prepare step
-            prepare_step = job('Prepare').run('gemtools_prepare',
-                                              input=args['files'],
-                                              output=args['prepare_out'],
-                                              threads=threads)
-            mapping_inputs = prepare_step
+            prepare_step = job('Prepare', temp=True).run(
+                'gemtools_prepare',
+                input=args['files'],
+                output=args['prepare_out'],
+                threads=threads
+            )
 
         # we collect all mapping steps here for mergin
         all_mappings = []
@@ -1088,84 +1160,98 @@ class RnaPipeline(Command):
         ###################################################################
         # Initial mapping step
         ###################################################################
-        mapper_cfg = dict(input=mapping_inputs,
-                          threads=threads,
-                          index=index,
-                          output=args['initial_map_out'],
-                          compress=args['compress_all'],
-                          quality=quality)
-        initial_mapping = job('Initial.Mapping').run('gemtools_mapper',
-                                                     **mapper_cfg)
+        initial_mapping = job('Initial.Mapping', temp=True).run(
+            'gemtools_mapper',
+            threads=threads,
+            index=index,
+            output=args['initial_map_out'],
+            compress=args['compress_all'],
+            quality=quality
+        )
+        set_mapping_input(initial_mapping)
         all_mappings.append(initial_mapping)
 
         ###################################################################
         # Transcriptome mapping
         ###################################################################
         if args['annotation']:
-            t_map_cfg = dict(input=mapping_inputs,
-                             threads=threads,
-                             index=args['transcript_index'],
-                             keys=args['transcript_keys'],
-                             quality=quality)
-            t_map_filter_cfg = dict(only_split_maps=True,
-                                    threads=threads,
-                                    compress=args['compress_all'],
-                                    output=args['transcript_map_out'])
-            t_mapping = job('GTF.Mapping').run('gemtools_mapper', **t_map_cfg)
-            # filter for splitmaps
-            transcript_mapping = t_mapping | \
-                job('GTF.Filter').run('gemtools_filter',
-                                      **t_map_filter_cfg)
+            t_mapping = set_mapping_input(job('GTF.Mapping').run(
+                'gemtools_mapper',
+                threads=threads,
+                index=args['transcript_index'],
+                keys=args['transcript_keys'],
+                quality=quality
+            ))
+            t_filter = job('GTF.Filter', temp=True).run(
+                'gemtools_filter',
+                only_split_maps=True,
+                threads=threads,
+                compress=args['compress_all'],
+                output=args['transcript_map_out']
+            )
+
+            transcript_mapping = t_mapping | t_filter
             all_mappings.append(transcript_mapping)
 
         ###################################################################
         # Denovo transcriptome mapping
         ###################################################################
-        junctions = job('Denovo.Junctions').run(
+        junctions = set_mapping_input(job('Denovo.Junctions', temp=True).run(
             'gemtools_denovo_junctions',
             index=args['index'],
             threads=threads,
-            input=mapping_inputs,
             quality=quality,
             output=args["denovo_junctions_out"]
-        )
-        denovo_transcriptome = job('Denovo.Transcriptome', 1).run(
+        ))
+        if not args['read_length']:
+            # calculate simple stats on the initial mapping
+            # to get the max_read length
+            rl_stats = job('ReadLength.Stats', temp=True).run(
+                'gemtools_stats',
+                input=initial_mapping,
+                output_format='json',
+                output=args['read_length_stats_out'],
+                threads=threads
+            )
+            args['read_length'] = rl_stats.output
+        denovo_transcriptome = job('Denovo.Transcriptome', 1, temp=True).run(
             'gemtools_compute_transcriptome',
             index=args['index'],
+            annotation=args['annotation'] if args['annotation'] else None,
             junctions=junctions.output,
-            max_length=150)  # todo add auto calc
+            max_length=args['read_length'])
 
-        junctions_index = job('Denovo.Index').run(
+        junctions_index = job('Denovo.Index', temp=True).run(
             'gemtools_index',
             threads=threads,
-            input=denovo_transcriptome.fasta_out)
-        mapper_cfg = dict(input=mapping_inputs,
-                          index=junctions_index,
-                          threads=threads,
-                          keys=denovo_transcriptome.keys_out,
-                          output=args['denovo_map_out'],
-                          compress=args['compress_all'],
-                          quality=quality)
-        d_map_filter_cfg = dict(only_split_maps=True,
-                                threads=threads,
-                                compress=args['compress_all'],
-                                output=args['transcript_map_out'])
-        denovo_mapping = job('Denovo.Mapping').run(
-            'gemtools_mapper', **mapper_cfg) | job('Denovo.Filter').run(
-                'gemtools_filter', **d_map_filter_cfg)
-
+            input=denovo_transcriptome.fasta_out
+        )
+        d_map = set_mapping_input(job('Denovo.Mapping').run(
+            'gemtools_mapper',
+            index=junctions_index,
+            threads=threads,
+            keys=denovo_transcriptome.keys_out,
+            compress=args['compress_all'],
+            quality=quality
+        ))
+        d_filter = job('Denovo.Filter', temp=True).run(
+            'gemtools_filter',
+            only_split_maps=True,
+            threads=threads,
+            compress=args['compress_all'],
+            output=args['denovo_map_out']
+        )
+        denovo_mapping = d_map | d_filter
         all_mappings.append(denovo_mapping)
 
+        ###################################################################
+        # Merge and pair if not singleend
+        ###################################################################
         merge = job('Merge').run(
             'gemtools_merge',
             same=True,
             threads=threads,
             input=all_mappings)
-        pair = job('Pair').run(
-            'gemtools_pairalign',
-            quality=quality,
-            threads=threads,
-            index=args['index'])
         score = job('Score').run(
             'gemtools_score',
             index=args['index'],
@@ -1173,7 +1259,16 @@ class RnaPipeline(Command):
             quality=quality,
             compress=True,
             output=args['final_out'])
-        merge | pair | score
+
+        if not args['single_end']:
+            pair = job('Pair').run(
+                'gemtools_pairalign',
+                quality=quality,
+                threads=threads,
+                index=args['index'])
+            merge | pair | score
+        else:
+            merge | score
 
         # create sorted bam
         bam_cfg = dict(
@@ -1186,13 +1281,13 @@ class RnaPipeline(Command):
             no_xs=False,
             no_index=False
         )
-        job('Covert.BAM').run(
+        job('BAM').run(
             'gemtools_convert',
             input=score,
             output=args['bam_out'],
             **bam_cfg)
         # create filtered output
-        filtered = job('Filter').run(
+        filtered = job('Filtered').run(
             'gemtools_filter',
             input=score,
             threads=threads,
@@ -1209,7 +1304,7 @@ class RnaPipeline(Command):
             reduce_to_max_maps=5,
             max_strata=0,  # max error events
             compress=True)
-        job('Filter.Convert.BAM').run(
+        job('Filtered.BAM').run(
             'gemtools_convert',
             input=filtered,
             output=args['filtered_bam_out'],
@@ -1225,7 +1320,7 @@ class RnaPipeline(Command):
             paired_end=True,
             all_tests=True)
 
-        job('Filter.Stats').run(
+        job('Filtered.Stats').run(
             'gemtools_stats',
             input=filtered,
             threads=threads,
@@ -1248,7 +1343,7 @@ class RnaPipeline(Command):
             multi_maps=True,
             weighted=True
         )
-        job('Filter.GTF.Stats').run(
+        job('Filtered.GTF.Stats').run(
             'gemtools_gtf_stats',
             input=filtered,
             threads=threads,
@@ -1261,19 +1356,70 @@ class RnaPipeline(Command):
             multi_maps=True,
             weighted=True
         )
-        clean = job('Cleanup').run('cleanup', files=all_mappings)
-        clean << junctions
-        clean << denovo_transcriptome.keys_out
-        clean << denovo_transcriptome.fasta_out
-        clean << denovo_transcriptome.junctions_out
-        clean << junctions_index
-        if prepare_step:
-            clean << prepare_step
         return p
 
     def run(self, args):
         import jip
-        jip.run(self.tool_instance, force=False, dry=self.options['dry'].raw())
+        from jip.utils import render_table
+        skips = []
+        if args['keep']:
+            skips.append('cleanup')
+        if args['skip']:
+            skips.extend(args['skip'])
+        jobs = jip.create_jobs(self.tool_instance, excludes=skips)
+        if args['dry']:
+            print "--------------"
+            print "Configuration:"
+            print "--------------"
+            for o in [x for x in self.tool_instance.options
+                      if not x.name.endswith("_out")
+                      and not x.name in ['help', 'dry', 'force']]:
+                print "{name:20} {value}".format(
+                    name=o.name,
+                    value=str(o.raw())
+                )
+            print ""
+            #print "-------------------"
+            #print "Job configurations:"
+            #print "-------------------"
+            #for job in jobs:
+                #print "-------------------"
+                #print "JOB %s" % job
+                #print "-------------------"
+                #rows = []
+                #for o in job.configuration:
+                    #rows.append([o.name, o.raw()])
+                #print render_table(["Name", "Value"], rows, widths=[25, 80])
+                #print ""
+            print "-----------"
+            print "Job states:"
+            print "-----------"
+            rows = []
+            for group in jip.group(jobs):
+                job = group[0]
+                name = "|".join(str(j) for j in group)
+                outs = [f for j in group for f in j.tool.get_output_files()]
+                ins = [f for j in group for f in j.tool.get_input_files()]
+                rows.append([name, job.state, ", ".join(ins), ", ".join(outs)])
+            print render_table(["Name", "State", "Inputs", "Outputs"], rows,
+                               widths=[30, 6, 50, 50])
+            return
+        # group the jobs
+        for group in jip.group(jobs):
+            job = group[0]
+            name = ", ".join(str(j) for j in group)
+            if job.state == jip.STATE_DONE and not args['force']:
+                print "Skipping jobs: {name:30} Done".format(name=name)
+            else:
+                t = gem.utils.Timer()
+                print "Running jobs: {name:30} Running".format(name=name)
+                success = jip.run_job(job)
+                if success:
+                    print "Finished jobs: {name:29} {time}" \
+                        .format(name=name, time=str(t.stop()))
+                else:
+                    print "Execution failed for:", name
+                    sys.exit(1)
 
 
 @cli("denovo-junctions",
@@ -1390,17 +1536,7 @@ class JunctionExtraction(Command):
             annotation=args.gtf,
         )
 
-        logging.gemtools.gt("Found de-novo Junctions %d with coverage >= %s" %
-                            (len(denovo_junctions), str(args.coverage)))
         filtered = set(filter_by_distance(denovo_junctions,
                                           args.min_intron_length,
                                           args.max_intron_length))
-
-        logging.gemtools.gt("de-novo junction passing distance "
-                            "filter (min: %s max: %s): %d (%s removed)" %
-                            (str(args.min_intron_length),
-                             str(args.max_intron_length),
-                             len(filtered),
-                             (len(denovo_junctions) - len(filtered))))
-
         gem.junctions.write_junctions(filtered, args.output, args.index)
