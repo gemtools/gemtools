@@ -21,53 +21,25 @@ import __builtin__
 LOG_NOTHING = 1
 LOG_STDERR = 2
 LOG_FORMAT = '%(asctime)-15s %(levelname)s: %(message)s'
-# add custom log level
-LOG_GEMTOOLS = logging.WARNING
-logging.addLevelName(LOG_GEMTOOLS, "")
-logging.basicConfig(format=LOG_FORMAT, level=logging.WARNING)
+# setup the console logger
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+console.setFormatter(logging.Formatter(LOG_FORMAT))
+# initialize the gemtools root logger
 gemtools_logger = logging.getLogger("gemtools")
-gemtools_logger.propagate = 0
-gemtools_logger.setLevel(LOG_GEMTOOLS)
-
-def log_gemtools(message, *args, **kws):
-     gemtools_logger.log(LOG_GEMTOOLS, message, *args, **kws)
-
-gemtools_logger.gt = log_gemtools
-
-logging.gemtools = gemtools_logger
+gemtools_logger.propagate = False
+gemtools_logger.setLevel(logging.WARNING)
+gemtools_logger.addHandler(console)
 
 __parallel_samtools = None
 
-class GemtoolsFormatter(logging.Formatter):
-    info_fmt = "%(message)s"
-
-    def __init__(self, fmt="%(levelno)s: %(msg)s"):
-        logging.Formatter.__init__(self, fmt)
-
-    def format(self, record):
-        format_orig = self._fmt
-        if record.levelno == LOG_GEMTOOLS:
-            self._fmt = GemtoolsFormatter.info_fmt
-        result = logging.Formatter.format(self, record)
-        self._fmt = format_orig
-        return result
-
-gemtools_formatter = GemtoolsFormatter('%(levelname)s: %(message)s')
-console = logging.StreamHandler()
-console.setLevel(logging.DEBUG)
-console.setFormatter(gemtools_formatter)
-gemtools_logger.addHandler(console)
-logging.gemtools.level = logging.WARNING
-
-# default logger configuration
-log_output = LOG_NOTHING
-
-
 default_splice_consensus = [("GT", "AG")]
-extended_splice_consensus = [("GT", "AG"),
+extended_splice_consensus = [
+    ("GT", "AG"),
     ("GC", "AG"),
     ("ATATC", "A."),
-    ("GTATC", "AT")]
+    ("GTATC", "AT")
+]
 
 
 #default filter
@@ -101,12 +73,12 @@ class execs_dict(dict):
         if base_dir is not None:
             file = "%s/%s" % (base_dir, item)
             if os.path.exists(file):
-                logging.debug("Using binary from GEM_PATH : %s" % file)
+                gemtools_logger.debug("Using binary from GEM_PATH : %s" % file)
                 return file
 
         if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s" % item):
             f = pkg_resources.resource_filename("gem", "gembinaries/%s" % item)
-            logging.debug("Using bundled binary : %s" % f)
+            gemtools_logger.debug("Using bundled binary : %s" % f)
             return f
         # try to find from static distribution
         if use_bundled_executables and len(sys.argv) > 0:
@@ -114,11 +86,11 @@ class execs_dict(dict):
                 base = os.path.split(os.path.abspath(sys.argv[0]))[0]
                 binary = base + "/" + item
                 if os.path.exists(binary):
-                    logging.debug("Using bundled binary : %s" % binary)
+                    gemtools_logger.debug("Using bundled binary : %s" % binary)
                     return binary
             except Exception:
                 pass
-        logging.debug("Using binary from PATH: %s" % item)
+        gemtools_logger.debug("Using binary from PATH: %s" % item)
         return dict.__getitem__(self, item)
 
 ## paths to the executables
@@ -137,7 +109,7 @@ executables = execs_dict({
     "gt.mapset": "gt.mapset",
     "gt.gtfcount": "gt.gtfcount",
     "gt.stats": "gt.stats"
-    })
+})
 
 
 def loglevel(level):
@@ -155,10 +127,13 @@ def loglevel(level):
 
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % loglevel)
+    os.environ['_GT_LOGLEVEL'] = level
+    gemtools_logger.setLevel(numeric_level)
 
-    logging.basicConfig(level=numeric_level)
-    logging.getLogger().setLevel(numeric_level)
-    logging.gemtools.level = numeric_level
+#####################################
+# Set default log level from environment
+#####################################
+loglevel(os.getenv("_GT_LOGLEVEL", "ERROR"))
 
 
 # cleanup functions
@@ -280,12 +255,12 @@ def _prepare_output(process, output=None, quality=None, bam=False):
                     if next_process is not None and \
                        next_process.stdin is not None:
                         next_process.stdin.close()
-        logging.debug("Opening output file %s" % (output))
+        gemtools_logger.debug("Opening output file %s" % (output))
         if not isinstance(output, file) and output.endswith(".bam") or bam:
             return gt.InputFile(gem.files.open_bam(output), quality=quality, process=process[0])
         return gt.InputFile(output, quality=quality, process=process[0])
     else:
-        logging.debug("Opening output stream")
+        gemtools_logger.debug("Opening output stream")
         if bam:
             return gt.InputFile(gem.files.open_bam(process[0].stdout), quality=quality, process=process[0])
         ## running in async mode, return iterator on
@@ -357,11 +332,11 @@ def mapper(input, index, output=None,
     quality = _prepare_quality_parameter(quality, input)
 
     # if delta >= min_decoded_strata and not force_min_decoded_strata:
-    #     logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
+    #     gemtools_logger.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
     #         str(min_decoded_strata), str(delta + 1), str(delta)))
     #     min_decoded_strata = delta + 1
     if compress and (output is None or isinstance(output, file)):
-        logging.warning("Disabeling stream compression")
+        gemtools_logger.warning("Disabeling stream compression")
         compress = False
 
     if compress and not output.endswith(".gz"):
@@ -694,7 +669,7 @@ def pairalign(input, index, output=None,
     index = _prepare_index_parameter(index)
     quality = _prepare_quality_parameter(quality, input)
     if compress and output is None:
-        logging.warning("Disabeling stream compression")
+        gemtools_logger.warning("Disabeling stream compression")
         compress = False
 
     if compress and not output.endswith(".gz"):
@@ -790,7 +765,7 @@ def score(input,
     filter the result further.
     """
     if compress and output is None:
-        logging.warning("Disabeling stream compression")
+        gemtools_logger.warning("Disabeling stream compression")
         compress = False
 
     if compress and not output.endswith(".gz"):
@@ -1005,7 +980,7 @@ def index(input, output, content="dna", threads=1):
     existing = output
     if existing[-4:] != ".gem": existing = "%s.gem" % existing
     if os.path.exists(existing):
-        logging.warning("Index %s already exists, skipping indexing" % existing)
+        gemtools_logger.warning("Index %s already exists, skipping indexing" % existing)
         return os.path.abspath(existing)
 
     # indexer takes the prefix

@@ -774,7 +774,8 @@ class TranscriptIndex(Command):
 
 
 @cli("compute-transcriptome",
-     inputs=['--junctions']
+     inputs=['--junctions'],
+     outputs=['annotation_junctions']
      )
 class ComputeTranscriptome(Command):
     title = "Create a transcriptome from a genome index"
@@ -801,6 +802,8 @@ class ComputeTranscriptome(Command):
         parser.add_argument('-a', '--annotation',
                             dest="annotation",
                             help='Path to the GTF annotation')
+        parser.add_argument('-J', '--annotation-junctions',
+                            help='Path to the GTF annotation junctions')
         parser.add_argument('-j', '--junctions',
                             dest="junctions",
                             required=True,
@@ -840,15 +843,18 @@ class ComputeTranscriptome(Command):
         self.options.add_output('fasta_out', fasta_out)
         if args['annotation']:
             junctions_out = name + ".gtf.junctions"
-            self.options.add_output('junctions_out', junctions_out)
+            self.options['annotation_junctions'].value = junctions_out
         return True
 
     def run(self, args):
         substract = None
         if args['annotation']:
             gtf_junctions = set(gem.junctions.from_gtf(args['annotation']))
-            gem.junctions.write_junctions(gtf_junctions, args['junctions_out'])
-            substract = args['junctions_out']
+            gem.junctions.write_junctions(gtf_junctions,
+                                          args['annotation_junctions'])
+            substract = args['annotation_junctions']
+        elif args['annotation_junctions']:
+            substract = args['annotation_junctions']
 
         max_len = 150
         try:
@@ -871,8 +877,7 @@ class ComputeTranscriptome(Command):
 
 @cli("rna-pipeline",
      pipeline='pipeline',
-     add_outputs=[
-     ])
+     inputs=['--first'])
 class RnaPipeline(Command):
     description = """The RNASeq pipeline alignes reads against a reference
     genome as well as agains a specified transcriptome. The transcriptome can
@@ -898,15 +903,14 @@ class RnaPipeline(Command):
         input_group = parser.add_argument_group('Input and names')
         ## general pipeline paramters
         input_group.add_argument(
-            '-f', '--files', nargs="+",
-            default=[],
-            help='''Single fastq input file or both files for a paired-end run
-            separated by space. Note that if you specify only one file, we
-            will look for the file containing the other pairs automatically
-            and start a paired-end run. Add the --single-end parameter to
-            disable pairing and file search. The file search for the second
-            pair detects pairs ending in [_|.|-][0|1|2].[fq|fastq|txt][.gz].
-            ''')
+            '-f', '--first',
+            required=True,
+            help='''Primary input file'''
+        )
+        input_group.add_argument(
+            '-s', '--second',
+            help='''Secodary input file'''
+        )
         input_group.add_argument('-q', '--quality',
                                  default="33",
                                  help='Quality offset. 33, 64 or '
@@ -969,6 +973,16 @@ class RnaPipeline(Command):
                                 help="Force execution")
         ctrl_group.add_argument("--keep", action="store_true", default=False,
                                 help="Keep temporary files")
+        ctrl_group.add_argument("--load",
+                                help="Load a configuration form a file. "
+                                "You can use --load/--save to easily persist "
+                                "more complex configurations and then load "
+                                "and modify them from the command line.")
+        ctrl_group.add_argument("--save",
+                                help="Save a configuration to a file. "
+                                "You can use --load/--save to easily persist "
+                                "more complex configurations and then load "
+                                "and modify them from the command line.")
         ctrl_group.add_argument("--skip",
                                 nargs="*",
                                 help="Exclude steps from the pipeline. This "
@@ -979,15 +993,16 @@ class RnaPipeline(Command):
 
     def _find_second_pair(self, args):
         ## try to guess the second file
-        (n, p) = gem.utils.find_pair(args['files'][0])
+        (n, p) = gem.utils.find_pair(args['first'])
         if p is not None:
-            args['files'].append(p)
+            args['second'] = p
+            self.options['second'] = p
         # we guessed a name
         if args['name'] is None:
             args['name'] = n
 
     def _guess_name(self, args):
-        name = os.path.basename(args['files'][0])
+        name = os.path.basename(args['first'])
         if name.endswith(".gz"):
             name = name[:-3]
         idx = name.rfind(".")
@@ -1033,26 +1048,44 @@ class RnaPipeline(Command):
 
     def validate(self):
         from os.path import exists
+        ###########################################################
+        # Check --load and load config from file
+        ###########################################################
+        if self.options['load']:
+            import json
+            try:
+                with open(self.options['load'].get()) as f:
+                    data = json.load(f)
+                    for k, v in data.iteritems():
+                        opt = self.options[k]
+                        if opt is None:
+                            raise CommandException(
+                                "Configuration key not found in options: %s" %
+                                k)
+                        if not opt.user_specified:
+                            opt.set(v)
+            except Exception as err:
+                raise CommandException("Error while loading config : %s" % err)
+
         args = self.options.to_dict()
         ###########################################################
         # General input data checks
         ###########################################################
         # check for at least one input file
-        _check("No input files specified!", not args['files'])
+        _check("No input file specified!", not args['first'])
         # check input files for single end alignments
         _check("Single end runs take only one input file!",
-               args['single_end'] and len(args['files']) > 1)
+               args['single_end'] and args['second'])
         if not args['single_end']:
             # check paired end
-            if len(args['files']) == 1:
+            if not args['second']:
                 self._find_second_pair(args)
-            _check("Paired end runs take no more than two "
-                   "input files!", len(args['files']) > 2)
         ## check for a name or guess it
         if not args['name']:
             self._guess_name(args)
         ## check that all input files exists
-        self.options['files'].check_files()
+        self.options['first'].check_files()
+        self.options['second'].check_files()
 
         ## check the .gem index
         _check("Genome GEM index not found: %s" % args['index'],
@@ -1113,6 +1146,22 @@ class RnaPipeline(Command):
                         fn(".filtered.gtf.counts.txt", c=False))
         opts.add_output('read_length_stats_out',
                         fn("_rl.stats.json", c=False))
+
+        if self.options['save']:
+            import json
+            try:
+                ex_opts = ['help', 'dry', 'load', 'save']
+                values = {}
+                for o in filter(lambda o: o.name not in ex_opts,
+                                self.options):
+                    if o.raw() != o.default:
+                        values[o.name] = o.raw()
+                with open(self.options['save'].get(), 'w') as f:
+                    json.dump(values, f, indent=4)
+                print "Saved configuration in %s" % self.options['save']
+
+            except Exception as err:
+                raise CommandException("Error while saving config : %s" % err)
         return True
 
     def pipeline(self):
@@ -1128,9 +1177,12 @@ class RnaPipeline(Command):
         # small helper to create
         # a prepare stream quickly
         def create_prepare(name):
+            infiles = [args['first']]
+            if args['second']:
+                infiles.append(args['second'])
             return job(name).run(
                 'gemtools_prepare',
-                input=args['files'],
+                input=infiles,
                 threads=threads
             )
 
@@ -1146,10 +1198,13 @@ class RnaPipeline(Command):
         # Prepare
         ###################################################################
         if not args['direct_input']:
+            infiles = [args['first']]
+            if args['second']:
+                infiles.append(args['second'])
             ## run the prepare step
             prepare_step = job('Prepare', temp=True).run(
                 'gemtools_prepare',
-                input=args['files'],
+                input=infiles,
                 output=args['prepare_out'],
                 threads=threads
             )
@@ -1349,7 +1404,7 @@ class RnaPipeline(Command):
             threads=threads,
             annotation=args['annotation'],
             output=args['filtered_gtf_stats_out'],
-            json=args['gtf_stats_json_out'],
+            json=args['filtered_gtf_stats_json_out'],
             paired_end=True,
             exon_overlap=1,
             counts=args['filtered_gtf_counts_out'],
@@ -1360,7 +1415,7 @@ class RnaPipeline(Command):
 
     def run(self, args):
         import jip
-        from jip.utils import render_table
+        from jip.cli import show_options, show_job_states, show_job_tree
         skips = []
         if args['keep']:
             skips.append('cleanup')
@@ -1368,41 +1423,40 @@ class RnaPipeline(Command):
             skips.extend(args['skip'])
         jobs = jip.create_jobs(self.tool_instance, excludes=skips)
         if args['dry']:
-            print "--------------"
-            print "Configuration:"
-            print "--------------"
-            for o in [x for x in self.tool_instance.options
-                      if not x.name.endswith("_out")
-                      and not x.name in ['help', 'dry', 'force']]:
-                print "{name:20} {value}".format(
-                    name=o.name,
-                    value=str(o.raw())
-                )
-            print ""
-            #print "-------------------"
-            #print "Job configurations:"
-            #print "-------------------"
-            #for job in jobs:
-                #print "-------------------"
-                #print "JOB %s" % job
-                #print "-------------------"
-                #rows = []
-                #for o in job.configuration:
-                    #rows.append([o.name, o.raw()])
-                #print render_table(["Name", "Value"], rows, widths=[25, 80])
-                #print ""
-            print "-----------"
-            print "Job states:"
-            print "-----------"
-            rows = []
-            for group in jip.group(jobs):
-                job = group[0]
-                name = "|".join(str(j) for j in group)
-                outs = [f for j in group for f in j.tool.get_output_files()]
-                ins = [f for j in group for f in j.tool.get_input_files()]
-                rows.append([name, job.state, ", ".join(ins), ", ".join(outs)])
-            print render_table(["Name", "State", "Inputs", "Outputs"], rows,
-                               widths=[30, 6, 50, 50])
+            #############################################################
+            # Print general options
+            #############################################################
+            show_options(self.tool_instance.options,
+                         "Pipeline Configuration",
+                         ['help', 'dry', 'force'])
+            #############################################################
+            # print job options
+            #############################################################
+            for job in jobs:
+                show_options(job.configuration, "Job-%s" % str(job))
+            #############################################################
+            # print job states
+            #############################################################
+            show_job_states(jobs)
+            show_job_tree(jobs)
+
+        if self.options['save']:
+            import json
+            try:
+                ex_opts = ['help', 'dry', 'load', 'save']
+                values = {}
+                for o in filter(lambda o: o.name not in ex_opts,
+                                self.options):
+                    if o.raw() != o.default:
+                        values[o.name] = o.raw()
+                with open(self.options['save'].get(), 'w') as f:
+                    json.dump(values, f, indent=4)
+                print "Saved configuration in %s" % self.options['save']
+
+            except Exception as err:
+                raise CommandException("Error while saving config : %s" % err)
+
+        if args['dry'] or args['save']:
             return
         # group the jobs
         for group in jip.group(jobs):

@@ -12,6 +12,9 @@ import gem.filter
 import gem
 import logging
 
+log = logging.getLogger('gemtools.junctions')
+
+
 class Exon(object):
     """Exons representation"""
 
@@ -297,13 +300,13 @@ def from_gtf(annotation):
     line_count = 0
     for line in in_fd:
         if len(line.strip()) == 0 or line.strip()[0] == '#':
-            logging.debug("Skipping comment line")
+            log.debug("Skipping comment line")
             # skip comment
             continue
         line_count += 1
         split = line.split("\t")
         if len(split) < 8:
-            logging.warning("GTF line %d has < 8 fields, skipping" % line_count)
+            log.warning("GTF line %d has < 8 fields, skipping" % line_count)
             continue
         if split[2] != "exon":
             continue
@@ -311,22 +314,22 @@ def from_gtf(annotation):
         try:
             id = __extract_transcript(split[8].strip())
             if id is None:
-                logging.error("Failed to extract a transcript id from line %d" % line_count)
+                log.error("Failed to extract a transcript id from line %d" % line_count)
                 continue
             id = id + split[0]
         except:
-            logging.error("Failed to extract a transcript id from line %d" % line_count)
+            log.error("Failed to extract a transcript id from line %d" % line_count)
             continue
         start = int(split[3])
         end = int(split[4])
         if start != end:
             exon = Exon(split[0], id, start, end, split[6])
             junctions.setdefault(id, Junction()).append(exon)
-    logging.debug("Found %d raw sites, extracting unique" % (len(junctions)))
+    log.debug("Found %d raw sites, extracting unique" % (len(junctions)))
     unique = sorted(set((
         site for sites in
         (junction.sites() for k, junction in junctions.items())
         for site in sites)))
-    logging.debug("Found %d sites" % (len(unique)))
+    log.debug("Found %d sites" % (len(unique)))
     for j in unique:
         yield j

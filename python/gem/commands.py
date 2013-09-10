@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 """Gemtools commands"""
-from argparse import ArgumentParser
-import gem.utils
 
 import sys
 from sys import exit
 import types
 from textwrap import dedent
+import os
+
+import gem.utils
+from .utils import CommandException
 
 import jip
-from .utils import CommandException
 
 __VERSION__ = "1.7"
 
@@ -136,12 +137,12 @@ def gemtools():
         jip_name = "gemtools_%s" % (cmd.replace("-", "_"))
         try:
             tool = jip.find(jip_name)
-            tool.parse_args(args["<args>"])
-            tool.validate()
-            if args['--dry'] or args['--show']:
-                jip.run(tool, dry=args['--dry'], show=args['--show'])
-            else:
+            if os.getenv("_GT_EXEC"):
+                tool.parse_args(args['<args>'])
                 tool.run()
+            else:
+                jip.run(tool, args['<args>'],
+                        dry=args['--dry'], show=args['--show'])
         except CommandException as e:
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
@@ -149,69 +150,6 @@ def gemtools():
             raise
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
-
-        #instance = _cmd_registry[cmd]()
-        #try:
-            #cmd_args = instance.parse_args([instance.name] + args["<args>"])
-            #instance.run(cmd_args)
-        #except gem.utils.CommandException, e:
-            #sys.stderr.write("%s\n" % (str(e)))
-            #exit(1)
-
-
-        #parser = ArgumentParser(prog="gemtools",
-                                #description="Gemtools driver to execute "
-                                            #"different gemtools command and "
-                                            #"pipelines")
-        #parser.add_argument('--loglevel',
-                            #default=None,
-                            #help="Log level (error, warn, info, debug)")
-        #parser.add_argument('-v', '--version',
-                            #action='version',
-                            #version='%(prog)s ' + __VERSION__)
-
-        #commands = {
-            #"index": gem.production.Index,
-            #"rna-pipeline": gem.production.RnaPipeline,
-            #"t-index": gem.production.TranscriptIndex,
-            #"gtfcount": gem.production.GtfCount,
-            #"merge": gem.production.Merge,
-            #"convert": gem.production.Convert,
-            #"gtf-junctions": gem.production.Junctions,
-            #"denovo-junctions": gem.production.JunctionExtraction,
-            #"stats": gem.production.Stats,
-            #"filter": gem.production.Filter,
-            #"report": gem.production.StatsReport,
-            #"prepare": gem.production.PrepareInput,
-            #"map": gem.production.GemMapper
-        #}
-        #instances = {}
-
-        #if _cmd_registry is not None:
-            #subparsers = parser.add_subparsers(
-                #title="commands",
-                #metavar="<command>",
-                #description="Available commands",
-                #dest="command"
-            #)
-            #for name, cmdClass in _cmd_registry.iteritems():
-                #p = subparsers.add_parser(
-                    #name,
-                    #help=cmdClass.title,
-                    #description=cmdClass.description
-                #)
-                #instances[name] = cmdClass()
-                #instances[name].register(p)
-
-        #args = parser.parse_args()
-        #if args.loglevel is not None:
-            #gem.loglevel(args.loglevel)
-
-        #try:
-            #instances[args.command].run(args)
-        #except gem.utils.CommandException, e:
-            #sys.stderr.write("%s\n" % (str(e)))
-            #exit(1)
     except KeyboardInterrupt:
         exit(1)
     finally:
