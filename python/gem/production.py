@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Production pipelines"""
 import os
-import logging
 import sys
 import subprocess
+import re
 
 from gem.commands import cli
 import gem
@@ -59,6 +59,9 @@ class Merge(Command):
                             help="Write gzip compressed output if a output "
                             "file is specified")
 
+    def validate(self):
+        self.options['input'].check_files()
+
     def run(self, args):
         if len(args['input']) < 2:
             args['input'].append(args['input'][0])
@@ -67,9 +70,12 @@ class Merge(Command):
         output = args['output']
         if output is None:
             output = sys.stdout
-        gem.merge(files[0], files[1:], output,
-                  threads=int(args['threads']), same_content=args['same'],
-                  paired=args['paired'], compress=args['compress'])
+        p = gem.merge(files[0], files[1:], output,
+                      threads=int(args['threads']), same_content=args['same'],
+                      paired=args['paired'], compress=args['compress'])
+        if p.process:
+            if p.process.wait() != 0:
+                raise Exception("Merger execution failed!")
 
 
 @cli("score",
@@ -161,7 +167,7 @@ class PrepareInput(Command):
         if len(input) == 1 and self.options['discover'].raw():
             # search for second file
             (n, p) = gem.utils.find_pair(input[0])
-            if p is not None:
+            if p is not None and os.path.exists(p):
                 self.options['input'].append(p)
         return True
 
@@ -173,7 +179,7 @@ class PrepareInput(Command):
         output = args.output if not isinstance(args.output, file) \
             else args.output
         outfile = gt.OutputFile(output, clean_id=True, append_extra=False)
-
+        input = filter(lambda f: os.path.exists(f), input)
         if len(input) == 1:
             infile = gem.files.open(input[0])
         else:
@@ -958,6 +964,11 @@ class RnaPipeline(Command):
                                  action="store_true",
                                  help="Skip preparation step and pipe the "
                                  "input directly into the first mapping step")
+        input_group.add_argument('--no-pair-search',
+                                 default=False,
+                                 action="store_true",
+                                 help="Skip searching for the second pair file"
+                                 "")
         input_group.add_argument('--compress-all',
                                  default=False,
                                  action="store_true",
@@ -994,7 +1005,7 @@ class RnaPipeline(Command):
     def _find_second_pair(self, args):
         ## try to guess the second file
         (n, p) = gem.utils.find_pair(args['first'])
-        if p is not None:
+        if p is not None and os.path.exists(p):
             args['second'] = p
             self.options['second'] = p
         # we guessed a name
@@ -1002,6 +1013,9 @@ class RnaPipeline(Command):
             args['name'] = n
 
     def _guess_name(self, args):
+        if not "first" in args or not args['first']:
+            args['name'] = 'unknown'
+            return
         name = os.path.basename(args['first'])
         if name.endswith(".gz"):
             name = name[:-3]
@@ -1009,6 +1023,8 @@ class RnaPipeline(Command):
         if idx > 0:
             name = name[:idx]
         args['name'] = name
+        if not args['no_pair_search']:
+            args['name'] = re.sub(r'[_\.-]\d$', '', name)
 
     def _file_name(self, suffix=None, args=None, compress=None):
         if compress is None:
@@ -1068,50 +1084,9 @@ class RnaPipeline(Command):
                 raise CommandException("Error while loading config : %s" % err)
 
         args = self.options.to_dict()
-        ###########################################################
-        # General input data checks
-        ###########################################################
-        # check for at least one input file
-        _check("No input file specified!", not args['first'])
-        # check input files for single end alignments
-        _check("Single end runs take only one input file!",
-               args['single_end'] and args['second'])
-        if not args['single_end']:
-            # check paired end
-            if not args['second']:
-                self._find_second_pair(args)
         ## check for a name or guess it
         if not args['name']:
             self._guess_name(args)
-        ## check that all input files exists
-        self.options['first'].check_files()
-        self.options['second'].check_files()
-
-        ## check the .gem index
-        _check("Genome GEM index not found: %s" % args['index'],
-               not exists(args['index']))
-        _check("Genome GEM does not end in .gem: %s" % args['index'],
-               not args['index'].endswith(".gem"))
-
-        ## check quality value
-        _check("Quality offset value is not valid! Supported are 33|64|ignore",
-               not args['quality'] in ("33", "64", "ignore"))
-
-        ###########################################################
-        # Transcriptome mapping with annotation
-        ###########################################################
-        if args['annotation']:
-            _check("GTF annotation not found: %s" % args['annotation'],
-                   not exists(args['annotation']))
-            # check the transcript index and keys
-            self._find_transcript_index(args, self.options)
-            _check("No Transcript index found: %s" %
-                   args['transcript_index'],
-                   not exists(args['transcript_index']))
-            _check("No Transcript keys found: %s" %
-                   args['transcript_keys'],
-                   not exists(args['transcript_keys']))
-
         ###########################################################
         # Output file configuration
         ###########################################################
@@ -1147,6 +1122,47 @@ class RnaPipeline(Command):
         opts.add_output('read_length_stats_out',
                         fn("_rl.stats.json", c=False))
 
+        ###########################################################
+        # General input data checks
+        ###########################################################
+        # check for at least one input file
+        _check("No input file specified!", not args['first'])
+        # check input files for single end alignments
+        _check("Single end runs take only one input file!",
+               args['single_end'] and args['second'])
+        if not args['single_end'] and not args['no_pair_search']:
+            # check paired end
+            if not args['second']:
+                self._find_second_pair(args)
+        ## check that all input files exists
+        self.options['first'].check_files()
+        self.options['second'].check_files()
+
+        ## check the .gem index
+        _check("Genome GEM index not found: %s" % args['index'],
+               not exists(args['index']))
+        _check("Genome GEM does not end in .gem: %s" % args['index'],
+               not args['index'].endswith(".gem"))
+
+        ## check quality value
+        _check("Quality offset value is not valid! Supported are 33|64|ignore",
+               not args['quality'] in ("33", "64", "ignore"))
+
+        ###########################################################
+        # Transcriptome mapping with annotation
+        ###########################################################
+        if args['annotation']:
+            _check("GTF annotation not found: %s" % args['annotation'],
+                   not exists(args['annotation']))
+            # check the transcript index and keys
+            self._find_transcript_index(args, self.options)
+            _check("No Transcript index found: %s" %
+                   args['transcript_index'],
+                   not exists(args['transcript_index']))
+            _check("No Transcript keys found: %s" %
+                   args['transcript_keys'],
+                   not exists(args['transcript_keys']))
+
         if self.options['save']:
             import json
             try:
@@ -1171,6 +1187,11 @@ class RnaPipeline(Command):
         index = args['index']
 
         p = Pipeline()
+        name = args['name']
+        if not name:
+            self._guess_name(args)
+        name = args['name']
+        p.name(name)
         job = p.job(threads=threads)
         prepare_step = None
 
@@ -1411,69 +1432,11 @@ class RnaPipeline(Command):
             multi_maps=True,
             weighted=True
         )
-        return p
-
-    def run(self, args):
-        import jip
-        from jip.cli import show_options, show_job_states, show_job_tree
-        skips = []
         if args['keep']:
-            skips.append('cleanup')
+            p.excludes.append('cleanup')
         if args['skip']:
-            skips.extend(args['skip'])
-        jobs = jip.create_jobs(self.tool_instance, excludes=skips)
-        if args['dry']:
-            #############################################################
-            # Print general options
-            #############################################################
-            show_options(self.tool_instance.options,
-                         "Pipeline Configuration",
-                         ['help', 'dry', 'force'])
-            #############################################################
-            # print job options
-            #############################################################
-            for job in jobs:
-                show_options(job.configuration, "Job-%s" % str(job))
-            #############################################################
-            # print job states
-            #############################################################
-            show_job_states(jobs)
-            show_job_tree(jobs)
-
-        if self.options['save']:
-            import json
-            try:
-                ex_opts = ['help', 'dry', 'load', 'save']
-                values = {}
-                for o in filter(lambda o: o.name not in ex_opts,
-                                self.options):
-                    if o.raw() != o.default:
-                        values[o.name] = o.raw()
-                with open(self.options['save'].get(), 'w') as f:
-                    json.dump(values, f, indent=4)
-                print "Saved configuration in %s" % self.options['save']
-
-            except Exception as err:
-                raise CommandException("Error while saving config : %s" % err)
-
-        if args['dry'] or args['save']:
-            return
-        # group the jobs
-        for group in jip.group(jobs):
-            job = group[0]
-            name = ", ".join(str(j) for j in group)
-            if job.state == jip.STATE_DONE and not args['force']:
-                print "Skipping jobs: {name:30} Done".format(name=name)
-            else:
-                t = gem.utils.Timer()
-                print "Running jobs: {name:30} Running".format(name=name)
-                success = jip.run_job(job)
-                if success:
-                    print "Finished jobs: {name:29} {time}" \
-                        .format(name=name, time=str(t.stop()))
-                else:
-                    print "Execution failed for:", name
-                    sys.exit(1)
+            p.excludes.extend(args['skip'])
+        return p
 
 
 @cli("denovo-junctions",
@@ -1499,6 +1462,7 @@ class JunctionExtraction(Command):
                             'site does not have enough coverage.')
         parser.add_argument('-i', '--input', dest="input",
                             metavar="<input>",
+                            default=sys.stdin,
                             help='Input File. Reads from stdin if nothing '
                             'is specified.')
         parser.add_argument('-o', '--output', dest="output",
@@ -1570,8 +1534,11 @@ class JunctionExtraction(Command):
     def run(self, args):
         args = gem.utils.dict_2_tuple(args)
         from gem.junctions import filter_by_distance
-        infile = gem.files.open(args.input) \
-            if args.input is not None else sys.stdin
+        if isinstance(args.input, file):
+            infile = args.input
+        else:
+            infile = gem.files.open(args.input) \
+                if args.input is not None else sys.stdin
         denovo_junctions = gem.extract_junctions(
             infile,
             args.index,

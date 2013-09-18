@@ -294,8 +294,7 @@ def from_gtf(annotation):
                 return t
         return None
 
-    in_fd = gem.files.open_file(annotation)  ##open(annotation, 'rb')
-    #trans_re = re.compile('.*transcript_id "(.*)";.*')
+    in_fd = gem.files.open_file(annotation)
     junctions = {}
     line_count = 0
     for line in in_fd:
@@ -314,17 +313,20 @@ def from_gtf(annotation):
         try:
             id = __extract_transcript(split[8].strip())
             if id is None:
-                log.error("Failed to extract a transcript id from line %d" % line_count)
+                log.error("Failed to extract a transcript "
+                          "id from line %d" % line_count)
                 continue
             id = id + split[0]
         except:
-            log.error("Failed to extract a transcript id from line %d" % line_count)
+            log.error("Failed to extract a transcript "
+                      "id from line %d" % line_count)
             continue
         start = int(split[3])
         end = int(split[4])
         if start != end:
             exon = Exon(split[0], id, start, end, split[6])
-            junctions.setdefault(id, Junction()).append(exon)
+            if exon.stop - exon.start > 1:
+                junctions.setdefault(id, Junction()).append(exon)
     log.debug("Found %d raw sites, extracting unique" % (len(junctions)))
     unique = sorted(set((
         site for sites in

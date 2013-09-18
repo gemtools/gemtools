@@ -301,6 +301,7 @@ gt_option gt_region_options[] = {
 
   /* Misc */
   { 'g', "gene-id", GT_OPT_REQUIRED, GT_OPT_NONE, 5 , true, "" , "" },
+  { 'r', "ref-id", GT_OPT_REQUIRED, GT_OPT_NONE, 5 , true, "" , "" },
   { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },

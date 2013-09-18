@@ -15,7 +15,8 @@ typedef struct {
   char *input_file;
   char *output_file;
   char *annotation;
-  char *gene_id;
+  gt_vector *gene_ids;
+  gt_vector *ref_ids;
   bool paired;
   uint64_t num_threads;
 } gt_region_args;
@@ -25,7 +26,8 @@ gt_region_args parameters = {
     .input_file=NULL,
     .output_file=NULL,
     .annotation=NULL,
-    .gene_id=NULL,
+    .gene_ids=NULL,
+    .ref_ids=NULL,
     .paired=false,
     .num_threads=1
 };
@@ -44,16 +46,44 @@ GT_INLINE void gt_region_read(gt_gtf* const gtf) {
     gt_vector* hits = gt_vector_new(16, sizeof(gt_gtf_entry*));
     gt_output_map_attributes* const output_map_attributes = gt_output_map_attributes_new();
     GT_BEGIN_READING_WRITING_LOOP(input_file,output_file,parameters.paired,buffered_output,template){
-      gt_vector_clear(hits);
-      gt_gtf_search_template(gtf, hits, template);
-      GT_VECTOR_ITERATE(hits, v, c, gt_gtf_entry*){
-        gt_gtf_entry* e = *v;
-        if(parameters.gene_id != NULL && e->gene_id != NULL){
-          if(strcmp(e->gene_id->buffer, parameters.gene_id) == 0){
-            //gt_output_map_bofprint_gem_template(buffered_output, template, output_map_attributes);
-            gt_output_map_fprint_gem_template(stdout, template, output_map_attributes);
-            break;
+      bool printed = false;
+      if (gtf != NULL){
+        gt_vector_clear(hits);
+        gt_gtf_search_template(gtf, hits, template);
+        GT_VECTOR_ITERATE(hits, v, c, gt_gtf_entry*){
+          gt_gtf_entry* e = *v;
+          if(parameters.gene_ids != NULL && e->gene_id != NULL){
+            GT_VECTOR_ITERATE(parameters.gene_ids, gene_id, pos, gt_string*) {
+              if(gt_string_equals(e->gene_id, *gene_id)){
+                //gt_output_map_bofprint_gem_template(buffered_output, template, output_map_attributes);
+                gt_output_map_fprint_gem_template(stdout, template, output_map_attributes);
+                printed = true;
+                break;
+              }
+            }
           }
+          if (printed){
+            break; 
+          }
+        }
+      }
+      if (printed){
+        continue;
+      }
+      if(parameters.ref_ids != NULL){
+        GT_TEMPLATE_ITERATE_ALIGNMENT(template, ali){
+          GT_ALIGNMENT_ITERATE(ali, map){
+            GT_VECTOR_ITERATE(parameters.ref_ids, ref_id, pos, gt_string*) {
+              if(gt_string_equals(gt_map_get_string_seq_name(map), *ref_id)){
+                //gt_output_map_bofprint_gem_template(buffered_output, template, output_map_attributes);
+                gt_output_map_fprint_gem_template(stdout, template, output_map_attributes);
+                printed = true;
+                break;
+              }
+            }
+            if (printed){break;}
+          }
+          if (printed){break;}
         }
       }
     }GT_END_READING_WRITING_LOOP(input_file,output_file,template);
@@ -64,6 +94,40 @@ GT_INLINE void gt_region_read(gt_gtf* const gtf) {
   // Clean global
   gt_input_file_close(input_file);
   gt_output_file_close(output_file);
+}
+
+void gt_region_get_argument_gene_id(char* const gene_ids) {
+  // Allocate vector
+  parameters.gene_ids = gt_vector_new(20,sizeof(gt_string*));
+  // Add all the valid map Ids (sequence names)
+  char *opt;
+  opt = strtok(gene_ids, ",");
+  while (opt!=NULL) {
+    // Get id
+    gt_string* gene_id = gt_string_new(0);
+    gt_string_set_string(gene_id,opt);
+    // Add to the vector
+    gt_vector_insert(parameters.gene_ids,gene_id,gt_string*);
+    // Next
+    opt = strtok(NULL,","); // Reload
+  }
+}
+
+void gt_region_get_argument_ref_id(char* const ref_ids) {
+  // Allocate vector
+  parameters.ref_ids = gt_vector_new(20,sizeof(gt_string*));
+  // Add all the valid map Ids (sequence names)
+  char *opt;
+  opt = strtok(ref_ids, ",");
+  while (opt!=NULL) {
+    // Get id
+    gt_string* ref_id = gt_string_new(0);
+    gt_string_set_string(ref_id,opt);
+    // Add to the vector
+    gt_vector_insert(parameters.ref_ids,ref_id,gt_string*);
+    // Next
+    opt = strtok(NULL,","); // Reload
+  }
 }
 
 
@@ -92,7 +156,10 @@ void parse_arguments(int argc,char** argv) {
       break;
     /* Misc */
     case 'g':
-      parameters.gene_id = optarg;
+      gt_region_get_argument_gene_id(optarg);
+      break;
+    case 'r':
+      gt_region_get_argument_ref_id(optarg);
       break;
     case 't':
       parameters.num_threads = atol(optarg);
@@ -111,7 +178,7 @@ void parse_arguments(int argc,char** argv) {
     }
   }
   // Check parameters
-  if (parameters.annotation==NULL) {
+  if (parameters.annotation==NULL && parameters.gene_ids != NULL) {
     gt_fatal_error_msg("Please specify a reference annotation");
   }
   // Free
@@ -124,7 +191,10 @@ int main(int argc,char** argv) {
   parse_arguments(argc,argv);
 
   // read gtf file
-  gt_gtf* const gtf = gt_gtf_read_from_file(parameters.annotation, parameters.num_threads);
+  gt_gtf* gtf = NULL; 
+  if(parameters.annotation != NULL){
+    gtf = gt_gtf_read_from_file(parameters.annotation, parameters.num_threads);
+  }
   gt_region_read(gtf);
   return 0;
 }

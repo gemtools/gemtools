@@ -11,6 +11,8 @@ import gem.utils
 from .utils import CommandException
 
 import jip
+import jip.jobs
+import jip.cli
 
 __VERSION__ = "1.7"
 
@@ -141,9 +143,34 @@ def gemtools():
                 tool.parse_args(args['<args>'])
                 tool.run()
             else:
-                jip.run(tool, args['<args>'],
-                        dry=args['--dry'], show=args['--show'])
+                if args['--dry'] or args['--show']:
+                    # we handle --dry and --show separatly,
+                    # create the jobs and call the show commands
+                    jobs = jip.jobs.create(tool, args=args['<args>'])
+                    if args['--dry']:
+                        jip.cli.show_dry(jobs, options=tool.options)
+                    if args['--show']:
+                        jip.cli.show_commands(jobs)
+                    try:
+                        jip.jobs.check_output_files(jobs)
+                    except Exception as err:
+                        print >>sys.stderr, "%s\n" % \
+                            (jip.cli.colorize("Validation error!",
+                                              jip.cli.RED))
+                        print >>sys.stderr, str(err)
+                        sys.exit(1)
+                    return
+
+                try:
+                    jip.cli.run(tool, args['<args>'], silent=False)
+                except jip.ValidationError as va:
+                    sys.stderr.write(str(va))
+                    sys.stderr.write("\n")
+                    sys.exit(1)
         except CommandException as e:
+            sys.stderr.write("%s\n" % (str(e)))
+            exit(1)
+        except jip.ParserException as e:
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
         except Exception as e:
