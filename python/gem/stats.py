@@ -565,7 +565,7 @@ def write_template(data, out, paired=True, name=None):
     if name is None:
         name = os.path.basename(out)
 
-    tmpl = Template(__default_template).safe_substitute({
+    data = {
         "name": name,
         "reads": data["num_blocks"],
         "min": data["mapped_min_length"],
@@ -576,7 +576,10 @@ def write_template(data, out, paired=True, name=None):
         "alignments": data["num_blocks"],
         "maps": data["num_maps"],
         "maps_p": "%.3f" % (data["num_maps"] / float(data["num_mapped"])),
-    })
+    }
+    tmpl = Template(__default_template).safe_substitute(data)
+    with open("%s/general.json") as f:
+        f.write(simplejson.dumps(data))
     with open("%s/index.html" % (out), 'w') as f:
         f.write(tmpl)
 
