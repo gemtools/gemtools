@@ -342,6 +342,9 @@ def mapper(input, index, output=None,
     if compress and not output.endswith(".gz"):
         output += ".gz"
 
+    if float(min_matched_bases) > 1.0:
+        min_matched_bases = int(float(min_matched_bases))
+
     ## prepare the input
     pa = [executables['gem-mapper'], '-I', index,
           '-q', quality,
@@ -656,7 +659,6 @@ def pairalign(input, index, output=None,
               min_insert_size=0,
               max_insert_size=1000,
               max_edit_distance=0.30,
-              min_matched_bases=0.80,
               max_extendable_matches=0,
               max_matches_per_extension=0,
               unique_pairing=False,
@@ -685,7 +687,6 @@ def pairalign(input, index, output=None,
           '--min-insert-size', str(min_insert_size),
           '--max-insert-size', str(max_insert_size),
           '-E', str(max_edit_distance),
-          '--min-matched-bases', str(min_matched_bases),
           '--max-extendable-matches', str(max_extendable_matches),
           '--max-extensions-per-match', str(max_matches_per_extension),
           '-T', str(threads)
