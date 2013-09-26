@@ -186,7 +186,12 @@ class PrepareInput(Command):
             infile = gem.filter.interleave(
                 [gem.files.open(f) for f in input],
                 threads=max(1, threads))
-        infile.write_stream(outfile, write_map=False)
+        try:
+            infile.write_stream(outfile, write_map=False)
+        except ValueError:
+            # catch the value error delegate that comes from flush on
+            # closed stdout
+            pass
         infile.close()
         outfile.close()
 
@@ -255,7 +260,7 @@ class GemMapper(Command):
                             metavar="mds",
                             help='Minimum decoded strata. '
                             'Default to 1')
-        parser.add_argument('--min-big-indel-length',
+        parser.add_argument('--max-big-indel-length',
                             dest="max_big_indel_length",
                             type=int,
                             default=15,
@@ -292,6 +297,10 @@ class GemMapper(Command):
 
     def validate(self):
         _check("No index specified", not self.options['index'].get())
+        if float(self.options['min_matched_bases'].get()) > 1.0:
+            self.options['min_matched_bases'].value = int(
+                float(self.options['min_matched_bases'].get())
+            )
         return True
 
     def run(self, args):
@@ -300,7 +309,6 @@ class GemMapper(Command):
             else args.output
         infile = gem.files.open(args.input) \
             if not isinstance(args.input, file) else args.input
-
         gem.mapper(
             infile,
             args.index,
@@ -355,12 +363,6 @@ class GemPairalign(Command):
                             default=1,
                             type=int,
                             help='Number of threads')
-        parser.add_argument('-s', '--strata-after-best',
-                            dest="strata_after_best", type=int,
-                            metavar="strata",
-                            default=0,
-                            help='The number of strata examined after '
-                            'the best one. Default 0')
         parser.add_argument('--min-insert-size',
                             type=int,
                             default=0,
@@ -388,13 +390,6 @@ class GemPairalign(Command):
                             metavar="mds",
                             help='Minimum decoded strata. '
                             'Default to 1')
-        parser.add_argument('--min-matched-bases',
-                            dest="min_matched_bases",
-                            type=float,
-                            default=0.80,
-                            metavar="mmb",
-                            help='Minimum ratio of bases that '
-                            'must be matched. Default 0.80')
         parser.add_argument('--max-edit-distance',
                             dest="max_edit_distance",
                             metavar="med",
@@ -411,6 +406,10 @@ class GemPairalign(Command):
                             default=0,
                             type=int,
                             help='Maximum matches per extension')
+        parser.add_argument('--filter-max-matches',
+                            default=0,
+                            type=int,
+                            help='Reduce the number of maximum matches')
         parser.add_argument('-C', '--compress', dest="compress",
                             default=False,
                             action="store_true",
@@ -437,10 +436,10 @@ class GemPairalign(Command):
             min_decoded_strata=args.min_decoded_strata,
             min_insert_size=args.min_insert_size,
             max_insert_size=args.max_insert_size,
-            min_matched_bases=args.min_matched_bases,
             max_edit_distance=args.max_edit_distance,
             max_extendable_matches=args.max_extendable_matches,
             max_matches_per_extension=args.max_matches_per_extension,
+            filter_max_matches=args.filter_max_matches,
             threads=args.threads,
             compress=args.compress
         )
@@ -973,9 +972,385 @@ class RnaPipeline(Command):
                                  default=False,
                                  action="store_true",
                                  help="Compress also intermediate files")
+
+        ######################################################################
+        # Global mapping parameter
+        ######################################################################
+        initial_group = parser.add_argument_group(
+            'Global Mapping Paramter',
+            description="The global mapping parameters are applied to all "
+            "mapping steps. You can refine the parameters for the transcript "
+            "and de-novo mapping steps independently"
+        )
+        initial_group.add_argument('-m', '--mismatches',
+                                   type=float,
+                                   default=0.06,
+                                   help="Allowed mismatched for initial "
+                                   "alignment to the genome index")
+        initial_group.add_argument('--quality-threshold',
+                                   type=int,
+                                   default=26,
+                                   help="Read quality threshold. Bases with a "
+                                   "quality less than the threshold are "
+                                   "treated as bad bases and more mismatches "
+                                   "are allowed.")
+        initial_group.add_argument("--max-decoded-matches",
+                                   type=int,
+                                   default=25,
+                                   help="Maximum decoded matches. NOTE that "
+                                   "this is taken into account only for "
+                                   "additional strata. min-decoded-strata "
+                                   "are always fully printed.")
+        initial_group.add_argument("--min-decoded-strata",
+                                   type=int,
+                                   default=1,
+                                   help="Minimum number of strata that are "
+                                   "always fully decoded.")
+        initial_group.add_argument("--min-matched-bases",
+                                   type=float,
+                                   default=0.80,
+                                   help="This parameter limits the number of "
+                                   "deletions that can occur in the read (if "
+                                   "there are too many deletions, the quality "
+                                   "of the alignment will be questionable). "
+                                   "The default says that at least the 80%% "
+                                   "of the bases must be mapped, i.e. there "
+                                   "cannot be more than 20%% of the bases "
+                                   "deleted.")
+        initial_group.add_argument("--max-big-indel-length",
+                                   type=int,
+                                   default=15,
+                                   help="The GEM mapper implements a special "
+                                   "algorithm that, in addition to ordinary "
+                                   "matches, is sometimes able to find a "
+                                   "single long indel (in particular, a long "
+                                   "insertion in the read).  This option "
+                                   "specifies the maximum allowed size "
+                                   "for such long indel.")
+        initial_group.add_argument('-e', "--max-edit-distance",
+                                   type=float,
+                                   default=0.20,
+                                   help="The maximum number of edit "
+                                   "operations allowed while verifying "
+                                   "candidate matches by dynamic "
+                                   "programming. Saying --e 0 disables the "
+                                   "possibilities of finding alignments with "
+                                   "indels (however, 'big' indels might still "
+                                   "be found, see option "
+                                   "--max-big-indel-length).")
+        initial_group.add_argument("--mismatch-alphabet",
+                                   type=str,
+                                   default='ACTG',
+                                   help="Specifies the set of characters "
+                                   "which are valid replacements in case of "
+                                   "mismatch. Note that if you would like "
+                                   "to consider Ns in the reference as "
+                                   "wildcards, you should specify ACGNT "
+                                   "here; otherwise, the mapper will never "
+                                   "return positions in the reference "
+                                   "containing Ns.")
+        initial_group.add_argument('-S', "--strata-after-best",
+                                   type=int,
+                                   default=1,
+                                   help="A stratum is a set of matches all "
+                                   "having the same string distance from the "
+                                   "query. The GEM mapper is able to find not "
+                                   "only the matches belonging to the best "
+                                   "stratum (i.e., the best matches having "
+                                   "minimum string distance from the query) "
+                                   "but also additional sets of matches "
+                                   "(the next-to-best matches, the "
+                                   "next-to-next-to-best matches, and so on) "
+                                   "having alignment score worse than that of "
+                                   "the best matches. This parameter "
+                                   "determines how many strata should be "
+                                   "explored after the best one")
+
+        initial_group.add_argument('--output-max-matches',
+                                   type=int,
+                                   default=25,
+                                   help='Maximum number of printed matches. '
+                                   'Default 25')
+        initial_group.add_argument('--output-min-strata',
+                                   type=int,
+                                   default=1,
+                                   help='Minimum number of printed strata. '
+                                   'Default 1')
+        initial_group.add_argument('--output-max-strata',
+                                   type=int,
+                                   default=2,
+                                   help='Maximum number of printed strata. '
+                                   'Default 2')
+        ######################################################################
+        # Pairing parameter
+        ######################################################################
+        pair_group = parser.add_argument_group(
+            'Pairing parameter'
+        )
+        pair_group.add_argument('--pairing-quality-threshold',
+                                type=int,
+                                help="Override read quality threshold for "
+                                "pairing. Default to global setting")
+        pair_group.add_argument("--pairing-max-decoded-matches",
+                                type=int,
+                                default=25,
+                                help="The number of decoded matches for "
+                                "pairing. Default 25")
+        pair_group.add_argument("--pairing-min-decoded-strata",
+                                type=int,
+                                default=1,
+                                help="Minimum number of strata that are "
+                                "always fully decoded.")
+        pair_group.add_argument("--pairing-min-insert-size",
+                                type=int,
+                                default=0,
+                                help="Minimum insert size.")
+        pair_group.add_argument("--pairing-max-insert-size",
+                                type=int,
+                                default=500000,
+                                help="Minimum insert size.")
+        pair_group.add_argument("--pairing-min-matched-bases",
+                                type=float,
+                                default=0.80,
+                                help="Minimum number of matched bases.")
+        pair_group.add_argument("--pairing-max-edit-distance",
+                                type=float,
+                                default=0.30,
+                                help="Maximum edit distance.")
+        ######################################################################
+        # Transcript mapping parameters
+        ######################################################################
+        trans_group = parser.add_argument_group(
+            'Transcript Mapping Parameters'
+        )
+        trans_group.add_argument('--transcript-mismatches',
+                                 type=float,
+                                 help="Allowed mismatched for transcript "
+                                 "alignment. Defaults to global settings.")
+        trans_group.add_argument('--transcript-quality-threshold',
+                                 type=int,
+                                 help="Override read quality threshold for "
+                                 "transcript mapping")
+        trans_group.add_argument("--transcript-max-decoded-matches",
+                                 type=int,
+                                 default=150,
+                                 help="The number of decoded matches for "
+                                 "the transcript mapping is increased to a "
+                                 "default of 150 to catch all possible "
+                                 "mappings.")
+        trans_group.add_argument("--transcript-min-decoded-strata",
+                                 type=int,
+                                 help="Minimum number of strata that are "
+                                 "always fully decoded.")
+        trans_group.add_argument("--transcript-min-matched-bases",
+                                 type=float,
+                                 help="Override min matched bases for "
+                                 "transcript mapping. Defaults to global "
+                                 "setting")
+        trans_group.add_argument("--transcript-max-big-indel-length",
+                                 type=int,
+                                 help="Override big indel length for "
+                                 "transcript mapping. Defaults to global "
+                                 "setting")
+        trans_group.add_argument("--transcript-max-edit-distance",
+                                 type=float,
+                                 help="Override max edit distance for "
+                                 "transcript mapping. Defaults to global "
+                                 "setting")
+        trans_group.add_argument("--transcript-strata-after-best",
+                                 type=int,
+                                 help="Override strata after best for "
+                                 "transcript mapping. Defaults to global "
+                                 "setting")
+        ######################################################################
+        # Denovo mapping parameters
+        ######################################################################
+        denovo_group = parser.add_argument_group(
+            'De-Novo Mapping Parameters'
+        )
+        denovo_group.add_argument('--denovo-mismatches',
+                                  type=float,
+                                  help="Allowed mismatched for denovo "
+                                  "alignment. Defaults to global settings.")
+        denovo_group.add_argument('--denovo-quality-threshold',
+                                  type=int,
+                                  help="Override read quality threshold for "
+                                  "denovo mapping")
+        denovo_group.add_argument("--denovo-max-decoded-matches",
+                                  type=int,
+                                  default=150,
+                                  help="The number of decoded matches for "
+                                  "the denovo mapping is increased to a "
+                                  "default of 150 to catch all possible "
+                                  "mappings.")
+        denovo_group.add_argument("--denovo-min-decoded-strata",
+                                  type=int,
+                                  help="Minimum number of strata that are "
+                                  "always fully decoded.")
+        denovo_group.add_argument("--denovo-min-matched-bases",
+                                  type=float,
+                                  help="Override min matched bases for "
+                                  "denovo mapping. Defaults to global "
+                                  "setting")
+        denovo_group.add_argument("--denovo-max-big-indel-length",
+                                  type=int,
+                                  help="Override big indel length for "
+                                  "denovo mapping. Defaults to global "
+                                  "setting")
+        denovo_group.add_argument("--denovo-max-edit-distance",
+                                  type=float,
+                                  help="Override max edit distance for "
+                                  "denovo mapping. Defaults to global "
+                                  "setting")
+        denovo_group.add_argument("--denovo-strata-after-best",
+                                  type=int,
+                                  help="Override strata after best for "
+                                  "denovo mapping. Defaults to global "
+                                  "setting")
+        ######################################################################
+        # Split map junction detection paramters
+        ######################################################################
+        junctions_group = parser.add_argument_group(
+            'Split mapper and junction detection parameters'
+        )
+        junctions_group.add_argument('--junction-mismatches',
+                                     type=float,
+                                     default=0.04,
+                                     help="Allowed mismatched for junction "
+                                     "detection alignments. Default 0.04")
+        junctions_group.add_argument('--junction-max-matches',
+                                     type=int,
+                                     default=5,
+                                     help="Maximum number of multi-maps "
+                                     "allowed for a junction. Default 5")
+        junctions_group.add_argument('--junction-strata-after-best',
+                                     type=int,
+                                     default=0,
+                                     help="Maximum number of strata to "
+                                     "examine after best. Default 0")
+        junctions_group.add_argument('--min-denovo-intron-length',
+                                     type=int,
+                                     default=4,
+                                     help="Minimum intron length. Default 4")
+        junctions_group.add_argument('--max-denovo-intron-length',
+                                     type=int,
+                                     default=500000,
+                                     help="Maximum intron length. "
+                                     "Default 500000")
+        junctions_group.add_argument('--refinement-step',
+                                     type=int,
+                                     default=2,
+                                     help="Refine the minimum split size when "
+                                     "constraints on number of candidates "
+                                     "are not met. Default 2")
+        junctions_group.add_argument('--min-split-size',
+                                     type=int,
+                                     default=15,
+                                     help="Minimum split length. Default 15")
+        junctions_group.add_argument('--matches-threshold',
+                                     type=int,
+                                     default=75,
+                                     help="Maximum number candidates "
+                                     "considered when splitting the read. "
+                                     "Default 75")
+        junctions_group.add_argument('--junction-coverage',
+                                     type=int,
+                                     default=2,
+                                     help="Minimum allowed junction coverage. "
+                                     "Default 2")
+        junctions_group.add_argument(
+            '--junction-consensus',
+            default=(",".join(["%s+%s" % (c[0], c[1])
+                               for c in gem.extended_splice_consensus])),
+            help="Consensus used to detect junction "
+            "sites. Default '%s'" %
+            (",".join(["(%s,%s)" % (c[0], c[1])
+                       for c in gem.extended_splice_consensus])))
+        ######################################################################
+        # filter parameters
+        ######################################################################
+        filter_group = parser.add_argument_group(
+            'Filter parameters'
+        )
+        filter_group.add_argument('--filter-intron-length',
+                                  type=int,
+                                  default=20,
+                                  help="Filter alignment for intron length")
+        filter_group.add_argument('--filter-block-length',
+                                  type=int,
+                                  default=5,
+                                  help="Filter alignment for minimum exon "
+                                  "overlap")
+        filter_group.add_argument('--filter-level',
+                                  type=int,
+                                  default=0,
+                                  help="Reduce multi-maps by uniqueness level")
+        filter_group.add_argument('--filter-max-maps',
+                                  type=int,
+                                  default=5,
+                                  help="Exclude alignment with more than "
+                                  "max-maps multi-maps.")
+        filter_group.add_argument('--filter-max-errors',
+                                  type=int,
+                                  default=0,
+                                  help="Exclude alignment with more than "
+                                  "max-error error events.")
+        filter_group.add_argument('--filter-all',
+                                  default=False,
+                                  action="store_true",
+                                  help="Do not keep unique mappings but apply "
+                                  "the filter to all alignments.")
+        filter_group.add_argument('--no-annotation-filter',
+                                  action="store_true",
+                                  default=False,
+                                  help="Do not filter by annotation. "
+                                  "The annotation filter checks that pairs "
+                                  "and splits fall into the same gene "
+                                  "(assuming the gene_id is set in the "
+                                  "annotation)")
+        ######################################################################
+        # filter parameters
+        ######################################################################
+        counts_group = parser.add_argument_group(
+            'Gene counts'
+        )
+        counts_group.add_argument('--count-no-multi-maps',
+                                  action="store_true",
+                                  help="Do not count multi-maps")
+        counts_group.add_argument('--count-no-weights',
+                                  action="store_true",
+                                  help="Do not weight multi-maps and "
+                                  "multi-gene hits.")
+        counts_group.add_argument('--count-exon-threshold',
+                                  type=float,
+                                  default=1.0,
+                                  help="Minimum overlap with exon to be "
+                                  "considered.")
+
+        ######################################################################
+        # Split map junction detection parameters
+        ######################################################################
+        bam_group = parser.add_argument_group(
+            'SAM/BAM conversion'
+        )
+        bam_group.add_argument("--no-sort",
+                               action="store_true",
+                               default=False,
+                               help="Do not sort the BAM file")
+        bam_group.add_argument("--sort-mem",
+                               default="768M",
+                               help="Memory passed to samtools for sorting")
+        bam_group.add_argument("--no-index",
+                               action="store_true",
+                               default=False,
+                               help="Do not create a BAM index")
+        bam_group.add_argument("--no-xs",
+                               action="store_true",
+                               default=False,
+                               help="Do not calculate the XS field for splits")
         ######################################################################
         # Job control
-        #####################################################################
+        ######################################################################
         ctrl_group = parser.add_argument_group('Job and Pipeline controls')
         ctrl_group.add_argument("--dry", action="store_true", default=False,
                                 help="Show the pipeline configuraiton but "
@@ -1087,6 +1462,7 @@ class RnaPipeline(Command):
         ## check for a name or guess it
         if not args['name']:
             self._guess_name(args)
+
         ###########################################################
         # Output file configuration
         ###########################################################
@@ -1122,6 +1498,31 @@ class RnaPipeline(Command):
         opts.add_output('read_length_stats_out',
                         fn("_rl.stats.json", c=False))
 
+        ###########################################################
+        # set transcript and de-novo defaults
+        ###########################################################
+        def _set_default(prefix, glob):
+            name = '%s_%s' % (prefix, glob)
+            if opts[name].raw() is None:
+                opts[name].value = opts[glob].get()
+
+        _set_default('transcript', 'mismatches')
+        _set_default('transcript', 'quality_threshold')
+        _set_default('transcript', 'min_decoded_strata')
+        _set_default('transcript', 'min_matched_bases')
+        _set_default('transcript', 'max_big_indel_length')
+        _set_default('transcript', 'max_edit_distance')
+        _set_default('transcript', 'strata_after_best')
+
+        _set_default('denovo', 'mismatches')
+        _set_default('denovo', 'quality_threshold')
+        _set_default('denovo', 'min_decoded_strata')
+        _set_default('denovo', 'min_matched_bases')
+        _set_default('denovo', 'max_big_indel_length')
+        _set_default('denovo', 'max_edit_distance')
+        _set_default('denovo', 'strata_after_best')
+
+        _set_default('pairing', 'quality_threshold')
         ###########################################################
         # General input data checks
         ###########################################################
@@ -1242,7 +1643,16 @@ class RnaPipeline(Command):
             index=index,
             output=args['initial_map_out'],
             compress=args['compress_all'],
-            quality=quality
+            quality=quality,
+            mismatches=args['mismatches'],
+            quality_threshold=args['quality_threshold'],
+            max_decoded_matches=args['max_decoded_matches'],
+            min_decoded_strata=args['min_decoded_strata'],
+            min_matched_bases=args['min_matched_bases'],
+            max_big_indel_length=args['max_big_indel_length'],
+            max_edit_distance=args['max_edit_distance'],
+            mismatch_alphabet=args['mismatch_alphabet'],
+            strata_after_best=args['strata_after_best']
         )
         set_mapping_input(initial_mapping)
         all_mappings.append(initial_mapping)
@@ -1256,7 +1666,16 @@ class RnaPipeline(Command):
                 threads=threads,
                 index=args['transcript_index'],
                 keys=args['transcript_keys'],
-                quality=quality
+                quality=quality,
+                mismatch_alphabet=args['mismatch_alphabet'],
+                mismatches=args['transcript_mismatches'],
+                quality_threshold=args['transcript_quality_threshold'],
+                max_decoded_matches=args['transcript_max_decoded_matches'],
+                min_decoded_strata=args['transcript_min_decoded_strata'],
+                min_matched_bases=args['transcript_min_matched_bases'],
+                max_big_indel_length=args['transcript_max_big_indel_length'],
+                max_edit_distance=args['transcript_max_edit_distance'],
+                strata_after_best=args['transcript_strata_after_best']
             ))
             t_filter = job('GTF.Filter', temp=True).run(
                 'gemtools_filter',
@@ -1270,14 +1689,24 @@ class RnaPipeline(Command):
             all_mappings.append(transcript_mapping)
 
         ###################################################################
-        # Denovo transcriptome mapping
+        # Denovo transcript mapping
         ###################################################################
         junctions = set_mapping_input(job('Denovo.Junctions', temp=True).run(
             'gemtools_denovo_junctions',
             index=args['index'],
             threads=threads,
             quality=quality,
-            output=args["denovo_junctions_out"]
+            output=args["denovo_junctions_out"],
+            mismatches=args['junction_mismatches'],
+            max_matches=args['junction_max_matches'],
+            strata_after_best=args['junction_strata_after_best'],
+            min_intron_length=args['min_denovo_intron_length'],
+            max_intron_length=args['max_denovo_intron_length'],
+            consensus=args['junction_consensus'],
+            coverage=args['junction_coverage'],
+            refinement_step_size=args['refinement_step'],
+            min_split_size=args['min_split_size'],
+            matches_threshold=args['matches_threshold']
         ))
         if not args['read_length']:
             # calculate simple stats on the initial mapping
@@ -1308,7 +1737,16 @@ class RnaPipeline(Command):
             threads=threads,
             keys=denovo_transcriptome.keys_out,
             compress=args['compress_all'],
-            quality=quality
+            quality=quality,
+            mismatch_alphabet=args['mismatch_alphabet'],
+            mismatches=args['denovo_mismatches'],
+            quality_threshold=args['denovo_quality_threshold'],
+            max_decoded_matches=args['denovo_max_decoded_matches'],
+            min_decoded_strata=args['denovo_min_decoded_strata'],
+            min_matched_bases=args['denovo_min_matched_bases'],
+            max_big_indel_length=args['denovo_max_big_indel_length'],
+            max_edit_distance=args['denovo_max_edit_distance'],
+            strata_after_best=args['denovo_strata_after_best']
         ))
         d_filter = job('Denovo.Filter', temp=True).run(
             'gemtools_filter',
@@ -1321,16 +1759,21 @@ class RnaPipeline(Command):
         all_mappings.append(denovo_mapping)
 
         ###################################################################
-        # Merge and pair if not singleend
+        # Merge and pair if not single end
         ###################################################################
         merge = job('Merge').run(
             'gemtools_merge',
             same=True,
             threads=threads,
             input=all_mappings)
+
         score = job('Score').run(
             'gemtools_score',
             index=args['index'],
+            filter=",".join(str(i) for i in (args['output_min_strata'],
+                                             (args['output_max_strata'] -
+                                              args['output_min_strata']),
+                                             args['output_max_matches'])),
             threads=threads,
             quality=quality,
             compress=True,
@@ -1341,7 +1784,16 @@ class RnaPipeline(Command):
                 'gemtools_pairalign',
                 quality=quality,
                 threads=threads,
-                index=args['index'])
+                index=args['index'],
+                max_decoded_matches=args['pairing_max_decoded_matches'],
+                min_decoded_strata=args['pairing_min_decoded_strata'],
+                min_insert_size=args['pairing_min_insert_size'],
+                max_insert_size=args['pairing_max_insert_size'],
+                max_edit_distance=args['pairing_max_edit_distance'],
+                max_extendable_matches=0,
+                max_matches_per_extension=0,
+                filter_max_matches=0,
+            )
             merge | pair | score
         else:
             merge | score
@@ -1351,11 +1803,11 @@ class RnaPipeline(Command):
             threads=threads,
             index=args['index'],
             quality=quality,
-            memory="768M",
-            paired=True,
-            no_sort=False,
-            no_xs=False,
-            no_index=False
+            memory=args['sort_mem'],
+            paired=not args['single_end'],
+            no_sort=args['no_sort'],
+            no_xs=args['no_xs'],
+            no_index=args['no_index']
         )
         job('BAM').run(
             'gemtools_convert',
@@ -1370,15 +1822,15 @@ class RnaPipeline(Command):
             output=args['filtered_out'],
             annotation=args['annotation'],
             no_penalty_for_splitmaps=True,
-            paired_end=True,  # paired
-            keep_unique=True,
-            min_intron_length=20,
-            min_block_length=5,
-            reduce_by_gene_id=False,
-            reduce_by_junctions=False,
-            reduce_to_unique_strata=0,
-            reduce_to_max_maps=5,
-            max_strata=0,  # max error events
+            paired_end=not args['single_end'],  # paired
+            keep_unique=not args['filter_all'],
+            min_intron_length=args['filter_intron_length'],
+            min_block_length=args['filter_block_length'],
+            reduce_by_gene_id=not args['no_annotation_filter'],
+            reduce_by_junctions=not args['no_annotation_filter'],
+            reduce_to_unique_strata=args['filter_level'],
+            reduce_to_max_maps=args['filter_max_maps'],
+            max_strata=args['filter_max_errors'],  # max error events
             compress=True)
         job('Filtered.BAM').run(
             'gemtools_convert',
@@ -1393,7 +1845,7 @@ class RnaPipeline(Command):
             threads=threads,
             output=args['stats_out'],
             json=args['stats_json_out'],
-            paired_end=True,
+            paired_end=not args['single_end'],
             all_tests=True)
 
         job('Filtered.Stats').run(
@@ -1402,7 +1854,7 @@ class RnaPipeline(Command):
             threads=threads,
             output=args['filtered_stats_out'],
             json=args['filtered_stats_json_out'],
-            paired_end=True,
+            paired_end=not args['single_end'],
             all_tests=True)
 
         # create counts
@@ -1413,11 +1865,11 @@ class RnaPipeline(Command):
             annotation=args['annotation'],
             output=args['gtf_stats_out'],
             json=args['gtf_stats_json_out'],
-            paired_end=True,
-            exon_overlap=1,
+            paired_end=not args['single_end'],
+            exon_overlap=args['count_exon_threshold'],
             counts=args['gtf_counts_out'],
-            multi_maps=True,
-            weighted=True
+            multi_maps=not args['count_no_multi_maps'],
+            weighted=not args['count_no_weights']
         )
         job('Filtered.GTF.Stats').run(
             'gemtools_gtf_stats',
@@ -1426,11 +1878,11 @@ class RnaPipeline(Command):
             annotation=args['annotation'],
             output=args['filtered_gtf_stats_out'],
             json=args['filtered_gtf_stats_json_out'],
-            paired_end=True,
-            exon_overlap=1,
+            paired_end=not args['single_end'],
+            exon_overlap=args['count_exon_threshold'],
             counts=args['filtered_gtf_counts_out'],
-            multi_maps=True,
-            weighted=True
+            multi_maps=not args['count_no_multi_maps'],
+            weighted=not args['count_no_weights']
         )
         if args['keep']:
             p.excludes.append('cleanup')
