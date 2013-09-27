@@ -165,7 +165,7 @@ void gt_remove_maps_with_n_or_more_mismatches() {
         }
         // Add the map
         if (num_misms <= 3) {
-          gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+          gt_alignment_insert_map(alignment_dst,gt_map_copy(map), true);
         }
       }
 

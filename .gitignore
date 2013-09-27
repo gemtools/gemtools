@@ -29,3 +29,9 @@ dist-utils/pyinstaller-2.0.tar.bz2
 dist-utils/pyinstaller-2.0/
 Cython-0.18*
 environment/
+.project
+.settings/
+.cproject
+.pydevproject
+.ropeproject/
+*~

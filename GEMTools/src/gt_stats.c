@@ -416,7 +416,7 @@ GT_INLINE void gt_stats_get_inss_distribution(uint64_t* const inss,const int64_t
   // Check boundaries
   if (insert_size<GT_STATS_INSS_MIN) {
     ++inss[0];
-  } else if (insert_size>GT_STATS_INSS_MAX) {
+  } else if (insert_size>=GT_STATS_INSS_MAX) {
     ++inss[GT_STATS_INSS_RANGE-1];
   } else { // Fit insert_size into the buckets
     ++inss[GT_STATS_INSS_GET_BUCKET(insert_size)];
@@ -521,6 +521,7 @@ GT_INLINE gt_stats* gt_stats_new() {
   stats->num_alignments=0;
   stats->num_maps=0;
   stats->num_mapped=0;
+  stats->num_mapped_reads=0;
   stats->mmap = gt_calloc(GT_STATS_MMAP_RANGE,uint64_t,true); // MMaps
   stats->uniq = gt_calloc(GT_STATS_UNIQ_RANGE,uint64_t,true); // Uniq
   // Maps Error Profile
@@ -552,6 +553,7 @@ GT_INLINE void gt_stats_clear(gt_stats* const stats) {
   stats->num_alignments=0;
   stats->num_maps=0;
   stats->num_mapped=0;
+  stats->num_mapped_reads=0;
   // MMap Distribution
   memset(stats->mmap,0,GT_STATS_MMAP_RANGE*sizeof(uint64_t)); // MMaps
   // Uniq Distribution
@@ -605,6 +607,7 @@ GT_INLINE void gt_stats_merge(gt_stats** const stats,const uint64_t stats_array_
     stats[0]->num_alignments += stats[i]->num_alignments;
     stats[0]->num_maps += stats[i]->num_maps;
     stats[0]->num_mapped += stats[i]->num_mapped;
+    stats[0]->num_mapped_reads += stats[i]->num_mapped_reads;
     // MMap Distribution
     GT_STATS_VECTOR_ADD(stats[0]->mmap,stats[i]->mmap,GT_STATS_MMAP_RANGE);
     // Uniq Distribution
@@ -690,17 +693,20 @@ GT_INLINE void gt_stats_make_maps_error_profile(
     gt_string* const quals = alignment->qualities;
     const bool has_qualities = gt_alignment_has_qualities(alignment);
     char quality_misms = 0;
+    uint64_t multi_block_offset = 0;
+    uint64_t position = 0;
     GT_MAP_ITERATE(map,map_block) { // Iterate over splits (map blocks)
       total_bases += gt_map_get_base_length(map_block);
       GT_MISMS_ITERATE(map_block,misms) { // Iterate over mismatches/indels
         ++total_errors_events;
+        position = misms->position + multi_block_offset;
         // Records position of misms/indel
-        if (misms->position < GT_STATS_LARGE_READ_POS_RANGE) {
-          maps_error_profile->error_position[misms->position]++;
+        if (position < GT_STATS_LARGE_READ_POS_RANGE) {
+          maps_error_profile->error_position[position]++;
         }
         // Record quality of misms/indel
         if (has_qualities) {
-          quality_misms = gt_string_get_string(quals)[misms->position];
+          quality_misms = gt_string_get_string(quals)[position];
           maps_error_profile->qual_score_errors[(uint8_t)quality_misms]++;
         }
         switch (misms->misms_type) {
@@ -709,18 +715,18 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             ++total_levenshtein;
             ++total_bases_not_matching;
             // Record transition
-            gt_check(misms->base==gt_string_get_string(read)[misms->position],MISMS_TRANSITION);
+            gt_check(misms->base==gt_string_get_string(read)[position],MISMS_TRANSITION);
             uint64_t idx = 0;
-            idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
+            idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[position]];
             idx *= GT_STATS_MISMS_BASE_RANGE;
             idx += gt_cdna_encode[(uint8_t)misms->base];
             maps_error_profile->misms_transition[idx]++;
-            if (misms->position>0 && misms->position<gt_map_get_base_length(map_block)-1) { // 1-context
-              idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position-1]];
+            if (position>0 && position<gt_map_get_base_length(map_block)-1) { // 1-context
+              idx  = gt_cdna_encode[(uint8_t)gt_string_get_string(read)[position-1]];
               idx *= GT_STATS_MISMS_BASE_RANGE;
-              idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position]];
+              idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[position]];
               idx *= GT_STATS_MISMS_BASE_RANGE;
-              idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[misms->position+1]];
+              idx += gt_cdna_encode[(uint8_t)gt_string_get_string(read)[position+1]];
               idx *= GT_STATS_MISMS_BASE_RANGE;
               idx += gt_cdna_encode[(uint8_t)misms->base];
               maps_error_profile->misms_1context[idx]++;
@@ -735,7 +741,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             total_del_length += misms->size;
             total_bases_not_matching += misms->size;
             // Record trim
-            if (misms->position==0 || misms->position+misms->size==gt_map_get_base_length(map_block)) {
+            if (position==0 || position+misms->size==gt_map_get_base_length(map_block)) {
               total_bases_trimmed += misms->size;
             }
             break;
@@ -745,6 +751,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
             break;
         }
       }
+      multi_block_offset += gt_map_get_base_length(map_block);
     }
   }
   // Record general error stats
@@ -901,6 +908,10 @@ GT_INLINE void gt_stats_calculate_template_stats(
     }
     // Nucleotide stats
     gt_stats_get_nucleotide_stats(stats->nt_counting,alignment->read);
+    // read mapped stats
+    if(gt_alignment_get_num_maps(alignment) > 0){
+      ++stats->num_mapped_reads;
+    }
   }
   stats->total_bases += alignment_total_length;
   /*
@@ -1473,8 +1484,8 @@ GT_INLINE void gt_stats_print_maps_stats(FILE* stream,gt_stats* const stats,cons
   gt_stats_print_uniq_distribution(stream,stats->uniq,num_templates);
   fprintf(stream,"Strand.combinations \n");
   if (paired_end) {
-    fprintf(stream,"  --> F+R %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_fr,GT_GET_PERCENTAGE(maps_profile->pair_strand_rf,stats->num_maps));
-    fprintf(stream,"  --> R+F %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_rf,GT_GET_PERCENTAGE(maps_profile->pair_strand_fr,stats->num_maps));
+    fprintf(stream,"  --> F+R %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_fr,GT_GET_PERCENTAGE(maps_profile->pair_strand_fr,stats->num_maps));
+    fprintf(stream,"  --> R+F %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_rf,GT_GET_PERCENTAGE(maps_profile->pair_strand_rf,stats->num_maps));
     fprintf(stream,"  --> F+F %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_ff,GT_GET_PERCENTAGE(maps_profile->pair_strand_ff,stats->num_maps));
     fprintf(stream,"  --> R+R %" PRIu64 " (%2.3f%%) \n",maps_profile->pair_strand_rr,GT_GET_PERCENTAGE(maps_profile->pair_strand_rr,stats->num_maps));
     gt_stats_print_inss_distribution(stream,stats->maps_profile->inss,stats->num_maps,false);
@@ -1519,11 +1530,13 @@ GT_INLINE void gt_stats_print_general_stats(FILE* stream,gt_stats* const stats,c
   // Print
   fprintf(stream,"  --> Num.Reads %" PRIu64 "\n",num_reads);
   if (num_reads==0) return;
-  if (paired_end) fprintf(stream,"    --> Num.Paired.Templates %" PRIu64 "\n",num_templates);
+  if (paired_end) fprintf(stream,"    --> Num.Templates %" PRIu64 "\n",num_templates);
   fprintf(stream,"    --> Reads.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
       stats->min_length,GT_DIV(stats->total_bases,stats->num_blocks),stats->max_length);
-  fprintf(stream,"  --> Reads.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
+  fprintf(stream,"  --> Templates.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped,
       num_templates?100.0*(float)stats->num_mapped/(float)num_templates:0.0);
+  fprintf(stream,"  --> Reads.Mapped %" PRIu64 " (%2.3f%%)\n",stats->num_mapped_reads,
+      num_reads?100.0*(float)stats->num_mapped_reads/(float)num_reads:0.0);
   fprintf(stream,"    --> Reads.Mapped.Length (min,avg,max) (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n",
       stats->mapped_min_length,GT_DIV(stats->total_bases_aligned,(paired_end)?stats->num_mapped*2:stats->num_mapped),stats->mapped_max_length);
   fprintf(stream,"  --> Num.Bases %" PRIu64 "\n",stats->total_bases);

@@ -34,7 +34,7 @@ GT_INLINE gt_map** gt_template_put_mmap(
  * Template's MMaps high-level insertion operators (Update global state: counters, ...)
  */
 GT_INLINE void gt_template_insert_mmap(
-    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes);
+    gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes, bool check_duplicates);
 GT_INLINE void gt_template_insert_mmap_fx(
     int64_t (*gt_mmap_cmp_fx)(gt_map**,gt_map**,uint64_t),
     gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes);

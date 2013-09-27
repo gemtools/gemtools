@@ -240,7 +240,7 @@ START_TEST(gt_test_loosing_alignments)
   gt_alignment *alignment_dst;
   alignment_dst = gt_alignment_copy(alignment,false);
   GT_ALIGNMENT_ITERATE(alignment,map) {
-      gt_alignment_insert_map(alignment_dst,gt_map_copy(map));
+      gt_alignment_insert_map(alignment_dst,gt_map_copy(map), true);
   }
   gt_output_map_sprint_alignment(string, alignment_dst, output_attributes);
   // convert to string

@@ -17,8 +17,6 @@ import gem
 import gem.junctions
 import __builtin__
 
-import multiprocessing as mp
-
 
 LOG_NOTHING = 1
 LOG_STDERR = 2
@@ -137,6 +135,7 @@ executables = execs_dict({
     "gt.filter": "gt.filter",
     "gt.map.2.sam": "gt.map.2.sam",
     "gt.mapset": "gt.mapset",
+    "gt.gtfcount": "gt.gtfcount",
     "gt.stats": "gt.stats"
     })
 
@@ -687,6 +686,7 @@ def pairalign(input, index, output=None,
               max_matches_per_extension=0,
               unique_pairing=False,
               map_both_ends=False,
+              filter_max_matches=0,
               threads=1,
               compress=False,
               extra=None):
@@ -725,6 +725,10 @@ def pairalign(input, index, output=None,
         pa.append("--map-both-ends")
 
     tools = [pa]
+    filter_pa = [executables["gt.filter"], "-t", str(threads), "-p"]
+    if filter_max_matches > 0:
+        filter_pa.extend(["--max-output-matches", str(filter_max_matches)])
+    tools.append(filter_pa)
     if compress:
         gzip = _compressor(threads=max(1, threads / 2))
         tools.append(gzip)
@@ -815,9 +819,9 @@ def score(input,
         #input = input.raw_stream()
 
     tools = [score_p]
-    tools.append(["/home/devel/thasso/git/github/gemtools/GEMTools/bin/gt.filter", "-t", "8"])
+
     if compress:
-        gzip = _compressor(threads=max(1, threads / 2))
+        gzip = _compressor(threads=threads)
         tools.append(gzip)
 
     process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=False)
@@ -1011,6 +1015,86 @@ def index(input, output, content="dna", threads=1):
     if process.wait() != 0:
         raise ValueError("Error while executing the gem-indexer")
     return os.path.abspath("%s.gem" % output)
+
+
+def gtfcounts(inputs, annotation, output=None, json_output=None, threads=1,
+              counts=None, weight=True, multimaps=False, exon_threshold=0,
+              paired=False):
+    """Run the count stats. This returns the gtf count stats as dictionary"""
+    p = [
+        executables['gt.gtfcount'],
+        '--threads', str(threads),
+        '-f', 'both',
+        '-a', annotation
+    ]
+    if paired:
+        p.append("-p")
+
+    if counts is not None:
+        p.extend(["-g", counts])
+        if weight:
+            p.append("-w")
+        if multimaps:
+            p.append("-m")
+        if exon_threshold > 0:
+            p.extend(["-e", str(exon_threshold)])
+
+    from subprocess import PIPE
+    process = utils.run_tools([p], name="gtfcounts", input=inputs,
+                              output=output, raw=True, write_map=True,
+                              logfile=PIPE)
+
+    if json_output is not None:
+        json_output = open(json_output, 'w')
+
+    lines = []
+    for line in process.processes[0].process.stderr:
+        lines.append(line.strip())
+        if json_output is not None:
+            json_output.write(line)
+
+    if json_output is not None:
+        json_output.close()
+
+    if process.wait() != 0:
+        raise ValueError("Error while running gt.gtfcounts")
+    import json
+    return json.loads("\n".join(lines))
+
+
+def stats(inputs, output=None, json_output=None, threads=1, paired=False):
+    """Run the count gt.stats with all options enabled. The function returns the parsed
+    json stats.
+    """
+    p = [
+        executables['gt.stats'],
+        '-a',
+        '-t', str(threads),
+        '-f', 'both'
+    ]
+    if paired:
+        p.append("-p")
+
+    from subprocess import PIPE
+    process = utils.run_tools([p], name="stats", input=inputs,
+                              output=output, raw=True, write_map=True,
+                              force_debug=True, logfile=PIPE)
+    if json_output is not None:
+        json_output = open(json_output, 'w')
+
+    lines = []
+    for line in process.processes[0].process.stderr:
+        lines.append(line.strip())
+        if json_output is not None:
+            json_output.write(line)
+
+    if json_output is not None:
+        json_output.close()
+
+    if process.wait() != 0:
+        raise ValueError("Error while running gt.stats")
+    import json
+    return json.loads("\n".join(lines))
 
 
 def _compressor(threads=1):

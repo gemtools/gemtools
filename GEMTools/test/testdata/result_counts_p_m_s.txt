@@ -1,0 +1,3 @@
+Gene_A	9
+Gene_B	8
+Gene_C	4

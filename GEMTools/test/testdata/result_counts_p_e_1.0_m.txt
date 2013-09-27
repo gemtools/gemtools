@@ -1,0 +1,2 @@
+Gene_A	6
+Gene_B	4

@@ -24,7 +24,7 @@ MODULES=gem_tools \
         gt_input_sam_parser gt_sam_attributes \
         gt_buffered_output_file gt_output_file gt_generic_printer gt_output_buffer \
         gt_output_printer gt_output_map gt_output_fasta gt_output_sam gt_output_generic_printer \
-        gt_stats gt_gemIdx_loader gt_gtf
+        gt_stats gt_gemIdx_loader gt_gtf gt_json
 SRCS=$(addsuffix .c, $(MODULES))
 OBJS=$(addprefix $(FOLDER_BUILD)/, $(SRCS:.c=.o))
 GT_LIB=$(FOLDER_LIB)/libgemtools.a
@@ -45,6 +45,8 @@ OPENMP_FLAGS:=
 endif
 
 $(FOLDER_BUILD)/gt_fm.o : gt_fm.c
+	$(CC) $(GEM_TOOLS_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@ $(OPENMP_FLAGS)
+$(FOLDER_BUILD)/gt_gtf.o : gt_gtf.c
 	$(CC) $(GEM_TOOLS_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@ $(OPENMP_FLAGS)
 $(FOLDER_BUILD)/gt_mm.o : gt_mm.c
 	$(CC) $(GEM_TOOLS_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@ $(OPENMP_FLAGS)

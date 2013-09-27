@@ -67,6 +67,42 @@ def only_split_maps(mappings, output=None, threads=1, paired=False,
                       paired=paired, compress=compress)
 
 
+def rnaseq_filter(mappings, output=None, threads=1, paired=False,
+                  min_intron=0,
+                  min_block=0,
+                  level=-1,
+                  max_strata=0,
+                  max_multi_maps=0,
+                  gene_pairing=False,
+                  junction_filter=False,
+                  keep_unique=True,
+                  annotation=None,
+                  compress=False):
+    """Filter rna seq mappings"""
+    if (gene_pairing or junction_filter) and annotation is None:
+        raise ValueError("You have to specify an annotation to perform "
+                         "junction or gene-pairing filtering!")
+
+    args = ["--min-intron-length", str(min_intron),
+            "--min-block-length", str(min_block)]
+    if keep_unique:
+        args.append("-u")
+    if gene_pairing:
+        args.append("--reduce-by-gene-id")
+    if junction_filter:
+        args.append("--reduce-by-junctions")
+    if level >= 0:
+        args.extend(["--reduce-to-unique-strata", str(level)])
+    if max_multi_maps >= 1:
+        args.extend(["--reduce-to-max-maps", str(max_multi_maps)])
+    if max_strata > 0:
+        args.extend(["--max-strata", str(max_strata)])
+
+
+    return run_filter(mappings, args, output=output, threads=threads,
+                      paired=paired, compress=compress, rna_seq=True)
+
+
 def run_filter(input, args, output=None,
                threads=1,
                paired=False,

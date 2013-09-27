@@ -23,6 +23,7 @@ def gemtools():
             "index": gem.production.Index,
             "rna-pipeline": gem.production.RnaPipeline,
             "t-index": gem.production.TranscriptIndex,
+            "gtfcount": gem.production.GtfCount,
             "merge": gem.production.Merge,
             "convert": gem.production.Convert,
             "gtf-junctions": gem.production.Junctions,
@@ -30,7 +31,6 @@ def gemtools():
             "stats": gem.production.Stats,
             "filter": gem.production.Filter,
             "report": gem.production.StatsReport,
-            "sam": gem.production.SamConverter
         }
         instances = {}
 

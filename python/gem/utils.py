@@ -20,6 +20,7 @@ import tempfile
 import multiprocessing as mp
 import json
 import subprocess
+import signal
 
 
 # clobal process registry
@@ -41,6 +42,8 @@ def terminate_processes():
     for p in _process_registry:
         if p.is_alive() and p._popen is not None:
             p.terminate()
+            if p.is_alive():  # terminate send a SIGTERM, now kill it properly
+                os.kill(p._popen.pid, signal.SIGKILL)
 
 
 class Timer(object):
@@ -248,8 +251,11 @@ class Process(object):
 
         # check the logfile
         if self.logfile is not None:
-            logging.debug("Setting process log file to %s", self.logfile)
-            stderr = open(self.logfile, 'wb')
+            if isinstance(self.logfile, basestring):
+                logging.debug("Setting process log file to %s", self.logfile)
+                stderr = open(self.logfile, 'wb')
+            else:
+                stderr = self.logfile
 
         #check outout
         if stdout is not None and isinstance(stdout, basestring):
@@ -303,7 +309,7 @@ class Process(object):
         logging.debug("Process '%s' finished with %d", str(self), exit_value)
         if exit_value is not 0:
             logging.error("Process '%s' finished with %d", str(self), exit_value)
-            if self.logfile is not None:
+            if self.logfile is not None and isinstance(self.logfile, basestring):
                 with open(self.logfile) as f:
                     for line in f:
                         logging.error("%s" % (line.strip()))
@@ -393,7 +399,7 @@ class ProcessWrapper(object):
         self.raw = raw
         self.exit_value = None
 
-    def submit(self, command, input=subprocess.PIPE, output=None, env=None):
+    def submit(self, command, input=subprocess.PIPE, output=None, env=None, logfile=None):
         """Run a command. The command must be list of command and its parameters.
         If input is specified, it is passed to the stdin of the subprocess instance.
         If output is specified, it is connected to the stdout of the underlying subprocess.
@@ -401,11 +407,11 @@ class ProcessWrapper(object):
 
         This is indened to be used in pipes and specifying output will close the pipe
         """
-        logfile = None
+        logfile = logfile
         parent = None
         if len(self.processes) > 0:
             parent = self.processes[-1]
-        if logging.getLogger().level is not logging.DEBUG and not self.force_debug:
+        if logfile is None and logging.getLogger().level is not logging.DEBUG and not self.force_debug:
             # create a temporary log file
             tmpfile = tempfile.NamedTemporaryFile(suffix='.log', prefix=self.__command_name(command) + ".", delete=(not self.keep_logfiles))
             logfile = tmpfile.name
@@ -465,12 +471,15 @@ class ProcessWrapper(object):
             self.exit_value = exit_value
             return ev
         except Exception, e:
-            print "An error occured while waiting for one the child processes:", e
-            self.exit_value = 1
+            if isinstance(e, OSError) and e.errno == 10:
+                pass
+            else:
+                print "An error occured while waiting for one the child processes:", e
+                self.exit_value = 1
         finally:
             if not self.keep_logfiles:
                 for p in self.processes:
-                    if p.logfile is not None and os.path.exists(p.logfile):
+                    if p.logfile is not None and isinstance(p.logfile, basestring) and os.path.exists(p.logfile):
                         logging.debug("Removing log file: %s" % (p.logfile))
                         os.remove(p.logfile)
 
@@ -499,7 +508,9 @@ def _prepare_output(output):
     return None
 
 
-def run_tools(tools, input=None, output=None, write_map=False, clean_id=False, append_extra=True, name=None, keep_logfiles=False, force_debug=False, env=None, raw=False):
+def run_tools(tools, input=None, output=None, write_map=False, clean_id=False,
+              append_extra=True, name=None, keep_logfiles=False,
+              force_debug=False, env=None, raw=False, logfile=None):
     """
     Run the tools defined in the tools list using a new process per tool.
     The input must be a gem.gemtools.TemplateIterator that is used to get
@@ -523,6 +534,7 @@ def run_tools(tools, input=None, output=None, write_map=False, clean_id=False, a
     clean_id     -- it true, /1 /2 pair identifiers are enforced
     append_extra -- if false, no additional information is printed in tag
     name         -- optional name for this process group
+    logfile      -- specify a filename or a string that is used as stderr
     """
     parent_process = None
     if raw:
@@ -543,7 +555,7 @@ def run_tools(tools, input=None, output=None, write_map=False, clean_id=False, a
         if i == len(tools) - 1:
             # prepare last process output
             process_out = _prepare_output(output)
-        p.submit(commands, input=process_in, output=process_out, env=env)
+        p.submit(commands, input=process_in, output=process_out, env=env, logfile=logfile)
 
     # start the run
     p.start()
@@ -711,3 +723,20 @@ class retriever(object):
             self.__process.stdout.close()
             self.__process = None
 
+
+def get_max_read_length(input, threads=1, paired=False):
+    p = [gem.executables['gt.stats'], "--threads", str(threads)]
+    if paired:
+        p.append("-p")
+
+    process = run_tool(p, input=input, output=None, name="stats")
+    import re
+    pattern = re.compile(r'.*Reads.Length \(min,avg,max\) \(\d+,\d+,(\d+)\)')
+    max_len = -1
+    for line in process.processes[0].process.stdout:
+        m = pattern.match(line)
+        if m:
+            max_len = int(m.groups()[0])
+    if process.wait() != 0:
+        raise ValueError("Error while getting max read length from stats!")
+    return max_len
