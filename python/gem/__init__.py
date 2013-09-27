@@ -298,6 +298,7 @@ def mapper(input, index, output=None,
            threads=1,
            extra=None,
            key_file=None,
+           fast_mapping=False,
            force_min_decoded_strata=False,
            compress=False
            ):
@@ -361,6 +362,12 @@ def mapper(input, index, output=None,
 
     if unique_mapping:
         pa.append("--unique-mapping")
+
+    if fast_mapping:
+        if isinstance(fast_mapping, bool):
+            pa.append('--fast-mapping')
+        else:
+            pa.append('--fast-mapping=%s' % str(fast_mapping))
 
     if max_edit_distance > 0:
         pa.append("-e")
@@ -501,6 +508,7 @@ def splitmapper(input,
                 index,
                 output=None,
                 mismatches=0.04,
+                quality_threshold=26,
                 splice_consensus=extended_splice_consensus,
                 filter=default_filter,
                 refinement_step_size=2,
@@ -512,6 +520,7 @@ def splitmapper(input,
                 trim=None,
                 filter_splitmaps=True,
                 post_validate=True,
+                compress=False,
                 threads=1,
                 extra=None):
     """Start the GEM split mapper on the given input.
@@ -536,18 +545,23 @@ def splitmapper(input,
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
     splice_cons = _prepare_splice_consensus_parameter(splice_consensus)
+    if compress and output is None:
+        gemtools_logger.warning("Disabeling stream compression")
+        compress = False
 
-    pa = [executables['gem-rna-tools'],
-          'split-mapper',
-          '-I', index,
-          '-q', quality,
-          '-m', str(mismatches),
-          '--min-split-size', str(min_split_size),
-          '--refinement-step-size', str(refinement_step_size),
-          '--matches-threshold', str(matches_threshold),
-          '-s', str(strata_after_first),
-          '--mismatch-alphabet', mismatch_alphabet,
-          '-T', str(threads)
+    pa = [
+        executables['gem-rna-tools'],
+        'split-mapper',
+        '-I', index,
+        '-q', quality,
+        '--gem-quality-threshold', str(quality_threshold),
+        '-m', str(mismatches),
+        '--min-split-size', str(min_split_size),
+        '--refinement-step-size', str(refinement_step_size),
+        '--matches-threshold', str(matches_threshold),
+        '-s', str(strata_after_first),
+        '--mismatch-alphabet', mismatch_alphabet,
+        '-T', str(threads)
     ]
     min_threads = int(round(max(1, threads / 2)))
 
@@ -564,7 +578,8 @@ def splitmapper(input,
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
-            raise ValueError("Trim parameter has to be a list or a tuple of size 2")
+            raise ValueError("Trim parameter has to be a "
+                             "list or a tuple of size 2")
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
     tools = [pa]
@@ -575,10 +590,6 @@ def splitmapper(input,
 
     ## run the mapper
     process = None
-    original_output = output
-    if post_validate:
-        output = None
-
     raw = False
     if isinstance(input, gt.InputFile) and input.raw_sequence_stream():
         raw = False
@@ -586,11 +597,25 @@ def splitmapper(input,
         pa.append(input.filename)
         input = None
 
-    process = utils.run_tools(tools, input=input, output=output, name="GEM-Split-Mapper", raw=raw)
+    if post_validate:
+        validate_p = [
+            executables['gem-2-gem'],
+            '-I', index,
+            '-v', '-r',
+            '-T', str(max(threads, 1))
+        ]
+        tools.append(validate_p)
+
+    if compress:
+        gzip = _compressor(threads=max(1, threads / 2))
+        tools.append(gzip)
+
+    process = utils.run_tools(tools, input=input,
+                              output=output, name="GEM-Split-Mapper", raw=raw)
     splitmap_out = _prepare_output(process, output=output, quality=quality)
 
-    if post_validate:
-        return validate(splitmap_out, index, original_output, threads=threads)
+    #if post_validate:
+        #return validate(splitmap_out, index, original_output, threads=threads)
 
     return splitmap_out
 

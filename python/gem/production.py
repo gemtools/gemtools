@@ -206,90 +206,150 @@ class GemMapper(Command):
     def register(self, parser):
         parser.description = GemMapper.description
         ## required parameters
-        parser.add_argument('-I', '--index', dest="index",
-                            metavar="<index>",
+        parser.add_argument('-I', '--index',
                             help='The GEM index',
                             required=True)
-        parser.add_argument('-q', '--quality', dest="quality",
-                            metavar="<quality>",
+        parser.add_argument('-q', '--quality',
                             help='Quality offset (33/64/ignore)',
                             required=True)
         parser.add_argument('-i', '--input', dest="input",
-                            metavar="<input>",
                             default=sys.stdin,
                             help='Input File. Reads from stdin if nothing '
-                            'is specified.')
-        parser.add_argument('-o', '--output', dest="output",
-                            metavar="<output>",
+                            'is specified. (default: stdin)')
+        parser.add_argument('-o', '--output',
                             default=sys.stdout,
                             help='Output file name, prints to stdout '
-                            'if nothing is specified')
+                            'if nothing is specified. (default: stdout)')
         parser.add_argument('-t', '--threads', dest="threads",
-                            metavar="<threads>",
                             default=1,
                             type=int,
                             help='Number of threads')
         parser.add_argument('-s', '--strata-after-best',
-                            dest="strata_after_best", type=int,
-                            metavar="strata",
-                            default=0,
-                            help='The number of strata examined after '
-                            'the best one. Default 0')
-        parser.add_argument('-m', '--mismatches',
-                            dest="mismatches", metavar="mm",
-                            type=float,
-                            default=0.04,
-                            help='Set the allowed mismatch ratio as '
-                            '0 < mm < 1. Default 0.04')
-        parser.add_argument('--quality-threshold', dest="quality_threshold",
-                            type=int, metavar="qth",
-                            default=26,
-                            help='Good quality threshold. Bases with a '
-                            'quality score >= threshold are considered '
-                            'good. Default 26')
-        parser.add_argument('--max-decoded-matches',
-                            dest="max_decoded_matches",
-                            type=int,
-                            default=20,
-                            metavar="mdm",
-                            help='Maximum decoded matches. Default 20')
-        parser.add_argument('--min-decoded-strata',
-                            dest="min_decoded_strata",
                             type=int,
                             default=1,
-                            metavar="mds",
-                            help='Minimum decoded strata. '
-                            'Default to 1')
+                            help=""" A stratum is a set of matches all having
+                            the same string distance from the query. The GEM
+                            mapper is able to find not only the matches
+                            belonging to the best stratum (i.e., the best
+                            matches having minimum string distance from the
+                            query) but also additional sets of matches (the
+                            next-to-best matches, the next-to-next-to-best
+                            matches, and so on) having alignment score worse
+                            than that of the best matches. This parameter
+                            determines how many strata should be explored after
+                            the best one (i.e., --strata-after-best 1 will list
+                                          all the best and all the second best
+                                          matches).""")
+        parser.add_argument('-m', '--mismatches',
+                            type=float,
+                            default=0.04,
+                            help="""The maximum number of nucleotide
+                            substitutions allowed while mapping each read.  It
+                            is always guaranteed that, however other options
+                            are chosen, all the matches up to the specified
+                            number of substitutions will be found by the
+                            program. In case qualities are being taken into
+                            account (multi-FASTQ input), this parameter assumes
+                            the meaning of the maximum number of mismatches
+                            which can be found in high-quality bases.""")
+        parser.add_argument('--quality-threshold',
+                            type=int,
+                            default=26,
+                            help="""In case of a mapping which takes qualities
+                            into account (as deduced from a FASTQ input in
+                            Phred or Solexa format), consider as good-quality
+                            the bases having a quality score above this
+                            threshold, and as bad-quality those having a
+                            quality score below this threshold. It should be
+                            noted that the interpretation of the specified
+                            quality threshold in terms of an error probability
+                            differs for Phred and Solexa scales when q<7, or
+                            error>=0.17; aside from that, the program takes
+                            care to automatically convert this value to the
+                            correct ASCII encoding (which again differs
+                                                    depending on whether Phred
+                                                    or Solexa conventions are
+                                                    being used in the
+                                                    input).""")
+        parser.add_argument('-d', '--max-decoded-matches',
+                            type=int,
+                            default=1000,
+                            help="""The GEM mapper always provides a complete
+                            count of all the existing matches up to the
+                            selected number of mismatches; however, not all
+                            matches are printed, since only a few will be
+                            needed for the typical application. This options
+                            allows to fine-tune this behaviour. You should
+                            specify all only if due to some reason you already
+                            know that the maximum number of matches has a
+                            reasonable bound (which is not the case for typical
+                                              mammalian genomes).""")
+        parser.add_argument('-D', '--min-decoded-strata',
+                            type=int,
+                            default=0,
+                            help="""In some occasions (when maximum sensitivity
+                            is desirable) it might be useful to be sure that
+                            all the matches belonging to a number of strata are
+                            always output, irrespectively of their number. By
+                            default, the first stratum is always printed in
+                            full.  If max_decoded_matches is greater than the
+                            number of matches belonging to the strata that
+                            should be printed mandatorily, additional strata
+                            are possibly printed.""")
         parser.add_argument('--max-big-indel-length',
-                            dest="max_big_indel_length",
                             type=int,
                             default=15,
-                            metavar="mil",
-                            help='Maximum big indel length. '
-                            'Default to 15')
+                            help="""The GEM mapper implements a special
+                            algorithm that, in addition to ordinary matches, is
+                            sometimes able to find a single long indel (in
+                            particular, a long insertion in the read).  This
+                            option specifies the maximum allowed size for
+                            such long indel.""")
         parser.add_argument('--min-matched-bases',
-                            dest="min_matched_bases",
                             type=float,
                             default=0.80,
-                            metavar="mmb",
-                            help='Minimum ratio of bases that '
-                            'must be matched. Default 0.80')
-        parser.add_argument('--max-edit-distance',
-                            dest="max_edit_distance",
-                            metavar="med",
+                            help="""This parameter limits the number of
+                            deletions that can occur in the read (if there are
+                            too many deletions, the quality of the alignment
+                            will be questionable). The default says that at
+                            least the 80%% of the bases must be mapped, i.e.
+                            there cannot be more than 20%% of the bases
+                            deleted.""")
+        parser.add_argument('-e', '--max-edit-distance',
                             default=0.20,
                             type=float,
-                            help='Maximum edit distance (ratio) '
-                            'allowed for an alignment. Default 0.20')
+                            help="""The maximum number of edit operations
+                            allowed while verifying candidate matches by
+                            dynamic programming. Saying --e 0 disables the
+                            possibilities of finding alignments with indels
+                            (however, "big" indels might still be found, see
+                            option --max-big-indel-length).""")
+        parser.add_argument('--fast-mapping',
+                            const=True,
+                            nargs="?",
+                            help="""Activates fast mapping modes, whereby the
+                            aligner does not align "hard" reads (that is, reads
+                            which would require too large a computational
+                            budget, usually a few).  Other reads are aligned as
+                            in the normal modes.  The parameter number defines
+                            the computational budget (and hence --fast-mapping
+                            0 will be the cheapest fast mode, --fast mapping 1
+                            the next-to-cheapest, and so on). If you just put
+                            --fast-mapping, the aligner will use an adaptive
+                            mode to figure out a limit.""")
         parser.add_argument('--keys', '-k',
                             dest="keys",
                             metavar="keys",
                             help='Key file to translate result back to '
                             'genomic coordinates')
         parser.add_argument('--mismatch-alphabet',
-                            dest="mismatch_alphabet", metavar="alphabet",
                             default="ACGT",
-                            help='The mismatch alphabet. Default "ACGT"')
+                            help="""Specifies the set of characters which are
+                            valid replacements in case of mismatch. Note that
+                            if you would like to consider Ns in the reference
+                            as wildcards, you should specify ACGNT here;
+                            otherwise, the mapper will never return positions
+                            in the reference containing Ns.""")
         parser.add_argument('-C', '--compress', dest="compress",
                             default=False,
                             action="store_true",
@@ -324,9 +384,159 @@ class GemMapper(Command):
             mismatch_alphabet=args.mismatch_alphabet,
             delta=args.strata_after_best,
             key_file=args.keys,
+            fast_mapping=args.fast_mapping[0] if args.fast_mapping else False,
             #trim=args.trim,
             threads=args.threads,
             compress=args.compress
+        )
+
+
+@cli("split-mapper",
+     inputs=['--input'],
+     outputs=['--output'])
+class GemSplitMapper(Command):
+    title = "Run the GEM-split-mapper"
+    description = """Runs the GEM-split-mapper"""
+
+    def register(self, parser):
+        parser.description = GemSplitMapper.description
+        ## required parameters
+        parser.add_argument('-I', '--index',
+                            help='The GEM index',
+                            required=True)
+        parser.add_argument('-q', '--quality',
+                            help='Quality offset (33/64/ignore)',
+                            required=True)
+        parser.add_argument('-i', '--input', dest="input",
+                            default=sys.stdin,
+                            help='Input File. Reads from stdin if nothing '
+                            'is specified. (default: stdin)')
+        parser.add_argument('-o', '--output',
+                            default=sys.stdout,
+                            help='Output file name, prints to stdout '
+                            'if nothing is specified. (default: stdout)')
+        parser.add_argument('-t', '--threads', dest="threads",
+                            default=1,
+                            type=int,
+                            help='Number of threads')
+        parser.add_argument('-s', '--strata-after-best',
+                            type=int,
+                            default=1,
+                            help=""" A stratum is a set of matches all having
+                            the same string distance from the query. The GEM
+                            mapper is able to find not only the matches
+                            belonging to the best stratum (i.e., the best
+                            matches having minimum string distance from the
+                            query) but also additional sets of matches (the
+                            next-to-best matches, the next-to-next-to-best
+                            matches, and so on) having alignment score worse
+                            than that of the best matches. This parameter
+                            determines how many strata should be explored after
+                            the best one (i.e., --strata-after-best 1 will list
+                                          all the best and all the second best
+                                          matches).""")
+        parser.add_argument('-m', '--mismatches',
+                            type=float,
+                            default=0.04,
+                            help="""The maximum number of nucleotide
+                            substitutions allowed while mapping each read.  It
+                            is always guaranteed that, however other options
+                            are chosen, all the matches up to the specified
+                            number of substitutions will be found by the
+                            program. In case qualities are being taken into
+                            account (multi-FASTQ input), this parameter assumes
+                            the meaning of the maximum number of mismatches
+                            which can be found in high-quality bases.""")
+        parser.add_argument('--quality-threshold',
+                            type=int,
+                            default=26,
+                            help="""In case of a mapping which takes qualities
+                            into account (as deduced from a FASTQ input in
+                            Phred or Solexa format), consider as good-quality
+                            the bases having a quality score above this
+                            threshold, and as bad-quality those having a
+                            quality score below this threshold. It should be
+                            noted that the interpretation of the specified
+                            quality threshold in terms of an error probability
+                            differs for Phred and Solexa scales when q<7, or
+                            error>=0.17; aside from that, the program takes
+                            care to automatically convert this value to the
+                            correct ASCII encoding (which again differs
+                                                    depending on whether Phred
+                                                    or Solexa conventions are
+                                                    being used in the
+                                                    input).""")
+        parser.add_argument('--mismatch-alphabet',
+                            default="ACGT",
+                            help="""Specifies the set of characters which are
+                            valid replacements in case of mismatch. Note that
+                            if you would like to consider Ns in the reference
+                            as wildcards, you should specify ACGNT here;
+                            otherwise, the mapper will never return positions
+                            in the reference containing Ns.""")
+        parser.add_argument('--min-split-size',
+                            default=15,
+                            type=int,
+                            help="""Minimum split length""")
+        parser.add_argument('--matches-threshold',
+                            default=100,
+                            type=int,
+                            help="""Maximum number of matches allowed for a
+                            split map.""")
+        parser.add_argument('--refinement-step-size',
+                            type=int,
+                            default=2,
+                            help="Refine the minimum split size when "
+                            "constraints on number of candidates "
+                            "are not met.")
+        parser.add_argument('-f', '--filter',
+                            type=str,
+                            help="""Filter for allowed splits. Possible
+                            filters: 'same-chromosome' 'same-strand'
+                            'minimum-distance='<distance>
+                            'maximum-distance='<distance> 'non-zero-distance'
+                            'ordered'. You can specify a comma separated list
+                            of filters.
+                            """)
+        parser.add_argument(
+            '-c', '--consensus',
+            default=(",".join(["%s+%s" % (c[0], c[1])
+                               for c in gem.extended_splice_consensus])),
+            help="Consensus used to detect junction sites.")
+        parser.add_argument('-C', '--compress', dest="compress",
+                            default=False,
+                            action="store_true",
+                            help="Compress the output file")
+
+    def validate(self):
+        _check("No index specified", not self.options['index'].get())
+        return True
+
+    def run(self, args):
+        args = gem.utils.dict_2_tuple(args)
+        outfile = args.output if not isinstance(args.output, file) \
+            else args.output
+        infile = gem.files.open(args.input) \
+            if not isinstance(args.input, file) else args.input
+        gem.splitmapper(
+            infile,
+            args.index,
+            outfile,
+            mismatches=args.mismatches,
+            splice_consensus=args.consensus,
+            refinement_step_size=args.refinement_step_size,
+            min_split_size=args.min_split_size,
+            matches_threshold=args.matches_threshold,
+            strata_after_first=args.strata_after_best,
+            mismatch_alphabet=args.mismatch_alphabet,
+            quality=args.quality,
+            filter=args.filter,
+            trim=None,
+            filter_splitmaps=True,
+            post_validate=True,
+            threads=args.threads,
+            compress=args.compress,
+            extra=None
         )
 
 
@@ -1217,55 +1427,49 @@ class RnaPipeline(Command):
                                      type=float,
                                      default=0.04,
                                      help="Allowed mismatched for junction "
-                                     "detection alignments. Default 0.04")
+                                     "detection alignments.")
         junctions_group.add_argument('--junction-max-matches',
                                      type=int,
                                      default=5,
                                      help="Maximum number of multi-maps "
-                                     "allowed for a junction. Default 5")
+                                     "allowed for a junction.")
         junctions_group.add_argument('--junction-strata-after-best',
                                      type=int,
                                      default=0,
                                      help="Maximum number of strata to "
-                                     "examine after best. Default 0")
+                                     "examine after best.")
         junctions_group.add_argument('--min-denovo-intron-length',
                                      type=int,
                                      default=4,
-                                     help="Minimum intron length. Default 4")
+                                     help="Minimum intron length.")
         junctions_group.add_argument('--max-denovo-intron-length',
                                      type=int,
                                      default=500000,
-                                     help="Maximum intron length. "
-                                     "Default 500000")
+                                     help="Maximum intron length.")
         junctions_group.add_argument('--refinement-step',
                                      type=int,
                                      default=2,
                                      help="Refine the minimum split size when "
                                      "constraints on number of candidates "
-                                     "are not met. Default 2")
+                                     "are not met.")
         junctions_group.add_argument('--min-split-size',
                                      type=int,
                                      default=15,
-                                     help="Minimum split length. Default 15")
+                                     help="Minimum split length.")
         junctions_group.add_argument('--matches-threshold',
                                      type=int,
                                      default=75,
                                      help="Maximum number candidates "
-                                     "considered when splitting the read. "
-                                     "Default 75")
+                                     "considered when splitting the read.")
         junctions_group.add_argument('--junction-coverage',
                                      type=int,
                                      default=2,
-                                     help="Minimum allowed junction coverage. "
-                                     "Default 2")
+                                     help="Minimum allowed junction coverage.")
         junctions_group.add_argument(
             '--junction-consensus',
             default=(",".join(["%s+%s" % (c[0], c[1])
                                for c in gem.extended_splice_consensus])),
-            help="Consensus used to detect junction "
-            "sites. Default '%s'" %
-            (",".join(["(%s,%s)" % (c[0], c[1])
-                       for c in gem.extended_splice_consensus])))
+            help="Consensus used to detect junction sites")
         ######################################################################
         # filter parameters
         ######################################################################
@@ -1884,6 +2088,544 @@ class RnaPipeline(Command):
             multi_maps=not args['count_no_multi_maps'],
             weighted=not args['count_no_weights']
         )
+        if args['keep']:
+            p.excludes.append('cleanup')
+        if args['skip']:
+            p.excludes.extend(args['skip'])
+        return p
+
+
+@cli("vc-pipeline",
+     pipeline='pipeline',
+     inputs=['--first'])
+class VcPipeline(Command):
+    description = """Variant calling pipeline.
+
+    Input file detection: If you do not specify --single to disable read
+    pairing, we look automatically for the second pair file if you only
+    specify one file. For that to work, the second file has to end with
+    either .2 or _2, with the file extension .fastq or .txt (+ .gz for
+    compressed files). For example,
+
+    gemtools vc-pipeline -f myinput_1.fastq.gz ...
+
+    will search for a file myinput_2.fastq.gz and use it as the second
+    pair file.
+    """
+    title = "GEMTools VCSeq Pipeline"
+
+    def register(self, parser):
+        parser.description = RnaPipeline.description
+        input_group = parser.add_argument_group('Input and names')
+        ## general pipeline paramters
+        input_group.add_argument(
+            '-f', '--first',
+            required=True,
+            help='''Primary input file'''
+        )
+        input_group.add_argument(
+            '-s', '--second',
+            help='''Secodary input file'''
+        )
+        input_group.add_argument('-q', '--quality',
+                                 default="33",
+                                 help='Quality offset. 33, 64 or '
+                                 '"ignore" to disable qualities.',
+                                 required=True)
+        input_group.add_argument('-i', '--index',
+                                 help='Path to the .gem genome index',
+                                 required=True)
+        input_group.add_argument('-n', '--name',
+                                 help="Specify a prefix for all result files. "
+                                 "If no name is specified, the name of the "
+                                 "primary input file will be used (without "
+                                 "any file extensions")
+        input_group.add_argument('-t', '--threads',
+                                 default=1,
+                                 type=int,
+                                 help="Number of threads")
+        input_group.add_argument('--single-end',
+                                 action="store_true",
+                                 default=False,
+                                 help="Single end reads")
+        input_group.add_argument('--direct-input',
+                                 default=False,
+                                 action="store_true",
+                                 help="Skip preparation step and pipe the "
+                                 "input directly into the first mapping step")
+        input_group.add_argument('--no-pair-search',
+                                 default=False,
+                                 action="store_true",
+                                 help="Skip searching for the second pair file"
+                                 "")
+        input_group.add_argument('--compress-all',
+                                 default=False,
+                                 action="store_true",
+                                 help="Compress also intermediate files")
+
+        ######################################################################
+        # Global mapping parameter
+        ######################################################################
+        initial_group = parser.add_argument_group(
+            'Global Mapping Paramter',
+            description="The global mapping parameters are applied to all "
+            "mapping steps. You can refine the parameters for the transcript "
+            "and de-novo mapping steps independently"
+        )
+        initial_group.add_argument('-m', '--mismatches',
+                                   type=float,
+                                   default=0.06,
+                                   help="Allowed mismatched for initial "
+                                   "alignment to the genome index")
+        initial_group.add_argument('--quality-threshold',
+                                   type=int,
+                                   default=26,
+                                   help="Read quality threshold. Bases with a "
+                                   "quality less than the threshold are "
+                                   "treated as bad bases and more mismatches "
+                                   "are allowed.")
+        initial_group.add_argument("--max-decoded-matches",
+                                   type=int,
+                                   default=25,
+                                   help="Maximum decoded matches. NOTE that "
+                                   "this is taken into account only for "
+                                   "additional strata. min-decoded-strata "
+                                   "are always fully printed.")
+        initial_group.add_argument("--min-decoded-strata",
+                                   type=int,
+                                   default=1,
+                                   help="Minimum number of strata that are "
+                                   "always fully decoded.")
+        initial_group.add_argument("--min-matched-bases",
+                                   type=float,
+                                   default=0.80,
+                                   help="This parameter limits the number of "
+                                   "deletions that can occur in the read (if "
+                                   "there are too many deletions, the quality "
+                                   "of the alignment will be questionable). "
+                                   "The default says that at least the 80%% "
+                                   "of the bases must be mapped, i.e. there "
+                                   "cannot be more than 20%% of the bases "
+                                   "deleted.")
+        initial_group.add_argument("--max-big-indel-length",
+                                   type=int,
+                                   default=15,
+                                   help="The GEM mapper implements a special "
+                                   "algorithm that, in addition to ordinary "
+                                   "matches, is sometimes able to find a "
+                                   "single long indel (in particular, a long "
+                                   "insertion in the read).  This option "
+                                   "specifies the maximum allowed size "
+                                   "for such long indel.")
+        initial_group.add_argument('-e', "--max-edit-distance",
+                                   type=float,
+                                   default=0.20,
+                                   help="The maximum number of edit "
+                                   "operations allowed while verifying "
+                                   "candidate matches by dynamic "
+                                   "programming. Saying --e 0 disables the "
+                                   "possibilities of finding alignments with "
+                                   "indels (however, 'big' indels might still "
+                                   "be found, see option "
+                                   "--max-big-indel-length).")
+        initial_group.add_argument("--mismatch-alphabet",
+                                   type=str,
+                                   default='ACTG',
+                                   help="Specifies the set of characters "
+                                   "which are valid replacements in case of "
+                                   "mismatch. Note that if you would like "
+                                   "to consider Ns in the reference as "
+                                   "wildcards, you should specify ACGNT "
+                                   "here; otherwise, the mapper will never "
+                                   "return positions in the reference "
+                                   "containing Ns.")
+        initial_group.add_argument('-S', "--strata-after-best",
+                                   type=int,
+                                   default=1,
+                                   help="A stratum is a set of matches all "
+                                   "having the same string distance from the "
+                                   "query. The GEM mapper is able to find not "
+                                   "only the matches belonging to the best "
+                                   "stratum (i.e., the best matches having "
+                                   "minimum string distance from the query) "
+                                   "but also additional sets of matches "
+                                   "(the next-to-best matches, the "
+                                   "next-to-next-to-best matches, and so on) "
+                                   "having alignment score worse than that of "
+                                   "the best matches. This parameter "
+                                   "determines how many strata should be "
+                                   "explored after the best one")
+        ######################################################################
+        # Split map junction detection paramters
+        ######################################################################
+        split_group = parser.add_argument_group(
+            'Split mapper parameter'
+        )
+        split_group.add_argument('--split-errors',
+                                 type=int,
+                                 default=0,
+                                 help="""If set to > 0, not only unmapped reads
+                                 but also reads mapped with split-error error
+                                 are passed on to the split mapper.""")
+        split_group.add_argument('--junction-mismatches',
+                                 type=float,
+                                 default=0.04,
+                                 help="Allowed mismatched for junction "
+                                 "detection alignments. Default 0.04")
+        split_group.add_argument('--junction-max-matches',
+                                 type=int,
+                                 default=5,
+                                 help="Maximum number of multi-maps "
+                                 "allowed for a junction. Default 5")
+        split_group.add_argument('--junction-strata-after-best',
+                                 type=int,
+                                 default=0,
+                                 help="Maximum number of strata to "
+                                 "examine after best. Default 0")
+        split_group.add_argument('--min-denovo-intron-length',
+                                 type=int,
+                                 default=4,
+                                 help="Minimum intron length. Default 4")
+        split_group.add_argument('--max-denovo-intron-length',
+                                 type=int,
+                                 default=500000,
+                                 help="Maximum intron length. "
+                                 "Default 500000")
+        split_group.add_argument('--refinement-step',
+                                 type=int,
+                                 default=2,
+                                 help="Refine the minimum split size when "
+                                 "constraints on number of candidates "
+                                 "are not met. Default 2")
+        split_group.add_argument('--min-split-size',
+                                 type=int,
+                                 default=15,
+                                 help="Minimum split length. Default 15")
+        split_group.add_argument('--matches-threshold',
+                                 type=int,
+                                 default=75,
+                                 help="Maximum number candidates "
+                                 "considered when splitting the read. "
+                                 "Default 75")
+        split_group.add_argument('--junction-coverage',
+                                 type=int,
+                                 default=2,
+                                 help="Minimum allowed junction coverage. "
+                                 "Default 2")
+
+        ######################################################################
+        # SAM/BAM parameter
+        ######################################################################
+        bam_group = parser.add_argument_group(
+            'SAM/BAM conversion'
+        )
+        bam_group.add_argument("--no-sort",
+                               action="store_true",
+                               default=False,
+                               help="Do not sort the BAM file")
+        bam_group.add_argument("--sort-mem",
+                               default="768M",
+                               help="Memory passed to samtools for sorting")
+        bam_group.add_argument("--no-index",
+                               action="store_true",
+                               default=False,
+                               help="Do not create a BAM index")
+        ######################################################################
+        # Job control
+        ######################################################################
+        ctrl_group = parser.add_argument_group('Job and Pipeline controls')
+        ctrl_group.add_argument("--dry", action="store_true", default=False,
+                                help="Show the pipeline configuraiton but "
+                                "do not execute the pipeline")
+        ctrl_group.add_argument("--force", action="store_true", default=False,
+                                help="Force execution")
+        ctrl_group.add_argument("--keep", action="store_true", default=False,
+                                help="Keep temporary files")
+        ctrl_group.add_argument("--load",
+                                help="Load a configuration form a file. "
+                                "You can use --load/--save to easily persist "
+                                "more complex configurations and then load "
+                                "and modify them from the command line.")
+        ctrl_group.add_argument("--save",
+                                help="Save a configuration to a file. "
+                                "You can use --load/--save to easily persist "
+                                "more complex configurations and then load "
+                                "and modify them from the command line.")
+        ctrl_group.add_argument("--skip",
+                                nargs="*",
+                                help="Exclude steps from the pipeline. This "
+                                "parameter takes a space separated list of "
+                                "job names that will be excluded. Try "
+                                "the pipeline with --dry to see a list of "
+                                "active jobs")
+
+    def _find_second_pair(self, args):
+        ## try to guess the second file
+        (n, p) = gem.utils.find_pair(args['first'])
+        if p is not None and os.path.exists(p):
+            args['second'] = p
+            self.options['second'] = p
+        # we guessed a name
+        if args['name'] is None:
+            args['name'] = n
+
+    def _guess_name(self, args):
+        if not "first" in args or not args['first']:
+            args['name'] = 'unknown'
+            return
+        name = os.path.basename(args['first'])
+        if name.endswith(".gz"):
+            name = name[:-3]
+        idx = name.rfind(".")
+        if idx > 0:
+            name = name[:idx]
+        args['name'] = name
+        if not args['no_pair_search']:
+            args['name'] = re.sub(r'[_\.-]\d$', '', name)
+
+    def _file_name(self, suffix=None, args=None, compress=None):
+        if compress is None:
+            compress = args["compress_all"]
+        return "%s%s%s" % (args['name'], "" if suffix is None else suffix,
+                           ".gz" if compress else "")
+
+    def validate(self):
+        from os.path import exists
+        ###########################################################
+        # Check --load and load config from file
+        ###########################################################
+        if self.options['load']:
+            import json
+            try:
+                with open(self.options['load'].get()) as f:
+                    data = json.load(f)
+                    for k, v in data.iteritems():
+                        opt = self.options[k]
+                        if opt is None:
+                            raise CommandException(
+                                "Configuration key not found in options: %s" %
+                                k)
+                        if not opt.user_specified:
+                            opt.set(v)
+            except Exception as err:
+                raise CommandException("Error while loading config : %s" % err)
+
+        args = self.options.to_dict()
+        ## check for a name or guess it
+        if not args['name']:
+            self._guess_name(args)
+
+        ###########################################################
+        # Output file configuration
+        ###########################################################
+        def fn(name, c=None):
+            return self._file_name(name, args, compress=c)
+
+        opts = self.options
+        opts.add_output('prepare_out', fn("_prepare.fq", c=False))
+        opts.add_output('initial_map_out', fn("_initial.map"))
+        opts.add_output('split_out', fn(".map", c=False))
+        opts.add_output('final_out', fn(".map", c=True))
+        opts.add_output('bam_out', fn(".bam", c=False))
+        opts.add_output('stats_out', fn(".stats.txt", c=False))
+        opts.add_output('stats_json_out', fn(".stats.json", c=False))
+
+        ###########################################################
+        # set transcript and de-novo defaults
+        ###########################################################
+        #def _set_default(prefix, glob):
+            #name = '%s_%s' % (prefix, glob)
+            #if opts[name].raw() is None:
+                #opts[name].value = opts[glob].get()
+
+        #_set_default('pairing', 'quality_threshold')
+        ###########################################################
+        # General input data checks
+        ###########################################################
+        # check for at least one input file
+        _check("No input file specified!", not args['first'])
+        # check input files for single end alignments
+        _check("Single end runs take only one input file!",
+               args['single_end'] and args['second'])
+        if not args['single_end'] and not args['no_pair_search']:
+            # check paired end
+            if not args['second']:
+                self._find_second_pair(args)
+        ## check that all input files exists
+        self.options['first'].check_files()
+        self.options['second'].check_files()
+
+        ## check the .gem index
+        _check("Genome GEM index not found: %s" % args['index'],
+               not exists(args['index']))
+        _check("Genome GEM does not end in .gem: %s" % args['index'],
+               not args['index'].endswith(".gem"))
+
+        ## check quality value
+        _check("Quality offset value is not valid! Supported are 33|64|ignore",
+               not args['quality'] in ("33", "64", "ignore"))
+
+        if self.options['save']:
+            import json
+            try:
+                ex_opts = ['help', 'dry', 'load', 'save']
+                values = {}
+                for o in filter(lambda o: o.name not in ex_opts,
+                                self.options):
+                    if o.raw() != o.default:
+                        values[o.name] = o.raw()
+                with open(self.options['save'].get(), 'w') as f:
+                    json.dump(values, f, indent=4)
+                print "Saved configuration in %s" % self.options['save']
+
+            except Exception as err:
+                raise CommandException("Error while saving config : %s" % err)
+        return True
+
+    def pipeline(self):
+        args = self.options.to_dict()
+        threads = int(args['threads'])
+        quality = args['quality']
+        index = args['index']
+
+        p = Pipeline()
+        name = args['name']
+        if not name:
+            self._guess_name(args)
+        name = args['name']
+        p.name(name)
+        job = p.job(threads=threads)
+        prepare_step = None
+
+        # small helper to create
+        # a prepare stream quickly
+        def create_prepare(name):
+            infiles = [args['first']]
+            if args['second']:
+                infiles.append(args['second'])
+            return job(name).run(
+                'gemtools_prepare',
+                input=infiles,
+                threads=threads
+            )
+
+        # set the input of a mapping job
+        def set_mapping_input(map_job):
+            if prepare_step is not None:
+                map_job.input = prepare_step
+            else:
+                create_prepare("Prepare") | map_job
+            return map_job
+
+        ###################################################################
+        # Prepare
+        ###################################################################
+        if not args['direct_input']:
+            infiles = [args['first']]
+            if args['second']:
+                infiles.append(args['second'])
+            ## run the prepare step
+            prepare_step = job('Prepare', temp=True).run(
+                'gemtools_prepare',
+                input=infiles,
+                output=args['prepare_out'],
+                threads=threads
+            )
+
+        # we collect all mapping steps here for mergin
+        all_mappings = []
+
+        ###################################################################
+        # Initial mapping step
+        ###################################################################
+        initial_mapping = job('Initial.Mapping', temp=True).run(
+            'gemtools_mapper',
+            threads=threads,
+            index=index,
+            output=args['initial_map_out'],
+            compress=args['compress_all'],
+            quality=quality,
+            mismatches=args['mismatches'],
+            quality_threshold=args['quality_threshold'],
+            max_decoded_matches=args['max_decoded_matches'],
+            min_decoded_strata=args['min_decoded_strata'],
+            min_matched_bases=args['min_matched_bases'],
+            max_big_indel_length=args['max_big_indel_length'],
+            max_edit_distance=args['max_edit_distance'],
+            mismatch_alphabet=args['mismatch_alphabet'],
+            strata_after_best=args['strata_after_best']
+        )
+        set_mapping_input(initial_mapping)
+        all_mappings.append(initial_mapping)
+
+
+        ###################################################################
+        # Run the split mapper un unmapped or max errors
+        ###################################################################
+        filter_maps = job('Filter.Initial', temp=True).run(
+            'gemtools_filter',
+            unmapped=True,
+
+        )
+
+        ###################################################################
+        # Merge and pair if not single end
+        ###################################################################
+        final_mapping = None
+        if len(all_mappings) == 1:
+            final_mapping = all_mappings[0]
+        else:
+            merge = job('Merge').run(
+                'gemtools_merge',
+                same=True,
+                threads=threads,
+                output=args['final_out'] if args['single_end'] else None,
+                input=all_mappings,
+                compress=args['single_end'])
+            final_mapping = merge
+
+        if not args['single_end']:
+            pair = job('Pair').run(
+                'gemtools_pairalign',
+                quality=quality,
+                threads=threads,
+                index=args['index'],
+                max_extendable_matches=0,
+                max_matches_per_extension=0,
+                filter_max_matches=0,
+                output=args['final_out'],
+                compress=True
+            )
+            final_mapping >> pair
+            final_mapping = pair
+
+        # create sorted bam
+        bam_cfg = dict(
+            threads=threads,
+            index=args['index'],
+            quality=quality,
+            memory=args['sort_mem'],
+            paired=not args['single_end'],
+            no_sort=args['no_sort'],
+            no_xs=True,
+            no_index=args['no_index']
+        )
+        job('BAM').run(
+            'gemtools_convert',
+            input=final_mapping,
+            output=args['bam_out'],
+            **bam_cfg)
+
+        # create stats
+        job('Stats').run(
+            'gemtools_stats',
+            input=final_mapping,
+            threads=threads,
+            output=args['stats_out'],
+            json=args['stats_json_out'],
+            paired_end=not args['single_end'],
+            all_tests=True)
+
         if args['keep']:
             p.excludes.append('cleanup')
         if args['skip']:
