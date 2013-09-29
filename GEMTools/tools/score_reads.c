@@ -17,7 +17,7 @@
 
 static void usage(FILE *f)
 {
-	fputs("usage:\n align_stats <READ1_FILE> [<READ2_FILE>]\n",f);
+	fputs("usage:\n score_reads <READ1_FILE> [<READ2_FILE>]\n",f);
 	fputs("  -i|--insert_dist <insert size distribution file>   (mandatory)\n",f);
 	fputs("  -o|--output <output file>                          (default=stdout)\n",f);
 #ifdef HAVE_ZLIB
@@ -224,6 +224,7 @@ static uint64_t calculate_dist_score(gt_alignment *al, gt_map *map, int qual_off
 			}
 		}
 	}
+	if(score>MAX_GT_SCORE) score=MAX_GT_SCORE;
 	return score;
 }
 
@@ -252,8 +253,8 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 				int64_t x=gt_template_get_insert_size(mmap,&gt_err,0,0);
 				if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param->min_insert && x<=param->max_insert) {
 					attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
-					attr.gt_score=map1->gt_score+map2->gt_score;
-					if(param->ins_phred) attr.gt_score+=param->ins_phred[x-param->min_insert];
+					attr.gt_score=map1->gt_score|(map2->gt_score<<16);
+					if(param->ins_phred) attr.gt_score|=((uint64_t)param->ins_phred[x-param->min_insert]<<32);
 					attr.phred_score=255;
 					gt_template_inc_counter(template,attr.distance);
 					gt_template_add_mmap_ends(template,map1,map2,&attr);
@@ -277,7 +278,7 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 			if(!map_flag[1][i]) {
 				gt_map *map=gt_alignment_get_map(alignment2,i);
 				attr.distance=gt_map_get_global_distance(map);
-				attr.gt_score=map->gt_score;
+				attr.gt_score=(map->gt_score<<16);
 				attr.phred_score=255;
 				gt_template_inc_counter(template,attr.distance);
 				gt_template_add_mmap_ends(template,0,map,&attr);
@@ -478,6 +479,7 @@ int main(int argc,char *argv[])
 		param.printer_attr->output_map_attributes->print_casava=true;
 		param.printer_attr->output_map_attributes->print_extra=true;
 		param.printer_attr->output_map_attributes->print_scores=true;
+		param.printer_attr->output_map_attributes->hex_print_scores=true;
 		// Do we have two map files as input (one for each read)?
 		if(param.input_files[1]) {
 			pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;

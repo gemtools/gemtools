@@ -17,7 +17,7 @@
 #define DEFAULT_QUAL (QUAL_FASTQ)
 #define MISSING_QUAL 40 // Value to use in alignment score if qualities not available
 #define INDEL_QUAL 40 // Value to use in alignment score for indels
-
+#define MAX_GT_SCORE 0xFFFF
 #define MAX_QUAL 42
 #define ALIGN_NORM 0
 #define ALIGN_BS_POS 1

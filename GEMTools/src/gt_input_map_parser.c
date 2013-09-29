@@ -705,9 +705,9 @@ GT_INLINE gt_status gt_imp_parse_map_score_v0(const char** const text_line,uint6
   return 0;
 }
 GT_INLINE gt_status gt_imp_parse_map_score_v1(const char** const text_line,uint64_t* const gt_score) {
-  // Parse score (just a number)
+  // Parse score (either a hex or decimal number)
   if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-  GT_PARSE_NUMBER(text_line,*gt_score);
+  GT_PARSE_HEX_OR_DEC(text_line,*gt_score);
   return 0;
 }
 GT_INLINE gt_status gt_imp_next_element(const char** const text_line) {
