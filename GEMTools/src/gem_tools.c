@@ -218,6 +218,7 @@ gt_option gt_map2sam_options[] = {
   { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (MultiFASTA/FASTA)" , "" },
   { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GEM2-Index)" , "" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 'Q', "calc-mapq", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
   { 200, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
   /* Headers */
   // { 300, "", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
@@ -242,7 +243,7 @@ gt_option gt_map2sam_options[] = {
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
 };
-char* gt_map2sam_options_short = "i:o:r:I:pq:ct:hHv";
+char* gt_map2sam_options_short = "i:o:r:I:pq:ct:QhHv";
 char* gt_map2sam_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",
