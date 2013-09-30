@@ -546,7 +546,6 @@ int main(int argc,char *argv[])
 			}
 			gt_input_file_close(input_file1);
 			gt_input_file_close(input_file2);
-
 		} else { // Single input file (could be single end or interleaved paired end
 			gt_input_file* input_file=param.input_files[0]?gt_input_file_open(param.input_files[0],param.mmap_input):gt_input_stream_open(stdin);
 #ifdef OPENMP
