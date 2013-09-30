@@ -947,17 +947,41 @@ GT_INLINE void gt_map_placeholder_build_from_template(
     }
   } else {
     // Include mmaps
+    bool end1_record_included = false, end2_record_included = false;
     GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
       mmap_ph.paired_end.mmap_attributes = mmap_attr;
-      gt_map_placeholder_add_mmap(mmap[0],mmap[1],read[0],0,
-          mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
-          &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/1
       if (include_mate_placeholder) {
-        gt_map_placeholder_add_mmap(mmap[1],mmap[0],read[1],1,
+        if (mmap[0]!=NULL) {
+          end1_record_included = true;
+          gt_map_placeholder_add_mmap(mmap[0],mmap[1],read[0],0,
+              mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
+              &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/1
+        }
+        if (mmap[1]!=NULL) {
+          end2_record_included = true;
+          gt_map_placeholder_add_mmap(mmap[1],mmap[0],read[1],1,
+              mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end2_pos!=NULL,
+              &best_mmap_ph_end2,&best_mmap_ph_end2_pos,&mmap_ph); // End/2
+        }
+      } else {
+        gt_map_placeholder_add_mmap(mmap[0],mmap[1],read[0],0,
+            mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
+            &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/1
+      }
+      if (++num_mmaps_added > max_num_maps) break;
+    }
+    // Check if at least we have a record per each end
+    if (include_mate_placeholder) {
+      if (!end1_record_included) {
+        gt_map_placeholder_add_mmap(NULL,NULL,read[0],0,
+            mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
+            &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/1
+      }
+      if (!end2_record_included) {
+        gt_map_placeholder_add_mmap(NULL,NULL,read[1],1,
             mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end2_pos!=NULL,
             &best_mmap_ph_end2,&best_mmap_ph_end2_pos,&mmap_ph); // End/2
       }
-      if (++num_mmaps_added > max_num_maps) break;
     }
   }
   // Set primary alignment

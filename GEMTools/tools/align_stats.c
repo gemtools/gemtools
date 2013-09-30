@@ -730,7 +730,7 @@ static void *as_calc_duplicate_rate(void *ss)
 	}
 	double z1,z2,z3,z4,z5,z6;
 	z1=z2=z3=z4=z5=z6=0.0;
-  int k=0;
+  //int k=0;
 	for(i=0;i<=DUP_LIMIT;i++) {
 		z1+=(double)dup_cnt[0][i];
 		z2+=(double)dup_cnt[0][i]*(i+1);
@@ -738,7 +738,7 @@ static void *as_calc_duplicate_rate(void *ss)
 		z4+=(double)dup_cnt[2][i];
 		z5+=(double)dup_cnt[3][i];
 		z6+=(double)dup_cnt[4][i];
-		if(dup_cnt[0][i]) k=i;
+		//if(dup_cnt[0][i]) k=i;
 	}
 	if(z2 && (z3+z4+z5+z6)) {
 		double z,z7,z8,z9;
