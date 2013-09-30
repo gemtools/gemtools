@@ -506,7 +506,8 @@ GT_INLINE void gt_sam_attributes_add_tag_XS(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_sfunc(sam_attributes,"XS",'A',gt_sam_attribute_generate_XS);
 }
 
-//  MQ  i  MAPQ value for mate for paired alignments
+
+//  MQ  i  MAPQ score for mate if paired end alignment
 GT_INLINE gt_status gt_sam_attribute_generate_MQ(gt_sam_attribute_func_params* func_params) {
   // only for paired mmaps
   if (func_params->alignment_info->map==NULL) { // Unmapped
@@ -519,4 +520,37 @@ GT_INLINE gt_status gt_sam_attribute_generate_MQ(gt_sam_attribute_func_params* f
 
 GT_INLINE void gt_sam_attributes_add_tag_MQ(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_ifunc(sam_attributes,"MQ",'i',gt_sam_attribute_generate_MQ);
+}
+
+
+//  UQ  i  PHRED encoded likelihood for all read ends
+GT_INLINE gt_status gt_sam_attribute_generate_UQ(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
+  	func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff);
+  }
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_UQ(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"UQ",'i',gt_sam_attribute_generate_UQ);
+}
+
+//  PQ  i  PHRED encoded likelihood for template (includes insert size likelihood term)
+GT_INLINE gt_status gt_sam_attribute_generate_PQ(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
+  	func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff)+((sc>>32)&0xff);
+  }
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_PQ(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"PQ",'i',gt_sam_attribute_generate_PQ);
 }
