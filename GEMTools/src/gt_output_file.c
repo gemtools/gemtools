@@ -389,8 +389,3 @@ GT_INLINE gt_output_buffer* gt_output_file_dump_buffer(
       break;
   }
 }
-
-
-
-
-
