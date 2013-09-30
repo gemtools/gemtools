@@ -1,5 +1,5 @@
 /*
- * sel_reads.c
+ * gt.scorereads.c
  *
  *  Created on: 8 Jul 2013
  *      Author: heath
@@ -75,7 +75,7 @@ sr_param param = {
 };
 
 void usage(const gt_option* const options,char* groups[],const bool print_inactive) {
-  fprintf(stderr, "USE: ./score_reads [ARGS]...\n");
+  fprintf(stderr, "USE: ./gt_scorereads [ARGS]...\n");
   gt_options_fprint_menu(stderr,options,groups,false,print_inactive);
 }
 
@@ -320,15 +320,15 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 int parse_arguments(int argc,char** argv) {
 	int err=0;
 	param.parser_attr=gt_input_generic_parser_attributes_new(false);
-  struct option* score_reads_getopt = gt_options_adaptor_getopt(score_reads_options);
-  gt_string* const score_reads_short_getopt = gt_options_adaptor_getopt_short(score_reads_options);
+  struct option* gt_scorereads_getopt = gt_options_adaptor_getopt(gt_scorereads_options);
+  gt_string* const gt_scorereads_short_getopt = gt_options_adaptor_getopt_short(gt_scorereads_options);
   int option, option_index;
   char *p;
   int insert_set[2]={0,0};
   while (true) {
     // Get option &  Select case
     if ((option=getopt_long(argc,argv,
-        gt_string_get_string(score_reads_short_getopt),score_reads_getopt,&option_index))==-1) break;
+        gt_string_get_string(gt_scorereads_short_getopt),gt_scorereads_getopt,&option_index))==-1) break;
     switch (option) {
     /* I/O */
     case 'i':
@@ -414,11 +414,11 @@ int parse_arguments(int argc,char** argv) {
 #endif
       break;
     case 'h':
-      usage(score_reads_options,score_reads_groups,false);
+      usage(gt_scorereads_options,gt_scorereads_groups,false);
       exit(1);
       break;
     case 'H':
-      usage(score_reads_options,score_reads_groups,true);
+      usage(gt_scorereads_options,gt_scorereads_groups,true);
       exit(1);
     case 'J':
       gt_options_fprint_json_menu(stderr,gt_map2sam_options,gt_map2sam_groups,true,false);
@@ -426,7 +426,7 @@ int parse_arguments(int argc,char** argv) {
       break;
     case '?':
     default:
-      usage(score_reads_options,score_reads_groups,false);
+      usage(gt_scorereads_options,gt_scorereads_groups,false);
       gt_fatal_error_msg("Option '%c' %d not recognized",option,option);
     }
   }
@@ -436,7 +436,7 @@ int parse_arguments(int argc,char** argv) {
 	if(param.input_files[1]) gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
 	if(!err && insert_set[0] && insert_set[1] && param.min_insert>param.max_insert) {
 		fputs("Minimum insert size > maximum insert size\n",stderr);
-    usage(score_reads_options,score_reads_groups,false);
+    usage(gt_scorereads_options,gt_scorereads_groups,false);
 		err=-15;
 	}
 	if(!err) {
@@ -468,7 +468,7 @@ int parse_arguments(int argc,char** argv) {
 		}
 	}
   // Free
-  gt_string_delete(score_reads_short_getopt);
+  gt_string_delete(gt_scorereads_short_getopt);
   return err;
 }
 
@@ -604,3 +604,4 @@ int main(int argc,char *argv[])
 	}
 	return err;
 }
+

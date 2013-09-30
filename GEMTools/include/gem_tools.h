@@ -108,8 +108,8 @@ extern char* gt_stats_groups[];
 extern gt_option gt_mapset_options[];
 extern char* gt_mapset_groups[];
 
-extern gt_option score_reads_options[];
-extern char* score_reads_groups[];
+extern gt_option gt_scorereads_options[];
+extern char* gt_scorereads_groups[];
 
 extern gt_option gt_map2sam_options[];
 extern char* gt_map2sam_groups[];

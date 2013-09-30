@@ -209,9 +209,9 @@ char* gt_mapset_groups[] = {
 };
 
 /*
- * score_reads menu options
+ * gt.scorereads menu options
  */
-gt_option score_reads_options[] = {
+gt_option gt_scorereads_options[] = {
   /* Operations */
    /* I/O */
   { 300, "i1", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
@@ -239,8 +239,8 @@ gt_option score_reads_options[] = {
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
 };
-char* score_reads_options_short = "i:q:pzjZo:x:m:vt:hJ";
-char* score_reads_groups[] = {
+char* gt_scorereads_options_short = "i:q:pzjZo:x:m:vt:hJ";
+char* gt_scorereads_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",
   /*  2 */ "Operations",
