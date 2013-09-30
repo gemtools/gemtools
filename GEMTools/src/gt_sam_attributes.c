@@ -514,8 +514,9 @@ GT_INLINE gt_status gt_sam_attribute_generate_MQ(gt_sam_attribute_func_params* f
     return -1;
   } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
   	func_params->return_i=func_params->alignment_info->paired_end.mate->phred_score;
+  	return 0;
   }
-  return 0; // OK
+  return -1; // NOK
 }
 
 GT_INLINE void gt_sam_attributes_add_tag_MQ(gt_sam_attributes* const sam_attributes) {
@@ -531,8 +532,9 @@ GT_INLINE gt_status gt_sam_attribute_generate_UQ(gt_sam_attribute_func_params* f
   } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
   	uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
   	func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff);
+  	return 0;
   }
-  return 0; // OK
+  return -1; // NOK
 }
 
 GT_INLINE void gt_sam_attributes_add_tag_UQ(gt_sam_attributes* const sam_attributes) {
@@ -547,8 +549,9 @@ GT_INLINE gt_status gt_sam_attribute_generate_PQ(gt_sam_attribute_func_params* f
   } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
   	uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
   	func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff)+((sc>>32)&0xff);
+  	return 0;
   }
-  return 0; // OK
+  return -1; // OK
 }
 
 GT_INLINE void gt_sam_attributes_add_tag_PQ(gt_sam_attributes* const sam_attributes) {
