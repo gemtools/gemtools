@@ -209,6 +209,47 @@ char* gt_mapset_groups[] = {
 };
 
 /*
+ * score_reads menu options
+ */
+gt_option score_reads_options[] = {
+  /* Operations */
+   /* I/O */
+  { 300, "i1", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 301, "i2", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 'i', "insert-dist", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 'z', "gzip", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 'j', "bzip2", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 'Z', "no-compress", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 302, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  /* Score Function */
+  { 'x', "insert-dist-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "" , "" },
+  { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 402, "max-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 403, "indel-score", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 'm', "mapping-quality-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  /* Misc */
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+#ifdef HAVE_OPENMP
+  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
+#endif
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
+  {  0, "", 0, 0, 0, false, "", ""}
+};
+char* score_reads_options_short = "i:q:pzjZo:x:m:vt:hJ";
+char* score_reads_groups[] = {
+  /*  0 */ "Null",
+  /*  1 */ "Unclassified",
+  /*  2 */ "Operations",
+  /*  3 */ "I/O",
+  /*  4 */ "Score Function",
+  /*  5 */ "Misc"
+};
+
+/*
  * gt.map2sam menu options
  */
 gt_option gt_map2sam_options[] = {

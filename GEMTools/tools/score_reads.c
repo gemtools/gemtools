@@ -13,42 +13,70 @@
 #endif
 #include <pthread.h>
 #include "gem_tools.h"
-#include "score_reads.h"
 
-static void usage(FILE *f)
-{
-	fputs("usage:\n score_reads <READ1_FILE> [<READ2_FILE>]\n",f);
-	fputs("  -i|--insert_dist <insert size distribution file>   (mandatory)\n",f);
-	fputs("  -o|--output <output file>                          (default=stdout)\n",f);
-#ifdef HAVE_ZLIB
-	fputs("  -z|--gzip output with gzip\n",f);
-	fputs("  -Z|--no-compress                                  (default)\n",f);
-#endif
-#ifdef HAVE_BZLIB
-	fputs("  -j|--bzip2 output with bzip2\n",f);
-#endif
-	fprintf(f,"  -x|--insert_dist_cutoff <cutoff>                   (default=%g)\n",DEFAULT_INS_CUTOFF);
-#ifdef HAVE_OPENMP
-	fputs(    "  -t|--threads <number of threads>\n",f);
-#endif
-	fputs(    "  -m|--mmap          Mmap input files\n",f);
-	fprintf(f,"  -F|--fastq         select fastq quality coding         %s\n",DEFAULT_QUAL==QUAL_FASTQ?"(default)":"");
-	fprintf(f,"  -S|--solexa        select ilumina quality coding       %s\n",DEFAULT_QUAL==QUAL_SOLEXA?"(default)":"");
-	fprintf(f,"  -p|--paired        paired read input\n");
-	fprintf(f,"  -q|--qual_val      select quality value adjustment     (default=%d)\n",DEFAULT_QUAL);
-	fprintf(f,"  -I|--indel_score   indel score\n");
-	fprintf(f,"  -r|--min_insert    minimum insert size\n");
-	fprintf(f,"  -s|--max_insert    maximum insert size\n");
-	fputs(    "  -h|help|usage      (print this file\n\n",f);
-}
+#define DEFAULT_INS_CUTOFF 0.01 /* Insert sizes in the upper or lower cutoff percentiles will not be used */
+#define MAP_THRESHOLD 3
+#define AP_BUF_SIZE 16384
+#define QUAL_FASTQ 33
+#define QUAL_SOLEXA 64
+#define SOLEXA_BAD_QUAL 2
+#define DEFAULT_QUAL (QUAL_FASTQ)
+#define MISSING_QUAL 40 // Value to use in alignment score if qualities not available
+#define INDEL_QUAL 40 // Value to use in alignment score for indels
+#define MAX_GT_SCORE 0xFFFF
+#define MAX_QUAL 42
+#define ALIGN_NORM 0
+#define ALIGN_BS_POS 1
+#define ALIGN_BS_NEG 2
+#define ALIGN_TYPES 3
+#define AL_FORWARD 4
+#define AL_REVERSE 8
+#define AL_DIRECTIONS ((AL_FORWARD)|(AL_REVERSE))
+#define AL_USED 128
 
-static void set_opt(char *opt,char **opt_p,char *val)
-{
-	if(*opt_p) {
-		fprintf(stderr,"multiple %s options: '%s' overwriting previous definition '%s'\n",opt,val,*opt_p);
-		free(*opt_p);
-	}
-	*opt_p=strdup(val);
+typedef struct {
+  char *input_files[2];
+  char *output_file;
+  char *dist_file;
+  double ins_cutoff;
+  bool mmap_input;
+  bool verbose;
+  gt_output_file_compression compress;
+  gt_generic_parser_attributes *parser_attr;
+  gt_generic_printer_attributes *printer_attr;
+  gt_buffered_output_file *buf_output[2];
+  int64_t min_insert;
+  int64_t max_insert;
+  double *ins_dist;
+  uint8_t *ins_phred;
+  int num_threads;
+  int mapping_cutoff;
+  int indel_quality;
+  int qual_offset; // quality offset (33 for FASTQ, 64 for Illumina)
+} sr_param;
+
+sr_param param = {
+		.input_files={NULL,NULL},
+		.output_file=NULL,
+		.dist_file=NULL,
+		.ins_cutoff=DEFAULT_INS_CUTOFF,
+		.mmap_input=false,
+		.compress=NONE,
+		.parser_attr=NULL,
+		.verbose=false,
+		.num_threads=1,
+		.indel_quality=INDEL_QUAL,
+		.qual_offset=DEFAULT_QUAL,
+		.mapping_cutoff=0,
+		.min_insert=0,
+		.max_insert=0,
+		.ins_dist=NULL,
+		.ins_phred=NULL
+};
+
+void usage(const gt_option* const options,char* groups[],const bool print_inactive) {
+  fprintf(stderr, "USE: ./score_reads [ARGS]...\n");
+  gt_options_fprint_menu(stderr,options,groups,false,print_inactive);
 }
 
 static void *sr_malloc(size_t s)
@@ -289,142 +317,126 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 	gt_attributes_remove(template->attributes,GT_ATTR_ID_TAG_PAIR);
 }
 
-int main(int argc,char *argv[])
-{
+int parse_arguments(int argc,char** argv) {
 	int err=0;
-
-	static struct option longopts[]={
-			{"insert_dist",required_argument,0,'i'},
-			{"insert_dist_cutoff",required_argument,0,'x'},
-			{"fastq",no_argument,0,'F'},
-			{"solexa",no_argument,0,'S'},
-			{"bad_qual",required_argument,0,'B'},
-			{"qual_val",required_argument,0,'q'},
-			{"output",required_argument,0,'o'},
-			{"paired",no_argument,0,'p'},
-			{"help",no_argument,0,'h'},
-			{"usage",no_argument,0,'h'},
-			{"separate",no_argument,0,'c'},
-			{"gzip",no_argument,0,'z'},
-			{"bzip2",no_argument,0,'j'},
-			{"no-compress",no_argument,0,'Z'},
-			{"threads",required_argument,0,'t'},
-			{"mmap",no_argument,0,'m'},
-			{"indel_score",required_argument,0,'I'},
-			{"min_insert",required_argument,0,'r'},
-			{"max_insert",required_argument,0,'s'},
-			{0,0,0,0}
-	};
-
-	sr_param param = {
-			.input_files={NULL,NULL},
-			.output_file=NULL,
-			.dist_file=NULL,
-			.ins_cutoff=DEFAULT_INS_CUTOFF,
-			.mmap_input=false,
-			.compress=NONE,
-			.parser_attr=gt_input_generic_parser_attributes_new(false),
-			.num_threads=1,
-			.indel_quality=INDEL_QUAL,
-			.qual_offset=DEFAULT_QUAL,
-			.min_insert=0,
-			.max_insert=0,
-			.ins_dist=NULL,
-			.ins_phred=NULL
-	};
-	char c,*p;
-	int insert_set[2]={0,0};
-	while(!err && (c=getopt_long(argc,argv,"i:t:o:q:B:x:r:s:wzjpcIZFSh?",longopts,0))!=-1) {
-		switch(c) {
-		case 'i':
-			set_opt("insert_dist",&param.dist_file,optarg);
-			break;
-		case 'o':
-			set_opt("output",&param.output_file,optarg);
-			break;
-		case 'p':
-			gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
-			break;
-		case 'q':
-			param.qual_offset=(int)strtol(optarg,&p,10);
-			if(*p || param.qual_offset<0 || param.qual_offset>255) {
-				fprintf(stderr,"Illegal quality value adjustment: '%s'\n",optarg);
-				err=-7;
-			}
-			break;
-		case 'r':
-			param.min_insert=(int)strtol(optarg,&p,10);
-			if(*p || param.min_insert<0) {
-				fprintf(stderr,"Illegal minimum insert size: '%s'\n",optarg);
-				err=-7;
-			} else insert_set[0]=1;
-			break;
-		case 'I':
-			param.indel_quality=(int)strtol(optarg,&p,10);
-			if(*p || param.indel_quality<0) {
-				fprintf(stderr,"Illegal indel score: '%s'\n",optarg);
-				err=-7;
-			}
-			break;
-		case 's':
-			param.max_insert=(int)strtol(optarg,&p,10);
-			if(*p || param.max_insert<0) {
-				fprintf(stderr,"Illegal maximum insert size: '%s'\n",optarg);
-				err=-7;
-			} else insert_set[1]=1;
-			break;
-		case 'x':
-			param.ins_cutoff=strtod(optarg,&p);
-			if(*p || param.ins_cutoff>0.5 || param.ins_cutoff<0.0) {
-				fprintf(stderr,"Illegal insert distribution cutoff percentile: '%s'\n",optarg);
-				err=-6;
-			}
-			break;
-		case 'z':
+	param.parser_attr=gt_input_generic_parser_attributes_new(false);
+  struct option* score_reads_getopt = gt_options_adaptor_getopt(score_reads_options);
+  gt_string* const score_reads_short_getopt = gt_options_adaptor_getopt_short(score_reads_options);
+  int option, option_index;
+  char *p;
+  int insert_set[2]={0,0};
+  while (true) {
+    // Get option &  Select case
+    if ((option=getopt_long(argc,argv,
+        gt_string_get_string(score_reads_short_getopt),score_reads_getopt,&option_index))==-1) break;
+    switch (option) {
+    /* I/O */
+    case 'i':
+    	param.dist_file = optarg;
+    	break;
+    case 'o':
+    	param.output_file = optarg;
+    	break;
+    case 300:
+      param.input_files[0] = optarg;
+      break;
+    case 301:
+      param.input_files[1] = optarg;
+      break;
+  	case 'p':
+  		gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
+  		break;
+  	case 'z':
 #ifdef HAVE_ZLIB
-			param.compress=GZIP;
+  		param.compress=GZIP;
 #endif
-			break;
-		case 'j':
+  		break;
+  	case 'j':
 #ifdef HAVE_BZLIB
-			param.compress=BZIP2;
+  		param.compress=BZIP2;
 #endif
-			break;
-		case 'Z':
-			param.compress=NONE;
-			break;
-		case 'F':
-			param.qual_offset=QUAL_FASTQ;
-			break;
-		case 'S':
-			param.qual_offset=QUAL_SOLEXA;
-			break;
-		case 'w':
-			param.mmap_input=true;
-			break;
-		case 't':
+  		break;
+  	case 'Z':
+  		param.compress=NONE;
+  		break;
+ 		/* Score function */
+  	case 'q':
+      if (gt_streq(optarg,"offset-64")) {
+        param.qual_offset=64;
+      } else if (gt_streq(optarg,"offset-33")) {
+        param.qual_offset=33;
+      } else {
+        gt_fatal_error_msg("Quality format not recognized: '%s'",optarg);
+      }
+      break;
+  	case 401:
+  		param.min_insert=(int)strtol(optarg,&p,10);
+  		if(*p || param.min_insert<0) {
+  			fprintf(stderr,"Illegal minimum insert size: '%s'\n",optarg);
+  			err=-7;
+  		} else insert_set[0]=1;
+  		break;
+  	case 402:
+  		param.max_insert=(int)strtol(optarg,&p,10);
+  		if(*p || param.max_insert<0) {
+  			fprintf(stderr,"Illegal maximum insert size: '%s'\n",optarg);
+  			err=-7;
+  		} else insert_set[1]=1;
+  		break;
+  	case 403:
+  		param.indel_quality=(int)strtol(optarg,&p,10);
+  		if(*p || param.indel_quality<0) {
+  			fprintf(stderr,"Illegal indel score: '%s'\n",optarg);
+  			err=-7;
+  		}
+  		break;
+  	case 'x':
+  		param.ins_cutoff=strtod(optarg,&p);
+  		if(*p || param.ins_cutoff>0.5 || param.ins_cutoff<0.0) {
+  			fprintf(stderr,"Illegal insert distribution cutoff percentile: '%s'\n",optarg);
+  			err=-6;
+  		}
+  		break;
+  	case 'm':
+  		param.mapping_cutoff=(int)strtol(optarg,&p,10);
+  		if(*p || param.mapping_cutoff<0) {
+  			fprintf(stderr,"Illegal mapping cutoff: '%s'\n",optarg);
+  			err=-7;
+  		}
+  		break;
+    /* Misc */
+    case 'v':
+      param.verbose = true;
+      break;
+    case 't':
 #ifdef HAVE_OPENMP
-			param.num_threads=atoi(optarg);
+      param.num_threads = atol(optarg);
 #endif
-			break;
-		case 'h':
-		case '?':
-			usage(stdout);
-			exit(0);
-		}
-	}
-	int i;
-	for(i=optind;i<argc;i++) {
-		if(i-optind>1) {
-			fputs("More than two input files specified on command line; extra arguments ignored\n",stderr);
-			break;
-		}
-		param.input_files[i-optind]=strdup(argv[i]);
-	}
+      break;
+    case 'h':
+      usage(score_reads_options,score_reads_groups,false);
+      exit(1);
+      break;
+    case 'H':
+      usage(score_reads_options,score_reads_groups,true);
+      exit(1);
+    case 'J':
+      gt_options_fprint_json_menu(stderr,gt_map2sam_options,gt_map2sam_groups,true,false);
+      exit(1);
+      break;
+    case '?':
+    default:
+      usage(score_reads_options,score_reads_groups,false);
+      gt_fatal_error_msg("Option '%c' %d not recognized",option,option);
+    }
+  }
+  /*
+   * Parameters check
+   */
 	if(param.input_files[1]) gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
 	if(!err && insert_set[0] && insert_set[1] && param.min_insert>param.max_insert) {
 		fputs("Minimum insert size > maximum insert size\n",stderr);
-		usage(stderr);
+    usage(score_reads_options,score_reads_groups,false);
 		err=-15;
 	}
 	if(!err) {
@@ -435,7 +447,6 @@ int main(int argc,char *argv[])
 				if(l<3 || strcmp(param.output_file+l-3,".gz")) {
 					char *s;
 					asprintf(&s,"%s.gz",param.output_file);
-					free(param.output_file);
 					param.output_file=s;
 				}
 				break;
@@ -443,7 +454,6 @@ int main(int argc,char *argv[])
 				if(l<4 || strcmp(param.output_file+l-4,".bz2")) {
 					char *s;
 					asprintf(&s,"%s.bz2",param.output_file);
-					free(param.output_file);
 					param.output_file=s;
 				}
 				break;
@@ -456,16 +466,21 @@ int main(int argc,char *argv[])
 				if(param.min_insert<=1000) param.max_insert=1000;
 				else param.max_insert=param.min_insert+1000;
 		}
-		char *qs="";
-		if(param.qual_offset==QUAL_FASTQ) qs="<FASTQ>";
-		else if(param.qual_offset==QUAL_SOLEXA) qs="<SOLEXA>";
-		if(gt_input_generic_parser_attributes_is_paired(param.parser_attr)) {
-			fputs("sel_reads:\n",stderr);
-			if(param.dist_file) fprintf(stderr,"dist_file = %s\n",param.dist_file);
-			fprintf(stderr,"insert distribution cutoff percentile %g\nquality value adjustment: %d %s\n",param.ins_cutoff,param.qual_offset,qs);
-		} else {
-			printf("sel_reads: \nquality value adjustment: %d %s\n",param.qual_offset,qs);
-		}
+	}
+  // Free
+  gt_string_delete(score_reads_short_getopt);
+  return err;
+}
+
+int main(int argc,char *argv[])
+{
+	int err=0;
+  // GT error handler
+  gt_handle_error_signals();
+
+  // Parsing command-line options
+  err=parse_arguments(argc,argv);
+  if(!err) {
 		// Open out file
 		gt_output_file *output_file;
 		if(param.output_file) {

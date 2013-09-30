@@ -224,6 +224,7 @@ GT_INLINE void gt_sam_attributes_add_tag_NM(gt_sam_attributes* const sam_attribu
 //  OC  Z  Original CIGAR (usually before realignment)
 //  PG  Z  Program. Value matches the header PG-ID tag if @PG is present.
 //  PQ  i  Phred likelihood of the template, conditional on both the mapping being correct
+GT_INLINE void gt_sam_attributes_add_tag_PQ(gt_sam_attributes* const sam_attributes);
 //  PU  Z  Platform unit. Value to be consistent with the header RG-PU tag if @RG is present.
 //  Q2  Z  Phred quality of the mate/next segment. Same encoding as QUAL.
 //  R2  Z  Sequence of the mate/next segment in the template.
@@ -235,7 +236,7 @@ GT_INLINE void gt_sam_attributes_add_tag_RG(gt_sam_attributes* const sam_attribu
 //  TC  i  The number of segments in the template.
 //  U2  Z  Phred probability of the 2nd call being wrong conditional on the best being wrong. The same encoding as QUAL.
 //  UQ  i  Phred likelihood of the segment, conditional on the mapping being correct
-
+GT_INLINE void gt_sam_attributes_add_tag_UQ(gt_sam_attributes* const sam_attributes);
 
 /*
  * GT-library PRE-Implemented Functional Attributes
