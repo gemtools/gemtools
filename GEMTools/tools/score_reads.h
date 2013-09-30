@@ -15,9 +15,9 @@
 #define QUAL_SOLEXA 64
 #define SOLEXA_BAD_QUAL 2
 #define DEFAULT_QUAL (QUAL_FASTQ)
-#define DEFAULT_LTRIM 0
-#define DEFAULT_RTRIM 0
-
+#define MISSING_QUAL 40 // Value to use in alignment score if qualities not available
+#define INDEL_QUAL 40 // Value to use in alignment score for indels
+#define MAX_GT_SCORE 0xFFFF
 #define MAX_QUAL 42
 #define ALIGN_NORM 0
 #define ALIGN_BS_POS 1
@@ -35,17 +35,16 @@ typedef struct {
   double ins_cutoff;
   bool mmap_input;
   gt_output_file_compression compress;
-  bool combined;
   gt_generic_parser_attributes *parser_attr;
   gt_generic_printer_attributes *printer_attr;
   gt_buffered_output_file *buf_output[2];
   int64_t min_insert;
   int64_t max_insert;
   double *ins_dist;
+  uint8_t *ins_phred;
   int num_threads;
+  int indel_quality;
   int qual_offset; // quality offset (33 for FASTQ, 64 for Illumina)
-  int bad_qual; // Normally 2 for Illumina
-  int left,right; // Set ends of reads to 'N'
 } sr_param;
 
 #endif /* SEL_READS_H_ */

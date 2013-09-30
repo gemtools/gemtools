@@ -35,6 +35,7 @@ typedef struct {
   bool compact;
   /* Maps */
   bool print_scores; // Print alignment scores
+  bool hex_print_scores; // print alignment scores in hex
   uint64_t max_printable_maps; // Maximum number of maps printed
 } gt_output_map_attributes;
 #define GT_OUTPUT_MAP_ATTR_DEFAULT() { \

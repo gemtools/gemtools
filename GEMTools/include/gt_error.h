@@ -343,7 +343,8 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_TEMPLATE_INCONSISTENT_COUNTERS "Template inconsistency. MMaps inconsistent with counters values"
 #define GT_ERROR_TEMPLATE_ADD_BAD_NUM_BLOCKS "Trying to add wrong number of blocks to the template"
 #define GT_ERROR_PALIGN_BAD_NUM_BLOCKS "Invalid Paired-alignment. Wrong number of alignment blocks (%"PRIu64")"
-
+#define GT_ERROR_TEMPLATE_NOT_SCORED "Alignments have no valid score.  MAPQ can not be calculated unless the map file has been processed using score_reads"
+	  
 // Sequence Archive/Segmented Sequence errors
 #define GT_ERROR_SEGMENTED_SEQ_IDX_OUT_OF_RANGE "Error accessing segmented sequence. Index %"PRIu64" out out range [0,%"PRIu64")"
 #define GT_ERROR_CDNA_IT_OUT_OF_RANGE "Error seeking sequence. Index %"PRIu64" out out range [0,%"PRIu64")"

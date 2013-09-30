@@ -40,6 +40,18 @@ GT_INLINE uint64_t gt_input_parse_tag_chomp_pairend_info(gt_string* const tag);
   while (gt_expect_true(!(test) && !GT_IS_EOL(text_line))) { \
     GT_NEXT_CHAR(text_line); \
   }
+#define GT_PARSE_HEX_OR_DEC(text_line,number) \
+  number=0; \
+  if(**text_line=='0' && (*(*text_line+1)=='x' || *(*text_line+1)=='X')) { \
+    *text_line+=2; \
+    while (gt_expect_true(gt_is_hex_digit(**text_line))) { \
+      number = (number<<4) + gt_get_hex_cipher(**text_line); \
+      GT_NEXT_CHAR(text_line); \
+    } \
+  } else while (gt_expect_true(gt_is_number(**text_line))) { \
+    number = (number*10) + gt_get_cipher(**text_line); \
+    GT_NEXT_CHAR(text_line); \
+  }
 #define GT_PARSE_NUMBER(text_line,number) \
   number = 0; \
   while (gt_expect_true(gt_is_number(**text_line))) { \

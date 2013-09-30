@@ -543,9 +543,11 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		// And for paired alignments
 		bool flg=false;
 		GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,maps,maps_attr) {
-			if(maps_attr->distance<=max_dist[2]) {
-				if(gt_map_get_num_blocks(maps[0])>1 || gt_map_get_num_blocks(maps[1])>1) nsplit[2]++;
-				else flg=true;
+			if(maps[0] && maps[1]) {
+				if(maps_attr->distance<=max_dist[2]) {
+					if(gt_map_get_num_blocks(maps[0])>1 || gt_map_get_num_blocks(maps[1])>1) nsplit[2]++;
+					else flg=true;
+				}
 			}
 		}
 		if(nsplit[2]) {
@@ -566,12 +568,14 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			if(nmaps[2]==1 && (nmaps[0]<=gt_alignment_get_num_maps(al[0])) && (nmaps[1]<=gt_alignment_get_num_maps(al[1]))) {
 				stats->paired_unique++;
 				maps=gt_template_get_mmap_array(template,0,NULL);
-				gt_status gt_err;
-				int64_t ins_size=gt_template_get_insert_size(maps,&gt_err,0,0);
-				if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
-					dist_element* de=as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_PAIRED,ins_size);
-					if(nmaps[0]>1 || nmaps[1]>1) de->ct[AS_INSERT_TYPE_RECOVERED]++;
-					if(nsplit[2]) de->ct[AS_INSERT_TYPE_SPLIT]++;
+				if(maps[0] && maps[1]) {
+					gt_status gt_err;
+					int64_t ins_size=gt_template_get_insert_size(maps,&gt_err,0,0);
+					if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
+						dist_element* de=as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_PAIRED,ins_size);
+						if(nmaps[0]>1 || nmaps[1]>1) de->ct[AS_INSERT_TYPE_RECOVERED]++;
+						if(nsplit[2]) de->ct[AS_INSERT_TYPE_SPLIT]++;
+					}
 				}
 			}
 		}
@@ -1436,7 +1440,7 @@ int main(int argc,char *argv[])
 						if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param.min_insert && x<=param.max_insert) {
 							attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
 							attr.gt_score=GT_MAP_NO_GT_SCORE;
-							gt_template_inc_counter(template,attr.distance+1);
+							gt_template_inc_counter(template,attr.distance);
 							gt_template_add_mmap_ends(template,map1,map2,&attr);
 						}
 					}

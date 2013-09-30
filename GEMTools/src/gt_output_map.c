@@ -32,6 +32,7 @@ GT_INLINE void gt_output_map_attributes_reset_defaults(gt_output_map_attributes*
 	attributes->compact = false;
 	/* Maps */
 	attributes->print_scores = true;
+	attributes->hex_print_scores = false;
 	attributes->max_printable_maps = GT_ALL;
 }
 /* Tag */
@@ -259,7 +260,9 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
   }
   // Print attributes (scores)
   if (print_scores && gt_map_get_score(map)!=GT_MAP_NO_GT_SCORE) {
-    gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_score(map));
+  	if(output_map_attributes->hex_print_scores)
+      gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"0x%"PRIx64,gt_map_get_score(map));
+  	else gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_score(map));
   }
   // Print quimeras, split-maps across chromosomes, ...
   if (gt_map_has_next_block(map_it)) {
@@ -491,7 +494,9 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps(
         }
         // Print scores
         if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->gt_score!=GT_MAP_NO_GT_SCORE) {
-          gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->gt_score);
+        	if(output_map_attributes->hex_print_scores)
+            gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"0x%"PRIx64,map_array_attr->gt_score);
+        	else gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->gt_score);
         }
         if (total_maps_printed>=output_map_attributes->max_printable_maps || total_maps_printed>=num_maps) return error_code;
         if (pending_maps==0) break;

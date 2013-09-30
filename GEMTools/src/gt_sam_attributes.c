@@ -506,3 +506,17 @@ GT_INLINE void gt_sam_attributes_add_tag_XS(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_sfunc(sam_attributes,"XS",'A',gt_sam_attribute_generate_XS);
 }
 
+//  MQ  i  MAPQ value for mate for paired alignments
+GT_INLINE gt_status gt_sam_attribute_generate_MQ(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	func_params->return_i=func_params->alignment_info->paired_end.mate->phred_score;
+  }
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_MQ(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"MQ",'i',gt_sam_attribute_generate_MQ);
+}

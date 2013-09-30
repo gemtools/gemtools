@@ -137,10 +137,12 @@
  * Is functions
  */
 #define gt_is_number(character) ('0' <= (character) && (character) <= '9')
+#define gt_is_hex_digit(character) (gt_is_number(character) || ('a' <= (character) && (character) <= 'f') || ('A' <= (character) && (character) <= 'F'))
 #define gt_is_letter(character) (('a' <= (character) && (character) <= 'z') || ('A' <= (character) && (character) <= 'Z'))
 #define gt_is_alphanumeric(character) (gt_is_number(character) || gt_is_letter(character))
 
 #define gt_get_cipher(character) ((character) - '0')
+#define gt_get_hex_cipher(character) (gt_is_number(character)?gt_get_cipher(character):(toupper(character) - 'A' + 10))
 
 /*
  * Helper functions (OPERATIVE)
