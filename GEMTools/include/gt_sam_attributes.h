@@ -211,6 +211,7 @@ GT_INLINE void gt_sam_attribute_func_params_set_pe(
 //  IH  i  Number of stored alignments in SAM that contains the query in the current record
 //  MD  Z  String for mismatching positions. Regex : [0-9]+(([A-Z]|\^[A-Z]+)[0-9]+)*
 //  MQ  i  Mapping quality of the mate/next segment
+GT_INLINE void gt_sam_attributes_add_tag_MQ(gt_sam_attributes* const sam_attributes);
 
 //  NH  i  Number of reported alignments that contains the query in the current record
 GT_INLINE void gt_sam_attributes_add_tag_NH(gt_sam_attributes* const sam_attributes);

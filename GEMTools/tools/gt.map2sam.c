@@ -104,6 +104,7 @@ void gt_map2sam_calc_phred(gt_template *template)
 	uint64_t min_score[3]={0xffff,0xffff,0xffff};
 	{
 		GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,maps,maps_attr) {
+			if(!maps_attr) gt_fatal_error(TEMPLATE_NOT_SCORED);
 			uint64_t score=maps_attr->gt_score;
 			if(score==GT_MAP_NO_GT_SCORE) gt_fatal_error(TEMPLATE_NOT_SCORED);
 			uint64_t seq_like[2],interval_like;
@@ -256,6 +257,7 @@ void gt_map2sam_read__write() {
     if (parameters.optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
+    if (parameters.calc_phred) gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
     gt_template* template = gt_template_new();
     while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
       if (error_code!=GT_IMP_OK) {
