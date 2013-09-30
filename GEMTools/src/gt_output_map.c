@@ -262,6 +262,11 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
       cigar_pending = false;
     }
   }
+  // Print quimeras, split-maps across chromosomes, ...
+  if (gt_map_has_next_block(map_it)) {
+    gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
+    error_code|=gt_output_map_gprint_map_(gprinter,next_map,output_map_attributes,false,true,true);
+  }
   // Print attributes (scores)
   if (print_scores && gt_map_get_score(map)!=GT_MAP_NO_GT_SCORE) {
   	if (output_map_attributes->hex_print_scores) {
@@ -269,11 +274,6 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
   	} else {
   	  gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,gt_map_get_score(map));
   	}
-  }
-  // Print quimeras, split-maps across chromosomes, ...
-  if (gt_map_has_next_block(map_it)) {
-    gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-    error_code|=gt_output_map_gprint_map_(gprinter,next_map,output_map_attributes,print_scores,true,true);
   }
   return error_code;
 }
