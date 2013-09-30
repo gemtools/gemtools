@@ -489,7 +489,6 @@ int main(int argc,char *argv[])
 			output_file=gt_output_stream_new_compress(stdout,UNSORTED_FILE,param.compress);
 		}
 		gt_cond_fatal_error(!output_file,FILE_OPEN,param.output_file);
-		gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
 		param.printer_attr=gt_generic_printer_attributes_new(MAP);
 		param.printer_attr->output_map_attributes->print_casava=true;
 		param.printer_attr->output_map_attributes->print_extra=true;
@@ -509,6 +508,7 @@ int main(int argc,char *argv[])
 			{
 				gt_buffered_input_file* buffered_input1=gt_buffered_input_file_new(input_file1);
 				gt_buffered_input_file* buffered_input2=gt_buffered_input_file_new(input_file2);
+				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
 				gt_buffered_input_file_attach_buffered_output(buffered_input1,buffered_output);
 				gt_status error_code;
 				gt_template *template=gt_template_new();
@@ -542,6 +542,7 @@ int main(int argc,char *argv[])
 				gt_template_delete(template);
 				gt_buffered_input_file_close(buffered_input1);
 				gt_buffered_input_file_close(buffered_input2);
+				gt_buffered_output_file_close(buffered_output);
 			}
 			gt_input_file_close(input_file1);
 			gt_input_file_close(input_file2);
@@ -553,6 +554,7 @@ int main(int argc,char *argv[])
 #endif
 			{
 				gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
+				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
 				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
 				gt_status error_code;
 				gt_template *template=gt_template_new();
@@ -589,10 +591,10 @@ int main(int argc,char *argv[])
 				// Clean
 				gt_template_delete(template);
 				gt_buffered_input_file_close(buffered_input);
+				gt_buffered_output_file_close(buffered_output);
 			}
 			gt_input_file_close(input_file);
 		}
-		gt_buffered_output_file_close(buffered_output);
 		gt_output_file_close(output_file);
 		gt_generic_printer_attributes_delete(param.printer_attr);
 		if(param.ins_dist) {
