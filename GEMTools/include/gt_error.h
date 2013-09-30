@@ -254,6 +254,7 @@ gt_status gt_tprintf(const char* format,...);
  */
 // Library/Program errors
 #define GT_ERROR_NOT_ZERO "Value Zero. Variable %s must be non-zero"
+#define GT_ERROR_INVALID_VALUE "invalid Value. Variable %s must be %s"
 #define GT_ERROR_POSITION_OUT_OF_RANGE "Requested position out of range"
 #define GT_ERROR_POSITION_OUT_OF_RANGE_INFO "Requested position (%"PRIu64") out of range [%"PRIu64",%"PRId64"]"
 #define GT_ERROR_SELECTION_NOT_IMPLEMENTED "Library error. Selection not implemented"
@@ -354,6 +355,9 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_GEMIDX_SEQ_ARCHIVE_NOT_FOUND "GEMIdx. Sequence '%s' not found in reference archive"
 #define GT_ERROR_GEMIDX_INTERVAL_NOT_FOUND "GEMIdx. Interval relative to sequence '%s' not found in reference archive"
 
+// Stats vector
+#define GT_ERROR_VSTATS_INVALID_MIN_MAX "Invalid step range for stats vector, min_value <= max_value"
+
 /*
  * Parsing FASTQ File format errors
  */
@@ -426,9 +430,10 @@ gt_status gt_tprintf(const char* format,...);
 /*
  * General purpose checkers
  */
-#define GT_NULL_CHECK(object) gt_fatal_check((object)==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
-//#define GT_NULL_CHECK(object) if ((object)==NULL) {printf("%d\n",*(int*)object);} /* FIXME */
+//#define GT_NULL_CHECK(object) gt_fatal_check((object)==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
 #define GT_ZERO_CHECK(object) gt_fatal_check((object)==0,NOT_ZERO,((char*)GT_QUOTE(object)))
-
+#define GT_INVALID_CASE() gt_fatal_error(SELECTION_NOT_VALID)
+/* Eclipse debugging definitions */
+#define GT_NULL_CHECK(object) if ((object)==NULL) { printf("%d\n",(*(int*)object)); }
 
 #endif /* GT_ERROR_H_ */

@@ -28,6 +28,10 @@ typedef struct {
 typedef struct {
   gt_ihash_element* ihash_head;
 } gt_ihash;
+typedef struct {
+  gt_ihash_element* ihash;
+  gt_ihash_element* next;
+} gt_ihash_iterator;
 
 /*
  * Constructor
@@ -63,6 +67,7 @@ GT_INLINE uint64_t gt_ihash_get_num_elements(gt_ihash* const ihash);
  */
 GT_INLINE gt_ihash* gt_ihash_dup(gt_ihash* const ihash);
 GT_INLINE void gt_ihash_copy(gt_ihash* const ihash_dst,gt_ihash* const ihash_src);
+GT_INLINE void gt_ihash_sort_by_key(gt_ihash* const ihash);
 
 /*
  * Iterator
@@ -73,5 +78,12 @@ GT_INLINE void gt_ihash_copy(gt_ihash* const ihash_dst,gt_ihash* const ihash_src
     type* const it_element = (type*)(ihash_##ih_element->element); \
     int64_t const it_ikey = ihash_##ih_element->key;
 #define GT_IHASH_END_ITERATE }}
+
+GT_INLINE gt_ihash_iterator* gt_ihash_iterator_new(gt_ihash* const ihash);
+GT_INLINE void gt_ihash_iterator_delete(gt_ihash_iterator* const ihash_iterator);
+
+GT_INLINE bool gt_ihash_iterator_next(gt_ihash_iterator* const ihash_iterator);
+GT_INLINE int64_t gt_ihash_iterator_get_key(gt_ihash_iterator* const ihash_iterator);
+GT_INLINE void* gt_ihash_iterator_get_element(gt_ihash_iterator* const ihash_iterator);
 
 #endif /* GT_IHASH_H_ */
