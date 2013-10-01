@@ -1,5 +1,5 @@
 GEM-Tools
-===================
+=========
 GEM-Tools is a C API and a Python module to support and simplify usage of the
 [GEM Mapper](http://algorithms.cnag.cat/wiki/The_GEM_library).
 
@@ -45,8 +45,8 @@ python scripts. You are restricted to the available command line tools.
 We also provide a bundle for older CPU's that lack certain features. If you are
 not sure which package to download, i3 or core2, run the following command on
 the machine you want to install GEM-Tools:
-	
-	python -c 'print ("i3 compatible" if set(["popcnt", "ssse3", "sse4_1", "sse4_2"]).issubset(set([f for sl in map(lambda x:x.split(), filter(lambda x:x.startswith("flags"), open("/proc/cpuinfo").readlines())) for f in sl])) else "No i3 support detected. Please use the core2 bundle")'
+    
+    python -c 'print ("i3 compatible" if set(["popcnt", "ssse3", "sse4_1", "sse4_2"]).issubset(set([f for sl in map(lambda x:x.split(), filter(lambda x:x.startswith("flags"), open("/proc/cpuinfo").readlines())) for f in sl])) else "No i3 support detected. Please use the core2 bundle")'
 
 This command checks your ``/proc/cpuinfo`` file for the flags *popcnt*, *ssse3*,
 *sse4_1* and *sse4_2* are present. If that is the case, the CPU is supported by the
@@ -82,7 +82,7 @@ system the packages are libbz2-dev and zlib-dev.
 Here is an example of how you can install the necessary dependencies to build
 the C-library on a Debian/Ubuntu system: 
 
-	sudo apt-get install make gcc libbz2-dev
+    sudo apt-get install make gcc libbz2-dev
 
 For the python part, the library will work both with Python 2.6 and Python 2.7.
 In order to compile the the C binding, you need to have
@@ -91,7 +91,7 @@ In order to compile the the C binding, you need to have
 Here is an example of how you can install the necessary dependencies to build
 the Python library on a Debian/Ubuntu system: 
 
-	sudo apt-get install make gcc libbz2-dev python-dev
+    sudo apt-get install make gcc libbz2-dev python-dev
 
 
 Install from pypi 
@@ -117,12 +117,12 @@ You can install GEM-Tool from the github repository using the distributed
 setup.py script. 
 
 Clone the repository
-	
-	git clone https://github.com/gemtools/gemtool
+    
+    git clone https://github.com/gemtools/gemtool
 
 Change into the gemtools folder and install the python library
 
-	cd gemtools
+    cd gemtools
 
 As root:
     
@@ -130,7 +130,7 @@ As root:
 
 As non-root user:
     
-	python setup.py install --user 
+    python setup.py install --user 
 
 This will install into a $HOME/.local folder and you might want to add
 $HOME/.local/bin to your path. For example, add
@@ -149,23 +149,23 @@ manager easily.
 
 In order to build the library package, clone the the repository and call
 
-	make package
+    make package
 
 This will create a *dist/* folder that contains two tarballs, one for i3, and
 one for core2. In addition you will see the unpacked folders. They are
 structured as follows:
 
-	bin/ -- all the executables
-	lib/ -- symlink to lib64
-	lib64/ -- contains the gemtools c library as limgemtools.a
-	lib64/python<version>/site-packages -- the python libraries for your python version (i.e. 2.6 or 2.7)
-	include/ -- the C API header files
+    bin/ -- all the executables
+    lib/ -- symlink to lib64
+    lib64/ -- contains the gemtools c library as limgemtools.a
+    lib64/python<version>/site-packages -- the python libraries for your python version (i.e. 2.6 or 2.7)
+    include/ -- the C API header files
 
 Say you moved the package to `/opt/gemtools` and you run python2.6. You can
 activate the package by exporting the following variables to your environment:
 
-	export PATH=$PATH:/opt/gemtools/bin
-	export PYTHONPATH=$PYTHONPATH:/opt/gemtools/lib64/python2.6/site-packages
+    export PATH=$PATH:/opt/gemtools/bin
+    export PYTHONPATH=$PYTHONPATH:/opt/gemtools/lib64/python2.6/site-packages
 
 This will make all the executables available in your path and put the python
 library into the python search path so you can leverage it from your scripts.
@@ -178,23 +178,23 @@ If you are not interested in using any python library functions from your
 script, you can build portable static binary package by calling the `dist` 
 target in the Makefile.
 
-	make dist
+    make dist
 
 This will create a *dist/* folder that contains two tarballs, one for i3, and
 one for core2. In addition you will see the unpacked folders. They are
 structured as follows:
 
-	bin/ -- all the executables
-	lib/ -- symlink to lib64
-	lib64/ -- contains the gemtools c library as limgemtools.a
-	include/ -- the C API header files
+    bin/ -- all the executables
+    lib/ -- symlink to lib64
+    lib64/ -- contains the gemtools c library as limgemtools.a
+    include/ -- the C API header files
 
 Say you moved the package to `/opt/gemtools`. You can activate the package by
 exporting the following variables to your environment:
 
-	export PATH=$PATH:/opt/gemtools/bin
+    export PATH=$PATH:/opt/gemtools/bin
 
-	
+    
 Bugs and feature requests
 =====================
 Please feel free to use the Github bug tracker to report issues and feature
@@ -207,12 +207,40 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 
 Change log
 =====================
-	1.6.2
+    1.7
+    - Fixed issue with junctions of length 0 in gtf extraction
+    - Added filtered output to default rna-pipeline output
+    - An exception is thrown when the initial splitmap file contains a 
+      "!" in the strata field
+    - Add ability to replace a single executable and use the bundled 
+      ones for the rest
+    - Add fail-checks when passing input to functions that expect a ReadIterator
+    - Refactor the RNASeq pipeline construction into a standalone class
+    - The statically compiled gemtools is now compatible with kernel 2.6.18
+    - Fixedgt.filter memory leak
+    - Set XT:U based on uniqueness level, i.e. 1:0:0:1 is level 2
+    - Chimeric reads in GEM and SAM
+    - Include a function to reconstruct the read after a trimmed alignment
+    - Add a annotation mapping filter to the pipeline to reduce multi-maps
+    - Implement a parallel merger for files with different size 
+      (subset of reads)
+    - Add distance resort to gt.filter to support rnaseq mappings where 
+      splits should not be counted as an event
+    - Fixed gt.filter output FASTQ pairdend reads
+    - Add a split-map only filter to the pipeline/transcriptome mapping step
+    - Add --keep-unique option to the gt.filter to disable filtering 
+      for all mappings with exactly one alignment
+    - Speedup for merge operations for reads with lots of mappings
+    - Add JSON support to gt.stats
+    - Add json support to gt.gtfcounts
+    - Add coverage counts to gt.gtfcount
+
+    1.6.2
     - Fixed issue with compute-transcriptome
     - Fixed issue with gem-2-sam where XS flag could not be computed
     - Added additional flag to avoid XS computation
 
-	1.6.1
+    1.6.1
     - GEMTools SAM conversion doesnow include the header again
     - Pair detection fixed for reads with space in the id and not casava
     - Pipeline -o paramter does create the output folder now automatically
@@ -220,14 +248,14 @@ Change log
     - Added option to create sam-compact format in the pipeline
 
     1.6
-	- Parallel file conversion for pipeline
-	- Cython C bindings for the parser library
-	- JSON export of the statistics
-	- Index and transcript index support from gemtools
-	- Restartable pipeline options
-	- gem-2-sam now writes the XS field for cufflinks support
-	- Added the new rna seq pipeline
-	- Added stats and report tools to the gemtools cli tool
+    - Parallel file conversion for pipeline
+    - Cython C bindings for the parser library
+    - JSON export of the statistics
+    - Index and transcript index support from gemtools
+    - Restartable pipeline options
+    - gem-2-sam now writes the XS field for cufflinks support
+    - Added the new rna seq pipeline
+    - Added stats and report tools to the gemtools cli tool
     - Added new bundle system and detection for i3 vs core2
     - Added optional appending NH field to SAM entries
     - Added *extra* options to mapper/splitmapper/pairalign to enable 
