@@ -207,6 +207,8 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 
 Change log
 =====================
+    1.8 
+
     1.7
     - Fixed issue with junctions of length 0 in gtf extraction
     - Added filtered output to default rna-pipeline output
