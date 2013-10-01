@@ -372,7 +372,10 @@ static void as_stats_resize(as_stats *stats,uint64_t rd,uint64_t l)
 				stats->read_length_stats[rd][i]=0;
 				stats->base_counts_by_cycle[rd][i]=as_calloc((size_t)(MAX_QUAL+1)*5,sizeof(uint64_t));
 				for(j=rd*2;j<rd*2+2;j++) stats->indel_stats[j][i]=0;
-				for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) stats->mm_stats[j][i]=0;
+				for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) {
+					stats->mm_stats[j][i]=0;
+					stats->qual_stats[j][i]=0;
+				}
 			}
 		} else {
 			stats->read_length_stats[rd]=as_calloc((size_t)nlen,sizeof(uint64_t));
