@@ -320,7 +320,8 @@ def from_gtf(annotation):
         end = int(split[4])
         if start != end:
             exon = Exon(split[0], id, start, end, split[6])
-            junctions.setdefault(id, Junction()).append(exon)
+            if exon.stop - exon.start > 1:
+                junctions.setdefault(id, Junction()).append(exon)
     logging.debug("Found %d raw sites, extracting unique" % (len(junctions)))
     unique = sorted(set((
         site for sites in
