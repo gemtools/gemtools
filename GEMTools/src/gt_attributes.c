@@ -18,10 +18,17 @@ GT_INLINE gt_attributes* gt_attributes_new(void) {
 }
 GT_INLINE void gt_attributes_clear(gt_attributes* const attributes) {
   GT_ATTRIBUTES_CHECK(attributes);
+  // Check SAM attributes
+  gt_sam_attributes* const sam_attributes = gt_attributes_get_sam_attributes(attributes);
+  if (sam_attributes) gt_sam_attributes_clear(sam_attributes);
+  // Clear general attributes
   gt_shash_clear(attributes,true);
 }
 GT_INLINE void gt_attributes_delete(gt_attributes* const attributes) {
   GT_ATTRIBUTES_CHECK(attributes);
+  // Check SAM attributes
+  gt_attributes_delete_sam_attributes(attributes);
+  // Delete general attributes
   gt_shash_delete(attributes,true);
 }
 GT_INLINE void* gt_attributes_get(gt_attributes* const attributes,char* const attribute_id) {
@@ -78,7 +85,6 @@ GT_INLINE void gt_attributes_copy(gt_attributes* const attributes_dst,gt_attribu
   GT_ATTRIBUTES_CHECK(attributes_src);
   gt_shash_copy(attributes_dst,attributes_src);
 }
-
 /*
  * Specific Attributes Handlers
  */
@@ -128,10 +134,26 @@ GT_INLINE void gt_attributes_annotate_right_trim(gt_attributes* const attributes
     }
   }
 }
-
 GT_INLINE gt_segmented_read_info* gt_attributes_get_segmented_read_info(gt_attributes* const attributes) {
   GT_ATTRIBUTES_CHECK(attributes);
   return gt_attributes_get(attributes,GT_ATTR_ID_SEGMENTED_READ_INFO);
 }
-
+/*
+ * SAM Attributes Handlers
+ */
+GT_INLINE void gt_attributes_add_sam_ivalue(gt_attributes* const attributes,const char* const tag,const char type_id,const int32_t value) {
+  GT_ATTRIBUTES_CHECK(attributes);
+  GT_NULL_CHECK(tag);
+  gt_sam_attributes_add_ivalue(gt_attributes_get_sam_attributes_dyn(attributes),tag,type_id,value);
+}
+GT_INLINE void gt_attributes_add_sam_fvalue(gt_attributes* const attributes,const char* const tag,const char type_id,const float value) {
+  GT_ATTRIBUTES_CHECK(attributes);
+  GT_NULL_CHECK(tag);
+  gt_sam_attributes_add_fvalue(gt_attributes_get_sam_attributes_dyn(attributes),tag,type_id,value);
+}
+GT_INLINE void gt_attributes_add_sam_svalue(gt_attributes* const attributes,const char* const tag,const char type_id,gt_string* const string) {
+  GT_ATTRIBUTES_CHECK(attributes);
+  GT_NULL_CHECK(tag);
+  gt_sam_attributes_add_svalue(gt_attributes_get_sam_attributes_dyn(attributes),tag,type_id,string);
+}
 

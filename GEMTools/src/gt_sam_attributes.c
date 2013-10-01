@@ -144,7 +144,7 @@ GT_INLINE gt_sam_attribute* gt_attributes_get_sam_attribute(gt_attributes* const
   sam_attribute->tag[1]=tag_src[1]
 #define GT_ATTRIBUTE_SAM_CMP_TAG(sam_attribute_ptr,tag_src) \
   (sam_attribute_ptr->tag[0]==tag_src[0] && sam_attribute_ptr->tag[1]==tag_src[1])
-GT_INLINE void gt_sam_attribute_set_ivalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,const int32_t value) {
+GT_INLINE void gt_sam_attribute_set_ivalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,const int32_t value) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_ATTRIBUTE_SAM_COPY_TAG(sam_attribute,tag);
@@ -152,7 +152,7 @@ GT_INLINE void gt_sam_attribute_set_ivalue(gt_sam_attribute* const sam_attribute
   sam_attribute->type_id = type_id;
   sam_attribute->i_value = value;
 }
-GT_INLINE void gt_sam_attribute_set_fvalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,const float value) {
+GT_INLINE void gt_sam_attribute_set_fvalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,const float value) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_ATTRIBUTE_SAM_COPY_TAG(sam_attribute,tag);
@@ -160,7 +160,7 @@ GT_INLINE void gt_sam_attribute_set_fvalue(gt_sam_attribute* const sam_attribute
   sam_attribute->type_id = type_id;
   sam_attribute->f_value = value;
 }
-GT_INLINE void gt_sam_attribute_set_svalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_string* const string) {
+GT_INLINE void gt_sam_attribute_set_svalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_string* const string) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_STRING_CHECK(string);
@@ -169,7 +169,7 @@ GT_INLINE void gt_sam_attribute_set_svalue(gt_sam_attribute* const sam_attribute
   sam_attribute->type_id = type_id;
   sam_attribute->s_value = string;
 }
-GT_INLINE void gt_sam_attribute_set_ifunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*)) {
+GT_INLINE void gt_sam_attribute_set_ifunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*)) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(i_func);
@@ -178,7 +178,7 @@ GT_INLINE void gt_sam_attribute_set_ifunc(gt_sam_attribute* const sam_attribute,
   sam_attribute->type_id = type_id;
   sam_attribute->i_func = i_func;
 }
-GT_INLINE void gt_sam_attribute_set_ffunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*)) {
+GT_INLINE void gt_sam_attribute_set_ffunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*)) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(f_func);
@@ -187,7 +187,7 @@ GT_INLINE void gt_sam_attribute_set_ffunc(gt_sam_attribute* const sam_attribute,
   sam_attribute->type_id = type_id;
   sam_attribute->f_func = f_func;
 }
-GT_INLINE void gt_sam_attribute_set_sfunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*)) {
+GT_INLINE void gt_sam_attribute_set_sfunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*)) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(s_func);
@@ -199,21 +199,21 @@ GT_INLINE void gt_sam_attribute_set_sfunc(gt_sam_attribute* const sam_attribute,
 /*
  * SAM Attributes Add
  */
-GT_INLINE void gt_sam_attributes_add_ivalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,const int32_t value) {
+GT_INLINE void gt_sam_attributes_add_ivalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,const int32_t value) {
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   gt_sam_attribute* const sam_attribute = gt_alloc(gt_sam_attribute);
   gt_sam_attribute_set_ivalue(sam_attribute,tag,type_id,value);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_fvalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,const float value){
+GT_INLINE void gt_sam_attributes_add_fvalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,const float value){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   gt_sam_attribute* const sam_attribute = gt_alloc(gt_sam_attribute);
   gt_sam_attribute_set_fvalue(sam_attribute,tag,type_id,value);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_svalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_string* const string){
+GT_INLINE void gt_sam_attributes_add_svalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_string* const string){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   GT_STRING_CHECK(string);
@@ -221,7 +221,7 @@ GT_INLINE void gt_sam_attributes_add_svalue(gt_sam_attributes* const sam_attribu
   gt_sam_attribute_set_svalue(sam_attribute,tag,type_id,string);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_ifunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*)){
+GT_INLINE void gt_sam_attributes_add_ifunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*)){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(i_func);
@@ -229,7 +229,7 @@ GT_INLINE void gt_sam_attributes_add_ifunc(gt_sam_attributes* const sam_attribut
   gt_sam_attribute_set_ifunc(sam_attribute,tag,type_id,i_func);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_ffunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*)){
+GT_INLINE void gt_sam_attributes_add_ffunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*)){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(f_func);
@@ -237,7 +237,7 @@ GT_INLINE void gt_sam_attributes_add_ffunc(gt_sam_attributes* const sam_attribut
   gt_sam_attribute_set_ffunc(sam_attribute,tag,type_id,f_func);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_sfunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*)){
+GT_INLINE void gt_sam_attributes_add_sfunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*)){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(s_func);

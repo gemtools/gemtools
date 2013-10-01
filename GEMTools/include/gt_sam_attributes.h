@@ -65,7 +65,7 @@ GT_INLINE void gt_sam_header_add_program_record(gt_sam_headers* const sam_header
 GT_INLINE void gt_sam_header_add_comment(gt_sam_headers* const sam_headers,gt_string* const comment);
 /*
  * SAM Optional Fields
- *   - SAM Attributes(optional fields) are just a vector of @gt_sam_attribute
+ *   - SAM Attributes(optional fields) are just a hash of @gt_sam_attribute
  *     embedded into the general attributes(@gt_shash) of any object(@template,@alignment,@map,...)
  */
 typedef enum { SAM_ATTR_INT_VALUE, SAM_ATTR_FLOAT_VALUE, SAM_ATTR_STRING_VALUE,
@@ -140,21 +140,21 @@ GT_INLINE gt_sam_attribute* gt_attributes_get_sam_attribute(gt_attributes* const
 /*
  * SAM Attribute Setup
  */
-GT_INLINE void gt_sam_attribute_set_ivalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,const int32_t value);
-GT_INLINE void gt_sam_attribute_set_fvalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,const float value);
-GT_INLINE void gt_sam_attribute_set_svalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_string* const string);
-GT_INLINE void gt_sam_attribute_set_ifunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*));
-GT_INLINE void gt_sam_attribute_set_ffunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*));
-GT_INLINE void gt_sam_attribute_set_sfunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*));
+GT_INLINE void gt_sam_attribute_set_ivalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,const int32_t value);
+GT_INLINE void gt_sam_attribute_set_fvalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,const float value);
+GT_INLINE void gt_sam_attribute_set_svalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_string* const string);
+GT_INLINE void gt_sam_attribute_set_ifunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*));
+GT_INLINE void gt_sam_attribute_set_ffunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*));
+GT_INLINE void gt_sam_attribute_set_sfunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*));
 /*
  * SAM Attributes Add
  */
-GT_INLINE void gt_sam_attributes_add_ivalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,const int32_t value);
-GT_INLINE void gt_sam_attributes_add_fvalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,const float value);
-GT_INLINE void gt_sam_attributes_add_svalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_string* const string);
-GT_INLINE void gt_sam_attributes_add_ifunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*));
-GT_INLINE void gt_sam_attributes_add_ffunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*));
-GT_INLINE void gt_sam_attributes_add_sfunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*));
+GT_INLINE void gt_sam_attributes_add_ivalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,const int32_t value);
+GT_INLINE void gt_sam_attributes_add_fvalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,const float value);
+GT_INLINE void gt_sam_attributes_add_svalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_string* const string);
+GT_INLINE void gt_sam_attributes_add_ifunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*));
+GT_INLINE void gt_sam_attributes_add_ffunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*));
+GT_INLINE void gt_sam_attributes_add_sfunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*));
 /*
  * Functional Attribute (ifunc,ffunc,sfunc,pfunc) parameters
  */

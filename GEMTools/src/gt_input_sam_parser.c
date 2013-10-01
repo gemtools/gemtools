@@ -7,6 +7,7 @@
  */
 
 #include "gt_input_sam_parser.h"
+#include "gt_input_parser.h"
 
 // Constants
 #define GT_ISP_NUM_LINES GT_NUM_LINES_10K
@@ -286,17 +287,17 @@ GT_INLINE gt_status gt_input_sam_parser_reload_buffer(gt_buffered_input_file* co
 /*
  * SAM format. Basic building block for parsing
  */
-GT_INLINE uint64_t gt_isp_read_tag(char** const init_text_line,char** const end_text_line,gt_string* const tag) {
+GT_INLINE uint64_t gt_isp_read_tag(const char** const init_text_line,const char** const end_text_line,gt_string* const tag) {
   // Save text_line state
-  char* text_cp = *init_text_line;
-  char** const ptext_cp = &text_cp;
+  const char* text_cp = *init_text_line;
+  const char** const ptext_cp = &text_cp;
   // Read tag
-  char* const tag_begin = *ptext_cp;
+  const char* const tag_begin = *ptext_cp;
   GT_READ_UNTIL(ptext_cp,**ptext_cp==TAB || **ptext_cp==SPACE);
   if (GT_IS_EOL(ptext_cp)) return GT_ISP_PE_PREMATURE_EOL;
   // Set tag
   uint64_t const tag_length = *ptext_cp-tag_begin;
-  gt_string_set_nstring(tag,tag_begin,tag_length);
+  gt_string_set_nstring_static(tag,tag_begin,tag_length);
   // Read the rest till next field
   if (**ptext_cp==SPACE) {
     GT_READ_UNTIL(ptext_cp,**ptext_cp==TAB);
@@ -310,7 +311,7 @@ GT_INLINE uint64_t gt_isp_read_tag(char** const init_text_line,char** const end_
  * SAM CIGAR ::
  *   2M503N34M757N40M || 5M1D95M3I40M || ...
  */
-GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map** _map,const bool reverse_strand) {
+GT_INLINE gt_status gt_isp_parse_sam_cigar(const char** const text_line,gt_map** _map,const bool reverse_strand) {
   GT_NULL_CHECK(text_line); GT_NULL_CHECK(*text_line);
   GT_NULL_CHECK(_map); GT_MAP_CHECK(*_map);
   gt_map* map = *_map;
@@ -409,14 +410,14 @@ GT_INLINE gt_status gt_isp_parse_sam_cigar(char** const text_line,gt_map** _map,
 #define GT_ISP_END_OPT_FIELD }}
 
 GT_INLINE gt_status gt_isp_parse_sam_opt_xa_bwa(
-    char** const text_line,gt_alignment* const alignment,
+    const char** const text_line,gt_alignment* const alignment,
     gt_vector* const maps_vector,gt_sam_pending_end* const pending) {
   *text_line+=5;
   while (**text_line!=TAB && **text_line!=EOL) { // Read new attached maps
     gt_map* map = gt_map_new();
     gt_map_set_base_length(map,gt_alignment_get_read_length(alignment));
     // Sequence-name/Chromosome
-    char* const seq_name = *text_line;
+    const char* const seq_name = *text_line;
     GT_READ_UNTIL(text_line,**text_line==COMA);
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
     gt_map_set_seq_name(map,seq_name,*text_line-seq_name);
@@ -451,10 +452,10 @@ GT_INLINE gt_status gt_isp_parse_sam_opt_xa_bwa(
 }
 
 GT_INLINE gt_status gt_isp_parse_sam_optional_field(
-    char** const text_line,gt_alignment* const alignment,
+    const char** const text_line,gt_alignment* const alignment,
     gt_vector* const maps_vector,gt_sam_pending_end* const pending,
     const bool is_mapped) {
-  char* const init_opt_field = *text_line;
+  const char* const init_opt_field = *text_line;
 
   /*
    * XA:Z:chr17,-34553512,125M,0;chr17,-34655077,125M,0;
@@ -467,19 +468,28 @@ GT_INLINE gt_status gt_isp_parse_sam_optional_field(
   } GT_ISP_END_OPT_FIELD;
 
   /*
-   * Unknown field (store it as attribute and skip)
+   * SAM-like field (store it as attribute and skip)
    */
+  if (GT_INPUT_PARSER_IS_SAM_ATTRIBUTE(text_line)) {
+    // Keep the beginning of the TAG
+    const char* const attribute_start = *text_line;
+    // Select proper attributes
+    gt_attributes* const attributes = (!is_mapped) ?
+        alignment->attributes : (*gt_vector_get_last_elm(maps_vector,gt_map*))->attributes;
+    // Parse OPT field
+    if (!gt_input_parse_sam_optional_field(text_line,attributes)) return 0;
+    *text_line = attribute_start;
+  }
+
+  // Skip the content as we cannot understand it (:-S)
   GT_READ_UNTIL(text_line,**text_line==TAB);
-
-  // TODO: MD field, and more ....
-
 
   return 0;
 }
 
 // TODO: Increase the level of checking SAM consistency
 GT_INLINE gt_status gt_isp_parse_sam_alignment(
-    char** const text_line,gt_template* const _template,gt_alignment* const _alignment,
+    const char** const text_line,gt_template* const _template,gt_alignment* const _alignment,
     uint64_t* const alignment_flag,gt_sam_pending_end* const pending,const bool override_pairing) {
   gt_status error_code;
   bool is_mapped = true, is_single_segment;
@@ -503,7 +513,6 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   } else {
     gt_map_set_strand(map,FORWARD);
   }
-
   // Allocate template/alignment handlers
   gt_alignment* alignment;
   if (_template) {
@@ -521,7 +530,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   /*
    * Parse RNAME (Sequence-name/Chromosome)
    */
-  char* const seq_name = *text_line;
+  const char* const seq_name = *text_line;
   uint64_t seq_length = 0;
   if (gt_expect_false(**text_line==STAR)) {
     is_mapped=false; /* Unmapped */
@@ -563,17 +572,17 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   } else {
     // Parse RNEXT
     if (**text_line==EQUAL) {
-      gt_string_set_nstring(&pending->next_seq_name,seq_name,seq_length);
+      gt_string_set_nstring_static(&pending->next_seq_name,seq_name,seq_length);
       GT_NEXT_CHAR(text_line);
       if (**text_line!=TAB) {
         gt_map_delete(map); return GT_ISP_PE_BAD_CHARACTER;
       }
       GT_NEXT_CHAR(text_line);
     } else {
-      char* const next_seq_name = *text_line;
+      const char* const next_seq_name = *text_line;
       GT_READ_UNTIL(text_line,**text_line==TAB);
       GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
-      gt_string_set_nstring(&pending->next_seq_name,next_seq_name,*text_line-next_seq_name);
+      gt_string_set_nstring_static(&pending->next_seq_name,next_seq_name,*text_line-next_seq_name);
       GT_NEXT_CHAR(text_line);
     }
     // Parse PNEXT (Position of the next segment)
@@ -582,7 +591,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     if (pending->next_position==0) {
       gt_string_clear(&pending->next_seq_name);
     } else {
-      gt_string_set_nstring(&pending->map_seq_name,seq_name,seq_length);
+      gt_string_set_nstring_static(&pending->map_seq_name,seq_name,seq_length);
       pending->num_maps = 1;
       pending->map_position = gt_map_get_global_coordinate(map);
     }
@@ -598,14 +607,14 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
     GT_NEXT_CHAR(text_line);
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL__NEXT();
   } else {
-    char* const seq_read = *text_line;
+    const char* const seq_read = *text_line;
     GT_READ_UNTIL(text_line,**text_line==TAB);
     GT_ISP_PARSE_SAM_ALG_CHECK_PREMATURE_EOL();
     const uint64_t read_length = *text_line-seq_read;
     GT_NEXT_CHAR(text_line);
     // Set the read
     if (gt_string_is_null(alignment->read)) {
-      gt_dna_string_set_nstring(alignment->read,seq_read,read_length);
+      gt_string_set_nstring_static(alignment->read,seq_read,read_length);
       if (reverse_strand) {
         gt_dna_string_reverse_complement(alignment->read);
       }
@@ -635,11 +644,11 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   if (gt_expect_false(**text_line==STAR && (*((*text_line)+1)==TAB || *((*text_line)+1)==EOL || *((*text_line)+1)==EOS) )) {
     GT_NEXT_CHAR(text_line);
   } else {
-    char* const seq_qual = *text_line;
+    const char* const seq_qual = *text_line;
     GT_READ_UNTIL(text_line,**text_line==TAB);
     const uint64_t read_length = *text_line-seq_qual;
     if (gt_string_is_null(alignment->qualities)) {
-      gt_string_set_nstring(alignment->qualities,seq_qual,read_length);
+      gt_string_set_nstring_static(alignment->qualities,seq_qual,read_length);
       if (reverse_strand) {
         gt_string_reverse(alignment->qualities);
       }
@@ -696,7 +705,8 @@ GT_INLINE bool gt_isp_fetch_next_line(
   // Fetch next tag
   gt_string* const next_tag = gt_string_new(0);
   char* ptext_line;
-  if (gt_isp_read_tag(&(buffered_sam_input->cursor),&ptext_line,next_tag)) return false;
+  if (gt_isp_read_tag((const char** const)&(buffered_sam_input->cursor),
+      (const char** const)&ptext_line,next_tag)) return false;
   if (chomp_tag) gt_input_parse_tag_chomp_pairend_info(next_tag);
   const bool same_tag = gt_string_equals(expected_tag,next_tag);
   gt_string_delete(next_tag);
@@ -795,7 +805,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_template(
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
   gt_status error_code;
-  char** text_line = &(buffered_sam_input->cursor);
+  const char** const text_line = (const char** const)&(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
   gt_input_parse_tag_chomp_pairend_info(template->tag);
@@ -827,7 +837,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_soap_template(
     gt_buffered_input_file* const buffered_sam_input,gt_template* const template) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_TEMPLATE_CHECK(template);
-  char** text_line = &(buffered_sam_input->cursor);
+  const char** const text_line = (const char** const)&(buffered_sam_input->cursor);
   gt_status error_code;
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,template->tag))) return error_code;
@@ -866,7 +876,7 @@ GT_INLINE gt_status gt_input_sam_parser_parse_alignment(
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   GT_ALIGNMENT_CHECK(alignment);
   gt_status error_code;
-  char** text_line = &(buffered_sam_input->cursor);
+  const char** const text_line = (const char** const)&(buffered_sam_input->cursor);
   // Read initial TAG (QNAME := Query template)
   if ((error_code=gt_isp_read_tag(text_line,text_line,alignment->tag))) return error_code;
   // Read all maps related to this TAG
