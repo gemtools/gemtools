@@ -474,8 +474,20 @@ GT_INLINE gt_status gt_isp_parse_sam_optional_field(
     // Keep the beginning of the TAG
     const char* const attribute_start = *text_line;
     // Select proper attributes
-    gt_attributes* const attributes = (!is_mapped) ?
-        alignment->attributes : (*gt_vector_get_last_elm(maps_vector,gt_map*))->attributes;
+    gt_attributes* attributes = NULL;
+    // the attributes might not be initialized
+    if(!is_mapped){
+        if(alignment->attributes==NULL){
+          alignment->attributes = gt_attributes_new();
+        }
+        attributes = alignment->attributes;
+    }else{
+      gt_map* map = *gt_vector_get_last_elm(maps_vector,gt_map*);
+      if(map->attributes==NULL){
+        map->attributes = gt_attributes_new();
+      }
+      attributes = map->attributes;
+    }
     // Parse OPT field
     if (!gt_input_parse_sam_optional_field(text_line,attributes)) return 0;
     *text_line = attribute_start;
@@ -703,7 +715,7 @@ GT_INLINE bool gt_isp_fetch_next_line(
   gt_input_sam_parser_next_record(buffered_sam_input);
   if (gt_buffered_input_file_eob(buffered_sam_input)) return false;
   // Fetch next tag
-  gt_string* const next_tag = gt_string_new(0);
+  gt_string* const next_tag = gt_string_new(16); // initialize so it not static ?
   char* ptext_line;
   if (gt_isp_read_tag((const char** const)&(buffered_sam_input->cursor),
       (const char** const)&ptext_line,next_tag)) return false;
