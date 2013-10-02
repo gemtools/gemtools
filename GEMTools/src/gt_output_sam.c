@@ -672,9 +672,8 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder(gt_generic_printer* con
  *       Those relying on a function, are generating calling that function with @gt_sam_attribute_func_params
  *       as argument (some fields can be NULL, so the attribute function must be ready to deal with that)
  */
-GT_INLINE gt_sam_attributes* gt_output_sam_select_sam_attributes(gt_map_placeholder* const map_ph,gt_sam_attributes* const global_sam_attributes) {
+GT_INLINE gt_sam_attributes* gt_output_sam_select_sam_attributes(gt_map_placeholder* const map_ph) {
   GT_NULL_CHECK(map_ph);
-  GT_NULL_CHECK(global_sam_attributes);
   // Look into the map
   gt_sam_attributes* attributes = NULL;
   if (map_ph->map!=NULL) {
@@ -692,17 +691,50 @@ GT_INLINE gt_sam_attributes* gt_output_sam_select_sam_attributes(gt_map_placehol
     attributes = gt_attributes_get_sam_attributes(alignment->attributes);
     if (attributes!=NULL) return attributes;
   }
-  return global_sam_attributes;
+  return NULL;
 }
 
-//#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-//#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS sam_attribute,attribute_func_params
-//GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_sam_attribute,
-//    gt_sam_attribute* const sam_attribute,gt_sam_attribute_func_params* const attribute_func_params);
-//GT_INLINE gt_status gt_output_sam_gprint_sam_attribute(gt_generic_printer* const gprinter,
-//    gt_sam_attribute* const sam_attribute,gt_sam_attribute_func_params* const attribute_func_params) {
-//
-//}
+#undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS sam_attribute,attribute_func_params
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_sam_attribute,
+    gt_sam_attribute* const sam_attribute,gt_sam_attribute_func_params* const attribute_func_params);
+GT_INLINE gt_status gt_output_sam_gprint_sam_attribute(gt_generic_printer* const gprinter,
+    gt_sam_attribute* const sam_attribute,gt_sam_attribute_func_params* const attribute_func_params) {
+  GT_GENERIC_PRINTER_CHECK(gprinter);
+  GT_NULL_CHECK(sam_attribute);
+  switch (sam_attribute->attribute_type) {
+    // Values
+    case SAM_ATTR_INT_VALUE:
+      gt_gprintf(gprinter,"%c%c:%c:%ld",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,sam_attribute->i_value);
+      break;
+    case SAM_ATTR_FLOAT_VALUE:
+      gt_gprintf(gprinter,"%c%c:%c:%3.2E",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,sam_attribute->f_value);
+      break;
+    case SAM_ATTR_STRING_VALUE:
+      gt_gprintf(gprinter,"%c%c:%c:"PRIgts,sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,PRIgts_content(sam_attribute->s_value));
+      break;
+    // Functions
+    case SAM_ATTR_INT_FUNC:
+      if (sam_attribute->i_func(attribute_func_params)==0) { // Generate i-value
+        gt_gprintf(gprinter,"%c%c:%c:%ld",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,attribute_func_params->return_i);
+      }
+      break;
+    case SAM_ATTR_FLOAT_FUNC:
+      if (sam_attribute->f_func(attribute_func_params)==0) { // Generate f-value
+        gt_gprintf(gprinter,"%c%c:%c:%3.2E",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,attribute_func_params->return_f);
+      }
+      break;
+    case SAM_ATTR_STRING_FUNC:
+      if (sam_attribute->s_func(attribute_func_params)==0) { // Generate s-value
+        gt_gprintf(gprinter,"%c%c:%c:"PRIgts,sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,PRIgts_content(attribute_func_params->return_s));
+      }
+      break;
+    default:
+      GT_INVALID_CASE();
+      break;
+  }
+  return 0;
+}
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS sam_attributes,output_attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_optional_fields_values,
@@ -715,12 +747,15 @@ GT_INLINE gt_status gt_output_sam_gprint_optional_fields_values(gt_generic_print
   if (sam_attributes!=NULL) {
     GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
     GT_SAM_ATTRIBUTES_BEGIN_ITERATE(sam_attributes,sam_attribute) {
-      if (sam_attribute->attribute_type == SAM_ATTR_INT_VALUE) {
-        gt_gprintf(gprinter,"\t%c%c:%c:%ld",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,sam_attribute->i_value);
-      } else if (sam_attribute->attribute_type == SAM_ATTR_FLOAT_VALUE) {
-        gt_gprintf(gprinter,"\t%c%c:%c:%3.2E",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,sam_attribute->f_value);
-      } else if (sam_attribute->attribute_type == SAM_ATTR_STRING_VALUE) {
-        gt_gprintf(gprinter,"\t%c%c:%c:"PRIgts,sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,PRIgts_content(sam_attribute->s_value));
+      switch (sam_attribute->attribute_type) {
+        case SAM_ATTR_INT_VALUE:
+        case SAM_ATTR_FLOAT_VALUE:
+        case SAM_ATTR_STRING_VALUE:
+          gt_gprintf(gprinter,"\t");
+          gt_output_sam_gprint_sam_attribute(gprinter,sam_attribute,NULL);
+          break;
+        default:
+          break;
       }
     } GT_SAM_ATTRIBUTES_END_ITERATE;
   }
@@ -734,35 +769,18 @@ GT_INLINE gt_status gt_output_sam_gprint_optional_fields(gt_generic_printer* con
     gt_sam_attributes* sam_attributes,gt_output_sam_attributes* const output_attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   if (!output_attributes->print_optional_fields) return 0;
-  if (sam_attributes==NULL) sam_attributes = output_attributes->sam_attributes;
   if (sam_attributes!=NULL) {
     GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
     GT_SAM_ATTRIBUTES_BEGIN_ITERATE(sam_attributes,sam_attribute) {
-      // Values
-      if (sam_attribute->attribute_type == SAM_ATTR_INT_VALUE) {
-        gt_gprintf(gprinter,"\t%c%c:%c:%ld",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,sam_attribute->i_value);
-      } else if (sam_attribute->attribute_type == SAM_ATTR_FLOAT_VALUE) {
-        gt_gprintf(gprinter,"\t%c%c:%c:%3.2E",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,sam_attribute->f_value);
-      } else if (sam_attribute->attribute_type == SAM_ATTR_STRING_VALUE) {
-        gt_gprintf(gprinter,"\t%c%c:%c:"PRIgts,sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,PRIgts_content(sam_attribute->s_value));
-      } else
-      // Functions
-      if (sam_attribute->attribute_type == SAM_ATTR_INT_FUNC) {
-        if (sam_attribute->i_func(output_attributes->attribute_func_params)==0) { // Generate i-value
-          gt_gprintf(gprinter,"\t%c%c:%c:%ld",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,
-              output_attributes->attribute_func_params->return_i);
-        }
-      } else if (sam_attribute->attribute_type == SAM_ATTR_FLOAT_FUNC) {
-        if (sam_attribute->f_func(output_attributes->attribute_func_params)==0) { // Generate f-value
-          gt_gprintf(gprinter,"\t%c%c:%c:%3.2E",sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,
-              output_attributes->attribute_func_params->return_f);
-        }
-      } else if (sam_attribute->attribute_type == SAM_ATTR_STRING_FUNC) {
-        if (sam_attribute->s_func(output_attributes->attribute_func_params)==0) { // Generate s-value
-          gt_gprintf(gprinter,"\t%c%c:%c:"PRIgts,sam_attribute->tag[0],sam_attribute->tag[1],sam_attribute->type_id,
-              PRIgts_content(output_attributes->attribute_func_params->return_s));
-        }
-      }
+      gt_gprintf(gprinter,"\t");
+      gt_output_sam_gprint_sam_attribute(gprinter,sam_attribute,output_attributes->attribute_func_params);
+    } GT_SAM_ATTRIBUTES_END_ITERATE;
+  }
+  if (output_attributes->sam_attributes!=NULL) { // TODO: some short of OPTFIELD preference
+    GT_SAM_ATTRIBUTES_CHECK(output_attributes->sam_attributes);
+    GT_SAM_ATTRIBUTES_BEGIN_ITERATE(output_attributes->sam_attributes,sam_attribute) {
+      gt_gprintf(gprinter,"\t");
+      gt_output_sam_gprint_sam_attribute(gprinter,sam_attribute,output_attributes->attribute_func_params);
     } GT_SAM_ATTRIBUTES_END_ITERATE;
   }
   return 0;
@@ -838,7 +856,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_se_compact(gt_generic_p
   gt_output_sam_gprint_map_placeholder_vector_se_compact_xa_list(gprinter,map_placeholder_vector,primary_position,attributes);
   // Print Optional Fields
   gt_sam_attribute_func_params_set_alignment_info(attributes->attribute_func_params,primary_map_ph); // Set func params for OF
-  gt_output_sam_gprint_optional_fields(gprinter,gt_output_sam_select_sam_attributes(primary_map_ph,attributes->sam_attributes),attributes);
+  gt_output_sam_gprint_optional_fields(gprinter,gt_output_sam_select_sam_attributes(primary_map_ph),attributes);
   gt_gprintf(gprinter,"\n");
   // Free
   if (read_rc!=NULL) {
@@ -879,7 +897,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_pe_compact(gt_generic_p
   gt_output_sam_gprint_map_placeholder_vector_pe_compact_xa_list(gprinter,map_placeholder_vector,primary_position,end_position,attributes);
   // Print Optional Fields
   gt_sam_attribute_func_params_set_alignment_info(attributes->attribute_func_params,primary_map_ph); // Set func params for OF
-  gt_output_sam_gprint_optional_fields(gprinter,gt_output_sam_select_sam_attributes(primary_map_ph,attributes->sam_attributes),attributes);
+  gt_output_sam_gprint_optional_fields(gprinter,gt_output_sam_select_sam_attributes(primary_map_ph),attributes);
   gt_gprintf(gprinter,"\n");
   // Free
   if (read_rc!=NULL) {
@@ -913,7 +931,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_vector_se(gt_generic_pr
     }
     // Print Optional Fields
     gt_sam_attribute_func_params_set_alignment_info(attributes->attribute_func_params,map_ph); // Set func params for OF
-    gt_output_sam_gprint_optional_fields(gprinter,gt_output_sam_select_sam_attributes(map_ph,attributes->sam_attributes),attributes);
+    gt_output_sam_gprint_optional_fields(gprinter,gt_output_sam_select_sam_attributes(map_ph),attributes);
     gt_gprintf(gprinter,"\n");
     // Nullify read & qualities
     if (gt_expect_false(!attributes->always_output_read__qualities && map_ph_it>0)) {
@@ -970,7 +988,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder_vector_pe(gt_generic_pr
     }
     // Print Optional Fields
     gt_sam_attribute_func_params_set_alignment_info(attributes->attribute_func_params,map_ph); // Set func params for OF
-    gt_output_sam_gprint_optional_fields(gprinter,gt_output_sam_select_sam_attributes(map_ph,attributes->sam_attributes),attributes);
+    gt_output_sam_gprint_optional_fields(gprinter,gt_output_sam_select_sam_attributes(map_ph),attributes);
     gt_gprintf(gprinter,"\n");
     // Nullify read & qualities
     if (gt_expect_false(!attributes->always_output_read__qualities && map_ph_it>0)) {

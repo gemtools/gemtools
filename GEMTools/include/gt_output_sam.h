@@ -192,6 +192,7 @@ GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_placeholder,
  *       Those relying on a function, are generating calling that function with @gt_sam_attribute_func_params
  *       as argument (some fields can be NULL, so the attribute function must be ready to deal with that)
  */
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_sam_attribute,gt_sam_attribute* const sam_attribute,gt_sam_attribute_func_params* const attribute_func_params);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_optional_fields_values,gt_sam_attributes* const sam_attributes,gt_output_sam_attributes* const output_attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_optional_fields,gt_sam_attributes* const sam_attributes,gt_output_sam_attributes* const output_attributes);
 /*
