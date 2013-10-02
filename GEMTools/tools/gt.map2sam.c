@@ -21,7 +21,6 @@ typedef struct {
   char* name_gem_index_file;
   bool mmap_input;
   bool paired_end;
-  bool calc_phred;
   gt_qualities_offset_t quality_format;
   /* Headers */
 
@@ -33,6 +32,8 @@ typedef struct {
   bool optional_field_XT;
   bool optional_field_XS;
   bool optional_field_md;
+  bool calc_phred;
+  int uniq_mapq_thresh;
   /* Misc */
   uint64_t num_threads;
   bool verbose;
@@ -49,7 +50,6 @@ gt_stats_args parameters = {
   .name_gem_index_file=NULL,
   .mmap_input=false,
   .paired_end=false,
-  .calc_phred=false,
   .quality_format=GT_QUALS_OFFSET_33,
   /* Headers */
   /* SAM format */
@@ -60,6 +60,8 @@ gt_stats_args parameters = {
   .optional_field_XT=false,
   .optional_field_XS=false,
   .optional_field_md=false,
+  .calc_phred=false,
+  .uniq_mapq_thresh=30,
   /* Misc */
   .num_threads=1,
   .verbose=false,
@@ -86,6 +88,11 @@ gt_sequence_archive* gt_filter_open_sequence_archive(const bool load_sequences) 
 
 #define PHRED_KONST -0.23025850929940456840 // -log(10)/10;
 
+static int cmp_int(const void *s1,const void *s2)
+{
+	return (*(int *)s1)-(*(int *)s2);
+}
+
 void gt_map2sam_calc_phred(gt_template *template)
 {
 	typedef struct {
@@ -99,6 +106,18 @@ void gt_map2sam_calc_phred(gt_template *template)
 	map_hash *mhash[3]={0,0,0}, *mp_hash, *tmp;
 	int rd;
 	size_t buf_len=1024;
+	gt_sam_attribute *ys=NULL,*yq=NULL;
+	ys=gt_attributes_get_sam_attribute(template->attributes,"YS");
+	if(!ys || ys->type_id!='B') return;
+	yq=gt_attributes_get_sam_attribute(template->attributes,"YQ");
+	uint32_t map_cutoff=(yq && yq->type_id=='i')?yq->i_value:0;
+	uint32_t max_complete_strata[2]={0,0};
+	char *p=gt_string_get_string(ys->s_value);
+	if(p && *p && p[1]==',') {
+		char *p1;
+		max_complete_strata[0]=(uint32_t)strtoul(p+2,&p1,10);
+		if(*p1==',') max_complete_strata[1]=(uint32_t)strtoul(p1+1,&p,10);
+	}
 	char *buf=malloc(buf_len);
 	gt_cond_fatal_error(!buf,MEM_HANDLER);
 	uint64_t min_score[3]={0xffff,0xffff,0xffff};
@@ -164,11 +183,35 @@ void gt_map2sam_calc_phred(gt_template *template)
 			}
 		}
 	}
+	// Get score of best possible aligning read that we didn't look for with the mapping parameters
+	uint64_t fake_sc[2]={0,0};
+	for(rd=0;rd<2;rd++) if(max_complete_strata[rd]) {
+		gt_alignment *al=gt_template_get_block(template,rd);
+		if(!al) continue;
+	  gt_string* const quals=al->qualities;
+	  uint64_t i;
+	  int *qvs=malloc(sizeof(int)*quals->length);
+	  size_t k=0;
+	  int quals_offset=parameters.quality_format==GT_QUALS_OFFSET_33?33:64;
+	  for(i=0;i<quals->length;i++) {
+	  	int q=gt_string_get_string(quals)[i]-quals_offset;
+	  	if(q>=map_cutoff) qvs[k++]=q;
+	  }
+	  if(k>=max_complete_strata[rd]) {
+	  	qsort(qvs,k,sizeof(int),cmp_int);
+	  	for(i=0;i<max_complete_strata[rd];i++) fake_sc[rd]+=qvs[i];
+	  }
+	  free(qvs);
+	  if(fake_sc[rd]<min_score[rd]) min_score[rd]=fake_sc[rd];
+	}
 	// Now we can calculate the single and paired end MAPQ values
 	for(rd=0;rd<3;rd++) if(mhash[rd]) {
 		double z=0.0;
+		if(rd<3 && fake_sc[rd]) {
+			z+=exp(PHRED_KONST*((double)fake_sc[rd]-(double)min_score[rd]));
+		}
 		for(mp_hash=mhash[rd];mp_hash;mp_hash=mp_hash->hh.next) {
-			mp_hash->prob=exp(PHRED_KONST*(double)(mp_hash->score-min_score[rd]));
+			mp_hash->prob=exp(PHRED_KONST*((double)(mp_hash->score)-(double)min_score[rd]));
 			z+=mp_hash->prob;
 		}
 		for(mp_hash=mhash[rd];mp_hash;mp_hash=mp_hash->hh.next) {
@@ -191,7 +234,7 @@ void gt_map2sam_calc_phred(gt_template *template)
 				memcpy(buf+ssize,&maps[rd]->position,sizeof(maps[rd]->position));
 				HASH_FIND(hh,mhash[rd],buf,key_size,mp_hash);
 				assert(mp_hash);
-				maps[rd]->phred_score=mp_hash->phred;
+				maps[rd]->phred_score=fake_sc[rd]?mp_hash->phred:255;
 			}
 			if(maps[0] && maps[1]) { // True paired alignments.  Shouldn't need to check for duplicates, but we will anyway
 				// seq_name should be the same for the two ends in a paired alignment, but we're not taking any chances
@@ -268,7 +311,7 @@ void gt_map2sam_read__write() {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
         continue;
       }
-      if(parameters.calc_phred) gt_map2sam_calc_phred(template);
+      if(parameters.calc_phred || parameters.optional_field_XT) gt_map2sam_calc_phred(template);
       // Print SAM template
       gt_output_sam_bofprint_template(buffered_output,template,output_sam_attributes);
     }

@@ -228,8 +228,9 @@ gt_option gt_scorereads_options[] = {
   { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "" , "" },
   { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 402, "max-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
-  { 403, "indel-score", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 403, "indel-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 'm', "mapping-quality-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 's', "split-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
 #ifdef HAVE_OPENMP
@@ -239,7 +240,7 @@ gt_option gt_scorereads_options[] = {
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, "", 0, 0, 0, false, "", ""}
 };
-char* gt_scorereads_options_short = "i:q:pzjZo:x:m:vt:hJ";
+char* gt_scorereads_options_short = "i:q:pzjZo:x:s:m:vt:hJ";
 char* gt_scorereads_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",
@@ -259,8 +260,7 @@ gt_option gt_map2sam_options[] = {
   { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (MultiFASTA/FASTA)" , "" },
   { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GEM2-Index)" , "" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
-  { 'Q', "calc-mapq", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
-  { 200, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
+   { 200, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
   /* Headers */
   // { 300, "", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
   /* Alignments */
@@ -271,6 +271,7 @@ gt_option gt_map2sam_options[] = {
   { 502, "XT", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 503, "XS", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 504, "md", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 'Q', "calc-mapq", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
 //  { 500, "", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   /* Format */
   { 'c', "compact", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 6 , false, "" , "" },

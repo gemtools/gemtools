@@ -51,7 +51,8 @@ typedef struct {
   uint8_t *ins_phred;
   int num_threads;
   int mapping_cutoff;
-  int indel_quality;
+  int indel_penalty;
+  int split_penalty;
   int qual_offset; // quality offset (33 for FASTQ, 64 for Illumina)
 } sr_param;
 
@@ -65,7 +66,8 @@ sr_param param = {
 		.parser_attr=NULL,
 		.verbose=false,
 		.num_threads=1,
-		.indel_quality=INDEL_QUAL,
+		.indel_penalty=INDEL_QUAL,
+		.split_penalty=INDEL_QUAL,
 		.qual_offset=DEFAULT_QUAL,
 		.mapping_cutoff=0,
 		.min_insert=0,
@@ -228,8 +230,12 @@ void read_dist_file(sr_param *param,int iset[2])
 	gt_input_file_close(file);
 }
 
-static uint64_t calculate_dist_score(gt_alignment *al, gt_map *map, int qual_offset,int qual_penalty)
+static uint64_t calculate_dist_score(gt_alignment *al, gt_map *map, sr_param *param)
 {
+	int qual_offset=param->qual_offset;
+	int indel_penalty=param->indel_penalty;
+	int split_penalty=param->split_penalty;
+	int map_cutoff=param->mapping_cutoff;
 	register gt_string* const quals = al->qualities;
 	register const bool has_qualities = gt_alignment_has_qualities(al);
 	uint64_t score=0;
@@ -239,7 +245,7 @@ static uint64_t calculate_dist_score(gt_alignment *al, gt_map *map, int qual_off
 			if (has_qualities) {
 				quality_misms = gt_string_get_string(quals)[misms->position]-qual_offset;
 				if(quality_misms>MAX_QUAL) quality_misms=MAX_QUAL;
-				else if(quality_misms<0) quality_misms=0;
+				else if(quality_misms<map_cutoff) quality_misms=0;
 			} else quality_misms=MISSING_QUAL;
 			switch (misms->misms_type) {
 			case MISMS:
@@ -247,10 +253,11 @@ static uint64_t calculate_dist_score(gt_alignment *al, gt_map *map, int qual_off
 				break;
 			case INS:
 			case DEL:
-				score+=qual_penalty;
+				score+=indel_penalty;
 				break;
 			}
 		}
+		if(gt_map_get_next_block(map_block)) score+=split_penalty;
 	}
 	if(score>MAX_GT_SCORE) score=MAX_GT_SCORE;
 	return score;
@@ -265,17 +272,25 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 	uint64_t nmap[2];
 	nmap[0]=gt_alignment_get_num_maps(alignment1);
 	nmap[1]=gt_alignment_get_num_maps(alignment2);
+	if(nmap[0]) {
+		GT_ALIGNMENT_ITERATE(alignment1,map1) {
+			map1->gt_score=calculate_dist_score(alignment1,map1,param);
+		}
+	}
+	if(nmap[1]) {
+		GT_ALIGNMENT_ITERATE(alignment2,map2) {
+			map2->gt_score=calculate_dist_score(alignment2,map2,param);
+		}
+	}
 	if(nmap[0]+nmap[1]) {
 		char *map_flag[2];
 		map_flag[0]=sr_calloc((size_t)(nmap[0]+nmap[1]),sizeof(char));
 		map_flag[1]=map_flag[0]+nmap[0];
 		uint64_t i=0;
 		GT_ALIGNMENT_ITERATE(alignment1,map1) {
-			if(map1->gt_score==GT_MAP_NO_GT_SCORE) map1->gt_score=calculate_dist_score(alignment1,map1,param->qual_offset,param->indel_quality);
 			mmap[0]=map1;
 			uint64_t j=0;
 			GT_ALIGNMENT_ITERATE(alignment2,map2) {
-				if(map2->gt_score==GT_MAP_NO_GT_SCORE) map2->gt_score=calculate_dist_score(alignment2,map2,param->qual_offset,param->indel_quality);
 				mmap[1]=map2;
 				gt_status gt_err;
 				int64_t x=gt_template_get_insert_size(mmap,&gt_err,0,0);
@@ -316,6 +331,36 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 	}
 	gt_attributes_remove(template->attributes,GT_ATTR_ID_TAG_PAIR);
 }
+
+void gt_add_extra_tags(gt_attributes *attributes,uint32_t mcs1,uint32_t mcs2,bool paired,int map_cutoff) {
+	char *tag;
+	if(paired) asprintf(&tag,"YS:B:I,%" PRIu32 ",%" PRIu32 " YQ:i:%d",mcs1,mcs2,map_cutoff);
+	else asprintf(&tag,"YS:B:I,%" PRIu32 " YQ:i:%d",mcs1,map_cutoff);
+	gt_cond_fatal_error(!tag,MEM_HANDLER);
+	gt_string *extra_string=gt_string_set_new(tag);
+	free(tag);
+	gt_string *old=gt_attributes_get(attributes,GT_ATTR_ID_TAG_EXTRA);
+	if(!old) {
+		gt_attributes_add_string(attributes,GT_ATTR_ID_TAG_EXTRA,extra_string);
+	} else {
+		gt_string_append_char(old,SPACE);
+		gt_string_append_gt_string(old,extra_string);
+		gt_string_delete(extra_string);
+	}
+}
+
+void gt_template_add_mcs_tags(gt_template *template,gt_alignment *al1,gt_alignment *al2,int map_cutoff)
+{
+	uint32_t mcs1=al1?gt_alignment_get_mcs(al1):0;
+	uint32_t mcs2=al2?gt_alignment_get_mcs(al2):0;
+	gt_add_extra_tags(template->attributes,mcs1,mcs2,true,map_cutoff);
+}
+
+void gt_alignment_add_mcs_tags(gt_alignment *al,int map_cutoff)
+{
+	gt_add_extra_tags(al->attributes,gt_alignment_get_mcs(al),0,false,map_cutoff);
+}
+
 
 int parse_arguments(int argc,char** argv) {
 	int err=0;
@@ -384,9 +429,16 @@ int parse_arguments(int argc,char** argv) {
   		} else insert_set[1]=1;
   		break;
   	case 403:
-  		param.indel_quality=(int)strtol(optarg,&p,10);
-  		if(*p || param.indel_quality<0) {
-  			fprintf(stderr,"Illegal indel score: '%s'\n",optarg);
+  		param.indel_penalty=(int)strtol(optarg,&p,10);
+  		if(*p || param.indel_penalty<0) {
+  			fprintf(stderr,"Illegal indel penalty: '%s'\n",optarg);
+  			err=-7;
+  		}
+  		break;
+  	case 's':
+  		param.split_penalty=(int)strtol(optarg,&p,10);
+  		if(*p || param.split_penalty<0) {
+  			fprintf(stderr,"Illegal split penalty score: '%s'\n",optarg);
   			err=-7;
   		}
   		break;
@@ -535,6 +587,7 @@ int main(int argc,char *argv[])
 						break;
 					}
 					pair_read(template,alignment1,alignment2,&param);
+					gt_template_add_mcs_tags(template,alignment1,alignment2,param.mapping_cutoff);
 					if (gt_output_generic_bofprint_template(buffered_output,template,param.printer_attr)) {
 						gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
 					}
@@ -566,6 +619,7 @@ int main(int argc,char *argv[])
 						gt_alignment *alignment1=gt_template_get_block(template,0);
 						gt_alignment *alignment2=gt_template_get_block(template,1);
 						pair_read(template,alignment1,alignment2,&param);
+						gt_template_add_mcs_tags(template,alignment1,alignment2,param.mapping_cutoff);
 						if (gt_output_generic_bofprint_template(buffered_output,template,param.printer_attr)) {
 							gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
 						}
@@ -579,9 +633,10 @@ int main(int argc,char *argv[])
 						gt_alignment *alignment=gt_template_get_block(template,0);
 						gt_alignment_recalculate_counters(alignment);
 						GT_ALIGNMENT_ITERATE(alignment,map) {
-							if(map->gt_score==GT_MAP_NO_GT_SCORE) map->gt_score=calculate_dist_score(alignment,map,param.qual_offset,param.indel_quality);
+							if(map->gt_score==GT_MAP_NO_GT_SCORE) map->gt_score=calculate_dist_score(alignment,map,&param);
 							map->phred_score=255;
 						}
+						gt_alignment_add_mcs_tags(alignment,param.mapping_cutoff);
 						if (gt_output_generic_bofprint_alignment(buffered_output,alignment,param.printer_attr)) {
 							gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
 						}

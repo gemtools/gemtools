@@ -123,7 +123,7 @@ GT_INLINE void gt_attributes_delete_sam_attributes(gt_attributes* const general_
 GT_INLINE void gt_attributes_clear_sam_attributes(gt_attributes* const general_attributes) {
   GT_ATTRIBUTES_CHECK(general_attributes);
   gt_sam_attributes* sam_attributes = gt_attributes_get_sam_attributes(general_attributes);
-  if (sam_attributes==NULL) {
+  if (sam_attributes!=NULL) {
     gt_sam_attributes_clear(sam_attributes);
   }
 }
@@ -134,7 +134,7 @@ GT_INLINE bool gt_attributes_has_sam_attributes(gt_attributes* const general_att
 GT_INLINE gt_sam_attribute* gt_attributes_get_sam_attribute(gt_attributes* const general_attributes,char* const tag) {
   GT_ATTRIBUTES_CHECK(general_attributes);
   gt_sam_attributes* sam_attributes = gt_attributes_get_sam_attributes(general_attributes);
-  return (sam_attributes==NULL) ? gt_sam_attributes_get_attribute(sam_attributes,tag) : NULL;
+  return (sam_attributes!=NULL) ? gt_sam_attributes_get_attribute(sam_attributes,tag) : NULL;
 }
 /*
  * SAM Attribute Setup
