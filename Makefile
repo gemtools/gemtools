@@ -25,6 +25,7 @@ test: all
 
 test-c: all
 	-$(MAKE) -C GEMTools check
+	-$(MAKE) -C GEMTools shcheck
 
 test-python: all
 	python setup.py nosetests --with-xunit
