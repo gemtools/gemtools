@@ -362,6 +362,7 @@ static void as_stats_resize(as_stats *stats,uint64_t rd,uint64_t l)
 		if(stats->curr_read_store[rd]) {
 			stats->read_length_stats[rd]=as_realloc(stats->read_length_stats[rd],nlen*sizeof(uint64_t));
 			stats->base_counts_by_cycle[rd]=as_realloc(stats->base_counts_by_cycle[rd],sizeof(void *)*nlen);
+			stats->non_cpg_cytosines[rd]=as_realloc(stats->non_cpg_cytosines[rd],nlen*sizeof(uint64_t));
 			uint64_t j;
 			for(j=rd*2;j<rd*2+2;j++) stats->indel_stats[j]=as_realloc(stats->indel_stats[j],sizeof(uint64_t)*nlen);
 			for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) {
@@ -370,6 +371,7 @@ static void as_stats_resize(as_stats *stats,uint64_t rd,uint64_t l)
 			}
 			for(i=stats->curr_read_store[rd];i<nlen;i++) {
 				stats->read_length_stats[rd][i]=0;
+				stats->non_cpg_cytosines[rd][i]=0;
 				stats->base_counts_by_cycle[rd][i]=as_calloc((size_t)(MAX_QUAL+1)*5,sizeof(uint64_t));
 				for(j=rd*2;j<rd*2+2;j++) stats->indel_stats[j][i]=0;
 				for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) {
@@ -380,6 +382,7 @@ static void as_stats_resize(as_stats *stats,uint64_t rd,uint64_t l)
 		} else {
 			stats->read_length_stats[rd]=as_calloc((size_t)nlen,sizeof(uint64_t));
 			stats->base_counts_by_cycle[rd]=as_malloc(sizeof(void *)*nlen);
+			stats->non_cpg_cytosines[rd]=as_calloc((size_t)nlen,sizeof(uint64_t));
 			uint64_t j;
 			for(j=rd*2;j<rd*2+2;j++) stats->indel_stats[j]=as_calloc((size_t)nlen,sizeof(uint64_t));
 			for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) {
@@ -453,6 +456,7 @@ static void get_error_profile(as_stats *stats,gt_alignment *al,uint64_t rd,int q
 static void as_collect_stats(gt_template* template,as_stats* stats,as_param *param,id_tag *idt)
 {
 	stats->nreads++;
+	char *sg_names[]={param->phage_lambda,param->phix174,param->mito};
 	uint64_t nrd;
 	bool paired_file=false; // Was the input file from a paired mapping
 	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
@@ -482,9 +486,47 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		if(stats->max_read_length[j]<len[j]) as_stats_resize(stats,j,len[j]);
 		stats->read_length_stats[j][len[j]]++;
 		uint64_t i,yld=0;
-		char *p=rd[j];
-		char *q=ql[j];
 		uint64_t **bc=stats->base_counts_by_cycle[j];
+		uint64_t *bsc=stats->bs_counts[j];
+		int stype[2]={0,0};
+		int mapped=0;
+		uint64_t k=gt_alignment_get_num_counters(al[j]);
+		for(i=0;i<k;i++) {
+			if(gt_alignment_get_counter(al[j],i)) break;
+		}
+		if(al[j]->maps->used && i<k) {
+			char *p;
+			gt_map *map=gt_alignment_get_map(al[j],0);
+			mapped=1;
+			p=gt_string_get_string(map->seq_name);
+			int l=gt_string_get_length(map->seq_name);
+			for(;l>0;l--) if(p[l-1]=='#' || p[l-1]=='_') break;
+			if(l) {
+				if(!strncmp(p+l,"C2T",3)) stype[0]=SG_C2T;
+				else if(!strncmp(p+l,"G2A",3)) stype[0]=SG_G2A;
+			}
+			char *p1,*p2;
+			int sg;
+			for(sg=0;sg<3;sg++) {
+				p1=p;
+				p2=sg_names[sg];
+				i=0;
+				while(*p1) {
+					if(p2[i]==*p1) i++;
+					else {
+						if(!p2[i]) break;
+						i=(*p2==*p1)?1:0;
+					}
+					p1++;
+				}
+				if(!p2[i]) {
+					stype[1]=3+sg;
+					break;
+				}
+			}
+		}
+		char *q=ql[j];
+		char *p=rd[j];
 		for(i=0;i<len[j];i++) {
 			int base=base_tab[(int)p[i]]-1;
 			int qual=q[i]-qual_offset;
@@ -493,9 +535,20 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			}
 			if(base) yld++;
 			bc[i][qual*5+base]++;
+			if(mapped) {
+				bsc[stype[0]*5+base]++;
+				if(stype[1]) bsc[stype[1]*5+base]++;
+			}
 		}
 		stats->yield[j]+=yld;
 	}
+	// Count non-CpG cytosines in read (interesting for bisulfite sequence data
+	uint64_t i,ct=0;
+	for(i=0;i<len[0]-1;i++) if(rd[0][i]=='C' && rd[0][i+1]!='G') ct++;
+	stats->non_cpg_cytosines[0][ct]++;
+	ct=0;
+	for(i=1;i<len[1];i++) if(rd[1][i]=='G' && rd[1][i-1]!='C') ct++;
+	stats->non_cpg_cytosines[1][ct]++;
 	// Filter maps (both single and paired end) to remove maps after first zero strata after the first hit
 	uint64_t nmaps[3]={0,0,0};
 	uint64_t max_dist[3]={0,0,0};
@@ -809,13 +862,12 @@ static void *as_merge_stats(void *ss)
 				st[0]->pbn_stats[j][k]+=st[i]->pbn_stats[j][k];
 			}
 			len[j]=st[i]->max_read_length[j];
-			uint64_t **bc0=st[0]->base_counts_by_cycle[j];
-			uint64_t **bc1=st[i]->base_counts_by_cycle[j];
 			if(st[i]->curr_read_store[j]) {
-				if(st[i]->curr_read_store[j]>st[0]->curr_read_store[j])
-					as_stats_resize(st[0],j,st[i]->curr_read_store[j]);
+				uint64_t **bc0=st[0]->base_counts_by_cycle[j];
+				uint64_t **bc1=st[i]->base_counts_by_cycle[j];
 				for(k=0;k<=len[j];k++) {
 					st[0]->read_length_stats[j][k]+=st[i]->read_length_stats[j][k];
+					st[0]->non_cpg_cytosines[j][k]+=st[i]->non_cpg_cytosines[j][k];
 					for(k1=0;k1<5*(MAX_QUAL+1);k1++) bc0[k][k1]+=bc1[k][k1];
 				}
 				for(k1=j*(MAX_QUAL+1);k1<(j+1)*(MAX_QUAL+1);k1++) {
@@ -832,9 +884,16 @@ static void *as_merge_stats(void *ss)
 		}
 		for(j=0;j<3;j++) {
 			st[0]->paired_type[j]+=st[i]->paired_type[j];
-			st[0]->bis_stats[j]+=st[i]->bis_stats[j];
 			st[0]->reads_with_splitmaps[j]+=st[i]->reads_with_splitmaps[j];
 			st[0]->reads_only_with_splitmaps[j]+=st[i]->reads_only_with_splitmaps[j];
+		}
+		for(j=0;j<6;j++) {
+			st[0]->sg_stats[j]+=st[i]->sg_stats[j];
+		}
+		for(j=0;j<2;j++) {
+			for(k=0;k<30;k++) {
+				st[0]->bs_counts[j][k]+=st[i]->bs_counts[j][k];
+			}
 		}
 		if(paired) {
 			st[0]->paired_mapped+=st[i]->paired_mapped;
@@ -914,6 +973,7 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 	uint64_t counts[4]={0,0,0,0};
 	dist_element *de;
 	int j;
+	char *sg_desc[]={"Normal Genome","C2T Genome","G2A Genome","Phage Lambda","PhiX174","Mitochondrial"};
 	for(de=st->insert_size;de;de=de->hh.next) {
 		for(j=0;j<4;j++) counts[j]+=de->ct[j];
 	}
@@ -994,6 +1054,29 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 		fprintf(f,"All unique read pairs:\t(%g)\tQ1: %" PRId64 "\tMedian: %" PRId64 "\tQ3: %" PRId64 "\n",zcounts[1],Q[0][1],Q[1][1],Q[2][1]);
 		fprintf(f,"Selected unique read pairs with recovered read:\t(%g)\tQ1: %" PRId64 "\tMedian: %" PRId64 "\tQ3: %" PRId64 "\n",zcounts[2],Q[0][2],Q[1][2],Q[2][2]);
 		fprintf(f,"Selected unique read pairs with split reads:\t(%g)\tQ1: %" PRId64 "\tMedian: %" PRId64 "\tQ3: %" PRId64 "\n",zcounts[3],Q[0][3],Q[1][3],Q[2][3]);
+		uint64_t count[2][5],gcount[2][6];
+		uint64_t i,j,k,tt,tot=0;
+		fputs("\nSub-genome Mapping Summary\n\n",f);
+		for(i=0;i<2;i++) {
+			for(k=0;k<6;k++) {
+				tt=0;
+				for(j=0;j<5;j++) tt+=st->bs_counts[i][k*5+j];
+				gcount[i][k]=tt;
+				tot+=tt;
+			}
+		}
+		for(k=0;k<6;k++) {
+			if((tt=gcount[0][k]+gcount[1][k])) {
+				fprintf(f,"Reads mapping to %s:\t%" PRIu64 "\t(%g%%)\n",sg_desc[k],tt,100.0*(double)tt/(double)tot);
+			}
+		}
+		for(i=0;i<2;i++) {
+			for(j=0;j<5;j++) {
+				uint64_t tt=0;
+				for(k=0;k<6;k++) tt+=st->bs_counts[i][k*5+j];
+				count[i][j]=tt;
+			}
+		}
 	} else {
 		fprintf(f,"Uniquely mapping reads:\t%" PRIu64 "\t(%g%%)\n",st->unique[0],100.0*(double)st->unique[0]/z);
 		uint64_t mult=st->mapped[0]-st->unique[0]-st->ambiguous[0];
@@ -1236,6 +1319,7 @@ int main(int argc,char *argv[])
 			{"insert_dist",required_argument,0,'d'},
 			{"phage_lambda",required_argument,0,'P'},
 			{"phix174",required_argument,0,'X'},
+			{"mitochondrian",required_argument,0,'N'},
 			{"paired",no_argument,0,'p'},
 			{"variable",no_argument,0,'V'},
 			{"ignore_id",no_argument,0,'i'},
@@ -1261,6 +1345,7 @@ int main(int argc,char *argv[])
 			.dist_file=NULL,
 			.phage_lambda=NULL,
 			.phix174=NULL,
+			.mito=NULL,
 			.mmap_input=false,
 			.parser_attr=gt_input_generic_parser_attributes_new(false),
 			.ignore_id=false,
@@ -1375,6 +1460,7 @@ int main(int argc,char *argv[])
 	}
 	if(!param.phage_lambda) param.phage_lambda=strdup(PHAGE_LAMBDA);
 	if(!param.phix174) param.phix174=strdup(PHIX174);
+	if(!param.mito) param.mito=strdup(MITO);
 	as_set_output_files(&param);
 	as_stats** stats=as_malloc(param.num_threads*sizeof(void *));
 	param.stats=stats;
