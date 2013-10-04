@@ -192,7 +192,7 @@ GT_INLINE gt_ihash_iterator* gt_ihash_iterator_new(gt_ihash* const ihash) {
   gt_ihash_iterator* const ihash_iterator = gt_alloc(gt_ihash_iterator);
   // Init
   ihash_iterator->ihash = ihash;
-  ihash_iterator->next = ihash;
+  ihash_iterator->next = ihash->ihash_head;
   return ihash_iterator;
 }
 GT_INLINE void gt_ihash_iterator_delete(gt_ihash_iterator* const ihash_iterator) {

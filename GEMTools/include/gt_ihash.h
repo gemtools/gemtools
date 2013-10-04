@@ -29,7 +29,7 @@ typedef struct {
   gt_ihash_element* ihash_head;
 } gt_ihash;
 typedef struct {
-  gt_ihash_element* ihash;
+  gt_ihash* ihash;
   gt_ihash_element* next;
 } gt_ihash_iterator;
 

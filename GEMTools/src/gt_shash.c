@@ -196,7 +196,7 @@ GT_INLINE gt_shash_iterator* gt_shash_iterator_new(gt_shash* const shash) {
   gt_shash_iterator* const shash_iterator = gt_alloc(gt_shash_iterator);
   // Init
   shash_iterator->shash = shash;
-  shash_iterator->next = shash;
+  shash_iterator->next = shash->shash_head;
   return shash_iterator;
 }
 GT_INLINE void gt_shash_iterator_delete(gt_shash_iterator* const shash_iterator) {
