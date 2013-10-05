@@ -372,7 +372,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_reverse(gt_generic_prin
     }
     --misms_n;
   }
-  if (centinel >= 0) gt_gprintf(gprinter,"%"PRIu64"M",centinel);
+  if (centinel > 0) gt_gprintf(gprinter,"%"PRIu64"M",centinel);
   return 0;
 }
 GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_forward(gt_generic_printer* const gprinter,gt_map* const map,gt_output_sam_attributes* const attributes) {
@@ -515,21 +515,27 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_se(gt_generic_printer* cons
     // (4) Print POS
     // (5) Print MAPQ
     // (6) Print CIGAR
-    gt_gprintf(gprinter,"\t*\t0\t255\t*");
+    gt_gprintf(gprinter,"\t*\t0\t0\t*");
   }
   //  (7) Print RNEXT
   //  (8) Print PNEXT
   //  (9) Print TLEN
   // (10) Print SEQ
   // (11) Print QUAL
-  if (!gt_string_is_null(read) && !gt_string_is_null(qualities)) {
-    gt_gprintf(gprinter,"\t*\t0\t0\t"PRIgts"\t"PRIgts,
-        PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read),
-        PRIgts_trimmed_content(qualities,hard_left_trim_read,hard_right_trim_read));
-  } else if (!gt_string_is_null(read)) {
-    gt_gprintf(gprinter,"\t*\t0\t0\t"PRIgts"\t*",PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read));
-  } else if (!gt_string_is_null(qualities)) {
-    gt_gprintf(gprinter,"\t*\t0\t0\t*\t"PRIgts,PRIgts_trimmed_content(qualities,hard_left_trim_read,hard_right_trim_read));
+  if(secondary_alignment) {
+	  if (!gt_string_is_null(read) && !gt_string_is_null(qualities)) {
+		  gt_gprintf(gprinter,"\t*\t0\t0\t"PRIgts"\t"PRIgts,
+						 PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read),
+						 PRIgts_trimmed_content(qualities,hard_left_trim_read,hard_right_trim_read));
+	  } else if (!gt_string_is_null(read)) {
+		  gt_gprintf(gprinter,"\t*\t0\t0\t"PRIgts"\t*",PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read));
+	  } else if (!gt_string_is_null(qualities)) {
+		  gt_gprintf(gprinter,"\t*\t0\t0\t*\t"PRIgts,PRIgts_trimmed_content(qualities,hard_left_trim_read,hard_right_trim_read));
+	  } else {
+		  gt_gprintf(gprinter,"\t*\t0\t0\t*\t*");
+	  }
+  } else {
+	  gt_gprintf(gprinter,"\t*\t0\t0\t*\t*");
   }
   return 0;
 }
@@ -565,8 +571,10 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* cons
   if (map!=NULL) {
     gt_gprintf(gprinter,"\t"PRIgts"\t%"PRIu64"\t%"PRIu8"\t",PRIgts_content(map->seq_name),position,phred_score);
     gt_output_sam_gprint_map_cigar(gprinter,map,attributes,hard_left_trim_read,hard_right_trim_read); // CIGAR
+  } else if(mate!=NULL) {
+    gt_gprintf(gprinter,"\t"PRIgts"\t%"PRIu64"\t0\t*",PRIgts_content(mate->seq_name),mate_position);
   } else {
-    gt_gprintf(gprinter,"\t*\t0\t255\t*");
+    gt_gprintf(gprinter,"\t*\t0\t0\t*");
   }
   // (7) Print RNEXT
   // (8) Print PNEXT
@@ -577,19 +585,27 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* cons
     } else {
       gt_gprintf(gprinter,"\t=\t%"PRIu64"\t%"PRId64,mate_position,template_length);
     }
+  } else if(!secondary_alignment && map!=NULL) {
+    gt_gprintf(gprinter,"\t=\t%"PRIu64"\t0",position);
   } else {
     gt_gprintf(gprinter,"\t*\t0\t0");
   }
   // (10) Print SEQ
   // (11) Print QUAL
-  if (!gt_string_is_null(read) && !gt_string_is_null(qualities)) {
-    gt_gprintf(gprinter,"\t"PRIgts"\t"PRIgts,
-        PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read),
-        PRIgts_trimmed_content(qualities,hard_left_trim_read,hard_right_trim_read));
-  } else if (!gt_string_is_null(read)) {
-    gt_gprintf(gprinter,"\t"PRIgts"\t*",PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read));
-  } else if (!gt_string_is_null(qualities)) {
-    gt_gprintf(gprinter,"\t*\t"PRIgts,PRIgts_trimmed_content(qualities,hard_left_trim_read,hard_right_trim_read));
+  if(!secondary_alignment) {
+	  if (!gt_string_is_null(read) && !gt_string_is_null(qualities)) {
+		  gt_gprintf(gprinter,"\t"PRIgts"\t"PRIgts,
+						 PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read),
+						 PRIgts_trimmed_content(qualities,hard_left_trim_read,hard_right_trim_read));
+	  } else if (!gt_string_is_null(read)) {
+		  gt_gprintf(gprinter,"\t"PRIgts"\t*",PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read));
+	  } else if (!gt_string_is_null(qualities)) {
+		  gt_gprintf(gprinter,"\t*\t"PRIgts,PRIgts_trimmed_content(qualities,hard_left_trim_read,hard_right_trim_read));
+	  } else {
+		  gt_gprintf(gprinter,"\t*\t*");
+	  }
+  } else {
+	  gt_gprintf(gprinter,"\t*\t*");
   }
   return 0;
 }

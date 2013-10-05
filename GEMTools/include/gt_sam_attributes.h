@@ -204,6 +204,8 @@ GT_INLINE void gt_sam_attribute_func_params_set_pe(
 //  FS  Z  Segment suffix.
 //  FZ  B,S Flow signal intensities on the original strand of the read, stored as (uint16 t) round(value * 100.0).
 //  LB  Z  Library. Value to be consistent with the header RG-LB tag if @RG is present.
+GT_INLINE void gt_sam_attributes_add_tag_LB(gt_sam_attributes* const sam_attributes,gt_string* const library);
+
 //  H0  i  Number of perfect hits
 //  H1  i  Number of 1-difference hits (see also NM)
 //  H2  i  Number of 2-difference hits
@@ -237,6 +239,9 @@ GT_INLINE void gt_sam_attributes_add_tag_RG(gt_sam_attributes* const sam_attribu
 //  U2  Z  Phred probability of the 2nd call being wrong conditional on the best being wrong. The same encoding as QUAL.
 //  UQ  i  Phred likelihood of the segment, conditional on the mapping being correct
 GT_INLINE void gt_sam_attributes_add_tag_UQ(gt_sam_attributes* const sam_attributes);
+
+//  TQ  i  Custom tag - equivalent to MAPQ score for a template
+GT_INLINE void gt_sam_attributes_add_tag_TQ(gt_sam_attributes* const sam_attributes);
 
 /*
  * GT-library PRE-Implemented Functional Attributes

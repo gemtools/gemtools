@@ -363,6 +363,11 @@ GT_INLINE void gt_sam_attributes_add_tag_RG(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_svalue(sam_attributes,"RG",'Z',read_group);
 }
 
+//  LB  Z  Read group. Value matches the header RG-LB tag if @RG is present in the header.
+GT_INLINE void gt_sam_attributes_add_tag_LB(gt_sam_attributes* const sam_attributes,gt_string* const library) {
+  gt_sam_attributes_add_svalue(sam_attributes,"LB",'Z',library);
+}
+
 /*
  * GT-library PRE-Implemented Functional Attributes
  *   X?  ?  Reserved fields for end users (together with Y? and Z?)
@@ -377,6 +382,7 @@ GT_INLINE void gt_sam_attributes_add_tag_RG(gt_sam_attributes* const sam_attribu
  *   XT:A:M => Mate-sw (Read is fixed due to paired end rescue)
  */
 typedef enum { GT_XT_UNIQUE, GT_XT_REPEAT, GT_XT_UNMAPPED, GT_XT_MATE_SW } gt_sam_xt_value;
+
 GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* func_params) {
   char* xt_char_value_attr = gt_attributes_get(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT);
   char xt_char_value;
@@ -420,6 +426,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* f
   gt_string_append_eos(func_params->return_s);
   return 0;
 }
+
 GT_INLINE void gt_sam_attributes_add_tag_XT(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_sfunc(sam_attributes,"XT",'A',gt_sam_attribute_generate_XT);
 }
@@ -482,30 +489,15 @@ GT_INLINE gt_status gt_sam_attribute_generate_XS(gt_sam_attribute_func_params* f
       gt_string* j_end = gt_string_new(8);
       gt_sequence_archive_get_sequence_string(index, gt_map_get_seq_name(map), gt_map_get_strand(map), junctions_start+1, 5, j_start);
       gt_sequence_archive_get_sequence_string(index, gt_map_get_seq_name(map), gt_map_get_strand(map), junctions_end-1-5, 5, j_end);
-
-
       gt_string_delete(j_start);
       gt_string_delete(j_end);
     }
   }
-//    // Set proper value to return
-//    switch (xt_value) {
-//      case GT_XT_UNIQUE:   xt_char_value = 'U'; break;
-//      case GT_XT_REPEAT:   xt_char_value = 'R'; break;
-//      case GT_XT_UNMAPPED: xt_char_value = 'N'; break;
-//      case GT_XT_MATE_SW:  xt_char_value = 'M'; break;
-//      default: return -1; break;
-//    }
-//    // Save as Functional Internal Data (let's save computations)
-//    xt_char_value_attr = &xt_char_value;
-//    gt_attributes_add(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT,&xt_char_value,char);
-
   return 0; // OK
 }
 GT_INLINE void gt_sam_attributes_add_tag_XS(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_sfunc(sam_attributes,"XS",'A',gt_sam_attribute_generate_XS);
 }
-
 
 //  MQ  i  MAPQ score for mate if paired end alignment
 GT_INLINE gt_status gt_sam_attribute_generate_MQ(gt_sam_attribute_func_params* func_params) {
@@ -523,7 +515,6 @@ GT_INLINE void gt_sam_attributes_add_tag_MQ(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_ifunc(sam_attributes,"MQ",'i',gt_sam_attribute_generate_MQ);
 }
 
-
 //  UQ  i  PHRED encoded likelihood for all read ends
 GT_INLINE gt_status gt_sam_attribute_generate_UQ(gt_sam_attribute_func_params* func_params) {
   // only for paired mmaps
@@ -532,9 +523,11 @@ GT_INLINE gt_status gt_sam_attribute_generate_UQ(gt_sam_attribute_func_params* f
   } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
   	uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
   	func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff);
-  	return 0;
-  }
-  return -1; // NOK
+  } else if (func_params->alignment_info->type==GT_MAP_PLACEHOLDER) {
+  	uint64_t sc=func_params->alignment_info->map->gt_score;
+  	func_params->return_i=(sc&0xffff);
+  } else return -1;
+  return 0; // NOK
 }
 
 GT_INLINE void gt_sam_attributes_add_tag_UQ(gt_sam_attributes* const sam_attributes) {
@@ -544,16 +537,29 @@ GT_INLINE void gt_sam_attributes_add_tag_UQ(gt_sam_attributes* const sam_attribu
 //  PQ  i  PHRED encoded likelihood for template (includes insert size likelihood term)
 GT_INLINE gt_status gt_sam_attribute_generate_PQ(gt_sam_attribute_func_params* func_params) {
   // only for paired mmaps
-  if (func_params->alignment_info->map==NULL) { // Unmapped
-    return -1;
-  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
-  	uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
-  	func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff)+((sc>>32)&0xff);
-  	return 0;
-  }
-  return -1; // OK
+  if (func_params->alignment_info->map==NULL || func_params->alignment_info->type!=GT_MMAP_PLACEHOLDER_PAIRED) return -1;
+  uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
+  func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff)+((sc>>32)&0xff);
+  return 0; // OK
 }
 
 GT_INLINE void gt_sam_attributes_add_tag_PQ(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_ifunc(sam_attributes,"PQ",'i',gt_sam_attribute_generate_PQ);
+}
+
+//  TQ  i  Custom tag - equivalent of MAPQ value for a template
+GT_INLINE gt_status gt_sam_attribute_generate_TQ(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	func_params->return_i=func_params->alignment_info->paired_end.mmap_attributes->phred_score;
+  } else if (func_params->alignment_info->type==GT_MAP_PLACEHOLDER) {
+  	func_params->return_i=func_params->alignment_info->map->phred_score;
+  } else return -1;
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_TQ(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"TQ",'i',gt_sam_attribute_generate_TQ);
 }

@@ -101,7 +101,7 @@ gt_option gt_filter_options[] = {
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , true, "" , "" },
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , false, "" , "" },
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 11 , false, "" , "" },
-  {  0, "", 0, 0, 0, false, "", ""}
+  {  0, 0, 0, 0, 0, false, "", ""}
 };
 char* gt_filter_options_short = "i:o:r:I:pd:D:Ckst:hHv";
 char* gt_filter_groups[] = {
@@ -151,7 +151,7 @@ gt_option gt_stats_options[] = {
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
-  {  0, "", 0, 0, 0, false, "", ""}
+  {  0, 0, 0, 0, 0, false, "", ""}
 };
 char* gt_stats_options_short = "i:r:I:pn:o:f:aMTQRPDvt:hH";
 char* gt_stats_groups[] = {
@@ -196,7 +196,7 @@ gt_option gt_mapset_options[] = {
 #endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
-  {  0, "", 0, 0, 0, false, "", ""}
+  {  0, 0, 0, 0, 0, false, "", ""}
 };
 char* gt_mapset_options_short = "C:po:svt:h";
 char* gt_mapset_groups[] = {
@@ -229,7 +229,8 @@ gt_option gt_scorereads_options[] = {
   { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 402, "max-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 403, "indel-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
-  { 'm', "mapping-quality-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 'm', "mismatch-limit", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 'M', "mapping-quality-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 's', "split-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   /* Misc */
   { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
@@ -238,9 +239,9 @@ gt_option gt_scorereads_options[] = {
 #endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
-  {  0, "", 0, 0, 0, false, "", ""}
+  {  0, 0, 0, 0, 0, false, "", ""}
 };
-char* gt_scorereads_options_short = "i:q:pzjZo:x:s:m:vt:hJ";
+char* gt_scorereads_options_short = "i:q:pzjZo:x:s:M:m:vt:hJ";
 char* gt_scorereads_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",
@@ -255,15 +256,17 @@ char* gt_scorereads_groups[] = {
  */
 gt_option gt_map2sam_options[] = {
   /* I/O */
-  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
+	  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
   { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
   { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (MultiFASTA/FASTA)" , "" },
   { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GEM2-Index)" , "" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
    { 200, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
   /* Headers */
-  // { 300, "", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
-  /* Alignments */
+   { 300, "read-group-id", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<read group id>" , "" },
+   { 301, "read-group-lib", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<read group library id>" , "" },
+   { 302, "read-group-other", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<read group other tags>" , "" },
+     /* Alignments */
   { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , false, "'offset-33'|'offset-64'" , "" },
   /* Optional Fields */
   { 500, "NH", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
@@ -282,8 +285,8 @@ gt_option gt_map2sam_options[] = {
 #endif
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
-  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
-  {  0, "", 0, 0, 0, false, "", ""}
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
+  {  0, 0, 0, 0, 0, false, "", ""}
 };
 char* gt_map2sam_options_short = "i:o:r:I:pq:ct:QhHv";
 char* gt_map2sam_groups[] = {
@@ -321,7 +324,7 @@ gt_option gt_gtfcount_options[] = {
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , false, "" , "" },
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , false, "" , "" },
-  {  0, "", 0, 0, 0, false, "", ""}
+  {  0, 0, 0, 0, 0, false, "", ""}
 };
 char* gt_gtfcount_options_short = "i:o:a:p:t:mwhHv";
 char* gt_gtfcount_groups[] = {
@@ -348,7 +351,7 @@ gt_option gt_region_options[] = {
   { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
   { 'H', "help-full", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
-  {  0, "", 0, 0, 0, false, "", ""}
+  {  0, 0, 0, 0, 0, false, "", ""}
 };
 char* gt_region_options_short = "i:o:a:p:t:hH";
 char* gt_region_groups[] = {
@@ -369,10 +372,10 @@ GT_INLINE uint64_t gt_options_get_num_options(const gt_option* const options) {
 }
 GT_INLINE struct option* gt_options_adaptor_getopt(const gt_option* const options) {
   const uint64_t num_options = gt_options_get_num_options(options);
-  struct option* menu_options = gt_malloc(sizeof(struct option)*num_options);
+  struct option* menu_options = gt_malloc(sizeof(struct option)*(1+num_options));
   // Adapt all the records
   uint64_t i = 0;
-  for (i=0;i<num_options;++i) {
+  for (i=0;i<=num_options;++i) {
     menu_options[i].name = options[i].long_option;
     menu_options[i].has_arg = options[i].option_type;
     menu_options[i].flag = 0;

@@ -23,7 +23,10 @@ typedef struct {
   bool paired_end;
   gt_qualities_offset_t quality_format;
   /* Headers */
-
+  gt_string* read_group;
+  char *read_group_id;
+  char *read_group_lib;
+  char *read_group_general;
   /* SAM format */
   bool compact_format;
   /* Optional Fields */
@@ -52,6 +55,10 @@ gt_stats_args parameters = {
   .paired_end=false,
   .quality_format=GT_QUALS_OFFSET_33,
   /* Headers */
+  .read_group=NULL,
+  .read_group_id=NULL,
+  .read_group_lib=NULL,
+  .read_group_general=NULL,
   /* SAM format */
   .compact_format=false,
   /* Optional Fields */
@@ -184,7 +191,7 @@ void gt_map2sam_calc_phred(gt_template *template)
 		}
 	}
 	// Get score of best possible aligning read that we didn't look for with the mapping parameters
-	uint64_t fake_sc[2]={0,0};
+	uint64_t fake_sc[3]={0,0,0};
 	for(rd=0;rd<2;rd++) if(max_complete_strata[rd]) {
 		gt_alignment *al=gt_template_get_block(template,rd);
 		if(!al) continue;
@@ -204,14 +211,26 @@ void gt_map2sam_calc_phred(gt_template *template)
 	  free(qvs);
 	  if(fake_sc[rd]<min_score[rd]) min_score[rd]=fake_sc[rd];
 	}
+	// For paired reads, the best aligning read that we didn't find would be the best read found from one end combined
+	// with the fake score from the other with the most likely interval size
+	uint64_t f1=fake_sc[0]+min_score[1];
+	uint64_t f2=fake_sc[1]+min_score[0];
+	fake_sc[2]=f1<f2?f1:f2;
+	if(fake_sc[2]<min_score[2]) min_score[2]=fake_sc[2];
 	// Now we can calculate the single and paired end MAPQ values
 	for(rd=0;rd<3;rd++) if(mhash[rd]) {
 		double z=0.0;
-		if(rd<3 && fake_sc[rd]) {
+		if(fake_sc[rd]) {
 			z+=exp(PHRED_KONST*((double)fake_sc[rd]-(double)min_score[rd]));
+//			if(rd==2) {
+//				printf("FAKE: %g\n",(double)fake_sc[rd]-(double)min_score[rd]);
+//			}
 		}
 		for(mp_hash=mhash[rd];mp_hash;mp_hash=mp_hash->hh.next) {
 			mp_hash->prob=exp(PHRED_KONST*((double)(mp_hash->score)-(double)min_score[rd]));
+//			if(rd==2) {
+//				printf("REAL: %g\n",(double)mp_hash->score-(double)min_score[rd]);
+//			}
 			z+=mp_hash->prob;
 		}
 		for(mp_hash=mhash[rd];mp_hash;mp_hash=mp_hash->hh.next) {
@@ -276,6 +295,15 @@ void gt_map2sam_read__write() {
     gt_sam_header_set_sequence_archive(sam_headers,sequence_archive);
   }
 
+  if (parameters.read_group_id || parameters.read_group_lib || parameters.read_group_general) {
+  	gt_string *s=gt_string_new(256);
+  	if(parameters.read_group_id) gt_sprintf(s,"ID:%s",parameters.read_group_id);
+  	if(parameters.read_group_lib) gt_sprintf_append(s,"\tLB:%s",parameters.read_group_lib);
+  	if(parameters.read_group_general) gt_sprintf_append(s,"\t%s",parameters.read_group_general);
+  	parameters.read_group=s;
+  	gt_sam_header_add_read_group_record(sam_headers,parameters.read_group);
+  }
+
   // Print SAM headers
   gt_output_sam_ofprint_headers_sh(output_file,sam_headers);
 
@@ -304,6 +332,15 @@ void gt_map2sam_read__write() {
     	gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
     	gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
     	gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
+    	gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
+    }
+    if (parameters.read_group_id) {
+    	gt_string *s=gt_string_set_new(parameters.read_group_id);
+    	gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,s);
+    }
+    if (parameters.read_group_lib) {
+    	gt_string *s=gt_string_set_new(parameters.read_group_lib);
+    	gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,s);
     }
     gt_template* template = gt_template_new();
     while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
@@ -378,6 +415,15 @@ void parse_arguments(int argc,char** argv) {
       gt_fatal_error(NOT_IMPLEMENTED);
       break;
     /* Headers */
+    case 300: // Read-group ID
+    	parameters.read_group_id = optarg;
+    	break;
+    case 301: // Read-group Library
+    	parameters.read_group_lib = optarg;
+    	break;
+    case 302: // Read-group general
+    	parameters.read_group_general = optarg;
+    	break;
       // TODO
     /* Alignments */
     case 'q':

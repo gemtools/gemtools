@@ -51,6 +51,7 @@ typedef struct {
   uint8_t *ins_phred;
   int num_threads;
   int mapping_cutoff;
+  int max_strata_searched;
   int indel_penalty;
   int split_penalty;
   int qual_offset; // quality offset (33 for FASTQ, 64 for Illumina)
@@ -70,6 +71,7 @@ sr_param param = {
 		.split_penalty=INDEL_QUAL,
 		.qual_offset=DEFAULT_QUAL,
 		.mapping_cutoff=0,
+		.max_strata_searched=0,
 		.min_insert=0,
 		.max_insert=0,
 		.ins_dist=NULL,
@@ -123,8 +125,8 @@ void read_dist_file(sr_param *param,int iset[2])
 	bool first=true;
 	size_t sz=1024;
 	size_t ct=0;
-	u_int64_t total=0;
 	hist_entry *hist=sr_malloc(sizeof(hist_entry)*sz);
+	u_int64_t total=0;
 	do {
 		nl=gt_buffered_input_file_get_block(bfile,0);
 		int i;
@@ -210,9 +212,13 @@ void read_dist_file(sr_param *param,int iset[2])
 		int k=param->max_insert-param->min_insert+1;
 		param->ins_dist=sr_malloc(sizeof(double)*k);
 		param->ins_phred=sr_malloc((size_t)k);
+		// Calculate a phred scaled likelihood for insert sizes in the selected range
+		// We will scale them so that the maximum value is always 0 (helps for calculating qualities)
 		for(i=0;i<k;i++) param->ins_dist[i]=0.0;
+		u_int64_t max=0;
+		for(i=i1;i<=i2;i++) if(hist[i].y>max) max=hist[i].y;
 		for(i=i1;i<=i2;i++) {
-			double zt=(double)hist[i].y/(double)total;
+			double zt=(double)hist[i].y/(double)max;
 			param->ins_dist[hist[i].x-param->min_insert]=zt;
 			int phred=255;
 			if(zt>0.0) {
@@ -237,6 +243,7 @@ static uint64_t calculate_dist_score(gt_alignment *al, gt_map *map, sr_param *pa
 	int split_penalty=param->split_penalty;
 	int map_cutoff=param->mapping_cutoff;
 	register gt_string* const quals = al->qualities;
+	register gt_string* const read = al->read;
 	register const bool has_qualities = gt_alignment_has_qualities(al);
 	uint64_t score=0;
 	GT_MAP_ITERATE(map,map_block) {
@@ -245,7 +252,7 @@ static uint64_t calculate_dist_score(gt_alignment *al, gt_map *map, sr_param *pa
 			if (has_qualities) {
 				quality_misms = gt_string_get_string(quals)[misms->position]-qual_offset;
 				if(quality_misms>MAX_QUAL) quality_misms=MAX_QUAL;
-				else if(quality_misms<map_cutoff) quality_misms=0;
+				else if(quality_misms<map_cutoff || gt_string_get_string(read)[misms->position]=='N') quality_misms=0;
 			} else quality_misms=MISSING_QUAL;
 			switch (misms->misms_type) {
 			case MISMS:
@@ -299,6 +306,7 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 					attr.gt_score=map1->gt_score|(map2->gt_score<<16);
 					if(param->ins_phred) attr.gt_score|=((uint64_t)param->ins_phred[x-param->min_insert]<<32);
 					attr.phred_score=255;
+//					printf("ACK!: %ld %lu %lu %d %lu\n",x,map1->gt_score,map2->gt_score,param->ins_phred[x-param->min_insert],map1->gt_score+map2->gt_score+param->ins_phred[x-param->min_insert]);
 					gt_template_inc_counter(template,attr.distance);
 					gt_template_add_mmap_ends(template,map1,map2,&attr);
 					map_flag[0][i]=map_flag[1][j]=1;
@@ -353,14 +361,23 @@ void gt_template_add_mcs_tags(gt_template *template,gt_alignment *al1,gt_alignme
 {
 	uint32_t mcs1=al1?gt_alignment_get_mcs(al1):0;
 	uint32_t mcs2=al2?gt_alignment_get_mcs(al2):0;
+	if(param.max_strata_searched) {
+		uint32_t limit=param.max_strata_searched+1;
+		if(mcs1>limit) mcs1=limit;
+		if(mcs2>limit) mcs2=limit;
+	}
 	gt_add_extra_tags(template->attributes,mcs1,mcs2,true,map_cutoff);
 }
 
 void gt_alignment_add_mcs_tags(gt_alignment *al,int map_cutoff)
 {
-	gt_add_extra_tags(al->attributes,gt_alignment_get_mcs(al),0,false,map_cutoff);
+	uint32_t mcs=gt_alignment_get_mcs(al);
+	if(param.max_strata_searched) {
+		uint32_t limit=param.max_strata_searched+1;
+		if(mcs>limit) mcs=limit;
+	}
+	gt_add_extra_tags(al->attributes,mcs,0,false,map_cutoff);
 }
-
 
 int parse_arguments(int argc,char** argv) {
 	int err=0;
@@ -449,10 +466,17 @@ int parse_arguments(int argc,char** argv) {
   			err=-6;
   		}
   		break;
-  	case 'm':
+  	case 'M':
   		param.mapping_cutoff=(int)strtol(optarg,&p,10);
   		if(*p || param.mapping_cutoff<0) {
   			fprintf(stderr,"Illegal mapping cutoff: '%s'\n",optarg);
+  			err=-7;
+  		}
+  		break;
+  	case 'm':
+  		param.max_strata_searched=(int)strtol(optarg,&p,10);
+  		if(*p || param.max_strata_searched<0) {
+  			fprintf(stderr,"Illegal mismatch limit: '%s'\n",optarg);
   			err=-7;
   		}
   		break;

@@ -774,6 +774,10 @@ int gt_map_placeholder_cmp_map_distance(gt_map_placeholder* const ph_map_a,gt_ma
   // TODO
   return 0;
 }
+
+/* Enable scoring reads by phred scores.  Even if scores not available, will score paired templates higher
+ * than non-paired.
+ */
 int gt_map_placeholder_cmp_map_phred_scores(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
   /*
    * Compare phred scores ( -10*log(Pr{mapping position is wrong},10) )
@@ -782,8 +786,18 @@ int gt_map_placeholder_cmp_map_phred_scores(gt_map_placeholder* const ph_map_a,g
    */
   GT_MAP_PLACEHOLDER_CMP_CHECK_BOUNDARY_CONDITIONS(ph_map_a,ph_map_b);
   // Here, different map with same type and both mapped
-  const int score_a = ph_map_a->map->phred_score;
-  const int score_b = ph_map_b->map->phred_score;
+  int score_a = ph_map_a->map->phred_score;
+  int score_b = ph_map_b->map->phred_score;
+  if(ph_map_a->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	if(ph_map_b->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  		score_a = ph_map_a->paired_end.mmap_attributes->phred_score;
+  		score_b = ph_map_a->paired_end.mmap_attributes->phred_score;
+  	} else {
+  		return -1;
+  	}
+  } else if(ph_map_b->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	return 1;
+  }
   // No scored
   if (score_a==GT_MAP_NO_PHRED_SCORE || score_b==GT_MAP_NO_PHRED_SCORE) return score_a-score_b;
   // Regular compare (including case (score_a==0 || score_b==0))
@@ -953,12 +967,14 @@ GT_INLINE void gt_map_placeholder_build_from_template(
       if (include_mate_placeholder) {
         if (mmap[0]!=NULL) {
           end1_record_included = true;
+//          gt_map *mate=mmap[1]?mmap[1]:(best_mmap_ph_end2_pos!=UINT64_MAX?best_mmap_ph_end2.map:NULL);
           gt_map_placeholder_add_mmap(mmap[0],mmap[1],read[0],0,
               mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
               &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/1
         }
         if (mmap[1]!=NULL) {
           end2_record_included = true;
+//          gt_map *mate=mmap[0]?mmap[0]:(best_mmap_ph_end1_pos!=UINT64_MAX?best_mmap_ph_end1.map:NULL);
           gt_map_placeholder_add_mmap(mmap[1],mmap[0],read[1],1,
               mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end2_pos!=NULL,
               &best_mmap_ph_end2,&best_mmap_ph_end2_pos,&mmap_ph); // End/2
@@ -973,12 +989,12 @@ GT_INLINE void gt_map_placeholder_build_from_template(
     // Check if at least we have a record per each end
     if (include_mate_placeholder) {
       if (!end1_record_included) {
-        gt_map_placeholder_add_mmap(NULL,NULL,read[0],0,
+        gt_map_placeholder_add_mmap(NULL,primary_mmap_end2_pos?best_mmap_ph_end2.map:NULL,read[0],0,
             mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
             &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/1
       }
       if (!end2_record_included) {
-        gt_map_placeholder_add_mmap(NULL,NULL,read[1],1,
+        gt_map_placeholder_add_mmap(NULL,primary_mmap_end2_pos?best_mmap_ph_end1.map:NULL,read[1],1,
             mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end2_pos!=NULL,
             &best_mmap_ph_end2,&best_mmap_ph_end2_pos,&mmap_ph); // End/2
       }
@@ -986,20 +1002,25 @@ GT_INLINE void gt_map_placeholder_build_from_template(
   }
   // Set primary alignment
   if (primary_mmap_end1_pos!=NULL) {
-    *primary_mmap_end1_pos = best_mmap_ph_end1_pos;
-    gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end1_pos,gt_map_placeholder)->secondary_alignment = false;
-    GT_SWAP(*(gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end1_pos,gt_map_placeholder)),
-            *(gt_vector_get_elm(mmap_placeholder,num_initial_placeholders,gt_map_placeholder)));
+  	*primary_mmap_end1_pos = best_mmap_ph_end1_pos;
+  	gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end1_pos,gt_map_placeholder)->secondary_alignment = false;
+  	GT_SWAP(*(gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end1_pos,gt_map_placeholder)),
+  			*(gt_vector_get_elm(mmap_placeholder,num_initial_placeholders,gt_map_placeholder)));
+  	if(best_mmap_ph_end2_pos==num_initial_placeholders) best_mmap_ph_end2_pos=best_mmap_ph_end1_pos;
   }
   if (primary_mmap_end2_pos!=NULL) {
-    if (include_mate_placeholder) {
-      *primary_mmap_end2_pos = best_mmap_ph_end2_pos;
-      gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end2_pos,gt_map_placeholder)->secondary_alignment = false;
-      GT_SWAP(*(gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end2_pos,gt_map_placeholder)),
-              *(gt_vector_get_elm(mmap_placeholder,num_initial_placeholders+1,gt_map_placeholder))); // Courtesy
-    } else {
-      if (primary_mmap_end1_pos!=NULL) *primary_mmap_end2_pos = *primary_mmap_end1_pos;
-    }
+  	if (include_mate_placeholder) {
+  		*primary_mmap_end2_pos = best_mmap_ph_end2_pos;
+  		gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end2_pos,gt_map_placeholder)->secondary_alignment = false;
+  		GT_SWAP(*(gt_vector_get_elm(mmap_placeholder,best_mmap_ph_end2_pos,gt_map_placeholder)),
+  				*(gt_vector_get_elm(mmap_placeholder,num_initial_placeholders+1,gt_map_placeholder))); // Courtesy
+  	}
+  }
+  if (primary_mmap_end1_pos && primary_mmap_end2_pos) {
+  	gt_map_placeholder *ph1=gt_vector_get_elm(mmap_placeholder,0,gt_map_placeholder);
+  	gt_map_placeholder *ph2=gt_vector_get_elm(mmap_placeholder,1,gt_map_placeholder);
+  	if(!ph1->paired_end.mate && ph2->map) ph1->paired_end.mate=ph2->map;
+  	if(!ph2->paired_end.mate && ph1->map) ph2->paired_end.mate=ph1->map;
   }
 }
 /*
