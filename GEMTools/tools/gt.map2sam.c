@@ -114,9 +114,9 @@ void gt_map2sam_calc_phred(gt_template *template)
 	int rd;
 	size_t buf_len=1024;
 	gt_sam_attribute *ys=NULL,*yq=NULL;
-	ys=gt_attributes_get_sam_attribute(template->attributes,"YS");
+	ys=gt_attributes_get_sam_attribute(template->attributes,"ms");
 	if(!ys || ys->type_id!='B') return;
-	yq=gt_attributes_get_sam_attribute(template->attributes,"YQ");
+	yq=gt_attributes_get_sam_attribute(template->attributes,"mx");
 	uint32_t map_cutoff=(yq && yq->type_id=='i')?yq->i_value:0;
 	uint32_t max_complete_strata[2]={0,0};
 	char *p=gt_string_get_string(ys->s_value);

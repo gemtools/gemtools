@@ -342,8 +342,8 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 
 void gt_add_extra_tags(gt_attributes *attributes,uint32_t mcs1,uint32_t mcs2,bool paired,int map_cutoff) {
 	char *tag;
-	if(paired) asprintf(&tag,"YS:B:I,%" PRIu32 ",%" PRIu32 " YQ:i:%d",mcs1,mcs2,map_cutoff);
-	else asprintf(&tag,"YS:B:I,%" PRIu32 " YQ:i:%d",mcs1,map_cutoff);
+	if(paired) asprintf(&tag,"ms:B:I,%" PRIu32 ",%" PRIu32 " mx:i:%d",mcs1,mcs2,map_cutoff);
+	else asprintf(&tag,"ms:B:I,%" PRIu32 " mx:i:%d",mcs1,map_cutoff);
 	gt_cond_fatal_error(!tag,MEM_HANDLER);
 	gt_string *extra_string=gt_string_set_new(tag);
 	free(tag);

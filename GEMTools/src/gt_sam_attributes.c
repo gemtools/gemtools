@@ -554,8 +554,8 @@ GT_INLINE gt_status gt_sam_attribute_generate_TQ(gt_sam_attribute_func_params* f
     return -1;
   } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
   	func_params->return_i=func_params->alignment_info->paired_end.mmap_attributes->phred_score;
-  } else if (func_params->alignment_info->type==GT_MAP_PLACEHOLDER) {
-  	func_params->return_i=func_params->alignment_info->map->phred_score;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_UNPAIRED) {
+  	func_params->return_i=0;
   } else return -1;
   return 0; // OK
 }

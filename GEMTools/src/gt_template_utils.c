@@ -967,14 +967,12 @@ GT_INLINE void gt_map_placeholder_build_from_template(
       if (include_mate_placeholder) {
         if (mmap[0]!=NULL) {
           end1_record_included = true;
-//          gt_map *mate=mmap[1]?mmap[1]:(best_mmap_ph_end2_pos!=UINT64_MAX?best_mmap_ph_end2.map:NULL);
           gt_map_placeholder_add_mmap(mmap[0],mmap[1],read[0],0,
               mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
               &best_mmap_ph_end1,&best_mmap_ph_end1_pos,&mmap_ph); // End/1
         }
         if (mmap[1]!=NULL) {
           end2_record_included = true;
-//          gt_map *mate=mmap[0]?mmap[0]:(best_mmap_ph_end1_pos!=UINT64_MAX?best_mmap_ph_end1.map:NULL);
           gt_map_placeholder_add_mmap(mmap[1],mmap[0],read[1],1,
               mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end2_pos!=NULL,
               &best_mmap_ph_end2,&best_mmap_ph_end2_pos,&mmap_ph); // End/2
@@ -987,6 +985,7 @@ GT_INLINE void gt_map_placeholder_build_from_template(
       if (++num_mmaps_added > max_num_maps) break;
     }
     // Check if at least we have a record per each end
+  	// For an unmapped end, include the primary mapping of the mapped end (if it exists) as the mate
     if (include_mate_placeholder) {
       if (!end1_record_included) {
         gt_map_placeholder_add_mmap(NULL,primary_mmap_end2_pos?best_mmap_ph_end2.map:NULL,read[0],0,
@@ -1016,11 +1015,14 @@ GT_INLINE void gt_map_placeholder_build_from_template(
   				*(gt_vector_get_elm(mmap_placeholder,num_initial_placeholders+1,gt_map_placeholder))); // Courtesy
   	}
   }
+  // If the primary alignments are unpaired, set up the mate links and flags
   if (primary_mmap_end1_pos && primary_mmap_end2_pos) {
   	gt_map_placeholder *ph1=gt_vector_get_elm(mmap_placeholder,0,gt_map_placeholder);
   	gt_map_placeholder *ph2=gt_vector_get_elm(mmap_placeholder,1,gt_map_placeholder);
-  	if(!ph1->paired_end.mate && ph2->map) ph1->paired_end.mate=ph2->map;
-  	if(!ph2->paired_end.mate && ph1->map) ph2->paired_end.mate=ph1->map;
+  	if(ph1->map && ph2->map && !ph1->paired_end.mate) {
+  		ph1->paired_end.mate=ph2->map;
+  		ph2->paired_end.mate=ph1->map;
+  	}
   }
 }
 /*
