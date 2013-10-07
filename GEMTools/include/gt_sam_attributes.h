@@ -243,6 +243,9 @@ GT_INLINE void gt_sam_attributes_add_tag_UQ(gt_sam_attributes* const sam_attribu
 //  TQ  i  Custom tag - equivalent to MAPQ score for a template
 GT_INLINE void gt_sam_attributes_add_tag_TQ(gt_sam_attributes* const sam_attributes);
 
+//  TP  i  Custom tag - as TQ but comparing to all possible pairings of mappings (not taking account of orientation, contig location or interval size)
+GT_INLINE void gt_sam_attributes_add_tag_TP(gt_sam_attributes* const sam_attributes);
+
 /*
  * GT-library PRE-Implemented Functional Attributes
  *   X?  ?  Reserved fields for end users (together with Y? and Z?)

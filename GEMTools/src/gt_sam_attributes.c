@@ -563,3 +563,21 @@ GT_INLINE gt_status gt_sam_attribute_generate_TQ(gt_sam_attribute_func_params* f
 GT_INLINE void gt_sam_attributes_add_tag_TQ(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_ifunc(sam_attributes,"TQ",'i',gt_sam_attribute_generate_TQ);
 }
+
+//  TP  i  Custom tag - as TQ but comparing to all possible pairings of mappings (not taking account of orientation, contig location or interval size)
+GT_INLINE gt_status gt_sam_attribute_generate_TP(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	func_params->return_i=func_params->alignment_info->paired_end.mmap_attributes->pair_score;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_UNPAIRED) {
+  	func_params->return_i=0;
+  } else return -1;
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_TP(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"TP",'i',gt_sam_attribute_generate_TP);
+}
+

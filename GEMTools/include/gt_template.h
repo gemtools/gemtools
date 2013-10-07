@@ -40,6 +40,8 @@ typedef struct {
   uint64_t distance;
   uint64_t gt_score;
   uint8_t phred_score;
+  uint8_t pair_score;
+  bool paired; 
   // gt_attributes* attributes; // Not needed for now
 } gt_mmap_attributes;
 typedef struct {

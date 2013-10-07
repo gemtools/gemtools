@@ -145,7 +145,7 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_se_map(
     gt_map* const map,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
 GT_INLINE uint16_t gt_output_sam_calculate_flag_pe_map(
     gt_map* const map,gt_map* const mate,const bool is_map_first_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
+    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired);
 /*
  * SAM CIGAR
  */
@@ -166,7 +166,7 @@ GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_core_fields_pe,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     gt_map* const mate,const uint64_t mate_position,const int64_t template_length,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
     gt_output_sam_attributes* const attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_core_fields_se,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_map* const map_segment,

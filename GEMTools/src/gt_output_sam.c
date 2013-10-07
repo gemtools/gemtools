@@ -245,9 +245,9 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_se_map(
 }
 GT_INLINE uint16_t gt_output_sam_calculate_flag_pe_map(
     gt_map* const map,gt_map* const mate,const bool is_map_first_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
+    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired) {
   return gt_output_sam_calculate_flag_pe(
-      map!=NULL && mate!=NULL, /* read_paired */
+      map!=NULL && mate!=NULL && paired, /* read_paired */
       map!=NULL,               /* read_mapped */
       mate!=NULL,              /* mate_strand */
       (map!=NULL) ? map->strand : FORWARD,   /* read_strand */
@@ -522,7 +522,7 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_se(gt_generic_printer* cons
   //  (9) Print TLEN
   // (10) Print SEQ
   // (11) Print QUAL
-  if(secondary_alignment) {
+  if(!secondary_alignment) {
 	  if (!gt_string_is_null(read) && !gt_string_is_null(qualities)) {
 		  gt_gprintf(gprinter,"\t*\t0\t0\t"PRIgts"\t"PRIgts,
 						 PRIgts_trimmed_content(read,hard_left_trim_read,hard_right_trim_read),
@@ -542,20 +542,20 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_se(gt_generic_printer* cons
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities, \
     map,position,phred_score,mate,mate_position,template_length, \
-    hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,attributes
+    hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,paired,attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_core_fields_pe,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     gt_map* const mate,const uint64_t mate_position,const int64_t template_length,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
     gt_output_sam_attributes* const attributes);
 GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* const gprinter,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     gt_map* const mate,const uint64_t mate_position,const int64_t template_length,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
     gt_output_sam_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
@@ -563,7 +563,7 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* cons
   gt_output_sam_gprint_qname(gprinter,tag);
   // (2) Print FLAG
   gt_gprintf(gprinter,"\t%"PRId16,gt_output_sam_calculate_flag_pe_map(
-      map,mate,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate));
+      map,mate,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,paired));
   // (3) Print RNAME
   // (4) Print POS
   // (5) Print MAPQ
@@ -653,7 +653,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_core_fields_pe(gt_generic_printer* 
       mate_segment,
       (mate_segment!=NULL) ? gt_map_get_global_coordinate(mate_segment) : 0,
       (map_segment!=NULL && mate_segment!=NULL) ? gt_map_get_observed_template_size(map_segment,mate_segment) : 0,
-      hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,attributes);
+      hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,mmap_attributes->paired,attributes);
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities,map_placeholder,output_attributes
