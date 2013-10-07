@@ -791,7 +791,7 @@ int gt_map_placeholder_cmp_map_phred_scores(gt_map_placeholder* const ph_map_a,g
   if(ph_map_a->type==GT_MMAP_PLACEHOLDER_PAIRED) {
   	if(ph_map_b->type==GT_MMAP_PLACEHOLDER_PAIRED) {
   		score_a = ph_map_a->paired_end.mmap_attributes->phred_score;
-  		score_b = ph_map_a->paired_end.mmap_attributes->phred_score;
+  		score_b = ph_map_b->paired_end.mmap_attributes->phred_score;
   	} else {
   		return -1;
   	}

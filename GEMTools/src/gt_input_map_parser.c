@@ -1105,6 +1105,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
      */
     if (mmap[0]!=NULL) gt_alignment_add_map(gt_template_get_end1(template),mmap[0]);
     if (mmap[1]!=NULL) gt_alignment_add_map(gt_template_get_end2(template),mmap[1]);
+	 if (mmap[0]!=NULL && mmap[1]!=NULL) mmap_attr.paired = true;
     gt_template_add_mmap_array(template,mmap,&mmap_attr);
     ++num_maps_parsed;
     /*

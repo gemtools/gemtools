@@ -297,6 +297,8 @@ GT_INLINE void gt_template_mmap_attributes_clear(gt_mmap_attributes* const mmap_
   mmap_attributes->distance = 0;
   mmap_attributes->gt_score = GT_MAP_NO_GT_SCORE;
   mmap_attributes->phred_score = GT_MAP_NO_PHRED_SCORE;
+  mmap_attributes->pair_score = GT_MAP_NO_PHRED_SCORE;
+  mmap_attributes->paired = false;
 }
 /* MMap record */
 GT_INLINE gt_mmap* gt_template_get_mmap(gt_template* const template,const uint64_t position) {

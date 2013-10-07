@@ -44,6 +44,7 @@ typedef struct {
   // Map location and span info
   uint64_t map_displacement; // In alignment's map vector
   uint64_t num_maps; // Maps in the vector coupled to the first one
+  bool paired;
 } gt_sam_pending_end;
 
 #define GT_SAM_INIT_PENDING { .map_seq_name.allocated=0, .next_seq_name.allocated=0 }
@@ -525,6 +526,7 @@ GT_INLINE gt_status gt_isp_parse_sam_alignment(
   } else {
     gt_map_set_strand(map,FORWARD);
   }
+	pending->paired = (is_single_segment) ? false : ((*alignment_flag&(GT_SAM_FLAG_UNMAPPED|GT_SAM_FLAG_PROPERLY_ALIGNED))==GT_SAM_FLAG_PROPERLY_ALIGNED?true:false);
   // Allocate template/alignment handlers
   gt_alignment* alignment;
   if (_template) {
@@ -758,6 +760,7 @@ GT_INLINE bool gt_isp_check_pending_record__add_mmap(
       pending->next_position==position) { // Found!
     // BWA_Compact. MMAPs paired against MMaps need to have the same cardinality (otherwise it's unpaired)
     if (pending->num_maps!=1 && num_maps!=1 && pending->num_maps!=num_maps) return false;
+	 if (!pending->paired) return false;
     // Insert mmap(s)
     if (pending->end_position==1) {
       gt_isp_add_mmap(template,map_displacement,pending->map_displacement,num_maps,pending->num_maps);
