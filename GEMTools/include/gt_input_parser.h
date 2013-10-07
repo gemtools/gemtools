@@ -77,8 +77,8 @@ GT_INLINE uint64_t gt_input_parse_tag_chomp_pairend_info(gt_string* const tag);
 #define GT_PARSE_SIGNED_NUMBER_BLOCK(text_line,number) { \
   bool is_negative; \
   switch ((**text_line)) { \
-    case PLUS: is_negative = false; break; \
-    case MINUS: is_negative = true; break; \
+    case PLUS: is_negative = false; GT_NEXT_CHAR(text_line); break; \
+    case MINUS: is_negative = true; GT_NEXT_CHAR(text_line); break; \
     default: is_negative = false; break; \
   }
 #define GT_PARSE_SIGNED_NUMBER_END_BLOCK(number) \
