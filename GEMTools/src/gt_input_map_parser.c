@@ -849,14 +849,6 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(const char** const text_line,gt_ma
   // Read acceptor's Strand
   if ((error_code=gt_imp_parse_strand(text_line,&(acceptor_map->strand)))) GT_IMP_PARSE_SPLIT_MAP_CLEAN2__RETURN(error_code);
   GT_NEXT_CHAR(text_line);
-  // Link both donor & acceptor
-  gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
-  if (gt_map_get_strand(donor_map)==FORWARD) {
-    gt_map_set_next_block(donor_map,acceptor_map,SPLICE,(int64_t)gt_map_get_position(acceptor_map)-(int64_t)gt_map_get_position(donor_map)+(int64_t)gt_map_get_length(donor_map));
-  } else {
-    const uint64_t acceptor_map_length = (read_base_length!=UINT64_MAX) ? gt_map_get_length(acceptor_map) : 0;
-    gt_map_set_next_block(acceptor_map,donor_map,SPLICE,(int64_t)gt_map_get_position(donor_map)-(int64_t)gt_map_get_position(acceptor_map)+(int64_t)acceptor_map_length);
-  }
   // Detect multiple donor position
   if (gt_expect_false((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0)) { // [30;34]=chr10:F74776624~chr10:F[74790025;74790029]
     GT_NEXT_CHAR(text_line);
@@ -881,12 +873,20 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(const char** const text_line,gt_ma
     if (gt_expect_false((**text_line)!=GT_MAP_SPLITMAP_CLOSE_GEMv0)) GT_IMP_PARSE_SPLIT_MAP_CLEAN2__RETURN(GT_IMP_PE_MAP_BAD_CHARACTER);
     GT_NEXT_CHAR(text_line);
   }
+  // Link both donor & acceptor
+  gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
+//  if (gt_map_get_strand(donor_map)==FORWARD) {
+    gt_map_set_next_block(donor_map,acceptor_map,SPLICE,(int64_t)gt_map_get_position(acceptor_map)-(int64_t)gt_map_get_position(donor_map)+(int64_t)gt_map_get_length(donor_map));
+//  } else {
+//    const uint64_t acceptor_map_length = (read_base_length!=UINT64_MAX) ? gt_map_get_length(acceptor_map) : 0;
+//    gt_map_set_next_block(acceptor_map,donor_map,SPLICE,(int64_t)gt_map_get_position(donor_map)-(int64_t)gt_map_get_position(acceptor_map)+(int64_t)acceptor_map_length);
+//  }
   // Add the SM
-  if (gt_map_get_strand(donor_map)==FORWARD) {
+//  if (gt_map_get_strand(donor_map)==FORWARD) {
     *split_map = donor_map;
-  } else {
-    *split_map = acceptor_map;
-  }
+//  } else {
+//    *split_map = acceptor_map;
+//  }
   // Return
   return 0;
 }

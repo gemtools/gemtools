@@ -240,13 +240,13 @@ GT_INLINE gt_status gt_output_map_gprint_map_(
         cigar_pending = true;
         switch (junction) {
           case SPLICE:
-            gt_gprintf(gprinter,">""%"PRIu64"*",gt_map_get_junction_size(map_it));
+            gt_gprintf(gprinter,">""%"PRId64"*",gt_map_get_junction_size(map_it));
             break;
           case POSITIVE_SKIP:
-            gt_gprintf(gprinter,">""%"PRIu64"+",gt_map_get_junction_size(map_it));
+            gt_gprintf(gprinter,">""%"PRId64"+",gt_map_get_junction_size(map_it));
             break;
           case NEGATIVE_SKIP:
-            gt_gprintf(gprinter,">""%"PRIu64"-",gt_map_get_junction_size(map_it));
+            gt_gprintf(gprinter,">""%"PRId64"-",gt_map_get_junction_size(map_it));
             break;
           case NO_JUNCTION:
           default:
