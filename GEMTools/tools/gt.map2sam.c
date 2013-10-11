@@ -6,6 +6,9 @@
  * DESCRIPTION: Converter from MAP to SAM
  */
 
+#define GT_MAP2SAM "gt.map2sam"
+#define GT_MAP2SAM_VERSION "1.1"
+
 #include <getopt.h>
 #ifdef HAVE_OPENMP
 #include <omp.h>
@@ -19,14 +22,12 @@ typedef struct {
   char* name_output_file;
   char* name_reference_file;
   char* name_gem_index_file;
+  char* sam_header_file;
   bool mmap_input;
   bool paired_end;
   gt_qualities_offset_t quality_format;
   /* Headers */
-  gt_string* read_group;
   char *read_group_id;
-  char *read_group_lib;
-  char *read_group_general;
   /* SAM format */
   bool compact_format;
   /* Optional Fields */
@@ -51,14 +52,12 @@ gt_stats_args parameters = {
   .name_output_file=NULL,
   .name_reference_file=NULL,
   .name_gem_index_file=NULL,
+  .sam_header_file=NULL,
   .mmap_input=false,
   .paired_end=false,
   .quality_format=GT_QUALS_OFFSET_33,
   /* Headers */
-  .read_group=NULL,
   .read_group_id=NULL,
-  .read_group_lib=NULL,
-  .read_group_general=NULL,
   /* SAM format */
   .compact_format=false,
   /* Optional Fields */
@@ -329,20 +328,42 @@ void gt_map2sam_read__write() {
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
   gt_sam_headers* const sam_headers = gt_sam_header_new(); // SAM headers
 
+  if(parameters.sam_header_file) {
+  	gt_input_file* const sam_headers_input_file = gt_input_file_open(parameters.sam_header_file,false);
+  	if(sam_headers_input_file->file_format!=SAM) gt_error(PARSE_SAM_HEADER_NOT_SAM,sam_headers_input_file->file_name);
+  	uint64_t characters_read = 0, lines_read = 0;
+  	gt_status error_code=gt_input_file_sam_read_headers((char *)sam_headers_input_file->file_buffer,sam_headers_input_file->buffer_size,sam_headers,&characters_read,&lines_read);
+  	if(error_code) gt_error(PARSE_SAM_HEADER_NOT_SAM,sam_headers_input_file->file_name);
+  	gt_input_file_close(sam_headers_input_file);
+  	uint64_t xx=0;
+  	gt_string *pg_id=gt_string_new(64);
+		gt_sprintf(pg_id,"GToolsLib#%"PRIu64,++xx);
+		gt_string *prev_id=NULL;
+  	if(sam_headers->program_id_hash) {
+  		gt_sam_header_record* hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->program,gt_sam_header_record*);
+			prev_id=gt_sam_header_record_get_tag(hr,"ID");
+  		do {
+  			if(!gt_shash_get_element(sam_headers->program_id_hash,gt_string_get_string(pg_id))) break;
+  			gt_sprintf(pg_id,"GToolsLib#%"PRIu64,++xx);
+  		} while(xx<10000);
+  	}
+  	if(xx<10000) {
+  		gt_sam_header_record *hr=gt_sam_header_record_new();
+  		gt_sam_header_record_add_tag(hr,"ID",pg_id);
+  		gt_string *pn_st=gt_string_set_new(GT_MAP2SAM);
+  		gt_sam_header_record_add_tag(hr,"PN",pn_st);
+  		gt_string *vn_st=gt_string_set_new(GT_MAP2SAM_VERSION);
+  		if(prev_id) gt_sam_header_record_add_tag(hr,"PP",prev_id);
+  		gt_sam_header_record_add_tag(hr,"VN",vn_st);
+  		gt_sam_header_add_program_record(sam_headers,hr);
+  	}
+  }
+
   // Open reference file
   gt_sequence_archive* sequence_archive = NULL;
   if (parameters.load_index) {
     sequence_archive = gt_filter_open_sequence_archive(parameters.load_index_sequences);
-    gt_sam_header_set_sequence_archive(sam_headers,sequence_archive);
-  }
-
-  if (parameters.read_group_id || parameters.read_group_lib || parameters.read_group_general) {
-  	gt_string *s=gt_string_new(256);
-  	if(parameters.read_group_id) gt_sprintf(s,"ID:%s",parameters.read_group_id);
-  	if(parameters.read_group_lib) gt_sprintf_append(s,"\tLB:%s",parameters.read_group_lib);
-  	if(parameters.read_group_general) gt_sprintf_append(s,"\t%s",parameters.read_group_general);
-  	parameters.read_group=s;
-  	gt_sam_header_add_read_group_record(sam_headers,parameters.read_group);
+    gt_sam_header_load_sequence_archive(sam_headers,sequence_archive);
   }
 
   // Print SAM headers
@@ -376,14 +397,24 @@ void gt_map2sam_read__write() {
     	gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
     	gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
     }
-    if (parameters.read_group_id) {
-    	gt_string *s=gt_string_set_new(parameters.read_group_id);
-    	gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,s);
-    }
-    if (parameters.read_group_lib) {
-    	gt_string *s=gt_string_set_new(parameters.read_group_lib);
-    	gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,s);
-    }
+  	if(sam_headers->read_group_id_hash) {
+  		gt_sam_header_record *hr=NULL;
+  		if (parameters.read_group_id) {
+      		size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,parameters.read_group_id);
+      		if(ix) {
+      			hr=*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*);
+      		} else gt_error(SAM_OUTPUT_UNKNOWN_RG_ID,parameters.read_group_id);
+  		} else {
+  			hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->read_group,gt_sam_header_record*);
+  		}
+  		if(hr) {
+  			gt_string *id_tag=gt_sam_header_record_get_tag(hr,"ID");
+  			if(!id_tag) gt_fatal_error(PARSE_SAM_HEADER_MISSING_TAG,"RG","ID"); // Should have been detected before, but we check again anyway
+  			gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,id_tag);
+  			gt_string *lib_tag=gt_sam_header_record_get_tag(hr,"LB");
+  			if(lib_tag) gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,lib_tag);
+  		}
+    } else if(parameters.read_group_id) gt_error(SAM_OUTPUT_NO_HEADER_FOR_RG);
     gt_template* template = gt_template_new();
     while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
       if (error_code!=GT_IMP_OK) {
@@ -413,13 +444,6 @@ void gt_map2sam_read__write() {
 void usage(const gt_option* const options,char* groups[],const bool print_inactive) {
   fprintf(stderr, "USE: ./gt.map2sam [ARGS]...\n");
   gt_options_fprint_menu(stderr,options,groups,false,print_inactive);
-  /*
-   * Pending ...
-   *        --score-alignments|s"
-   */
-  //                  "           --RG \n" // TODO: Bufff RG:Z:0 NH:i:16 XT:A:U
-  // "           --headers [FILE] (Only {@RG,@PG,@CO} lines)\n"
-  // "           --sorting 'unknown'|'unsorted'|'queryname'|'coordinate'\n"
 }
 
 void parse_arguments(int argc,char** argv) {
@@ -446,6 +470,9 @@ void parse_arguments(int argc,char** argv) {
       parameters.name_gem_index_file = optarg;
       parameters.load_index = true;
       break;
+    case 's':
+    	parameters.sam_header_file = optarg;
+    	break;
     case 'p':
       parameters.paired_end = true;
       break;
@@ -459,12 +486,6 @@ void parse_arguments(int argc,char** argv) {
     /* Headers */
     case 300: // Read-group ID
     	parameters.read_group_id = optarg;
-    	break;
-    case 301: // Read-group Library
-    	parameters.read_group_lib = optarg;
-    	break;
-    case 302: // Read-group general
-    	parameters.read_group_general = optarg;
     	break;
       // TODO
     /* Alignments */

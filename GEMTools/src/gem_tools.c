@@ -259,13 +259,12 @@ gt_option gt_map2sam_options[] = {
 	  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
   { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
   { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (MultiFASTA/FASTA)" , "" },
+  { 's', "header", GT_OPT_REQUIRED, GT_OPT_STRING, 2, true, "<file (SAM Header)" , "" },
   { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GEM2-Index)" , "" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
    { 200, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
   /* Headers */
    { 300, "read-group-id", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<read group id>" , "" },
-   { 301, "read-group-lib", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<read group library id>" , "" },
-   { 302, "read-group-other", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<read group other tags>" , "" },
      /* Alignments */
   { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , false, "'offset-33'|'offset-64'" , "" },
   /* Optional Fields */
@@ -288,7 +287,7 @@ gt_option gt_map2sam_options[] = {
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
   {  0, 0, 0, 0, 0, false, "", ""}
 };
-char* gt_map2sam_options_short = "i:o:r:I:pq:ct:QhHv";
+char* gt_map2sam_options_short = "i:o:r:I:pq:ct:s:QhHv";
 char* gt_map2sam_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",

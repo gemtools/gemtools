@@ -130,33 +130,34 @@ GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_headers_sh,gt_sam_headers*
 GT_INLINE gt_status gt_output_sam_gprint_headers_sh(gt_generic_printer* const gprinter,gt_sam_headers* const sam_headers) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   // Print all @HD line (Header line)
-  if (sam_headers==NULL || gt_string_is_null(sam_headers->header)) {
+  if (sam_headers==NULL || sam_headers->header==NULL) {
     gt_gprintf(gprinter,"@HD\tVN:"GT_OUTPUT_SAM_FORMAT_VERSION"\n");
   } else {
-    gt_gprintf(gprinter,"@HD\t"PRIgts"\n",PRIgts_content(sam_headers->header));
+  	gt_sam_header_gprint_header_record(gprinter,sam_headers->header,"HD");
   }
   // Print all @SQ lines (Reference sequence dictionary)
-  if (sam_headers==NULL || sam_headers->sequence_archive!=NULL) {
-    gt_output_sam_gprint_headers_sa(gprinter,sam_headers->sequence_archive);
+  if (sam_headers!=NULL) {
+    GT_VECTOR_ITERATE(sam_headers->sequence_dictionary,header_record_p,line_num,gt_sam_header_record*) {
+    	gt_sam_header_gprint_header_record(gprinter,*header_record_p,"SQ");
+    }
   }
   // Print all @RG lines (Read group)
-  if (sam_headers==NULL || gt_vector_is_empty(sam_headers->read_group)) {
-    gt_gprintf(gprinter,"@RG\tID:0\tPG:GTools\tSM:0\n");
-  } else {
-    GT_VECTOR_ITERATE(sam_headers->read_group,rg_line,line_num,gt_string*) {
-      gt_gprintf(gprinter,"@RG\t"PRIgts"\n",PRIgts_content(*rg_line));
+  if (sam_headers!=NULL) {
+    GT_VECTOR_ITERATE(sam_headers->read_group,header_record_p,line_num,gt_sam_header_record*) {
+    	gt_sam_header_gprint_header_record(gprinter,*header_record_p,"RG");
     }
   }
   // Print all @PG lines (Program)
-  if (sam_headers==NULL || gt_vector_is_empty(sam_headers->program)) {
-    gt_gprintf(gprinter,"@PG\tID:GToolsLib\tPN:gt_output_sam\tVN:"GT_VERSION"\n");
-  } else {
-    GT_VECTOR_ITERATE(sam_headers->program,prog_line,line_num,gt_string*) {
-      gt_gprintf(gprinter,"@PG\t"PRIgts"\n",PRIgts_content(*prog_line));
+  if (sam_headers!=NULL) {
+    GT_VECTOR_ITERATE(sam_headers->program,header_record_p,line_num,gt_sam_header_record*) {
+    	gt_sam_header_gprint_header_record(gprinter,*header_record_p,"PG");
     }
-  }
+  } else gt_gprintf(gprinter,"@PG\tID:GToolsLib\tPN:gt_output_sam\tVN:"GT_VERSION"\n");
   // Print all @CO lines (Comments)
-  if (sam_headers==NULL || gt_vector_is_empty(sam_headers->comments)) {
+  if (sam_headers!=NULL) {
+    GT_VECTOR_ITERATE(sam_headers->comments,comment_string_p,line_num,gt_string*) {
+    	gt_gprintf(gprinter,"@CO\t"PRIgts"\n",PRIgts_content(*comment_string_p));
+    }
     // Print Current Date
     gt_gprintf(gprinter,"@CO\tTM:");
     time_t current_time=time(0);
@@ -167,10 +168,6 @@ GT_INLINE gt_status gt_output_sam_gprint_headers_sh(gt_generic_printer* const gp
         local_time.tm_hour,local_time.tm_min,local_time.tm_sec);
     // Print GT banner
     gt_gprintf(gprinter,"\tGTools v"GT_VERSION" "GT_GIT_URL"\n");
-  } else {
-    GT_VECTOR_ITERATE(sam_headers->comments,comment,line_num,gt_string*) {
-      gt_gprintf(gprinter,"@CO\t"PRIgts"\n",PRIgts_content(*comment));
-    }
   }
   return 0;
 }
@@ -418,7 +415,8 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar(
     gt_map* const next_map_block = gt_map_get_next_block(map_block);
     if (next_map_block!=NULL && GT_MAP_IS_SAME_SEGMENT(map_block,next_map_block)) { // SplitMap (Otherwise is a quimera)
       error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
-      gt_gprintf(gprinter,"%"PRIu64"N",gt_map_get_junction_size(map_block));
+      int64_t sz=gt_map_get_junction_size(map_block);
+      if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
     }
     // Print CIGAR for current map block
     gt_output_sam_gprint_map_block_cigar_reverse(gprinter,map_block,attributes);
@@ -428,7 +426,8 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar(
     // Check following map blocks
     gt_map* const next_map_block = gt_map_get_next_block(map_block);
     if (next_map_block!=NULL && GT_MAP_IS_SAME_SEGMENT(map_block,next_map_block)) { // SplitMap (Otherwise is a quimera)
-      gt_gprintf(gprinter,"%"PRIu64"N",gt_map_get_junction_size(map_block));
+      int64_t sz=gt_map_get_junction_size(map_block);
+      if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
       error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
     }
   }

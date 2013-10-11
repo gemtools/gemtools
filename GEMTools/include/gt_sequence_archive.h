@@ -23,10 +23,10 @@
 /*
  * SequenceARCHIVE
  */
-typedef enum { GT_CDNA_ARCHIVE, GT_BED_ARCHIVE } gt_sequence_archive_t; // TODO: GT_RAW_ARCHIVE
+typedef enum { GT_CDNA_ARCHIVE, GT_BED_ARCHIVE, GT_SAM_ARCHIVE } gt_sequence_archive_t; // TODO: GT_RAW_ARCHIVE
 typedef struct {
   gt_sequence_archive_t sequence_archive_type;
-  /* GT_CDNA_ARCHIVE */
+  /* GT_CDNA_ARCHIVE or GT_NAMES_ARCHIVE */
   gt_shash* sequences; /* (gt_segmented_sequence*<gt_compact_dna_string>) */
   /* GT_BED_ARCHIVE */
   gt_shash* bed_intervals; /* (gt_vector*<gem_loc_t>) */

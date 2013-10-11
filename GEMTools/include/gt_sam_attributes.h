@@ -20,10 +20,13 @@
 /*
  * Checkers
  */
+
+#define GT_SAM_HEADER_RECORD_CHECK(sam_header_record) GT_HASH_CHECK((gt_shash*)(sam_header_record))
+
 #define GT_SAM_HEADERS_CHECK(sam_headers) \
-  GT_STRING_CHECK(sam_headers->header); \
   GT_VECTOR_CHECK(sam_headers->read_group); \
   GT_VECTOR_CHECK(sam_headers->program); \
+  GT_VECTOR_CHECK(sam_headers->sequence_dictionary); \
   GT_VECTOR_CHECK(sam_headers->comments)
 
 /*
@@ -46,23 +49,38 @@
 #define GT_SAM_HEADER_OK   0
 #define GT_SAM_HEADER_TAG_INVALID   (-1)
 #define GT_SAM_HEADER_VALUE_INVALID (-2)
+
+typedef gt_shash gt_sam_header_record; // (gt_sam_header_tag*)
+
 typedef struct {
-  gt_string* header; // @HD
-  gt_sequence_archive* sequence_archive; // @SQ
-  gt_vector* read_group; /* // @RG (gt_string*) */
-  gt_vector* program; // @PG /* (gt_string*) */
-  gt_vector* comments; // @ CO /* (gt_string*) */
+	gt_sam_header_record *header; // @HD
+	gt_vector* sequence_dictionary; // @SQ (gt_sam_header_record*)
+	gt_vector* read_group; // @RG (gt_sam_header_record*)
+	gt_vector* program; // @PG (gt_sam_header_record*)
+	gt_vector* comments; // @CO (gt_string*)
+	gt_shash* sequence_dictionary_sn_hash; // SN tags of SQ records
+	gt_shash* read_group_id_hash; // ID tags of RG records
+	gt_shash* program_id_hash; // ID tags of PG records
 } gt_sam_headers; // SAM Headers
+
+GT_INLINE gt_sam_header_record* gt_sam_header_record_new(void);
+GT_INLINE void gt_sam_header_record_clear(gt_sam_header_record* const header_record);
+GT_INLINE void gt_sam_header_record_delete(gt_sam_header_record* const header_record);
+GT_INLINE gt_string *gt_sam_header_record_get_tag(gt_sam_header_record *const header_record,char* const tag);
+GT_INLINE void gt_sam_header_record_add_tag(gt_sam_header_record* const header_record,char* const tag,gt_string* string);
+GT_INLINE void gt_sam_header_gprint_header_record(gt_generic_printer* const gprinter,gt_sam_header_record* const header_record,char* const tag);
 
 GT_INLINE gt_sam_headers* gt_sam_header_new(void);
 GT_INLINE void gt_sam_header_clear(gt_sam_headers* const sam_headers);
 GT_INLINE void gt_sam_header_delete(gt_sam_headers* const sam_headers);
 
-GT_INLINE void gt_sam_header_set_sequence_archive(gt_sam_headers* const sam_headers,gt_sequence_archive* const sequence_archive);
-GT_INLINE void gt_sam_header_set_header_record(gt_sam_headers* const sam_headers,gt_string* const header_line);
-GT_INLINE void gt_sam_header_add_read_group_record(gt_sam_headers* const sam_headers,gt_string* const read_group_record);
-GT_INLINE void gt_sam_header_add_program_record(gt_sam_headers* const sam_headers,gt_string* const program_record);
+GT_INLINE void gt_sam_header_add_sequence_record(gt_sam_headers* const sam_headers,gt_sam_header_record* const header_record);
+GT_INLINE void gt_sam_header_set_header_record(gt_sam_headers* const sam_headers,gt_sam_header_record* const header_record);
+GT_INLINE void gt_sam_header_add_read_group_record(gt_sam_headers* const sam_headers,gt_sam_header_record* const header_record);
+GT_INLINE void gt_sam_header_add_program_record(gt_sam_headers* const sam_headers,gt_sam_header_record* const header_record);
 GT_INLINE void gt_sam_header_add_comment(gt_sam_headers* const sam_headers,gt_string* const comment);
+GT_INLINE void gt_sam_header_load_sequence_archive(gt_sam_headers* const sam_headers,gt_sequence_archive *sequence_archive);
+
 /*
  * SAM Optional Fields
  *   - SAM Attributes(optional fields) are just a hash of @gt_sam_attribute

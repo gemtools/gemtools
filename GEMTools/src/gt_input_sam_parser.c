@@ -58,38 +58,83 @@ GT_INLINE gt_status gt_input_file_sam_read_headers(
     char* const buffer,const uint64_t buffer_size,gt_sam_headers* const sam_headers,
     uint64_t* const characters_read,uint64_t* const lines_read) {
   uint64_t buffer_pos=0, lines=0;
+
+  typedef enum { SAM_HEADER_HD, SAM_HEADER_SQ, SAM_HEADER_RG, SAM_HEADER_PG, SAM_HEADER_CO } gt_sam_header_t;
+  typedef struct {
+  	char tag[2];
+  	gt_sam_header_t type;
+  } gt_sam_header_def;
+  bool valid_headers=sam_headers->program != NULL;
+  gt_sam_header_def header_defs[]={
+  		{{'H','D'},SAM_HEADER_HD},
+  		{{'S','Q'},SAM_HEADER_SQ},
+  		{{'R','G'},SAM_HEADER_RG},
+  		{{'P','G'},SAM_HEADER_PG},
+  		{{'C','O'},SAM_HEADER_CO},
+  		{{0,0},0}
+  	};
+
   // Read until no more header lines are parsed
   while (buffer[buffer_pos]==GT_SAM_HEADER_BEGIN) {
-    ++buffer_pos;
-    if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'H','D')) {
-      buffer_pos+=3;
-      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
-      if (buffer_pos==buffer_size) return 0;
-      ++buffer_pos;
-    } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'S','Q')) {
-      buffer_pos+=3;
-      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
-      if (buffer_pos==buffer_size) return 0;
-      ++buffer_pos;
-    } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'R','G')) {
-      buffer_pos+=3;
-      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
-      if (buffer_pos==buffer_size) return 0;
-      ++buffer_pos;
-    } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'P','G')) {
-      buffer_pos+=3;
-      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
-      if (buffer_pos==buffer_size) return 0;
-      ++buffer_pos;
-    } else if (GT_INPUT_FILE_SAM_READ_HEADERS_CMP_TAG(buffer+buffer_pos,'C','O')) {
-      buffer_pos+=3;
-      while (buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) ++buffer_pos;
-      if (buffer_pos==buffer_size) return 0;
-      ++buffer_pos;
-    } else {
-      return -1;
-    }
-    ++lines;
+  	++buffer_pos;
+  	gt_sam_header_def *tp=header_defs;
+  	while(tp->tag[0]) {
+  		if(buffer[buffer_pos]==tp->tag[0] && buffer[buffer_pos+1]==tp->tag[1]) break;
+  		tp++;
+  	}
+  	if(!tp || buffer[buffer_pos+2]!=TAB) return -1;
+  	gt_sam_header_t header_type=tp->type;
+  	buffer_pos+=3;
+  	if(header_type==SAM_HEADER_CO) {
+			uint64_t str_start=buffer_pos;
+			while(buffer_pos<buffer_size && buffer[buffer_pos]!=EOL) buffer_pos++;
+			uint64_t len=buffer_pos-str_start;
+			if(len && valid_headers) {
+				gt_string *st=gt_string_new(len+1);
+				gt_string_set_nstring(st,buffer+str_start,len);
+				gt_sam_header_add_comment(sam_headers,st);
+			}
+			if(buffer_pos<buffer_size) buffer_pos++;
+  	} else {
+  		gt_sam_header_record *hr = NULL;
+  		while(buffer_pos<buffer_size) {
+  			char tag[3];
+  			int ix=0;
+  			while(buffer_pos<buffer_size && buffer[buffer_pos]!=EOL && ix<3) tag[ix++]=buffer[buffer_pos++];
+  			if(!ix) break;
+  			if(ix<3 || tag[2]!=':') return -1;
+  			uint64_t str_start=buffer_pos;
+  			while(buffer_pos<buffer_size && buffer[buffer_pos]!=EOL && buffer[buffer_pos]!=TAB) buffer_pos++;
+  			uint64_t len=buffer_pos-str_start;
+  			if(len && valid_headers) {
+  				tag[2]=0;
+  				gt_string *st=gt_string_new(len+1);
+  				gt_string_set_nstring(st,buffer+str_start,len);
+  				if(hr == NULL) hr = gt_sam_header_record_new();
+  				gt_sam_header_record_add_tag(hr,tag,st);
+  			}
+  			if(buffer_pos==buffer_size) return 0;
+  			if(buffer[buffer_pos++]==EOL) break;
+  		}
+  		if(hr) switch(header_type) {
+  		case SAM_HEADER_HD:
+  			gt_sam_header_set_header_record(sam_headers,hr);
+  			break;
+  		case SAM_HEADER_PG:
+  			gt_sam_header_add_program_record(sam_headers,hr);
+  			break;
+  		case SAM_HEADER_RG:
+  			gt_sam_header_add_read_group_record(sam_headers,hr);
+  			break;
+  		case SAM_HEADER_SQ:
+  			gt_sam_header_add_sequence_record(sam_headers,hr);
+  			break;
+  		default:
+  			return -1;
+  		}
+  	}
+  	if(buffer_pos==buffer_size) return 0;
+  	lines++;
   }
   *characters_read = buffer_pos;
   *lines_read = lines;

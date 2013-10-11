@@ -28,6 +28,7 @@
  */
 typedef struct {
   gt_string* seq_name;
+  gt_string* extra;
   gt_vector* blocks; /* (gt_compact_dna_string*) */
   uint64_t sequence_total_length;
 } gt_segmented_sequence;

@@ -402,6 +402,9 @@ gt_status gt_tprintf(const char* format,...);
  */
 // ISP (Input SAM Parser). General
 #define GT_ERROR_PARSE_SAM "Parsing SAM error(%s:%"PRIu64":%"PRIu64")"
+#define GT_ERROR_PARSE_SAM_HEADER_NOT_SAM "Parsing SAM Header error(%s). Header file not in SAM format"
+#define GT_ERROR_PARSE_SAM_HEADER_MISSING_TAG "Parsing SAM Header error. @%s record missing %s tag"
+#define GT_ERROR_PARSE_SAM_HEADER_DUPLICATE_TAG "Parsing SAM Header error. @%s record with duplicate %s tag (%s)"
 #define GT_ERROR_PARSE_SAM_BAD_FILE_FORMAT "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Not a SAM file"
 #define GT_ERROR_PARSE_SAM_BAD_CHARACTER "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Bad character found"
 #define GT_ERROR_PARSE_SAM_UNMAPPED_XA "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Unmapped read contains XA field (inconsistency)"
@@ -411,6 +414,9 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_PARSE_SAM_CIGAR_PREMATURE_END "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Premature end of CIGAR string"
 #define GT_ERROR_PARSE_SAM_WRONG_NUM_XA "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Wrong number of eXtra mAps (as to pair them)"
 #define GT_ERROR_PARSE_SAM_UNSOLVED_PENDING_MAPS "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Failed to pair maps"
+
+#define GT_ERROR_SAM_OUTPUT_UNKNOWN_RG_ID "SAM output error.  Read group ID %s not found in SAM headers"
+#define GT_ERROR_SAM_OUTPUT_NO_HEADER_FOR_RG "SAM output error.  No SAM header was specified, so read group ID can not be matched"
 
 /*
  * Output File

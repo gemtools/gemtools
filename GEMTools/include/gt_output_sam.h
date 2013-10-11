@@ -145,7 +145,7 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_se_map(
     gt_map* const map,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
 GT_INLINE uint16_t gt_output_sam_calculate_flag_pe_map(
     gt_map* const map,gt_map* const mate,const bool is_map_first_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired);
+    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paire);
 /*
  * SAM CIGAR
  */
