@@ -564,7 +564,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 				max_dist[j]=i;
 			} else if(nmaps[j]) break;
 		}
-		if(i==k-1 && paired_file==false) ambig[j]=true;
+		if(i==k && paired_file==false) ambig[j]=true;
 		// Collect error states from first alignment only
 		if(nmaps[j]) {
 			get_error_profile(stats,al[j],j,qual_offset);
