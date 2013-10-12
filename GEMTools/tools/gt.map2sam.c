@@ -323,14 +323,13 @@ void gt_map2sam_calc_phred(gt_template *template)
 void gt_map2sam_read__write() {
   // Open file IN/OUT
   gt_input_file* const input_file = (parameters.name_input_file==NULL) ?
-      gt_input_stream_open(stdin) : gt_input_file_open(parameters.name_input_file,parameters.mmap_input);
+      gt_input_stream_map_open(stdin) : gt_input_file_map_open(parameters.name_input_file,parameters.mmap_input);
   gt_output_file* const output_file = (parameters.name_output_file==NULL) ?
       gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.name_output_file,SORTED_FILE);
   gt_sam_headers* const sam_headers = gt_sam_header_new(); // SAM headers
 
   if(parameters.sam_header_file) {
-  	gt_input_file* const sam_headers_input_file = gt_input_file_open(parameters.sam_header_file,false);
-  	if(sam_headers_input_file->file_format!=SAM) gt_error(PARSE_SAM_HEADER_NOT_SAM,sam_headers_input_file->file_name);
+  	gt_input_file* const sam_headers_input_file = gt_input_file_sam_open(parameters.sam_header_file,false);
   	uint64_t characters_read = 0, lines_read = 0;
   	gt_status error_code=gt_input_file_sam_read_headers((char *)sam_headers_input_file->file_buffer,sam_headers_input_file->buffer_size,sam_headers,&characters_read,&lines_read);
   	if(error_code) gt_error(PARSE_SAM_HEADER_NOT_SAM,sam_headers_input_file->file_name);

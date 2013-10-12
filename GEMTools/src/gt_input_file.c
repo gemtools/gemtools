@@ -20,7 +20,8 @@
 /*
  * Basic I/O functions
  */
-gt_input_file* gt_input_stream_open(FILE* stream) {
+
+gt_input_file* gt_input_stream_general_open(FILE* stream,gt_file_format format) {
   GT_NULL_CHECK(stream);
   // Allocate handler
   gt_input_file* input_file = gt_alloc(gt_input_file);
@@ -31,7 +32,7 @@ gt_input_file* gt_input_stream_open(FILE* stream) {
   input_file->fildes = -1;
   input_file->eof = feof(stream);
   input_file->file_size = UINT64_MAX;
-  input_file->file_format = FILE_FORMAT_UNKNOWN;
+  input_file->file_format = format;
   gt_cond_fatal_error(pthread_mutex_init(&input_file->input_mutex, NULL),SYS_MUTEX_INIT);
   // Auxiliary Buffer (for synch purposes)
   input_file->file_buffer = gt_malloc(GT_INPUT_BUFFER_SIZE);
@@ -46,7 +47,8 @@ gt_input_file* gt_input_stream_open(FILE* stream) {
   gt_input_file_detect_file_format(input_file);
   return input_file;
 }
-gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
+
+gt_input_file* gt_input_file_general_open(char* const file_name,const bool mmap_file,gt_file_format format) {
   GT_NULL_CHECK(file_name);
   // Allocate handler
   gt_input_file* input_file = gt_alloc(gt_input_file);
@@ -58,7 +60,7 @@ gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file) {
   input_file->file_name = file_name;
   input_file->file_size = stat_info.st_size;
   input_file->eof = (input_file->file_size==0);
-  input_file->file_format = FILE_FORMAT_UNKNOWN;
+  input_file->file_format = format;
   gt_cond_fatal_error(pthread_mutex_init(&input_file->input_mutex,NULL),SYS_MUTEX_INIT);
   if (mmap_file) {
     input_file->file = NULL;
@@ -331,25 +333,32 @@ GT_INLINE bool gt_input_file_test_sam(
 /* */
 gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file) {
   GT_INPUT_FILE_CHECK(input_file);
-  if (input_file->file_format != FILE_FORMAT_UNKNOWN) return input_file->file_format;
-  // Try to determine the file format
   gt_input_file_fill_buffer(input_file);
-  // MAP test
-  if (gt_input_file_test_map(input_file,&(input_file->map_type),false)) {
-    input_file->file_format = MAP;
-    return MAP;
+  switch(input_file->file_format) {
+  case MAP:
+    if (gt_input_file_test_map(input_file,&(input_file->map_type),false)) return MAP;
+    break;
+  case FASTA:
+    if (gt_input_file_test_fasta(input_file,&(input_file->fasta_type),false)) return FASTA;
+    break;
+  case SAM:
+    if (gt_input_file_test_sam(input_file,&(input_file->sam_headers),false)) return SAM;
+    break;
+  default:
+    if (gt_input_file_test_map(input_file,&(input_file->map_type),false)) {
+    	input_file->file_format = MAP;
+    	return MAP;
+    }
+    if (gt_input_file_test_fasta(input_file,&(input_file->fasta_type),false)) {
+    	input_file->file_format = FASTA;
+    	return FASTA;
+    }
+    if (gt_input_file_test_sam(input_file,&(input_file->sam_headers),false)) {
+      input_file->file_format = SAM;
+    	return SAM;
+    }
+    break;
   }
-  // FASTA test
-  if (gt_input_file_test_fasta(input_file,&(input_file->fasta_type),false)) {
-    input_file->file_format = FASTA;
-    return FASTA;
-  }
-  // SAM test
-  if (gt_input_file_test_sam(input_file,&(input_file->sam_headers),false)) {
-    input_file->file_format = SAM;
-    return SAM;
-  }
-  // gt_error(FILE_FORMAT);
   return FILE_FORMAT_UNKNOWN;
 }
 

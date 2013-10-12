@@ -275,7 +275,7 @@ GT_INLINE void gt_input_sam_parser_next_record(gt_buffered_input_file* const buf
  */
 /* SAM file. Synchronized get block wrt to sam records */
 GT_INLINE gt_status gt_input_sam_parser_get_block(
-    gt_buffered_input_file* const buffered_sam_input,const uint64_t num_records) {
+		gt_buffered_input_file* const buffered_sam_input,const uint64_t num_records) {
   GT_BUFFERED_INPUT_FILE_CHECK(buffered_sam_input);
   gt_input_file* const input_file = buffered_sam_input->input_file;
   // Read lines
