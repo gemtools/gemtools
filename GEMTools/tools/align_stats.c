@@ -456,7 +456,7 @@ static void get_error_profile(as_stats *stats,gt_alignment *al,uint64_t rd,int q
 static void as_collect_stats(gt_template* template,as_stats* stats,as_param *param,id_tag *idt)
 {
 	stats->nreads++;
-	char *sg_names[]={param->phage_lambda,param->phix174,param->mito};
+	char *sg_names[]={param->phix174,param->phage_lambda,param->mito};
 	uint64_t nrd;
 	bool paired_file=false; // Was the input file from a paired mapping
 	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
@@ -542,13 +542,15 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		}
 		stats->yield[j]+=yld;
 	}
-	// Count non-CpG cytosines in read (interesting for bisulfite sequence data
+	// Count non-CpG cytosines in read (interesting for bisulphite sequence data)
 	uint64_t i,ct=0;
 	for(i=0;i<len[0]-1;i++) if(rd[0][i]=='C' && rd[0][i+1]!='G') ct++;
 	stats->non_cpg_cytosines[0][ct]++;
-	ct=0;
-	for(i=1;i<len[1];i++) if(rd[1][i]=='G' && rd[1][i-1]!='C') ct++;
-	stats->non_cpg_cytosines[1][ct]++;
+	if(nrd==2) {
+		ct=0;
+		for(i=1;i<len[1];i++) if(rd[1][i]=='G' && rd[1][i-1]!='C') ct++;
+		stats->non_cpg_cytosines[1][ct]++;
+	}
 	// Filter maps (both single and paired end) to remove maps after first zero strata after the first hit
 	uint64_t nmaps[3]={0,0,0};
 	uint64_t max_dist[3]={0,0,0};
@@ -964,6 +966,37 @@ static void as_print_yield_summary(FILE *f,as_param *param)
 	}
 }
 
+static double est_conv(double *bs,double *ct,double *mt)
+{
+  int it;
+  double l,l1,m,tau,tau1,n1,n2,m1,m2;
+  double z1,z2,x,x1,x2,x3,c,cm;
+
+  tau=ct[0]/(ct[0]+ct[2]);
+  tau1=bs[0]/(bs[0]+bs[2]);
+  n1=ct[1];
+  n2=ct[3];
+  m1=bs[1];
+  m2=bs[3];
+  l=1.0-bs[1]/bs[2];
+  m=0.01;
+  for(it=0;it<100000;it++) {
+    z1=(1.0-tau1)*l;
+    z2=m2*z1/(z1+tau1);
+    x=(1-m)*(1-tau)*l;
+    x1=m/(1.0-l+l*m);
+    x2=1.0-x1;
+    x3=n2*x/(x+tau);
+    l1=(z2+x3)/(z2+x3+m1+n1*x2);
+    cm=x1*n1;
+    c=x3+x2*n1;
+    m=cm/(c+cm);
+    if(fabs(l-l1)<1.0e-16) break;
+    l=l1;
+  }
+  *mt=m;
+  return l;
+}
 static void as_print_mapping_summary(FILE *f,as_param *param)
 {
 	bool paired=gt_input_generic_parser_attributes_is_paired(param->parser_attr);
@@ -972,8 +1005,8 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 	if(paired==true && !param->input_files[1]) paired_file=true;
 	uint64_t counts[4]={0,0,0,0};
 	dist_element *de;
-	int j;
-	char *sg_desc[]={"Normal Genome","C2T Genome","G2A Genome","Phage Lambda","PhiX174","Mitochondrial"};
+	uint64_t j;
+	char *sg_desc[]={"Normal Genome","C2T Genome","G2A Genome","PhiX174","Phage Lambda","Mitochondrial"};
 	for(de=st->insert_size;de;de=de->hh.next) {
 		for(j=0;j<4;j++) counts[j]+=de->ct[j];
 	}
@@ -1054,29 +1087,6 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 		fprintf(f,"All unique read pairs:\t(%g)\tQ1: %" PRId64 "\tMedian: %" PRId64 "\tQ3: %" PRId64 "\n",zcounts[1],Q[0][1],Q[1][1],Q[2][1]);
 		fprintf(f,"Selected unique read pairs with recovered read:\t(%g)\tQ1: %" PRId64 "\tMedian: %" PRId64 "\tQ3: %" PRId64 "\n",zcounts[2],Q[0][2],Q[1][2],Q[2][2]);
 		fprintf(f,"Selected unique read pairs with split reads:\t(%g)\tQ1: %" PRId64 "\tMedian: %" PRId64 "\tQ3: %" PRId64 "\n",zcounts[3],Q[0][3],Q[1][3],Q[2][3]);
-		uint64_t count[2][5],gcount[2][6];
-		uint64_t i,j,k,tt,tot=0;
-		fputs("\nSub-genome Mapping Summary\n\n",f);
-		for(i=0;i<2;i++) {
-			for(k=0;k<6;k++) {
-				tt=0;
-				for(j=0;j<5;j++) tt+=st->bs_counts[i][k*5+j];
-				gcount[i][k]=tt;
-				tot+=tt;
-			}
-		}
-		for(k=0;k<6;k++) {
-			if((tt=gcount[0][k]+gcount[1][k])) {
-				fprintf(f,"Reads mapping to %s:\t%" PRIu64 "\t(%g%%)\n",sg_desc[k],tt,100.0*(double)tt/(double)tot);
-			}
-		}
-		for(i=0;i<2;i++) {
-			for(j=0;j<5;j++) {
-				uint64_t tt=0;
-				for(k=0;k<6;k++) tt+=st->bs_counts[i][k*5+j];
-				count[i][j]=tt;
-			}
-		}
 	} else {
 		fprintf(f,"Uniquely mapping reads:\t%" PRIu64 "\t(%g%%)\n",st->unique[0],100.0*(double)st->unique[0]/z);
 		uint64_t mult=st->mapped[0]-st->unique[0]-st->ambiguous[0];
@@ -1086,6 +1096,59 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 		fprintf(f,"Ambiguous mapping reads:\t%" PRIu64 "\t(%g%%)\n\n",st->ambiguous[0],100.0*(double)st->ambiguous[0]/z);
 		fprintf(f,"Reads with splitmaps:\t%" PRIu64 "\t(%g%%)\n",st->reads_with_splitmaps[0],100.0*(double)st->reads_with_splitmaps[0]/z);
 		fprintf(f,"Reads with only splitmaps:\t%" PRIu64 "\t(%g%%)\n",st->reads_only_with_splitmaps[0],100.0*(double)st->reads_only_with_splitmaps[0]/z);
+	}
+	uint64_t gcount[2][6];
+	uint64_t i,k,tt,tot=0,nrd;
+	nrd=paired?2:1;
+	fputs("\nSub-genome Mapping Summary\n\n",f);
+	for(i=0;i<nrd;i++) {
+		for(k=0;k<6;k++) {
+			tt=0;
+			for(j=0;j<5;j++) tt+=st->bs_counts[i][k*5+j];
+			gcount[i][k]=tt;
+			tot+=tt;
+		}
+	}
+	st->bisulphite=false;
+	for(k=0;k<6;k++) {
+		if((tt=gcount[0][k]+gcount[1][k])) {
+			fprintf(f,"Reads mapping to %s:\t%" PRIu64 "\t(%g%%)\n",sg_desc[k],tt,100.0*(double)tt/(double)tot);
+			if(k<2 && tt>10000) st->bisulphite=true;
+		}
+	}
+	if(st->bisulphite) {
+		uint64_t base_ct[2][5];
+		for(i=0;i<nrd;i++) {
+			for(j=0;j<5;j++) base_ct[i][j]=0;
+			for(j=0;j<=MAX_QUAL;j++) {
+				uint64_t tt[]={0,0,0,0,0};
+				for(k=0;k<st->max_read_length[i];k++) {
+					uint64_t *tb=st->base_counts_by_cycle[i][k]+j*5;
+					int k1;
+					for(k1=0;k1<5;k1++) tt[k1]+=tb[k1];
+				}
+				for(k=0;k<5;k++) base_ct[i][k]+=tt[k];
+			}
+		}
+		bool pflag=false;
+		for(k=4;k<6;k++) {
+			tt=gcount[0][k]+gcount[1][k];
+			if(tt>10000) {
+				if(!pflag) {
+					fputc('\n',f);
+					pflag=true;
+				}
+				fprintf(f,"Bisulphite conversion efficiency and methylation rate estimated from %s genome:",sg_desc[k]);
+				double m;
+				double pcounts[4],pscounts[4];
+				for(j=0;j<4;j++) {
+					pcounts[j]=(double)(base_ct[0][j+1]+base_ct[1][4-j]);
+					pscounts[j]=(double)(st->bs_counts[0][k*5+j+1]+st->bs_counts[1][k*5+4-j]);
+				}
+				double l=est_conv(pscounts,pcounts,&m);
+				fprintf(f,"\tconversion = %g%%,\tmethylation = %g%%\n",100.0*l,100.0*m);
+			}
+		}
 	}
 }
 
@@ -1120,6 +1183,30 @@ static void as_print_read_lengths(FILE *f,as_param *param)
 			}
 		} else if(x[0]) {
 			fprintf(f,"%" PRIu64 "\t%" PRIu64 "\t%.4f\n",i,x[0],(double)x[0]/tot[0]);
+		}
+	}
+	if(st->bisulphite) {
+		fputs("\nNon CpG cytosine count per read distribution\n\n",f);
+		if(paired) {
+			fputs("Count\tR1:n_reads\tR1:p\tR2:nreads\tR2:p\n",f);
+		} else {
+			fputs("Count\tn_reads\tp\n",f);
+		}
+		tot[0]=tot[1]=0.0;
+		for(i=0;i<=l;i++) {
+			for(k=0;k<j;k++) {
+				if(i<=st->max_read_length[k]) tot[k]+=(double)st->non_cpg_cytosines[k][i];
+			}
+		}
+		for(i=0;i<=l;i++) {
+			for(k=0;k<j;k++) x[k]=(i<=st->max_read_length[k]?st->non_cpg_cytosines[k][i]:0);
+			if(paired) {
+				if(x[0]||x[1]) {
+					fprintf(f,"%" PRIu64 "\t%" PRIu64 "\t%.4f\t%" PRIu64 "\t%.4f\n",i,x[0],(double)x[0]/tot[0],x[1],(double)x[1]/tot[1]);
+				}
+			} else if(x[0]) {
+				fprintf(f,"%" PRIu64 "\t%" PRIu64 "\t%.4f\n",i,x[0],(double)x[0]/tot[0]);
+			}
 		}
 	}
 }

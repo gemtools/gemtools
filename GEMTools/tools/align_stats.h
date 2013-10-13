@@ -28,8 +28,8 @@
 #define PHIX174 "NC_001422.1"
 #define MITO "chrM"
 
-#define CONV_EST_TYPE_PHAGE_LAMBDA 0
-#define CONV_EST_TYPE_PHIX174 1
+#define CONV_EST_TYPE_PHIX174 0
+#define CONV_EST_TYPE_PHAGE_LAMBDA 1
 #define CONV_EST_TYPE_MITO 2
 #define CONV_EST_TYPE_NONCPG 3
 #define CONV_EST_N 4
@@ -125,6 +125,7 @@ typedef struct {
   dist_element* insert_size; // Store insert size distribution
   loc_hash** loc_hash; // Track position and insert sizes to estimate duplicates
   bool paired;
+  bool bisulphite;
 } as_stats;
 
 typedef struct {
