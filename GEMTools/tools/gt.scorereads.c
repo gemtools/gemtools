@@ -83,33 +83,6 @@ void usage(const gt_option* const options,char* groups[],const bool print_inacti
   gt_options_fprint_menu(stderr,options,groups,false,print_inactive);
 }
 
-static void *sr_malloc(size_t s)
-{
-	void *p;
-
-	p=malloc(s);
-	gt_cond_fatal_error(!p,MEM_HANDLER);
-	return p;
-}
-
-static void *sr_calloc(size_t n,size_t s)
-{
-	void *p;
-
-	p=calloc(n,s);
-	gt_cond_fatal_error(!p,MEM_HANDLER);
-	return p;
-}
-
-static void *sr_realloc(void *ptr,size_t s)
-{
-	void *p;
-
-	p=realloc(ptr,s);
-	gt_cond_fatal_error(!p,MEM_HANDLER);
-	return p;
-}
-
 typedef struct {
 	int64_t x;
 	u_int64_t y;
@@ -125,7 +98,7 @@ void read_dist_file(sr_param *param,int iset[2])
 	bool first=true;
 	size_t sz=1024;
 	size_t ct=0;
-	hist_entry *hist=sr_malloc(sizeof(hist_entry)*sz);
+	hist_entry *hist=gt_malloc(sizeof(hist_entry)*sz);
 	u_int64_t total=0;
 	do {
 		nl=gt_buffered_input_file_get_block(bfile,0);
@@ -170,7 +143,9 @@ void read_dist_file(sr_param *param,int iset[2])
 										}
 										if(ct==sz) {
 											sz*=1.5;
-											hist=sr_realloc(hist,sizeof(hist_entry)*sz);
+											hist=realloc(hist,sizeof(hist_entry)*sz);
+											gt_cond_fatal_error(!hist,MEM_HANDLER);
+
 										}
 										hist[ct].x=x;
 										hist[ct++].y=y;
@@ -210,8 +185,8 @@ void read_dist_file(sr_param *param,int iset[2])
 		if(!iset[1] || hist[i2].x<param->max_insert) param->max_insert=hist[i2].x;
 		fprintf(stderr,"Insert distribution %"PRId64" - %"PRId64"\n",param->min_insert,param->max_insert);
 		int k=param->max_insert-param->min_insert+1;
-		param->ins_dist=sr_malloc(sizeof(double)*k);
-		param->ins_phred=sr_malloc((size_t)k);
+		param->ins_dist=gt_malloc(sizeof(double)*k);
+		param->ins_phred=gt_malloc((size_t)k);
 		// Calculate a phred scaled likelihood for insert sizes in the selected range
 		// We will scale them so that the maximum value is always 0 (helps for calculating qualities)
 		for(i=0;i<k;i++) param->ins_dist[i]=0.0;
@@ -291,7 +266,7 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 	}
 	if(nmap[0]+nmap[1]) {
 		char *map_flag[2];
-		map_flag[0]=sr_calloc((size_t)(nmap[0]+nmap[1]),sizeof(char));
+		map_flag[0]=gt_calloc((size_t)(nmap[0]+nmap[1]),char,true);
 		map_flag[1]=map_flag[0]+nmap[0];
 		uint64_t i=0;
 		GT_ALIGNMENT_ITERATE(alignment1,map1) {
@@ -306,7 +281,6 @@ static void pair_read(gt_template *template,gt_alignment *alignment1,gt_alignmen
 					attr.gt_score=map1->gt_score|(map2->gt_score<<16);
 					if(param->ins_phred) attr.gt_score|=((uint64_t)param->ins_phred[x-param->min_insert]<<32);
 					attr.phred_score=255;
-//					printf("ACK!: %ld %lu %lu %d %lu\n",x,map1->gt_score,map2->gt_score,param->ins_phred[x-param->min_insert],map1->gt_score+map2->gt_score+param->ins_phred[x-param->min_insert]);
 					gt_template_inc_counter(template,attr.distance);
 					gt_template_add_mmap_ends(template,map1,map2,&attr);
 					map_flag[0][i]=map_flag[1][j]=1;

@@ -184,7 +184,7 @@ GT_INLINE void gt_sam_header_record_add_tag(gt_sam_header_record* const header_r
 }
 GT_INLINE void gt_sam_header_gprint_header_record(gt_generic_printer* const gprinter,gt_sam_header_record* const header_record,char* const tag) {
 	GT_SAM_HEADER_RECORD_CHECK(header_record);
-	gt_gprintf(gprinter,"@%.2s:",tag);
+	gt_gprintf(gprinter,"@%.2s",tag);
 	GT_SHASH_BEGIN_ITERATE(header_record,tag,str,gt_string) {
 		gt_gprintf(gprinter,"\t%s:"PRIgts,tag,PRIgts_content(str));
 	} GT_SHASH_END_ITERATE;

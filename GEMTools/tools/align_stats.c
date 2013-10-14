@@ -42,7 +42,7 @@ static void usage(FILE *f)
 	fprintf(f,"  -X|--phix174 <identifier for phiX174>    (default='%s')\n",PHIX174);
 	fprintf(f,"  -L|--max_read_length <maximum valid read length>   (default=%u)\n",MAX_READ_LENGTH);
 	fprintf(f,"  -F|--fastq     select fastq quality coding         %s\n",DEFAULT_QUAL_OFFSET==QUAL_FASTQ?"(default)":"");
-	fprintf(f,"  -S|--solexa    select ilumina quality coding       %s\n",DEFAULT_QUAL_OFFSET==QUAL_SOLEXA?"(default)":"");
+	fprintf(f,"  -S|--solexa    select illumina quality coding       %s\n",DEFAULT_QUAL_OFFSET==QUAL_SOLEXA?"(default)":"");
 	fprintf(f,"  -q|--qual_off  select quality value offset         (default=%d)\n",DEFAULT_QUAL_OFFSET);
 	fputs("  -h|help|usage                                      (print this file\n\n",f);
 }
@@ -647,6 +647,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			gt_string *contig;
 			int64_t ins_size=gt_template_get_insert_size(tmaps,&gt_err,&xx,&contig);
 			if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
+				printf("%"PRId64"\n",ins_size);
 				(void)as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_ALL_UNIQUE,ins_size);
 				stats->paired_type[PAIR_TYPE_DS]++;
 				insert_loc(stats,xx,ins_size,idt->tile,contig);
@@ -1661,6 +1662,22 @@ int main(int argc,char *argv[])
 					al[1]=gt_template_get_block(template,1);
 					gt_alignment_recalculate_counters(al[0]);
 					gt_alignment_recalculate_counters(al[1]);
+					gt_mmap_attributes attr;
+					gt_map *mmap[2];
+					GT_ALIGNMENT_ITERATE(al[0],map1) {
+						mmap[0]=map1;
+						GT_ALIGNMENT_ITERATE(al[1],map2) {
+							mmap[1]=map2;
+							gt_status gt_err;
+							int64_t x=gt_template_get_insert_size(mmap,&gt_err,0,0);
+							if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param.min_insert && x<=param.max_insert) {
+								attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
+								attr.gt_score=GT_MAP_NO_GT_SCORE;
+								gt_template_inc_counter(template,attr.distance);
+								gt_template_add_mmap_ends(template,map1,map2,&attr);
+							}
+						}
+					}
 				}
 				if(!param.ignore_id) {
 					uint64_t idt_err=parse_id_tag(template->tag,idt);
