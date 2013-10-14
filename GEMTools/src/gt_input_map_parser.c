@@ -875,18 +875,14 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(const char** const text_line,gt_ma
   }
   // Link both donor & acceptor
   gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
-//  if (gt_map_get_strand(donor_map)==FORWARD) {
+  if (gt_map_get_strand(donor_map)==FORWARD) {
     gt_map_set_next_block(donor_map,acceptor_map,SPLICE,(int64_t)gt_map_get_position(acceptor_map)-(int64_t)gt_map_get_position(donor_map)+(int64_t)gt_map_get_length(donor_map));
-//  } else {
-//    const uint64_t acceptor_map_length = (read_base_length!=UINT64_MAX) ? gt_map_get_length(acceptor_map) : 0;
-//    gt_map_set_next_block(acceptor_map,donor_map,SPLICE,(int64_t)gt_map_get_position(donor_map)-(int64_t)gt_map_get_position(acceptor_map)+(int64_t)acceptor_map_length);
-//  }
+  } else {
+    const uint64_t acceptor_map_length = (read_base_length!=UINT64_MAX) ? gt_map_get_length(acceptor_map) : 0;
+    gt_map_set_next_block(donor_map,acceptor_map,SPLICE,(int64_t)gt_map_get_position(donor_map)-(int64_t)gt_map_get_position(acceptor_map)+(int64_t)acceptor_map_length);
+  }
   // Add the SM
-//  if (gt_map_get_strand(donor_map)==FORWARD) {
-    *split_map = donor_map;
-//  } else {
-//    *split_map = acceptor_map;
-//  }
+  *split_map = donor_map;
   // Return
   return 0;
 }
