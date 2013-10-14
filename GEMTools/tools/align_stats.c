@@ -647,7 +647,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			gt_string *contig;
 			int64_t ins_size=gt_template_get_insert_size(tmaps,&gt_err,&xx,&contig);
 			if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
-				printf("%"PRId64"\n",ins_size);
+//				printf("%"PRId64"\n",ins_size);
 				(void)as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_ALL_UNIQUE,ins_size);
 				stats->paired_type[PAIR_TYPE_DS]++;
 				insert_loc(stats,xx,ins_size,idt->tile,contig);
