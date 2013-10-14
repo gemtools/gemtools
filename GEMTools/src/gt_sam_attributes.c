@@ -152,7 +152,7 @@ GT_INLINE void gt_sam_header_load_sequence_archive(gt_sam_headers* const sam_hea
   	gt_sam_header_record *hr=gt_sam_header_record_new();
 		gt_sam_header_record_add_tag(hr,"SN",seq->seq_name);
   	gt_string *st=gt_string_new(32);
-  	(void)gt_sprintf(st,"%PRIu64",seq->sequence_total_length);
+  	(void)gt_sprintf(st,"%"PRIu64,seq->sequence_total_length);
 		gt_sam_header_record_add_tag(hr,"LN",st);
 		gt_sam_header_add_sequence_record(sam_headers,hr);
   }
