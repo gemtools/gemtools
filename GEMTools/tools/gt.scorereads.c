@@ -5,6 +5,8 @@
  *      Author: heath
  */
 
+#define GT_SCOREREADS "gt.scorereads"
+#define GT_SCOREREADS_VERSION "1.0"
 
 #include <getopt.h>
 #include <ctype.h>
@@ -38,8 +40,22 @@ typedef struct {
   char *input_files[2];
   char *output_file;
   char *dist_file;
+  char* name_reference_file;
+  char* name_gem_index_file;
+  char* sam_header_file;
+  char *read_group_id;
   bool mmap_input;
   bool verbose;
+  bool compact_format; // for SAM output
+  /* Optional Fields */
+  bool optional_field_NH;
+  bool optional_field_XT;
+  bool optional_field_XS;
+  bool optional_field_md;
+  /* Control flags */
+  bool load_index;
+  bool load_index_sequences;
+  gt_file_format output_format;
   gt_output_file_compression compress;
   gt_generic_parser_attributes *parser_attr;
   gt_generic_printer_attributes *printer_attr;
@@ -48,11 +64,7 @@ typedef struct {
   int64_t max_insert;
   uint8_t *ins_phred;
   int num_threads;
-  int mapping_cutoff;
-  int max_strata_searched;
-  int indel_penalty;
-  int split_penalty;
-  int qual_offset; // quality offset (33 for FASTQ, 64 for Illumina)
+  gt_map_score_attributes map_score_attr;
 } sr_param;
 
 typedef struct {
@@ -65,19 +77,30 @@ sr_param param = {
 		.input_files={NULL,NULL},
 		.output_file=NULL,
 		.dist_file=NULL,
+		.name_reference_file=NULL,
+		.name_gem_index_file=NULL,
+		.sam_header_file=NULL,
+		.read_group_id=NULL,
 		.mmap_input=false,
 		.compress=NONE,
 		.parser_attr=NULL,
 		.verbose=false,
+		.compact_format=false,
+	  .optional_field_NH=false,
+	  .optional_field_XT=false,
+	  .optional_field_XS=false,
+	  .optional_field_md=false,
+	  .load_index=false,
+	  .load_index_sequences=false,
+		.output_format=MAP,
 		.num_threads=1,
-		.indel_penalty=INDEL_QUAL,
-		.split_penalty=INDEL_QUAL,
-		.qual_offset=DEFAULT_QUAL,
-		.mapping_cutoff=0,
-		.max_strata_searched=0,
-		.min_insert=0,
-		.max_insert=0,
-		.ins_phred=NULL
+		.map_score_attr.indel_penalty=INDEL_QUAL,
+		.map_score_attr.split_penalty=INDEL_QUAL,
+		.map_score_attr.mapping_cutoff=0,
+		.map_score_attr.max_strata_searched=0,
+		.map_score_attr.minimum_insert=0,
+		.map_score_attr.maximum_insert=0,
+		.map_score_attr.insert_phred=NULL,
 };
 
 void usage(const gt_option* const options,char* groups[],const bool print_inactive) {
@@ -105,46 +128,30 @@ static sr_dist_element *sr_increase_insert_count(sr_dist_element **de,int64_t x,
 	return new_de;
 }
 
-static uint64_t calculate_dist_score(gt_alignment *al, gt_map *map, sr_param *param)
-{
-	int qual_offset=param->qual_offset;
-	int indel_penalty=param->indel_penalty;
-	int split_penalty=param->split_penalty;
-	int map_cutoff=param->mapping_cutoff;
-	register gt_string* const quals = al->qualities;
-	register gt_string* const read = al->read;
-	register const bool has_qualities = gt_alignment_has_qualities(al);
-	uint64_t score=0;
-	GT_MAP_ITERATE(map,map_block) {
-		GT_MISMS_ITERATE(map_block,misms) {
-			int quality_misms;
-			if (has_qualities) {
-				quality_misms = gt_string_get_string(quals)[misms->position]-qual_offset;
-				if(quality_misms>MAX_QUAL) quality_misms=MAX_QUAL;
-				else if(quality_misms<map_cutoff || gt_string_get_string(read)[misms->position]=='N') quality_misms=0;
-			} else quality_misms=MISSING_QUAL;
-			switch (misms->misms_type) {
-			case MISMS:
-				score+=quality_misms;
-				break;
-			case INS:
-			case DEL:
-				score+=indel_penalty;
-				break;
-			}
-		}
-		if(gt_map_get_next_block(map_block)) score+=split_penalty;
-	}
-	if(score>MAX_GT_SCORE) score=MAX_GT_SCORE;
-	return score;
+gt_sequence_archive* gt_open_sequence_archive(const bool load_sequences) {
+  gt_sequence_archive* sequence_archive = NULL;
+  if (param.name_gem_index_file!=NULL) { // Load GEM-IDX
+    sequence_archive = gt_sequence_archive_new(GT_BED_ARCHIVE);
+    gt_gemIdx_load_archive(param.name_gem_index_file,sequence_archive,load_sequences);
+  } else {
+    gt_input_file* const reference_file = gt_input_file_open(param.name_reference_file,false);
+    sequence_archive = gt_sequence_archive_new(GT_CDNA_ARCHIVE);
+    if (gt_input_multifasta_parser_get_archive(reference_file,sequence_archive)!=GT_IFP_OK) {
+      gt_fatal_error_msg("Error parsing reference file '%s'\n",param.name_reference_file);
+    }
+    gt_input_file_close(reference_file);
+  }
+  return sequence_archive;
 }
 
-static gt_status gt_scorereads_get_insert_size(gt_template *template,gt_alignment *al[],int64_t *size)
+static gt_status gt_scorereads_get_insert_size(gt_template *template,int64_t *size)
 {
 	gt_status err=GT_STATUS_FAIL;
 	int j;
+	gt_alignment *al[2];
 	uint64_t nmap[2]={0,0};
 	for(j=0;j<2;j++) {
+		al[j]=gt_template_get_block(template,j);
 		uint64_t i,k;
 		k=gt_alignment_get_num_counters(al[j]);
 		for(i=0;i<k;i++) {
@@ -176,66 +183,10 @@ static void gt_scorereads_free_insert_hash(sr_dist_element *ins) {
 	}
 }
 
-static void gt_scorereads_pair_template(gt_template *template,gt_alignment *al[2],sr_param *param)
-{
-	gt_mmap_attributes attr;
-	gt_map *mmap[2];
-	uint64_t nmap[2],rd;
-	for(rd=0;rd<2;rd++) {
-		gt_alignment_recalculate_counters(al[rd]);
-		nmap[rd]=gt_alignment_get_num_maps(al[rd]);
-		if(nmap[rd]) {
-			GT_ALIGNMENT_ITERATE(al[rd],map) {
-				map->gt_score=calculate_dist_score(al[rd],map,param);
-			}
-		}
-	}
-	if(nmap[0]+nmap[1]) {
-		uint64_t i=0;
-		char *map_flag[2];
-		map_flag[0]=gt_calloc((size_t)(nmap[0]+nmap[1]),char,true);
-		map_flag[1]=map_flag[0]+nmap[0];
-		GT_ALIGNMENT_ITERATE(al[0],map1) {
-			mmap[0]=map1;
-			uint64_t j=0;
-			GT_ALIGNMENT_ITERATE(al[1],map2) {
-				mmap[1]=map2;
-				gt_status gt_err;
-				int64_t x=gt_template_get_insert_size(mmap,&gt_err,0,0);
-				if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param->min_insert && x<=param->max_insert) {
-					attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
-					attr.gt_score=map1->gt_score|(map2->gt_score<<16);
-					if(param->ins_phred) attr.gt_score|=((uint64_t)param->ins_phred[x-param->min_insert]<<32);
-					attr.phred_score=255;
-					gt_template_inc_counter(template,attr.distance);
-					gt_template_add_mmap_ends(template,map1,map2,&attr);
-					map_flag[0][i]=map_flag[1][j]=1;
-				}
-				j++;
-			}
-			i++;
-		}
-		for(rd=0;rd<2;rd++) {
-			for(i=0;i<nmap[rd];i++) {
-				if(!map_flag[rd][i]) {
-					gt_map *map=gt_alignment_get_map(al[rd],i);
-					attr.distance=gt_map_get_global_distance(map);
-					attr.gt_score=map->gt_score;
-					attr.phred_score=255;
-					gt_template_inc_counter(template,attr.distance);
-					gt_template_add_mmap_ends(template,map,0,&attr);
-				}
-			}
-		}
-		free(map_flag[0]);
-	}
-	gt_attributes_remove(template->attributes,GT_ATTR_ID_TAG_PAIR);
-}
-
-void gt_add_extra_tags(gt_attributes *attributes,uint32_t mcs[],bool paired,int map_cutoff) {
+void gt_add_extra_tags(gt_attributes *attributes,uint32_t mcs[],bool paired,gt_map_score_attributes *ms_attr) {
 	char *tag;
-	if(paired) asprintf(&tag,"ms:B:I,%" PRIu32 ",%" PRIu32 " mx:i:%d",mcs[0],mcs[1],map_cutoff);
-	else asprintf(&tag,"ms:B:I,%" PRIu32 " mx:i:%d",mcs[0],map_cutoff);
+	if(paired) asprintf(&tag,"ms:B:I,%" PRIu32 ",%" PRIu32 " mx:i:%d",mcs[0],mcs[1],ms_attr->mapping_cutoff);
+	else asprintf(&tag,"ms:B:I,%" PRIu32 " mx:i:%d",mcs[0],ms_attr->mapping_cutoff);
 	gt_cond_fatal_error(!tag,MEM_HANDLER);
 	gt_string *extra_string=gt_string_set_new(tag);
 	free(tag);
@@ -249,28 +200,29 @@ void gt_add_extra_tags(gt_attributes *attributes,uint32_t mcs[],bool paired,int 
 	}
 }
 
-void gt_template_add_mcs_tags(gt_template *template,gt_alignment *al[2],int map_cutoff)
+void gt_template_add_mcs_tags(gt_template *template,gt_map_score_attributes *ms_attr)
 {
 	uint32_t rd,mcs[2];
 	for(rd=0;rd<2;rd++) {
-		mcs[rd]=al[rd]?gt_alignment_get_mcs(al[rd]):0;
-		if(param.max_strata_searched) {
-			uint32_t limit=param.max_strata_searched+1;
+		gt_alignment *al=gt_template_get_block(template,rd);
+		mcs[rd]=al?gt_alignment_get_mcs(al):0;
+		if(ms_attr->max_strata_searched) {
+			uint32_t limit=ms_attr->max_strata_searched+1;
 			if(mcs[rd]>limit) mcs[rd]=limit;
 		}
 	}
-	gt_add_extra_tags(template->attributes,mcs,true,map_cutoff);
+	gt_add_extra_tags(template->attributes,mcs,true,ms_attr);
 }
 
-void gt_alignment_add_mcs_tags(gt_alignment *al,int map_cutoff)
+void gt_alignment_add_mcs_tags(gt_alignment *al,gt_map_score_attributes *ms_attr)
 {
 	uint32_t mcs[2];
 	mcs[0]=gt_alignment_get_mcs(al);
-	if(param.max_strata_searched) {
-		uint32_t limit=param.max_strata_searched+1;
+	if(ms_attr->max_strata_searched) {
+		uint32_t limit=ms_attr->max_strata_searched+1;
 		if(mcs[0]>limit) mcs[0]=limit;
 	}
-	gt_add_extra_tags(al->attributes,mcs,false,map_cutoff);
+	gt_add_extra_tags(al->attributes,mcs,false,ms_attr);
 }
 
 static int sort_dist_element(void *a,void *b)
@@ -438,6 +390,260 @@ void read_dist_file(sr_param *param)
 
 }
 
+gt_status gt_scorereads_process(sr_param *param)
+{
+	gt_status err=GT_STATUS_OK;
+
+	// Open out file
+	gt_output_file *output_file;
+	if(param->output_file) {
+		output_file=gt_output_file_new_compress(param->output_file,SORTED_FILE,param->compress);
+	} else {
+		output_file=gt_output_stream_new_compress(stdout,SORTED_FILE,param->compress);
+	}
+	gt_cond_fatal_error(!output_file,FILE_OPEN,param->output_file);
+  gt_sam_headers* sam_headers = NULL; // SAM headers
+	if(param->output_format==MAP) {
+		param->printer_attr=gt_generic_printer_attributes_new(MAP);
+		param->printer_attr->output_map_attributes->print_casava=true;
+		param->printer_attr->output_map_attributes->print_extra=true;
+		param->printer_attr->output_map_attributes->print_scores=true;
+		param->printer_attr->output_map_attributes->hex_print_scores=true;
+	} else if(param->output_format==SAM) {
+		param->printer_attr=gt_generic_printer_attributes_new(SAM);
+	  sam_headers = gt_sam_header_new(); // SAM headers
+	  if(param->sam_header_file) {
+	  	gt_input_file* const sam_headers_input_file = gt_input_file_sam_open(param->sam_header_file,false);
+	  	uint64_t characters_read = 0, lines_read = 0;
+	  	gt_status error_code=gt_input_file_sam_read_headers((char *)sam_headers_input_file->file_buffer,sam_headers_input_file->buffer_size,sam_headers,&characters_read,&lines_read);
+	  	if(error_code) gt_error(PARSE_SAM_HEADER_NOT_SAM,sam_headers_input_file->file_name);
+	  	gt_input_file_close(sam_headers_input_file);
+	  	uint64_t xx=0;
+	  	gt_string *pg_id=gt_string_new(64);
+			gt_sprintf(pg_id,"GToolsLib#%"PRIu64,++xx);
+			gt_string *prev_id=NULL;
+	  	if(sam_headers->program_id_hash) {
+	  		gt_sam_header_record* hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->program,gt_sam_header_record*);
+				prev_id=gt_sam_header_record_get_tag(hr,"ID");
+	  		do {
+	  			if(!gt_shash_get_element(sam_headers->program_id_hash,gt_string_get_string(pg_id))) break;
+	  			gt_sprintf(pg_id,"GToolsLib#%"PRIu64,++xx);
+	  		} while(xx<10000);
+	  	}
+	  	if(xx<10000) {
+	  		gt_sam_header_record *hr=gt_sam_header_record_new();
+	  		gt_sam_header_record_add_tag(hr,"ID",pg_id);
+	  		gt_string *pn_st=gt_string_set_new(GT_SCOREREADS);
+	  		gt_sam_header_record_add_tag(hr,"PN",pn_st);
+	  		gt_string *vn_st=gt_string_set_new(GT_SCOREREADS_VERSION);
+	  		if(prev_id) gt_sam_header_record_add_tag(hr,"PP",prev_id);
+	  		gt_sam_header_record_add_tag(hr,"VN",vn_st);
+	  		gt_sam_header_add_program_record(sam_headers,hr);
+	  	}
+	  }
+	  // Open reference file
+	  gt_sequence_archive* sequence_archive = NULL;
+	  if (param->load_index) {
+	    sequence_archive = gt_open_sequence_archive(param->load_index_sequences);
+	    gt_sam_header_load_sequence_archive(sam_headers,sequence_archive);
+	  }
+	  // Print SAM headers
+	  gt_output_sam_ofprint_headers_sh(output_file,sam_headers);
+	  // Set up optional record TAGs
+    gt_output_sam_attributes* const output_sam_attributes = param->printer_attr->output_sam_attributes;
+    // Set out attributes
+    gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
+    gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
+    gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
+    gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
+    gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
+    gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
+    gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
+    gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
+    if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
+    if (param->optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
+    if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
+    if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
+
+  	if(sam_headers->read_group_id_hash) {
+  		gt_sam_header_record *hr=NULL;
+  		if (param->read_group_id) {
+      		size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,param->read_group_id);
+      		if(ix) {
+      			hr=*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*);
+      		} else gt_error(SAM_OUTPUT_UNKNOWN_RG_ID,param->read_group_id);
+  		} else {
+  			hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->read_group,gt_sam_header_record*);
+  		}
+  		if(hr) {
+  			gt_string *id_tag=gt_sam_header_record_get_tag(hr,"ID");
+  			if(!id_tag) gt_fatal_error(PARSE_SAM_HEADER_MISSING_TAG,"RG","ID"); // Should have been detected before, but we check again anyway
+  			gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,id_tag);
+  			gt_string *lib_tag=gt_sam_header_record_get_tag(hr,"LB");
+  			if(lib_tag) gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,lib_tag);
+  		}
+    } else if(param->read_group_id) gt_error(SAM_OUTPUT_NO_HEADER_FOR_RG);
+
+	} else {
+		gt_fatal_error_msg("Unsupported file format\n");
+	}
+	// Do we have two map files as input (one for each read)?
+	if(param->input_files[1]) {
+		pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+		gt_input_file* input_file1=gt_input_file_open(param->input_files[0],param->mmap_input);
+		gt_input_file* input_file2=gt_input_file_open(param->input_files[1],param->mmap_input);
+		if(input_file1->file_format!=MAP || input_file2->file_format!=MAP) {
+			gt_fatal_error_msg("Fatal error: paired files '%s','%s' are not in MAP format\n",param->input_files[0],param->input_files[1]);
+		}
+		gt_buffered_input_file* buffered_input_a=gt_buffered_input_file_new(input_file1);
+		gt_buffered_input_file* buffered_input_b=gt_buffered_input_file_new(input_file2);
+		// If no insert size file supplied, estimate from the first GT_SCOREREADS_NUM_LINES records
+		if(!param->ins_phred) {
+			uint64_t nread=0;
+			gt_template *template=gt_template_new();
+			sr_dist_element *ins_dist=NULL;
+			gt_status error_code;
+			while((error_code=gt_input_map_parser_synch_get_template(buffered_input_a,buffered_input_b,template,&mutex))) {
+				if(error_code!=GT_IMP_OK) continue;
+				int64_t size;
+				error_code=gt_scorereads_get_insert_size(template,&size);
+				if(error_code==GT_STATUS_OK) (void)sr_increase_insert_count(&ins_dist,size,1);
+				if(++nread==GT_SCOREREADS_NUM_LINES) break;
+			}
+			gt_template_delete(template);
+			// Reset input buffers to the beginning of the file
+			buffered_input_a->cursor=gt_vector_get_mem(buffered_input_a->block_buffer,char);
+			buffered_input_a->current_line_num=0;
+			buffered_input_b->cursor=gt_vector_get_mem(buffered_input_b->block_buffer,char);
+			buffered_input_b->current_line_num=0;
+			(void)estimate_insert_histogram(ins_dist,param);
+			gt_scorereads_free_insert_hash(ins_dist);
+		}
+
+#ifdef HAVE_OPENMP
+#pragma omp parallel num_threads(param->num_threads)
+#endif
+		{
+#ifdef HAVE_OPENMP
+			uint64_t tid=omp_get_thread_num();
+#else
+			uint64_t tid=0;
+#endif
+
+			gt_buffered_input_file* buffered_input1=tid?gt_buffered_input_file_new(input_file1):buffered_input_a;
+			gt_buffered_input_file* buffered_input2=tid?gt_buffered_input_file_new(input_file2):buffered_input_b;
+			gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
+			gt_buffered_input_file_attach_buffered_output(buffered_input1,buffered_output);
+			gt_status error_code;
+			gt_template *template=gt_template_new();
+			while((error_code=gt_input_map_parser_synch_get_template(buffered_input1,buffered_input2,template,&mutex))) {
+				if(error_code!=GT_IMP_OK) continue;
+				gt_map_pair_template(template,&param->map_score_attr);
+				if(param->output_format==MAP) gt_template_add_mcs_tags(template,&param->map_score_attr);
+				else if(param->output_format==SAM) gt_map_calculate_template_mapq_score(template,&param->map_score_attr);
+				if (gt_output_generic_bofprint_template(buffered_output,template,param->printer_attr)) {
+					gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
+				}
+			}
+			gt_template_delete(template);
+			gt_buffered_input_file_close(buffered_input1);
+			gt_buffered_input_file_close(buffered_input2);
+			gt_buffered_output_file_close(buffered_output);
+		}
+		gt_input_file_close(input_file1);
+		gt_input_file_close(input_file2);
+	} else { // Single input file (could be single end or interleaved paired end
+		gt_input_file* input_file=param->input_files[0]?gt_input_file_open(param->input_files[0],param->mmap_input):gt_input_stream_open(stdin);
+		gt_buffered_input_file* buffered_input_a=gt_buffered_input_file_new(input_file);
+		if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
+			// If no insert size file supplied, estimate from the first GT_SCOREREADS_NUM_LINES records
+			if(!param->ins_phred) {
+				uint64_t nread=0;
+				gt_template *template=gt_template_new();
+				sr_dist_element *ins_dist=NULL;
+				gt_status error_code;
+				while ((error_code=gt_input_generic_parser_get_template(buffered_input_a,template,param->parser_attr))) {
+					if(error_code!=GT_IMP_OK) continue;
+					int64_t size;
+					error_code=gt_scorereads_get_insert_size(template,&size);
+					if(error_code==GT_STATUS_OK) (void)sr_increase_insert_count(&ins_dist,size,1);
+					if(++nread==GT_SCOREREADS_NUM_LINES) break;
+				}
+				gt_template_delete(template);
+				// Reset input buffers to the beginning of the file
+				buffered_input_a->cursor=gt_vector_get_mem(buffered_input_a->block_buffer,char);
+				buffered_input_a->current_line_num=0;
+				(void)estimate_insert_histogram(ins_dist,param);
+				gt_scorereads_free_insert_hash(ins_dist);
+			}
+#ifdef OPENMP
+#pragma omp parallel num_threads(param->num_threads)
+#endif
+			{
+#ifdef HAVE_OPENMP
+				uint64_t tid=omp_get_thread_num();
+#else
+				uint64_t tid=0;
+#endif
+				gt_buffered_input_file* buffered_input=tid?gt_buffered_input_file_new(input_file):buffered_input_a;
+				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
+				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
+				gt_status error_code;
+				gt_template *template=gt_template_new();
+				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
+					if (error_code!=GT_IMP_OK) continue;
+					gt_map_pair_template(template,&param->map_score_attr);
+					if(param->output_format==MAP) gt_template_add_mcs_tags(template,&param->map_score_attr);
+					else if(param->output_format==SAM) gt_map_calculate_template_mapq_score(template,&param->map_score_attr);
+					if (gt_output_generic_bofprint_template(buffered_output,template,param->printer_attr)) {
+						gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
+					}
+				}
+				// Clean
+				gt_template_delete(template);
+				gt_buffered_input_file_close(buffered_input);
+				gt_buffered_output_file_close(buffered_output);
+			}
+		} else {
+#ifdef OPENMP
+#pragma omp parallel num_threads(param->num_threads)
+#endif
+			{
+				gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
+				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
+				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
+				gt_status error_code;
+				gt_template *template=gt_template_new();
+				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
+					if (error_code!=GT_IMP_OK) {
+						gt_error_msg("Error parsing file '%s'\n",param->input_files[0]);
+						continue;
+					}
+					gt_alignment *alignment=gt_template_get_block(template,0);
+					gt_alignment_recalculate_counters(alignment);
+					GT_ALIGNMENT_ITERATE(alignment,map) {
+						if(map->gt_score==GT_MAP_NO_GT_SCORE) map->gt_score=gt_map_calculate_gt_score(alignment,map,&param->map_score_attr);
+						map->phred_score=255;
+					}
+					if(param->output_format==MAP) gt_alignment_add_mcs_tags(alignment,&param->map_score_attr);
+					else if(param->output_format==SAM) gt_map_calculate_alignment_mapq_score(alignment,&param->map_score_attr);
+					if (gt_output_generic_bofprint_alignment(buffered_output,alignment,param->printer_attr)) {
+						gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
+					}
+				}
+				// Clean
+				gt_template_delete(template);
+				gt_buffered_input_file_close(buffered_input);
+				gt_buffered_output_file_close(buffered_output);
+			}
+		}
+		gt_input_file_close(input_file);
+	}
+	gt_output_file_close(output_file);
+	gt_generic_printer_attributes_delete(param->printer_attr);
+	if(param->ins_phred) free(param->ins_phred);
+	return err;
+}
 
 gt_status parse_arguments(int argc,char** argv) {
 	gt_status err=GT_STATUS_OK;
@@ -458,6 +664,17 @@ gt_status parse_arguments(int argc,char** argv) {
     	break;
     case 'o':
     	param.output_file = optarg;
+    	break;
+    case 'r':
+      param.name_reference_file = optarg;
+      param.load_index = true;
+      break;
+    case 'I':
+      param.name_gem_index_file = optarg;
+      param.load_index = true;
+      break;
+    case 's':
+    	param.sam_header_file = optarg;
     	break;
     case 300:
       param.input_files[0] = optarg;
@@ -482,15 +699,24 @@ gt_status parse_arguments(int argc,char** argv) {
   		param.compress=NONE;
   		break;
  		/* Score function */
-  	case 'q':
+    case 'q':
       if (gt_streq(optarg,"offset-64")) {
-        param.qual_offset=64;
+        param.map_score_attr.quality_format=GT_QUALS_OFFSET_64;
       } else if (gt_streq(optarg,"offset-33")) {
-        param.qual_offset=33;
+        param.map_score_attr.quality_format=GT_QUALS_OFFSET_33;
       } else {
         gt_fatal_error_msg("Quality format not recognized: '%s'",optarg);
       }
       break;
+    case 704: // output-format
+       if (gt_streq(optarg,"MAP")) {
+         param.output_format = MAP;
+       } else if (gt_streq(optarg,"SAM")) {
+         param.output_format = SAM;
+       } else {
+         gt_fatal_error_msg("Output format '%s' not recognized",optarg);
+       }
+       break;
   	case 401:
   		param.min_insert=(int)strtol(optarg,&p,10);
   		if(*p || param.min_insert<0) {
@@ -506,33 +732,53 @@ gt_status parse_arguments(int argc,char** argv) {
   		} else insert_set[1]=1;
   		break;
   	case 403:
-  		param.indel_penalty=(int)strtol(optarg,&p,10);
-  		if(*p || param.indel_penalty<0) {
+  		param.map_score_attr.indel_penalty=(int)strtol(optarg,&p,10);
+  		if(*p || param.map_score_attr.indel_penalty<0) {
   			fprintf(stderr,"Illegal indel penalty: '%s'\n",optarg);
   			err=-7;
   		}
   		break;
-  	case 's':
-  		param.split_penalty=(int)strtol(optarg,&p,10);
-  		if(*p || param.split_penalty<0) {
+  	case 'S':
+  		param.map_score_attr.split_penalty=(int)strtol(optarg,&p,10);
+  		if(*p || param.map_score_attr.split_penalty<0) {
   			fprintf(stderr,"Illegal split penalty score: '%s'\n",optarg);
   			err=-7;
   		}
   		break;
   	case 'M':
-  		param.mapping_cutoff=(int)strtol(optarg,&p,10);
-  		if(*p || param.mapping_cutoff<0) {
+  		param.map_score_attr.mapping_cutoff=(int)strtol(optarg,&p,10);
+  		if(*p || param.map_score_attr.mapping_cutoff<0) {
   			fprintf(stderr,"Illegal mapping cutoff: '%s'\n",optarg);
   			err=-7;
   		}
   		break;
   	case 'm':
-  		param.max_strata_searched=(int)strtol(optarg,&p,10);
-  		if(*p || param.max_strata_searched<0) {
+  		param.map_score_attr.max_strata_searched=(int)strtol(optarg,&p,10);
+  		if(*p || param.map_score_attr.max_strata_searched<0) {
   			fprintf(stderr,"Illegal mismatch limit: '%s'\n",optarg);
   			err=-7;
   		}
   		break;
+    case 500: // NH
+      param.optional_field_NH = true;
+      break;
+    case 502: // XT
+      param.optional_field_XT = true;
+      break;
+    case 503: // XS
+      param.optional_field_XS = true;
+      break;
+    case 504: // md
+      param.optional_field_md = true;
+      break;
+    /* Headers */
+    case 600: // Read-group ID
+    	param.read_group_id = optarg;
+    	break;
+    /* Format */
+    case 'c':
+      param.compact_format = true;
+      break;
     /* Misc */
     case 'v':
       param.verbose = true;
@@ -599,210 +845,6 @@ gt_status parse_arguments(int argc,char** argv) {
   // Free
   gt_string_delete(gt_scorereads_short_getopt);
   return err;
-}
-
-gt_status gt_input_map_parser_synch_get_template(gt_buffered_input_file *buffered_input_file1,gt_buffered_input_file *buffered_input_file2,gt_template *template,pthread_mutex_t *mutex) {
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file1);
-  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file2);
-  GT_TEMPLATE_CHECK(template);
-	gt_status code;
-	if((code=gt_input_map_parser_synch_blocks(buffered_input_file1,buffered_input_file2,mutex))) {
-		code=gt_input_map_parser_get_template(buffered_input_file1,template,NULL);
-		if(code!=GT_IMP_OK) {
-			gt_input_map_parser_get_template(buffered_input_file2,template,NULL);
-			return code;
-		}
-		code=gt_input_map_parser_get_alignment(buffered_input_file2,gt_template_get_block_dyn(template,1),NULL);
-	}
-	return code;
-}
-
-gt_status gt_scorereads_process(sr_param *param)
-{
-	gt_status err=GT_STATUS_OK;
-
-	// Open out file
-	gt_output_file *output_file;
-	if(param->output_file) {
-		output_file=gt_output_file_new_compress(param->output_file,UNSORTED_FILE,param->compress);
-	} else {
-		output_file=gt_output_stream_new_compress(stdout,UNSORTED_FILE,param->compress);
-	}
-	gt_cond_fatal_error(!output_file,FILE_OPEN,param->output_file);
-	param->printer_attr=gt_generic_printer_attributes_new(MAP);
-	param->printer_attr->output_map_attributes->print_casava=true;
-	param->printer_attr->output_map_attributes->print_extra=true;
-	param->printer_attr->output_map_attributes->print_scores=true;
-	param->printer_attr->output_map_attributes->hex_print_scores=true;
-	// Do we have two map files as input (one for each read)?
-	if(param->input_files[1]) {
-		pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
-		gt_input_file* input_file1=gt_input_file_open(param->input_files[0],param->mmap_input);
-		gt_input_file* input_file2=gt_input_file_open(param->input_files[1],param->mmap_input);
-		if(input_file1->file_format!=MAP || input_file2->file_format!=MAP) {
-			gt_fatal_error_msg("Fatal error: paired files '%s','%s' are not in MAP format\n",param->input_files[0],param->input_files[1]);
-		}
-		gt_buffered_input_file* buffered_input_a=gt_buffered_input_file_new(input_file1);
-		gt_buffered_input_file* buffered_input_b=gt_buffered_input_file_new(input_file2);
-		// If no insert size file supplied, estimate from the first GT_SCOREREADS_NUM_LINES records
-		if(!param->ins_phred) {
-			uint64_t nread=0;
-			gt_template *template=gt_template_new();
-			sr_dist_element *ins_dist=NULL;
-			gt_status error_code;
-			while((error_code=gt_input_map_parser_synch_get_template(buffered_input_a,buffered_input_b,template,&mutex))) {
-				if(error_code!=GT_IMP_OK) continue;
-				gt_alignment *al[2];
-				al[0]=gt_template_get_block(template,0);
-				al[1]=gt_template_get_block(template,1);
-				int64_t size;
-				error_code=gt_scorereads_get_insert_size(template,al,&size);
-				if(error_code==GT_STATUS_OK) (void)sr_increase_insert_count(&ins_dist,size,1);
-				if(++nread==GT_SCOREREADS_NUM_LINES) break;
-			}
-			gt_template_delete(template);
-			// Reset input buffers to the beginning of the file
-			buffered_input_a->cursor=gt_vector_get_mem(buffered_input_a->block_buffer,char);
-			buffered_input_a->current_line_num=0;
-			buffered_input_b->cursor=gt_vector_get_mem(buffered_input_b->block_buffer,char);
-			buffered_input_b->current_line_num=0;
-			(void)estimate_insert_histogram(ins_dist,param);
-			gt_scorereads_free_insert_hash(ins_dist);
-		}
-
-#ifdef HAVE_OPENMP
-#pragma omp parallel num_threads(param->num_threads)
-#endif
-		{
-#ifdef HAVE_OPENMP
-			uint64_t tid=omp_get_thread_num();
-#else
-			uint64_t tid=0;
-#endif
-
-			gt_buffered_input_file* buffered_input1=tid?gt_buffered_input_file_new(input_file1):buffered_input_a;
-			gt_buffered_input_file* buffered_input2=tid?gt_buffered_input_file_new(input_file2):buffered_input_b;
-			gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
-			gt_buffered_input_file_attach_buffered_output(buffered_input1,buffered_output);
-			gt_status error_code;
-			gt_template *template=gt_template_new();
-			while((error_code=gt_input_map_parser_synch_get_template(buffered_input1,buffered_input2,template,&mutex))) {
-				if(error_code!=GT_IMP_OK) continue;
-				gt_alignment *al[2];
-				al[0]=gt_template_get_block(template,0);
-				al[1]=gt_template_get_block(template,1);
-				if(!(gt_string_nequals(template->tag,al[1]->tag,gt_string_get_length(template->tag)))) {
-					gt_error_msg("Fatal ID mismatch ('%*s','%*s') parsing files '%s','%s'\n",PRIgts_content(template->tag),PRIgts_content(al[1]->tag),param->input_files[0],param->input_files[1]);
-					break;
-				}
-				gt_scorereads_pair_template(template,al,param);
-				gt_template_add_mcs_tags(template,al,param->mapping_cutoff);
-				if (gt_output_generic_bofprint_template(buffered_output,template,param->printer_attr)) {
-					gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
-				}
-			}
-			gt_template_delete(template);
-			gt_buffered_input_file_close(buffered_input1);
-			gt_buffered_input_file_close(buffered_input2);
-			gt_buffered_output_file_close(buffered_output);
-		}
-		gt_input_file_close(input_file1);
-		gt_input_file_close(input_file2);
-	} else { // Single input file (could be single end or interleaved paired end
-		gt_input_file* input_file=param->input_files[0]?gt_input_file_open(param->input_files[0],param->mmap_input):gt_input_stream_open(stdin);
-		gt_buffered_input_file* buffered_input_a=gt_buffered_input_file_new(input_file);
-		if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
-			// If no insert size file supplied, estimate from the first GT_SCOREREADS_NUM_LINES records
-			if(!param->ins_phred) {
-				uint64_t nread=0;
-				gt_template *template=gt_template_new();
-				sr_dist_element *ins_dist=NULL;
-				gt_status error_code;
-				while ((error_code=gt_input_generic_parser_get_template(buffered_input_a,template,param->parser_attr))) {
-					if(error_code!=GT_IMP_OK) continue;
-					gt_alignment *al[2];
-					al[0]=gt_template_get_block(template,0);
-					al[1]=gt_template_get_block(template,1);
-					int64_t size;
-					error_code=gt_scorereads_get_insert_size(template,al,&size);
-					if(error_code==GT_STATUS_OK) (void)sr_increase_insert_count(&ins_dist,size,1);
-					if(++nread==GT_SCOREREADS_NUM_LINES) break;
-				}
-				gt_template_delete(template);
-				// Reset input buffers to the beginning of the file
-				buffered_input_a->cursor=gt_vector_get_mem(buffered_input_a->block_buffer,char);
-				buffered_input_a->current_line_num=0;
-				(void)estimate_insert_histogram(ins_dist,param);
-				gt_scorereads_free_insert_hash(ins_dist);
-			}
-#ifdef OPENMP
-#pragma omp parallel num_threads(param->num_threads)
-#endif
-			{
-#ifdef HAVE_OPENMP
-				uint64_t tid=omp_get_thread_num();
-#else
-				uint64_t tid=0;
-#endif
-				gt_buffered_input_file* buffered_input=tid?gt_buffered_input_file_new(input_file):buffered_input_a;
-				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
-				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
-				gt_status error_code;
-				gt_template *template=gt_template_new();
-				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
-					if (error_code!=GT_IMP_OK) continue;
-					gt_alignment *al[2];
-					al[0]=gt_template_get_block(template,0);
-					al[1]=gt_template_get_block(template,1);
-					gt_scorereads_pair_template(template,al,param);
-					gt_template_add_mcs_tags(template,al,param->mapping_cutoff);
-					if (gt_output_generic_bofprint_template(buffered_output,template,param->printer_attr)) {
-						gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
-					}
-				}
-				// Clean
-				gt_template_delete(template);
-				gt_buffered_input_file_close(buffered_input);
-				gt_buffered_output_file_close(buffered_output);
-			}
-		} else {
-#ifdef OPENMP
-#pragma omp parallel num_threads(param->num_threads)
-#endif
-			{
-				gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
-				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
-				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
-				gt_status error_code;
-				gt_template *template=gt_template_new();
-				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
-					if (error_code!=GT_IMP_OK) {
-						gt_error_msg("Error parsing file '%s'\n",param->input_files[0]);
-						continue;
-					}
-					gt_alignment *alignment=gt_template_get_block(template,0);
-					gt_alignment_recalculate_counters(alignment);
-					GT_ALIGNMENT_ITERATE(alignment,map) {
-						if(map->gt_score==GT_MAP_NO_GT_SCORE) map->gt_score=calculate_dist_score(alignment,map,param);
-						map->phred_score=255;
-					}
-					gt_alignment_add_mcs_tags(alignment,param->mapping_cutoff);
-					if (gt_output_generic_bofprint_alignment(buffered_output,alignment,param->printer_attr)) {
-						gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
-					}
-				}
-				// Clean
-				gt_template_delete(template);
-				gt_buffered_input_file_close(buffered_input);
-				gt_buffered_output_file_close(buffered_output);
-			}
-		}
-		gt_input_file_close(input_file);
-	}
-	gt_output_file_close(output_file);
-	gt_generic_printer_attributes_delete(param->printer_attr);
-	if(param->ins_phred) free(param->ins_phred);
-	return err;
 }
 
 int main(int argc,char *argv[])

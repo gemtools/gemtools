@@ -1712,4 +1712,22 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
   return GT_IMP_OK;
 }
 
+GT_INLINE gt_status gt_input_map_parser_synch_get_template(gt_buffered_input_file *buffered_input_file1,gt_buffered_input_file *buffered_input_file2,gt_template *template,pthread_mutex_t *mutex) {
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file1);
+  GT_BUFFERED_INPUT_FILE_CHECK(buffered_input_file2);
+  GT_TEMPLATE_CHECK(template);
+	gt_status code;
+	if((code=gt_input_map_parser_synch_blocks(buffered_input_file1,buffered_input_file2,mutex))) {
+		code=gt_input_map_parser_get_template(buffered_input_file1,template,NULL);
+		if(code!=GT_IMP_OK) {
+			gt_input_map_parser_get_template(buffered_input_file2,template,NULL);
+			return code;
+		}
+		code=gt_input_map_parser_get_alignment(buffered_input_file2,gt_template_get_block_dyn(template,1),NULL);
+	}
+	return code;
+}
+
+
+
 

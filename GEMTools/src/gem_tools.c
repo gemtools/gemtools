@@ -223,31 +223,52 @@ gt_option gt_scorereads_options[] = {
   { 'Z', "no-compress", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
   { 302, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
   { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file> (MultiFASTA/FASTA)" , "" },
+  { 's', "header", GT_OPT_REQUIRED, GT_OPT_STRING, 3, true, "<file (SAM Header)" , "" },
+  { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file> (GEM2-Index)" , "" },
+
   /* Score Function */
-  { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "" , "" },
-  { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , false, "'offset-33'|'offset-64'" , "" },
+    { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 402, "max-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 403, "indel-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 'm', "mismatch-limit", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 'M', "mapping-quality-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
-  { 's', "split-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 'S', "split-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+
+  /* Optional Fields */
+  { 500, "NH", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 502, "XT", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 503, "XS", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 504, "md", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+
+  /* Headers */
+  { 600, "read-group-id", GT_OPT_REQUIRED, GT_OPT_STRING, 6 , true, "<read group id>" , "" },
+
+  /* Format */
+  { 704, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 7 , true, "'MAP'|'SAM' (default='MAP')" , "" },
+  { 'c', "compact", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
+
   /* Misc */
-  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
+  { 'v', "verbose", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8, true, "", ""},
 #ifdef HAVE_OPENMP
-  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 5, true, "", ""},
+  { 't', "threads", GT_OPT_REQUIRED, GT_OPT_INT, 8, true, "", ""},
 #endif
-  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5, true, "", ""},
-  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
+  { 'h', "help", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8, true, "", ""},
+  { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8 , false, "" , "" },
   {  0, 0, 0, 0, 0, false, "", ""}
 };
-char* gt_scorereads_options_short = "i:q:pzjZo:s:M:m:vt:hJ";
+char* gt_scorereads_options_short = "i:q:pzjcZo:s:S:I:r:M:m:vt:hJ";
 char* gt_scorereads_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",
   /*  2 */ "Operations",
   /*  3 */ "I/O",
   /*  4 */ "Score Function",
-  /*  5 */ "Misc"
+  /*  5 */ "Optional Fields",
+  /*  6 */ "Headers",
+  /*  7 */ "Format",
+  /*  8 */ "Misc",
 };
 
 /*
@@ -265,7 +286,7 @@ gt_option gt_map2sam_options[] = {
   /* Headers */
    { 300, "read-group-id", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<read group id>" , "" },
      /* Alignments */
-  { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , false, "'offset-33'|'offset-64'" , "" },
+   { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , false, "'offset-33'|'offset-64'" , "" },
   /* Optional Fields */
   { 500, "NH", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 501, "NM", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },

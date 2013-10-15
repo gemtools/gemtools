@@ -332,6 +332,7 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_ALIGNMENT_READ_QUAL_LENGTH "Read and quality length differs"
 #define GT_ERROR_ALIGNMENT_MAPS_NOT_PARSED "Alignment's maps not parsed yet"
 #define GT_ERROR_ALIGNMENT_INCONSISTENT_COUNTERS "Alignment inconsistency. Maps inconsistent with counters values"
+#define GT_ERROR_ALIGNMENT_NOT_SCORED "Alignments have no valid score.  MAPQ can not be calculated unless the map file has been processed using score_reads"
 #define GT_ERROR_TEMPLATE_ZERO_BLOCKS "Zero alignment blocks (num_blocks_template==0)"
 #define GT_ERROR_TEMPLATE_TOO_MANY_BLOCKS "Template contains already two ends"
 #define GT_ERROR_TEMPLATE_BLOCKS_EXCESS "Template blocks exceeds two ends"
