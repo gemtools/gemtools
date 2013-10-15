@@ -1498,7 +1498,7 @@ GT_INLINE uint64_t gt_gtf_count_map(const gt_gtf* const gtf, gt_map* const map1,
     }GT_SHASH_END_ITERATE;
   }
 
-  if(params->single_transcript_coverage != NULL){
+  if(params != NULL && params->single_transcript_coverage != NULL){
     // do coverage counts for merged genes
     GT_SHASH_BEGIN_KEY_ITERATE(local_gene_counts, key){
       // count map1

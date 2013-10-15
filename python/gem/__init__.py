@@ -21,53 +21,25 @@ import __builtin__
 LOG_NOTHING = 1
 LOG_STDERR = 2
 LOG_FORMAT = '%(asctime)-15s %(levelname)s: %(message)s'
-# add custom log level
-LOG_GEMTOOLS = logging.WARNING
-logging.addLevelName(LOG_GEMTOOLS, "")
-logging.basicConfig(format=LOG_FORMAT, level=logging.WARNING)
+# setup the console logger
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+console.setFormatter(logging.Formatter(LOG_FORMAT))
+# initialize the gemtools root logger
 gemtools_logger = logging.getLogger("gemtools")
-gemtools_logger.propagate = 0
-gemtools_logger.setLevel(LOG_GEMTOOLS)
-
-def log_gemtools(message, *args, **kws):
-     gemtools_logger.log(LOG_GEMTOOLS, message, *args, **kws)
-
-gemtools_logger.gt = log_gemtools
-
-logging.gemtools = gemtools_logger
+gemtools_logger.propagate = False
+gemtools_logger.setLevel(logging.WARNING)
+gemtools_logger.addHandler(console)
 
 __parallel_samtools = None
 
-class GemtoolsFormatter(logging.Formatter):
-    info_fmt = "%(message)s"
-
-    def __init__(self, fmt="%(levelno)s: %(msg)s"):
-        logging.Formatter.__init__(self, fmt)
-
-    def format(self, record):
-        format_orig = self._fmt
-        if record.levelno == LOG_GEMTOOLS:
-            self._fmt = GemtoolsFormatter.info_fmt
-        result = logging.Formatter.format(self, record)
-        self._fmt = format_orig
-        return result
-
-gemtools_formatter = GemtoolsFormatter('%(levelname)s: %(message)s')
-console = logging.StreamHandler()
-console.setLevel(logging.DEBUG)
-console.setFormatter(gemtools_formatter)
-gemtools_logger.addHandler(console)
-logging.gemtools.level = logging.WARNING
-
-# default logger configuration
-log_output = LOG_NOTHING
-
-
 default_splice_consensus = [("GT", "AG")]
-extended_splice_consensus = [("GT", "AG"),
+extended_splice_consensus = [
+    ("GT", "AG"),
     ("GC", "AG"),
     ("ATATC", "A."),
-    ("GTATC", "AT")]
+    ("GTATC", "AT")
+]
 
 
 #default filter
@@ -101,12 +73,12 @@ class execs_dict(dict):
         if base_dir is not None:
             file = "%s/%s" % (base_dir, item)
             if os.path.exists(file):
-                logging.debug("Using binary from GEM_PATH : %s" % file)
+                gemtools_logger.debug("Using binary from GEM_PATH : %s" % file)
                 return file
 
         if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s" % item):
             f = pkg_resources.resource_filename("gem", "gembinaries/%s" % item)
-            logging.debug("Using bundled binary : %s" % f)
+            gemtools_logger.debug("Using bundled binary : %s" % f)
             return f
         # try to find from static distribution
         if use_bundled_executables and len(sys.argv) > 0:
@@ -114,16 +86,16 @@ class execs_dict(dict):
                 base = os.path.split(os.path.abspath(sys.argv[0]))[0]
                 binary = base + "/" + item
                 if os.path.exists(binary):
-                    logging.debug("Using bundled binary : %s" % binary)
+                    gemtools_logger.debug("Using bundled binary : %s" % binary)
                     return binary
             except Exception:
                 pass
-
-        logging.debug("Using binary from PATH: %s" % item)
+        gemtools_logger.debug("Using binary from PATH: %s" % item)
         return dict.__getitem__(self, item)
 
 ## paths to the executables
 executables = execs_dict({
+    "gemtools": "gemtools",
     "gem-indexer": "gem-indexer",
     "gem-mapper": "gem-mapper",
     "gem-2-gem": "gem-2-gem",
@@ -137,7 +109,7 @@ executables = execs_dict({
     "gt.mapset": "gt.mapset",
     "gt.gtfcount": "gt.gtfcount",
     "gt.stats": "gt.stats"
-    })
+})
 
 
 def loglevel(level):
@@ -155,10 +127,13 @@ def loglevel(level):
 
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % loglevel)
+    os.environ['_GT_LOGLEVEL'] = level
+    gemtools_logger.setLevel(numeric_level)
 
-    logging.basicConfig(level=numeric_level)
-    logging.getLogger().setLevel(numeric_level)
-    logging.gemtools.level = numeric_level
+#####################################
+# Set default log level from environment
+#####################################
+loglevel(os.getenv("_GT_LOGLEVEL", "ERROR"))
 
 
 # cleanup functions
@@ -280,12 +255,12 @@ def _prepare_output(process, output=None, quality=None, bam=False):
                     if next_process is not None and \
                        next_process.stdin is not None:
                         next_process.stdin.close()
-        logging.debug("Opening output file %s" % (output))
-        if output.endswith(".bam") or bam:
+        gemtools_logger.debug("Opening output file %s" % (output))
+        if not isinstance(output, file) and output.endswith(".bam") or bam:
             return gt.InputFile(gem.files.open_bam(output), quality=quality, process=process[0])
         return gt.InputFile(output, quality=quality, process=process[0])
     else:
-        logging.debug("Opening output stream")
+        gemtools_logger.debug("Opening output stream")
         if bam:
             return gt.InputFile(gem.files.open_bam(process[0].stdout), quality=quality, process=process[0])
         ## running in async mode, return iterator on
@@ -323,6 +298,7 @@ def mapper(input, index, output=None,
            threads=1,
            extra=None,
            key_file=None,
+           fast_mapping=False,
            force_min_decoded_strata=False,
            compress=False
            ):
@@ -357,15 +333,18 @@ def mapper(input, index, output=None,
     quality = _prepare_quality_parameter(quality, input)
 
     # if delta >= min_decoded_strata and not force_min_decoded_strata:
-    #     logging.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
+    #     gemtools_logger.warning("Changing min-decoded-strata from %s to %s to cope with delta of %s" % (
     #         str(min_decoded_strata), str(delta + 1), str(delta)))
     #     min_decoded_strata = delta + 1
-    if compress and output is None:
-        logging.warning("Disabeling stream compression")
+    if compress and (output is None or isinstance(output, file)):
+        gemtools_logger.warning("Disabeling stream compression")
         compress = False
 
     if compress and not output.endswith(".gz"):
         output += ".gz"
+
+    if float(min_matched_bases) > 1.0:
+        min_matched_bases = int(float(min_matched_bases))
 
     ## prepare the input
     pa = [executables['gem-mapper'], '-I', index,
@@ -383,6 +362,12 @@ def mapper(input, index, output=None,
 
     if unique_mapping:
         pa.append("--unique-mapping")
+
+    if fast_mapping:
+        if isinstance(fast_mapping, bool):
+            pa.append('--fast-mapping')
+        else:
+            pa.append('--fast-mapping=%s' % str(fast_mapping))
 
     if max_edit_distance > 0:
         pa.append("-e")
@@ -523,6 +508,7 @@ def splitmapper(input,
                 index,
                 output=None,
                 mismatches=0.04,
+                quality_threshold=26,
                 splice_consensus=extended_splice_consensus,
                 filter=default_filter,
                 refinement_step_size=2,
@@ -534,6 +520,7 @@ def splitmapper(input,
                 trim=None,
                 filter_splitmaps=True,
                 post_validate=True,
+                compress=False,
                 threads=1,
                 extra=None):
     """Start the GEM split mapper on the given input.
@@ -558,18 +545,23 @@ def splitmapper(input,
         quality = input.quality
     quality = _prepare_quality_parameter(quality)
     splice_cons = _prepare_splice_consensus_parameter(splice_consensus)
+    if compress and output is None:
+        gemtools_logger.warning("Disabeling stream compression")
+        compress = False
 
-    pa = [executables['gem-rna-tools'],
-          'split-mapper',
-          '-I', index,
-          '-q', quality,
-          '-m', str(mismatches),
-          '--min-split-size', str(min_split_size),
-          '--refinement-step-size', str(refinement_step_size),
-          '--matches-threshold', str(matches_threshold),
-          '-s', str(strata_after_first),
-          '--mismatch-alphabet', mismatch_alphabet,
-          '-T', str(threads)
+    pa = [
+        executables['gem-rna-tools'],
+        'split-mapper',
+        '-I', index,
+        '-q', quality,
+        '--gem-quality-threshold', str(quality_threshold),
+        '-m', str(mismatches),
+        '--min-split-size', str(min_split_size),
+        '--refinement-step-size', str(refinement_step_size),
+        '--matches-threshold', str(matches_threshold),
+        '-s', str(strata_after_first),
+        '--mismatch-alphabet', mismatch_alphabet,
+        '-T', str(threads)
     ]
     min_threads = int(round(max(1, threads / 2)))
 
@@ -586,7 +578,8 @@ def splitmapper(input,
     if trim is not None:
         ## check type
         if not isinstance(trim, (list, tuple)) or len(trim) != 2:
-            raise ValueError("Trim parameter has to be a list or a tuple of size 2")
+            raise ValueError("Trim parameter has to be a "
+                             "list or a tuple of size 2")
         input = gemfilter.trim(input, trim[0], trim[1], append_label=True)
 
     tools = [pa]
@@ -597,10 +590,6 @@ def splitmapper(input,
 
     ## run the mapper
     process = None
-    original_output = output
-    if post_validate:
-        output = None
-
     raw = False
     if isinstance(input, gt.InputFile) and input.raw_sequence_stream():
         raw = False
@@ -608,11 +597,25 @@ def splitmapper(input,
         pa.append(input.filename)
         input = None
 
-    process = utils.run_tools(tools, input=input, output=output, name="GEM-Split-Mapper", raw=raw)
+    if post_validate:
+        validate_p = [
+            executables['gem-2-gem'],
+            '-I', index,
+            '-v', '-r',
+            '-T', str(max(threads, 1))
+        ]
+        tools.append(validate_p)
+
+    if compress:
+        gzip = _compressor(threads=max(1, threads / 2))
+        tools.append(gzip)
+
+    process = utils.run_tools(tools, input=input,
+                              output=output, name="GEM-Split-Mapper", raw=raw)
     splitmap_out = _prepare_output(process, output=output, quality=quality)
 
-    if post_validate:
-        return validate(splitmap_out, index, original_output, threads=threads)
+    #if post_validate:
+        #return validate(splitmap_out, index, original_output, threads=threads)
 
     return splitmap_out
 
@@ -681,7 +684,6 @@ def pairalign(input, index, output=None,
               min_insert_size=0,
               max_insert_size=1000,
               max_edit_distance=0.30,
-              min_matched_bases=0.80,
               max_extendable_matches=0,
               max_matches_per_extension=0,
               unique_pairing=False,
@@ -694,7 +696,7 @@ def pairalign(input, index, output=None,
     index = _prepare_index_parameter(index)
     quality = _prepare_quality_parameter(quality, input)
     if compress and output is None:
-        logging.warning("Disabeling stream compression")
+        gemtools_logger.warning("Disabeling stream compression")
         compress = False
 
     if compress and not output.endswith(".gz"):
@@ -710,7 +712,6 @@ def pairalign(input, index, output=None,
           '--min-insert-size', str(min_insert_size),
           '--max-insert-size', str(max_insert_size),
           '-E', str(max_edit_distance),
-          '--min-matched-bases', str(min_matched_bases),
           '--max-extendable-matches', str(max_extendable_matches),
           '--max-extensions-per-match', str(max_matches_per_extension),
           '-T', str(threads)
@@ -790,7 +791,7 @@ def score(input,
     filter the result further.
     """
     if compress and output is None:
-        logging.warning("Disabeling stream compression")
+        gemtools_logger.warning("Disabeling stream compression")
         compress = False
 
     if compress and not output.endswith(".gz"):
@@ -850,7 +851,7 @@ def gem2sam(input, index=None, output=None,
     if quality is not None and not quality == "ignore":
         gem_2_sam_p.extend(["-q", quality])
 
-    if consensus is not None and calc_xs:
+    if consensus is not None and calc_xs and index is not None:
         gem_2_sam_p.extend(['-s', _prepare_splice_consensus_parameter(consensus)])
 
     if single_end:
@@ -940,17 +941,20 @@ def bamIndex(input, output=None):
     return output
 
 
-def compute_transcriptome(max_read_length, index, junctions, substract=None, output_name=None):
-    """Compute the transcriptome based on a set of junctions. You can optionally specify
-    a *substract* junction set. In that case only junctions not in substract are passed
-    to compute the transcriptome.
-    The function returns a tuple of a .fa file with the transcriptome genome and a
-    .keys file with the translation table.
+def compute_transcriptome(max_read_length, index, junctions,
+                          substract=None, output_name=None):
+    """Compute the transcriptome based on a set of junctions. You can
+    optionally specify a *substract* junction set. In that case only
+    junctions not in substract are passed to compute the transcriptome.
+
+    The function returns a tuple of a .fa file with the transcriptome
+    genome and a .keys file with the translation table.
 
     max_read_length -- the maximum read length
     index -- path to the gem index
     junctions -- path to the junctions file
-    substract -- additional juntions that are not taken into account and substracted from the main junctions
+    substract -- additional juntions that are not taken into
+                 account and substracted from the main junctions
     """
     if output_name is None:
         output_name = os.path.basename(junctions)
@@ -965,11 +969,13 @@ def compute_transcriptome(max_read_length, index, junctions, substract=None, out
     if substract is not None:
         transcriptome_p.extend(['-J', substract])
 
-    process = utils.run_tools([transcriptome_p], input=None, output=None, name="compute-transcriptome")
+    process = utils.run_tools([transcriptome_p], input=None,
+                              output=None, name="compute-transcriptome")
     if process.wait() != 0:
         raise ValueError("Error while computing transcriptome")
 
-    return (os.path.abspath("%s.fa" % junctions), os.path.abspath("%s.keys" % junctions))
+    return (os.path.abspath("%s.fa" % output_name),
+            os.path.abspath("%s.keys" % output_name))
 
 
 def index(input, output, content="dna", threads=1):
@@ -1000,7 +1006,7 @@ def index(input, output, content="dna", threads=1):
     existing = output
     if existing[-4:] != ".gem": existing = "%s.gem" % existing
     if os.path.exists(existing):
-        logging.warning("Index %s already exists, skipping indexing" % existing)
+        gemtools_logger.warning("Index %s already exists, skipping indexing" % existing)
         return os.path.abspath(existing)
 
     # indexer takes the prefix

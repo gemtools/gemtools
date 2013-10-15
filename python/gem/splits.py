@@ -4,6 +4,8 @@ import logging
 import gem
 from gem.junctions import JunctionSite
 
+log = logging.getLogger("gemtools.splits")
+
 
 def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, coverage=0, max_junction_matches=1, process=None, threads=1, annotation_junctions=None):
     """Extract denovo junctions from a split map run.
@@ -59,13 +61,13 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
             # junctions to make sure that coverage is ignored
             # if the junctions is covered just by one side of
             # the annotation junciton side
-            logging.info("Updating junction position lookup")
+            log.info("Updating junction position lookup")
             annotation_positions = {}
             for site in annotation_junctions:
                 j1, j2 = __get_junciton_sites(site)
                 annotation_positions[j1] = True
                 annotation_positions[j2] = True
-            logging.info("Annotation position lookup prepared")
+            log.info("Annotation position lookup prepared")
 
         for i, e in local_sites.items():
             if e.coverage >= coverage:
@@ -80,9 +82,9 @@ def extract_denovo_junctions(input, minsplit=4, maxsplit=2500000, sites=None, co
     if process is not None:
         process.wait()
     if exit_value != 0:
-        logging.error("Error while executing junction extraction")
+        log.error("Error while executing junction extraction")
         exit(1)
-    logging.info("Junction extraction: Initial %d, Output %d (%d new)" % (initial_size, len(sites), (len(sites) - initial_size)))
+    log.info("Junction extraction: Initial %d, Output %d (%d new)" % (initial_size, len(sites), (len(sites) - initial_size)))
     return sites
 
 

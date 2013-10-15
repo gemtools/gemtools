@@ -98,7 +98,7 @@ def get_stream(input):
     raise ValueError("Unable to open a stream on the given input")
 
 
-def open_file(file):
+def open_file(filename):
     """
     Open the given file and return a stream
     of the file content. The method checks if the file
@@ -109,10 +109,12 @@ def open_file(file):
     @param file: string of the file name
     @type file: string
     """
-    if file.endswith(".gz"):
-        return open_gzip(file)
+    if isinstance(filename, file):
+        return filename
+    if filename.endswith(".gz"):
+        return open_gzip(filename)
     else:
-        return __builtin__.open(file, 'r')
+        return __builtin__.open(filename, 'r')
 
 
 def _guess_type(name):

@@ -19,15 +19,16 @@ import time
 import tempfile
 import multiprocessing as mp
 import json
-import subprocess
 import signal
-
+import sys
 
 # clobal process registry
 # which is used to save multiprocessing.Process instances
 # to be able to terminate them in case
 # an error occured somewhere
 _process_registry = set([])
+
+log = logging.getLogger("gemtools.utils")
 
 
 def register_process(process):
@@ -64,23 +65,25 @@ class Timer(object):
         self.start_time = time.time()
         self.end = None
 
-    def stop(self, message, loglevel="info"):
-        """Stop timing and print result to logger.
+    def stop(self, message=None, loglevel="info"):
+        """Stop timing and print result to log.
         NOTE you have to add a "%s" into your message string to
         print the time
         """
-        self.end = datetime.timedelta(seconds=int(time.time() - self.start_time))
-        if message is not None:
-            if loglevel is not None:
-                ll = loglevel.lower()
-                if ll == "info":
-                    logging.info(message % (str(self.end)))
-                elif ll == "warning":
-                    logging.warning(message % (str(self.end)))
-                elif ll == "error":
-                    logging.error(message % (str(self.end)))
-                elif ll == "debug":
-                    logging.error(message % (str(self.end)))
+        self.end = datetime.timedelta(
+            seconds=int(time.time() - self.start_time)
+        )
+        if message is not None and loglevel is not None:
+            ll = loglevel.lower()
+            if ll == "info":
+                log.info(message % (str(self.end)))
+            elif ll == "warning":
+                log.warning(message % (str(self.end)))
+            elif ll == "error":
+                log.error(message % (str(self.end)))
+            elif ll == "debug":
+                log.error(message % (str(self.end)))
+        return self.end
 
 
 class CommandException(Exception):
@@ -105,12 +108,33 @@ class Command(object):
         """
         pass
 
+    def validate(self):
+        return True
+
+    def parse_args(self, args):
+        import argparse
+        parser = argparse.ArgumentParser(prog="gemtools %s" % self.name,
+                                         description=self.description)
+        self.register(parser)
+        return vars(parser.parse_args(args[1:]))
+
     def run(self, args):
         """Run the command
 
         args -- the parsed arguments"""
         pass
-    def add_options(self, tool, parser):
+
+    def __call__(self):
+        """Call delegate for jip commands"""
+        # delegate to run
+        self.run(self.options.to_dict())
+
+    def jip_command(self):
+        return "bash", "_GT_LOGLEVEL=%s _GT_EXEC=1 %s %s ${options()}" % \
+            (os.getenv("_GT_LOGLEVEL", "ERROR"),
+             gem.executables["gemtools"], self.name)
+
+    def add_options(self, tool, parser, stream_in=None, stream_out=None):
         """Reads the tools JSON options and adds them to the
         command line parser. The commands 'tool_options' dict is
         set after execution and the parsed args can be translated to
@@ -157,7 +181,7 @@ class Command(object):
 
                 if metaVar is not None:
                     metaVar = metaVar.split(" ")[0]
-                kwargs = {"dest": longOption,
+                kwargs = {"dest": longOption.replace("-", "_"),
                           "metavar": metaVar,
                           "help": description
                           }
@@ -172,14 +196,21 @@ class Command(object):
                 if optionType == "noArgument":
                     kwargs['action'] = "store_true"
                     del kwargs['metavar']
+                if stream_in and stream_in == longOption:
+                    kwargs['default'] = sys.stdin
+                if stream_out and stream_out == longOption:
+                    kwargs['default'] = sys.stdout
                 opt_parser.add_argument(*all_options, **kwargs)
-                self.tool_opts[longOption] = kwargs
+                self.tool_opts[longOption.replace("-", "_")] = kwargs
 
     def get_command(self, args):
         cmd = [gem.executables[self.tool]]
-        dargs = vars(args)
-        for k, v in dargs.items():
+        #args = vars(args)
+        for k, v in args.items():
             if k in self.tool_opts and v is not None:
+                k = k.replace("_", "-")
+                if isinstance(v, file):
+                    continue
                 if not isinstance(v, bool):
                     cmd.append("--" + k)
                     cmd.append(str(v))
@@ -188,6 +219,12 @@ class Command(object):
         return cmd
 
 
+def dict_2_tuple(dictionary):
+    if isinstance(dictionary, dict):
+        from collections import namedtuple
+        Dict = namedtuple('Dict', dictionary.keys())
+        return Dict(**dictionary)
+    return dictionary
 
 # complement translation
 __complement = string.maketrans('atcgnATCGN', 'tagcnTAGCN')
@@ -202,8 +239,8 @@ class ProcessError(Exception):
     """Error thrown by the process wrapper when there is a problem
     with either starting of the process or at runtime"""
     def __init__(self, message, process=None):
-        """Initialize the exception with a message and the process wrapper that caused the
-        exception
+        """Initialize the exception with a message and the process wrapper that
+        caused the exception
 
         message -- the error message
         process -- the underlying process wrapper
@@ -215,11 +252,13 @@ class ProcessError(Exception):
 class Process(object):
     """Single process in a pipeline of processes"""
 
-    def __init__(self, wrapper, commands, input=subprocess.PIPE, output=subprocess.PIPE, parent=None, env=None, logfile=None):
-        """"Initialize a single process. the process takes the outer wrapper, which is basically the pipeline
-        integrating this process and the commands. Additionally, the process can have defined input and output.
-        If a parent process is given, any input setting is overwritten and the stdout of
-        the parent is used.
+    def __init__(self, wrapper, commands, input=subprocess.PIPE,
+                 output=subprocess.PIPE, parent=None, env=None, logfile=None):
+        """"Initialize a single process. the process takes the outer wrapper,
+        which is basically the pipeline integrating this process and the
+        commands. Additionally, the process can have defined input and output.
+        If a parent process is given, any input setting is overwritten and the
+        stdout of the parent is used.
 
         wrapper  -- the outer pipeline
         commands -- the commands to be executed
@@ -240,8 +279,8 @@ class Process(object):
         self.input_writer = None
 
     def run(self):
-        """Start the process and return it. If the input is a ProcessInput,
-        the input of this process is set to pipe and the ProcessInput is written
+        """Start the process and return it. If the input is a ProcessInput, the
+        input of this process is set to pipe and the ProcessInput is written
         there.
         """
         stdin = self.input
@@ -252,33 +291,41 @@ class Process(object):
         # check the logfile
         if self.logfile is not None:
             if isinstance(self.logfile, basestring):
-                logging.debug("Setting process log file to %s", self.logfile)
                 stderr = open(self.logfile, 'wb')
             else:
                 stderr = self.logfile
+        log.debug("Setting process log file to %s", stderr)
 
         #check outout
         if stdout is not None and isinstance(stdout, basestring):
-            logging.debug("File output detected, opening output stream to %s", stdout)
+            log.debug("File output detected, opening output stream to %s",
+                      stdout)
             stdout = open(stdout, "wb")
         elif stdout is None:
             stdout = subprocess.PIPE
 
         # check input
         if self.parent is not None:
-            logging.debug("Setting process input to parent output")
+            log.debug("Setting process input to parent output")
             stdin = self.parent.process.stdout
         else:
             if isinstance(stdin, ProcessInput):
-                logging.debug("Process-Input detected, switching to PIPE input")
+                log.debug("Process-Input detected, switching to PIPE input")
                 process_input = stdin
                 stdin = subprocess.PIPE
 
-        logging.debug("Starting subprocess")
-        self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=False)
+        log.debug("Starting subprocess")
+        self.process = subprocess.Popen(
+            self.commands,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            env=self.env,
+            close_fds=False
+        )
 
         if process_input is not None:
-            logging.debug("Starting process input writer")
+            log.debug("Starting process input writer")
             process_input.write(self.process)
             self.input_writer = process_input
 
@@ -293,27 +340,30 @@ class Process(object):
             return str(self.commands)
 
     def wait(self):
-        """Wait for the process and return its exit value. If it did not exit with
-        0, print the log file to error
+        """Wait for the process and return its exit value. If it did not exit
+        with 0, print the log file to error
         """
         if self.process is None:
-            logging.error("Process was not started")
+            log.error("Process was not started")
             raise ProcessError("Process was not started!", self)
 
         if self.input_writer is not None:
-            logging.debug("Waiting for process input writer to finish")
+            log.debug("Waiting for process input writer to finish")
             self.input_writer.wait()
 
         # wait for the process
         exit_value = self.process.wait()
-        logging.debug("Process '%s' finished with %d", str(self), exit_value)
+        log.debug("Process '%s' finished with %d", str(self), exit_value)
         if exit_value is not 0:
-            logging.error("Process '%s' finished with %d", str(self), exit_value)
-            if self.logfile is not None and isinstance(self.logfile, basestring):
+            log.error("Process '%s' finished with %d",
+                      str(self), exit_value)
+            if self.logfile is not None and isinstance(self.logfile,
+                                                       basestring):
                 with open(self.logfile) as f:
                     for line in f:
-                        logging.error("%s" % (line.strip()))
-            raise ProcessError("Process '%s' finished with %d" % (str(self), exit_value))
+                        log.error("%s" % (line.strip()))
+            raise ProcessError("Process '%s' finished with %d" %
+                               (str(self), exit_value))
         return exit_value
 
     def to_bash(self):
@@ -329,13 +379,15 @@ class ProcessInput(object):
     to write the content to the given process stdin.
     """
 
-    def __init__(self, input, write_map=False, clean_id=True, append_extra=True):
+    def __init__(self, input, write_map=False, clean_id=True,
+                 append_extra=True):
         """Initialize a new ProcessInput from a gemtools.InputFile or filter
 
         input         -- the input
         write_map     -- write in map format, otherwise writes in fasta/q
         clean_id      -- clean ids and ensure /1 /2 pairing ids
-        append_extra  -- include any additional infomration stored in the read ids
+        append_extra  -- include any additional infomration stored in the read
+                         ids
         """
         self.write_map = write_map
         self.clean_id = clean_id
@@ -349,7 +401,8 @@ class ProcessInput(object):
         input stream of the process and puts a message on
         the queue when done to close the stream
         """
-        outfile = gt.OutputFile(self.process.stdin, clean_id=self.clean_id, append_extra=self.append_extra)
+        outfile = gt.OutputFile(self.process.stdin, clean_id=self.clean_id,
+                                append_extra=self.append_extra)
         self.input.write_stream(outfile, write_map=self.write_map, threads=2)
 
         try:
@@ -363,8 +416,12 @@ class ProcessInput(object):
 
     def write(self, process):
         self.process = process
-        logging.debug("Preparing process input stream -- clean_id: %s, append_extra: %s, write_map:%s" % (str(self.clean_id), str(self.append_extra), str(self.write_map)))
-        self.thread = mp.Process(target=ProcessInput.__write_input, args=(self,))
+        log.debug("Preparing process input stream -- clean_id: "
+                  "%s, append_extra: %s, write_map:%s" %
+                  (str(self.clean_id), str(self.append_extra),
+                   str(self.write_map)))
+        self.thread = mp.Process(target=ProcessInput.__write_input,
+                                 args=(self,))
         register_process(self.thread)
         #self.thread = Thread(target=ProcessInput.__write_input, args=(self,))
         self.thread.start()
@@ -385,7 +442,8 @@ class ProcessWrapper(object):
     After the wait, all log files are deleted by default.
     """
 
-    def __init__(self, keep_logfiles=False, name=None, force_debug=False, raw=None):
+    def __init__(self, keep_logfiles=False, name=None, force_debug=False,
+                 raw=None):
         """Create an empty process wrapper
 
         keep_logfiles -- if true, log files are not deleted
@@ -399,25 +457,33 @@ class ProcessWrapper(object):
         self.raw = raw
         self.exit_value = None
 
-    def submit(self, command, input=subprocess.PIPE, output=None, env=None, logfile=None):
-        """Run a command. The command must be list of command and its parameters.
-        If input is specified, it is passed to the stdin of the subprocess instance.
-        If output is specified, it is connected to the stdout of the underlying subprocess.
-        Environment is optional and will be passed to the process as well.
+    def submit(self, command, input=subprocess.PIPE, output=None, env=None,
+               logfile=None):
+        """Run a command. The command must be list of command and its
+        parameters.  If input is specified, it is passed to the stdin of the
+        subprocess instance.  If output is specified, it is connected to the
+        stdout of the underlying subprocess.  Environment is optional and will
+        be passed to the process as well.
 
-        This is indened to be used in pipes and specifying output will close the pipe
+        This is indened to be used in pipes and specifying output will close
+        the pipe
         """
-        logfile = logfile
         parent = None
         if len(self.processes) > 0:
             parent = self.processes[-1]
-        if logfile is None and logging.getLogger().level is not logging.DEBUG and not self.force_debug:
+        if logfile is None and log.getEffectiveLevel() != logging.DEBUG and \
+                not self.force_debug:
             # create a temporary log file
-            tmpfile = tempfile.NamedTemporaryFile(suffix='.log', prefix=self.__command_name(command) + ".", delete=(not self.keep_logfiles))
+            tmpfile = tempfile.NamedTemporaryFile(
+                suffix='.log',
+                prefix=self.__command_name(command) + ".",
+                delete=(not self.keep_logfiles)
+            )
             logfile = tmpfile.name
             tmpfile.close()
 
-        p = Process(self, command, input=input, output=output, env=env, logfile=logfile, parent=parent)
+        p = Process(self, command, input=input, output=output, env=env,
+                    logfile=logfile, parent=parent)
         self.processes.append(p)
         return p
 
@@ -443,7 +509,7 @@ class ProcessWrapper(object):
 
     def start(self):
         """Start the process pipe"""
-        logging.info("Starting:\n\t%s" % (self.to_bash_pipe()))
+        log.info("Starting:\n\t%s" % (self.to_bash_pipe()))
         for p in self.processes:
             p.run()
         self.stdin = self.processes[0].process.stdin
@@ -474,13 +540,16 @@ class ProcessWrapper(object):
             if isinstance(e, OSError) and e.errno == 10:
                 pass
             else:
-                print "An error occured while waiting for one the child processes:", e
+                print "An error occured while waiting for "\
+                    "one the child processes:", e
                 self.exit_value = 1
         finally:
             if not self.keep_logfiles:
                 for p in self.processes:
-                    if p.logfile is not None and isinstance(p.logfile, basestring) and os.path.exists(p.logfile):
-                        logging.debug("Removing log file: %s" % (p.logfile))
+                    if p.logfile is not None and \
+                            isinstance(p.logfile, basestring) and \
+                            os.path.exists(p.logfile):
+                        log.debug("Removing log file: %s" % (p.logfile))
                         os.remove(p.logfile)
 
     def to_bash_pipe(self):
@@ -493,7 +562,12 @@ def _prepare_input(input, write_map=False, clean_id=True, append_extra=True):
     if isinstance(input, file):
         return input
     elif input is not None:
-        return ProcessInput(input, write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+        return ProcessInput(
+            input,
+            write_map=write_map,
+            clean_id=clean_id,
+            append_extra=append_extra
+        )
     return None
 
 
@@ -501,6 +575,9 @@ def _prepare_output(output):
     if isinstance(output, basestring):
         return output
     if isinstance(output, file):
+        import sys
+        if output == sys.stdout or output == sys.stderr:
+            return output
         if output.name is not None and output.name is not "<fdopen>":
             output.close()
             return output.name
@@ -517,12 +594,12 @@ def run_tools(tools, input=None, output=None, write_map=False, clean_id=False,
     the input templates and write their string representation to the
     first process.
 
-    The parameters 'write_map', clean_id', and 'append_extra' can be used to configure the
-    output stream. If write_map is True, the output will be written
-    in gem format, otherwise, it is transformed to fasta/fastq.
-    If clean_id is set to True, the read pair information is always encoded as /1 /2 and
-    any casava 1.8 information is dropped. If append_extra is set to False, no additional
-    information will be printed to the read tag
+    The parameters 'write_map', clean_id', and 'append_extra' can be used to
+    configure the output stream. If write_map is True, the output will be
+    written in gem format, otherwise, it is transformed to fasta/fastq.  If
+    clean_id is set to True, the read pair information is always encoded as /1
+    /2 and any casava 1.8 information is dropped. If append_extra is set to
+    False, no additional information will be printed to the read tag
 
     If output is a string or an open file handle, the
     stdout of the final process is piped to that file.
@@ -540,7 +617,8 @@ def run_tools(tools, input=None, output=None, write_map=False, clean_id=False,
     if raw:
         if isinstance(input, gt.InputFile):
             parent_process = [input.process]
-    p = ProcessWrapper(keep_logfiles=keep_logfiles, name=name, force_debug=force_debug, raw=parent_process)
+    p = ProcessWrapper(keep_logfiles=keep_logfiles, name=name,
+                       force_debug=force_debug, raw=parent_process)
 
     for i, commands in enumerate(tools):
         process_in = subprocess.PIPE
@@ -548,14 +626,20 @@ def run_tools(tools, input=None, output=None, write_map=False, clean_id=False,
         if i == 0:
             # prepare first process input
             if raw:
-                process_in = _prepare_input(input.raw_stream(), write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+                process_in = _prepare_input(input.raw_stream(),
+                                            write_map=write_map,
+                                            clean_id=clean_id,
+                                            append_extra=append_extra)
             else:
-                process_in = _prepare_input(input, write_map=write_map, clean_id=clean_id, append_extra=append_extra)
+                process_in = _prepare_input(input, write_map=write_map,
+                                            clean_id=clean_id,
+                                            append_extra=append_extra)
 
         if i == len(tools) - 1:
             # prepare last process output
             process_out = _prepare_output(output)
-        p.submit(commands, input=process_in, output=process_out, env=env, logfile=logfile)
+        p.submit(commands, input=process_in, output=process_out,
+                 env=env, logfile=logfile)
 
     # start the run
     p.start()
@@ -588,7 +672,11 @@ def which(program):
     ## use which command
     try:
         params = ["which", program]
-        process = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.Popen(
+            params,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
         if process.wait() != 0:
             return None
         output = process.communicate()[0]
@@ -664,10 +752,11 @@ def gzip(file, threads=1):
 
     If threads is > 1, pigz has to be in path and is used
     """
-    logging.debug("Starting GZIP compression for %s" % (file))
+    log.debug("Starting GZIP compression for %s" % (file))
 
     if threads > 1 and which("pigz") is not None:
-        if subprocess.Popen(['pigz', '-q', '-f', '-p', str(threads), file]).wait() != 0:
+        if subprocess.Popen(['pigz', '-q', '-f', '-p',
+                             str(threads), file]).wait() != 0:
             raise ValueError("Error wile executing pigz on %s" % file)
     else:
         if subprocess.Popen(['gzip', '-f', '-q', file]).wait() != 0:
@@ -699,7 +788,6 @@ class retriever(object):
                                           stdout=subprocess.PIPE,
                                           shell=False)
 
-
     def get_junction(self, chr, strand, start, length):
         """Get junction site. Return a tuple left,right
         with left being the sequence from start to start+4
@@ -708,9 +796,10 @@ class retriever(object):
         if self.__process is None:
             self.__initialize_process()
 
-        left = "%s\t%s\t%d\t%d\n"%(chr, strand, start, start+4)
-        right = "%s\t%s\t%d\t%d\n"%(chr, strand, start+length-5, start+length-1)
-        self.__process.stdin.write(left+right)
+        left = "%s\t%s\t%d\t%d\n" % (chr, strand, start, start + 4)
+        right = "%s\t%s\t%d\t%d\n" % (chr, strand, start + length - 5,
+                                      start + length - 1)
+        self.__process.stdin.write(left + right)
         self.__process.stdin.flush()
         g_left = self.__process.stdout.readline().rstrip()
         g_right = self.__process.stdout.readline().rstrip()
