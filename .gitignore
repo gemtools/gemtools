@@ -36,3 +36,4 @@ environment/
 .ropeproject/
 *~
 shtest.xml
+test_results
