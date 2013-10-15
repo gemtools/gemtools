@@ -19,7 +19,7 @@ GT_ITESTS=gt_itest_map_parser
 GT_UTESTS_FLAGS=$(ARCH_FLAGS) $(DEBUG_FLAGS)
 GT_COVERAGE_FLAGS=-g -Wall -fprofile-arcs -ftest-coverage $(GT_TESTS_FLAGS)
 
-LIBS=-lpthread -lgemtools -lcheck -lz -lbz2 -fopenmp
+LIBS=-lpthread -lgemtools -lcheck -lz -lbz2 -fopenmp -lm
 
 all: check coverage
 
@@ -44,8 +44,12 @@ $(GT_COVERAGE): clean setup
 setup:
 	@mkdir -p $(FOLDER_TEST_BUILD) $(FOLDER_TEST_SCRIPT) $(FOLDER_TEST_REPORTS)
 	
+shtest:
+	sh.test --xml shtest.xml --cwd sh_tests
+
 end_banner: 	
 	@echo "=======================================================================>>"
 	
 clean:
 	@rm -rf $(FOLDER_TEST_BUILD) $(FOLDER_TEST_REPORTS)
+	@rm -f shtest.xml

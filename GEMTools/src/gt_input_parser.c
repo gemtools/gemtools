@@ -10,7 +10,113 @@
 #include "gt_input_parser.h"
 #include "gt_input_fasta_parser.h"
 
-// Count number of ':' in field + 1
+/*
+ * Basic Parsing Functions
+ */
+GT_INLINE gt_status gt_input_parse_integer(const char** const text_line,int64_t* const value) {
+  GT_NULL_CHECK(text_line);
+  GT_NULL_CHECK(value);
+  int64_t number = 0;
+  if (**text_line=='0' && (*(*text_line+1)=='x' || *(*text_line+1)=='X')) {
+    *text_line+=2;
+    if (gt_expect_false(!gt_is_hex_digit(**text_line))) return -1;
+    // Parse Value
+    while (gt_expect_true(gt_is_hex_digit(**text_line))) {
+      number = (number<<4) + gt_get_hex_cipher(**text_line);
+      GT_NEXT_CHAR(text_line);
+    }
+  } else {
+    // Parse sign (if any)
+    bool positive = true;
+    if (gt_expect_false(**text_line==PLUS)) {
+      GT_NEXT_CHAR(text_line);
+    } else if (gt_expect_false(**text_line==MINUS)) {
+      positive = false;
+      GT_NEXT_CHAR(text_line);
+    }
+    // Parse number
+    if (gt_expect_false(!gt_is_number(**text_line))) return -1;
+    while (gt_expect_true(gt_is_number(**text_line))) {
+      number = (number*10) + gt_get_cipher(**text_line);
+      GT_NEXT_CHAR(text_line);
+    }
+    // Add sign
+    if (gt_expect_false(!positive)) number = -number;
+  }
+  *value = number;
+  return 0;
+}
+GT_INLINE gt_status gt_input_parse_double(const char** const text_line,double* const value) {
+  GT_NULL_CHECK(text_line);
+  GT_NULL_CHECK(value);
+  /*
+   * [+-]?[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)
+   *   Sign ::= [+-]
+   *   Integer ::= [0-9]+
+   *   Dot ::= "."
+   *   Decimal ::= [0-9]+
+   *   Exponent ::= [0-9]+
+   */
+  // Parse sign (if any)
+  bool positive = true;
+  if (gt_expect_false(**text_line==PLUS)) {
+    GT_NEXT_CHAR(text_line);
+  } else if (gt_expect_false(**text_line==MINUS)) {
+    positive = false;
+    GT_NEXT_CHAR(text_line);
+  }
+  // Parse Integer
+  double integer = 0.0;
+  if (gt_expect_true(gt_is_number(**text_line))) { // 45
+    while (gt_expect_true(gt_is_number(**text_line))) {
+      integer = (integer*10) + gt_get_cipher(**text_line);
+      GT_NEXT_CHAR(text_line);
+    }
+  }
+  // Dot
+  if (gt_expect_true(**text_line==DOT)) { // .045
+    GT_NEXT_CHAR(text_line);
+    // Dot forces to have a decimal part
+    if (gt_expect_false(!gt_is_number(**text_line))) return -1;
+  }
+  // Parse decimal
+  double decimal = 0.0;
+  if (gt_expect_true(gt_is_number(**text_line))) { // 45
+    while (gt_expect_true(gt_is_number(**text_line))) {
+      decimal = (decimal/10) + gt_get_cipher(**text_line);
+      GT_NEXT_CHAR(text_line);
+    }
+  }
+  // Parse exponent
+  double exponent = 0.0;
+  if (gt_expect_false(**text_line=='e' || **text_line=='E')) {
+    GT_NEXT_CHAR(text_line);
+    // Parse sign (if any)
+    bool exponent_positive = true;
+    if (gt_expect_false(**text_line==PLUS)) {
+      GT_NEXT_CHAR(text_line);
+    } else if (gt_expect_false(**text_line==MINUS)) {
+      exponent_positive = false;
+      GT_NEXT_CHAR(text_line);
+    }
+    // Parse number
+    if (gt_expect_false(!gt_is_number(**text_line))) return -1;
+    while (gt_expect_true(gt_is_number(**text_line))) {
+      exponent = (exponent*10) + gt_get_cipher(**text_line);
+      GT_NEXT_CHAR(text_line);
+    }
+    // Apply sign
+    if (!exponent_positive) exponent = -exponent;
+  }
+  // Compose number
+  *value = integer + decimal;
+  if (exponent!=0) *value = *value * pow(10,exponent);
+  if (!positive) *value = -(*value);
+  return 0;
+}
+/*
+ * Count number of ':' in field + 1
+ */
 GT_INLINE uint64_t gt_input_parse_count_colons_in_field(const char* const text_line) {
   uint64_t i = 0, count = 0;
   while (text_line[i]!=TAB && text_line[i]!=SPACE && text_line[i]!=EOL && text_line[i]!=EOS) {
@@ -90,6 +196,50 @@ GT_INLINE gt_status gt_input_parse_attribute_segmented_read(const char** const t
   }
 }
 /*
+ * Parse any SAM-like attribute
+ */
+GT_INLINE gt_status gt_input_parse_sam_optional_field(const char** const text_line,gt_attributes* const attributes) {
+  GT_NULL_CHECK(text_line);
+  GT_ATTRIBUTES_CHECK(attributes);
+  // Parse TAG
+  const char* const tag = *text_line;
+  (*text_line)+=2;
+  // COLON
+  if (**text_line!=COLON) return GT_PE_BAD_CHARACTER;
+  GT_NEXT_CHAR(text_line);
+  // Parse ID
+  const char type_id = **text_line;
+  GT_NEXT_CHAR(text_line);
+  // COLON
+  if (**text_line!=COLON) return GT_PE_BAD_CHARACTER;
+  GT_NEXT_CHAR(text_line);
+  // Parse Value
+  switch (type_id) {
+    case 'i': { // Integer value
+      int64_t value;
+      if (gt_input_parse_integer(text_line,&value)) return GT_PE_BAD_CHARACTER;
+      gt_attributes_add_sam_ivalue(attributes,tag,type_id,value);
+      break;
+    }
+    case 'f': { // Float value
+      double value;
+      if (gt_input_parse_double(text_line,&value)) return GT_PE_BAD_CHARACTER;
+      gt_attributes_add_sam_fvalue(attributes,tag,type_id,value);
+      break;
+    }
+    default: { // Otherwise is a string
+      const char* const begin_value = *text_line;
+      GT_READ_UNTIL(text_line,**text_line==SPACE);
+      const uint64_t length = (*text_line-begin_value);
+      gt_string* const string = gt_string_new(length+1);
+      gt_string_set_nstring_static(string,begin_value,length);
+      gt_attributes_add_sam_svalue(attributes,tag,type_id,string);
+      break;
+    }
+  }
+  return 0;
+}
+/*
  * GT tag parsing
  *   Removes all pair info /1/2/3 and puts it as attribute
  *   Parses all TAG attributes
@@ -99,8 +249,10 @@ GT_INLINE gt_status gt_input_parse_attribute_segmented_read(const char** const t
  */
 #define GT_INPUT_PARSE_SAM_ATTRIBUTE_FIELD(text_line,char1,char2,type_char) \
   if ((*text_line)[0]==char1 && (*text_line)[1]==char2 && (*text_line)[2]==COLON && (*text_line)[3]==type_char && (*text_line)[4]==COLON)
-
 GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* const tag,gt_attributes* const attributes) {
+  GT_NULL_CHECK(text_line);
+  GT_STRING_CHECK(tag);
+  GT_ATTRIBUTES_CHECK(attributes);
   // Delimit the tag
   register uint64_t i = 0;
   const char* const tag_begin = *text_line;
@@ -125,8 +277,8 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
         *text_line = attribute_start;
       } else {
         if (trim_info.length>0) gt_attributes_annotate_left_trim(attributes,&trim_info);
+        continue;
       }
-      continue;
     }
     // RIGHT-Trim
     GT_INPUT_PARSE_SAM_ATTRIBUTE_FIELD(text_line,'r','t','Z') {
@@ -136,8 +288,8 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
         *text_line = attribute_start;
       } else {
         if (trim_info.length>0) gt_attributes_annotate_right_trim(attributes,&trim_info);
+        continue;
       }
-      continue;
     }
     // Read Chunks
     GT_INPUT_PARSE_SAM_ATTRIBUTE_FIELD(text_line,'s','r','Z') {
@@ -147,8 +299,16 @@ GT_INLINE gt_status gt_input_parse_tag(const char** const text_line,gt_string* c
         *text_line = attribute_start;
       } else {
         gt_attributes_add(attributes,GT_ATTR_ID_SEGMENTED_READ_INFO,&segmented_read_info,gt_segmented_read_info);
+        continue;
       }
-      continue;
+    }
+    /*
+     * Any SAM-like attribute
+     */
+    if (GT_INPUT_PARSER_IS_SAM_ATTRIBUTE(text_line)) {
+      const char* const attribute_start = *text_line;
+      if (!gt_input_parse_sam_optional_field(text_line,attributes)) continue;
+      *text_line = attribute_start;
     }
     /*
      * CASAVA 1.8 Attributes. @EAS139:136:FC706VJ:2:5:1000:12850 1:Y:18:ATCACG

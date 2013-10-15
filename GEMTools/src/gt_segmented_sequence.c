@@ -19,6 +19,7 @@ GT_INLINE gt_segmented_sequence* gt_segmented_sequence_new(void) {
   gt_segmented_sequence* sequence = gt_alloc(gt_segmented_sequence);
   sequence->blocks = gt_vector_new(GT_SEQ_ARCHIVE_NUM_BLOCKS,sizeof(gt_compact_dna_string*));
   sequence->sequence_total_length = 0;
+  sequence->extra = NULL;
   sequence->seq_name = gt_string_new(10);
   return sequence;
 }
@@ -29,6 +30,10 @@ GT_INLINE void gt_segmented_sequence_clear(gt_segmented_sequence* const sequence
   }
   gt_vector_clear(sequence->blocks);
   gt_string_clear(sequence->seq_name);
+  if(sequence->extra) {
+	  gt_string_delete(sequence->extra);
+	  sequence->extra = NULL;
+  }
 }
 GT_INLINE void gt_segmented_sequence_delete(gt_segmented_sequence* const sequence) {
   GT_SEGMENTED_SEQ_CHECK(sequence);

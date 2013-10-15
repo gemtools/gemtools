@@ -343,7 +343,7 @@ static void emit_value_indented     (SB *out, const JsonNode *node, const char *
 static void emit_string             (SB *out, const char *str);
 static void emit_number             (SB *out, double num);
 static void emit_array              (SB *out, const JsonNode *array);
-static void emit_array_indented     (SB *out, const JsonNode *array, const char *space, int indent_level);
+//static void emit_array_indented     (SB *out, const JsonNode *array, const char *space, int indent_level);
 static void emit_object             (SB *out, const JsonNode *object);
 static void emit_object_indented    (SB *out, const JsonNode *object, const char *space, int indent_level);
 
@@ -1039,29 +1039,29 @@ static void emit_array(SB *out, const JsonNode *array)
 	sb_putc(out, ']');
 }
 
-static void emit_array_indented(SB *out, const JsonNode *array, const char *space, int indent_level)
-{
-	const JsonNode *element = array->children.head;
-	int i;
-	
-	if (element == NULL) {
-		sb_puts(out, "[]");
-		return;
-	}
-	
-	sb_puts(out, "[\n");
-	while (element != NULL) {
-		for (i = 0; i < indent_level + 1; i++)
-			sb_puts(out, space);
-		emit_value_indented(out, element, space, indent_level + 1);
-		
-		element = element->next;
-		sb_puts(out, element != NULL ? ",\n" : "\n");
-	}
-	for (i = 0; i < indent_level; i++)
-		sb_puts(out, space);
-	sb_putc(out, ']');
-}
+//static void emit_array_indented(SB *out, const JsonNode *array, const char *space, int indent_level)
+//{
+//	const JsonNode *element = array->children.head;
+//	int i;
+//
+//	if (element == NULL) {
+//		sb_puts(out, "[]");
+//		return;
+//	}
+//
+//	sb_puts(out, "[\n");
+//	while (element != NULL) {
+//		for (i = 0; i < indent_level + 1; i++)
+//			sb_puts(out, space);
+//		emit_value_indented(out, element, space, indent_level + 1);
+//
+//		element = element->next;
+//		sb_puts(out, element != NULL ? ",\n" : "\n");
+//	}
+//	for (i = 0; i < indent_level; i++)
+//		sb_puts(out, space);
+//	sb_putc(out, ']');
+//}
 
 static void emit_object(SB *out, const JsonNode *object)
 {

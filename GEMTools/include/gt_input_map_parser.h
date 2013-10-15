@@ -64,6 +64,9 @@
 #define GT_IMP_PE_MAP_ATTRIBUTE_SCORE_GEMv1 101
 #define GT_IMP_PE_MMAP_ATTRIBUTE_SCORE 102
 
+#define GT_IMP_NUM_LINES          GT_NUM_LINES_10K
+#define GT_IMP_SUBSET_NUM_LINES   GT_IMP_NUM_LINES
+
 /*
  * MAP file format constants
  */

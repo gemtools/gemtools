@@ -167,3 +167,52 @@ GT_INLINE void gt_ihash_copy(gt_ihash* const ihash_dst,gt_ihash* const ihash_src
     }
   } GT_IHASH_END_ITERATE;
 }
+int gt_ihash_cmp_keys(int64_t* a,int64_t* b) {
+  /*
+   * return (int) -1 if (a < b)
+   * return (int)  0 if (a == b)
+   * return (int)  1 if (a > b)
+   */
+  return a-b;
+}
+#define gt_ihash_cmp_keys_wrapper(arg1,arg2) gt_ihash_cmp_keys((int64_t*)arg1,(int64_t*)arg2)
+GT_INLINE void gt_ihash_sort_by_key(gt_ihash* const ihash) {
+  GT_HASH_CHECK(ihash);
+  // Sort
+  HASH_SORT(ihash->ihash_head,gt_ihash_cmp_keys_wrapper);
+}
+
+
+/*
+ * Iterator
+ */
+GT_INLINE gt_ihash_iterator* gt_ihash_iterator_new(gt_ihash* const ihash) {
+  GT_HASH_CHECK(ihash);
+  // Allocate
+  gt_ihash_iterator* const ihash_iterator = gt_alloc(gt_ihash_iterator);
+  // Init
+  ihash_iterator->ihash = ihash;
+  ihash_iterator->next = ihash->ihash_head;
+  return ihash_iterator;
+}
+GT_INLINE void gt_ihash_iterator_delete(gt_ihash_iterator* const ihash_iterator) {
+  GT_HASH_CHECK(ihash_iterator->ihash);
+  gt_free(ihash_iterator);
+}
+GT_INLINE bool gt_ihash_iterator_next(gt_ihash_iterator* const ihash_iterator) {
+  GT_HASH_CHECK(ihash_iterator->ihash);
+  if (gt_expect_false(ihash_iterator->next==NULL)) return false;
+  ihash_iterator->next = ihash_iterator->next->hh.next;
+  return true;
+}
+GT_INLINE int64_t gt_ihash_iterator_get_key(gt_ihash_iterator* const ihash_iterator) {
+  GT_HASH_CHECK(ihash_iterator->ihash);
+  GT_HASH_CHECK(ihash_iterator->next);
+  return ihash_iterator->next->key;
+}
+GT_INLINE void* gt_ihash_iterator_get_element(gt_ihash_iterator* const ihash_iterator) {
+  GT_HASH_CHECK(ihash_iterator->ihash);
+  GT_HASH_CHECK(ihash_iterator->next);
+  return ihash_iterator->next->element;
+}
+

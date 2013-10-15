@@ -254,6 +254,7 @@ gt_status gt_tprintf(const char* format,...);
  */
 // Library/Program errors
 #define GT_ERROR_NOT_ZERO "Value Zero. Variable %s must be non-zero"
+#define GT_ERROR_INVALID_VALUE "invalid Value. Variable %s must be %s"
 #define GT_ERROR_POSITION_OUT_OF_RANGE "Requested position out of range"
 #define GT_ERROR_POSITION_OUT_OF_RANGE_INFO "Requested position (%"PRIu64") out of range [%"PRIu64",%"PRId64"]"
 #define GT_ERROR_SELECTION_NOT_IMPLEMENTED "Library error. Selection not implemented"
@@ -342,7 +343,8 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_TEMPLATE_INCONSISTENT_COUNTERS "Template inconsistency. MMaps inconsistent with counters values"
 #define GT_ERROR_TEMPLATE_ADD_BAD_NUM_BLOCKS "Trying to add wrong number of blocks to the template"
 #define GT_ERROR_PALIGN_BAD_NUM_BLOCKS "Invalid Paired-alignment. Wrong number of alignment blocks (%"PRIu64")"
-
+#define GT_ERROR_TEMPLATE_NOT_SCORED "Alignments have no valid score.  MAPQ can not be calculated unless the map file has been processed using score_reads"
+	  
 // Sequence Archive/Segmented Sequence errors
 #define GT_ERROR_SEGMENTED_SEQ_IDX_OUT_OF_RANGE "Error accessing segmented sequence. Index %"PRIu64" out out range [0,%"PRIu64")"
 #define GT_ERROR_CDNA_IT_OUT_OF_RANGE "Error seeking sequence. Index %"PRIu64" out out range [0,%"PRIu64")"
@@ -352,6 +354,9 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_SEQ_ARCHIVE_CHUNK_OUT_OF_RANGE "Requested sequence string [%"PRIu64",%"PRIu64") out of sequence '%s' boundaries"
 #define GT_ERROR_GEMIDX_SEQ_ARCHIVE_NOT_FOUND "GEMIdx. Sequence '%s' not found in reference archive"
 #define GT_ERROR_GEMIDX_INTERVAL_NOT_FOUND "GEMIdx. Interval relative to sequence '%s' not found in reference archive"
+
+// Stats vector
+#define GT_ERROR_VSTATS_INVALID_MIN_MAX "Invalid step range for stats vector, min_value <= max_value"
 
 /*
  * Parsing FASTQ File format errors
@@ -397,6 +402,9 @@ gt_status gt_tprintf(const char* format,...);
  */
 // ISP (Input SAM Parser). General
 #define GT_ERROR_PARSE_SAM "Parsing SAM error(%s:%"PRIu64":%"PRIu64")"
+#define GT_ERROR_PARSE_SAM_HEADER_NOT_SAM "Parsing SAM Header error(%s). Header file not in SAM format"
+#define GT_ERROR_PARSE_SAM_HEADER_MISSING_TAG "Parsing SAM Header error. @%s record missing %s tag"
+#define GT_ERROR_PARSE_SAM_HEADER_DUPLICATE_TAG "Parsing SAM Header error. @%s record with duplicate %s tag (%s)"
 #define GT_ERROR_PARSE_SAM_BAD_FILE_FORMAT "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Not a SAM file"
 #define GT_ERROR_PARSE_SAM_BAD_CHARACTER "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Bad character found"
 #define GT_ERROR_PARSE_SAM_UNMAPPED_XA "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Unmapped read contains XA field (inconsistency)"
@@ -406,6 +414,9 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_PARSE_SAM_CIGAR_PREMATURE_END "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Premature end of CIGAR string"
 #define GT_ERROR_PARSE_SAM_WRONG_NUM_XA "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Wrong number of eXtra mAps (as to pair them)"
 #define GT_ERROR_PARSE_SAM_UNSOLVED_PENDING_MAPS "Parsing SAM error(%s:%"PRIu64":%"PRIu64"). Failed to pair maps"
+
+#define GT_ERROR_SAM_OUTPUT_UNKNOWN_RG_ID "SAM output error.  Read group ID %s not found in SAM headers"
+#define GT_ERROR_SAM_OUTPUT_NO_HEADER_FOR_RG "SAM output error.  No SAM header was specified, so read group ID can not be matched"
 
 /*
  * Output File
@@ -425,9 +436,10 @@ gt_status gt_tprintf(const char* format,...);
 /*
  * General purpose checkers
  */
-#define GT_NULL_CHECK(object) gt_fatal_check((object)==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
-//#define GT_NULL_CHECK(object) if ((object)==NULL) {printf("%d\n",*(int*)object);} /* FIXME */
+//#define GT_NULL_CHECK(object) gt_fatal_check((object)==NULL,NULL_HANDLER_INFO,((char*)GT_QUOTE(object)))
 #define GT_ZERO_CHECK(object) gt_fatal_check((object)==0,NOT_ZERO,((char*)GT_QUOTE(object)))
-
+#define GT_INVALID_CASE() gt_fatal_error(SELECTION_NOT_VALID)
+/* Eclipse debugging definitions */
+#define GT_NULL_CHECK(object) if ((object)==NULL) { printf("%d\n",(*(int*)object)); }
 
 #endif /* GT_ERROR_H_ */

@@ -68,9 +68,19 @@ typedef struct {
 /*
  * Basic I/O functions
  */
-gt_input_file* gt_input_stream_open(FILE* stream);
-gt_input_file* gt_input_file_open(char* const file_name,const bool mmap_file);
+gt_input_file* gt_input_stream_general_open(FILE* stream,gt_file_format format);
+gt_input_file* gt_input_file_general_open(char* const file_name,const bool mmap_file,gt_file_format format);
 gt_status gt_input_file_close(gt_input_file* const input_file);
+
+#define gt_input_stream_open(stream) gt_input_stream_general_open(stream,FILE_FORMAT_UNKNOWN)
+#define gt_input_stream_map_open(stream) gt_input_stream_general_open(stream,MAP)
+#define gt_input_stream_fasta_open(stream) gt_input_stream_general_open(stream,FASTA)
+#define gt_input_stream_sam_open(stream) gt_input_stream_general_open(stream,SAM)
+
+#define gt_input_file_open(file_name,mmap_file) gt_input_file_general_open(file_name,mmap_file,FILE_FORMAT_UNKNOWN)
+#define gt_input_file_map_open(file_name,mmap_file) gt_input_file_general_open(file_name,mmap_file,MAP)
+#define gt_input_file_fasta_open(file_name,mmap_file) gt_input_file_general_open(file_name,mmap_file,FASTA)
+#define gt_input_file_sam_open(file_name,mmap_file) gt_input_file_general_open(file_name,mmap_file,SAM)
 
 /* Format detection */
 gt_file_format gt_input_file_detect_file_format(gt_input_file* const input_file);

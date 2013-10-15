@@ -14,7 +14,7 @@ import jip
 import jip.jobs
 import jip.cli
 
-__VERSION__ = "1.7"
+__VERSION__ = "1.8"
 
 
 _cmd_registry = None

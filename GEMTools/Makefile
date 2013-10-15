@@ -28,6 +28,9 @@ debug: setup
 
 check: setup debug
 	$(MAKE) --directory=test  check
+
+shcheck: setup debug
+	$(MAKE) --directory=test  shtest
 	
 setup: 
 	@mkdir -p $(FOLDER_BIN) $(FOLDER_BUILD) $(FOLDER_LIB)

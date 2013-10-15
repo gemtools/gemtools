@@ -1,0 +1,8 @@
+@SPLIT sr:Z:1:2 rt:Z:4:ACGT:stuv
+ACGT
++
+opqr
+@SPLIT sr:Z:2:2 lt:Z:4:ACGT:opqr
+ACGT
++
+stuv

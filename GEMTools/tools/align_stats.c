@@ -42,7 +42,7 @@ static void usage(FILE *f)
 	fprintf(f,"  -X|--phix174 <identifier for phiX174>    (default='%s')\n",PHIX174);
 	fprintf(f,"  -L|--max_read_length <maximum valid read length>   (default=%u)\n",MAX_READ_LENGTH);
 	fprintf(f,"  -F|--fastq     select fastq quality coding         %s\n",DEFAULT_QUAL_OFFSET==QUAL_FASTQ?"(default)":"");
-	fprintf(f,"  -S|--solexa    select ilumina quality coding       %s\n",DEFAULT_QUAL_OFFSET==QUAL_SOLEXA?"(default)":"");
+	fprintf(f,"  -S|--solexa    select illumina quality coding       %s\n",DEFAULT_QUAL_OFFSET==QUAL_SOLEXA?"(default)":"");
 	fprintf(f,"  -q|--qual_off  select quality value offset         (default=%d)\n",DEFAULT_QUAL_OFFSET);
 	fputs("  -h|help|usage                                      (print this file\n\n",f);
 }
@@ -362,6 +362,7 @@ static void as_stats_resize(as_stats *stats,uint64_t rd,uint64_t l)
 		if(stats->curr_read_store[rd]) {
 			stats->read_length_stats[rd]=as_realloc(stats->read_length_stats[rd],nlen*sizeof(uint64_t));
 			stats->base_counts_by_cycle[rd]=as_realloc(stats->base_counts_by_cycle[rd],sizeof(void *)*nlen);
+			stats->non_cpg_cytosines[rd]=as_realloc(stats->non_cpg_cytosines[rd],nlen*sizeof(uint64_t));
 			uint64_t j;
 			for(j=rd*2;j<rd*2+2;j++) stats->indel_stats[j]=as_realloc(stats->indel_stats[j],sizeof(uint64_t)*nlen);
 			for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) {
@@ -370,13 +371,18 @@ static void as_stats_resize(as_stats *stats,uint64_t rd,uint64_t l)
 			}
 			for(i=stats->curr_read_store[rd];i<nlen;i++) {
 				stats->read_length_stats[rd][i]=0;
+				stats->non_cpg_cytosines[rd][i]=0;
 				stats->base_counts_by_cycle[rd][i]=as_calloc((size_t)(MAX_QUAL+1)*5,sizeof(uint64_t));
 				for(j=rd*2;j<rd*2+2;j++) stats->indel_stats[j][i]=0;
-				for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) stats->mm_stats[j][i]=0;
+				for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) {
+					stats->mm_stats[j][i]=0;
+					stats->qual_stats[j][i]=0;
+				}
 			}
 		} else {
 			stats->read_length_stats[rd]=as_calloc((size_t)nlen,sizeof(uint64_t));
 			stats->base_counts_by_cycle[rd]=as_malloc(sizeof(void *)*nlen);
+			stats->non_cpg_cytosines[rd]=as_calloc((size_t)nlen,sizeof(uint64_t));
 			uint64_t j;
 			for(j=rd*2;j<rd*2+2;j++) stats->indel_stats[j]=as_calloc((size_t)nlen,sizeof(uint64_t));
 			for(j=rd*(MAX_QUAL+1);j<(rd+1)*(MAX_QUAL+1);j++) {
@@ -450,6 +456,7 @@ static void get_error_profile(as_stats *stats,gt_alignment *al,uint64_t rd,int q
 static void as_collect_stats(gt_template* template,as_stats* stats,as_param *param,id_tag *idt)
 {
 	stats->nreads++;
+	char *sg_names[]={param->phix174,param->phage_lambda,param->mito};
 	uint64_t nrd;
 	bool paired_file=false; // Was the input file from a paired mapping
 	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
@@ -479,9 +486,47 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		if(stats->max_read_length[j]<len[j]) as_stats_resize(stats,j,len[j]);
 		stats->read_length_stats[j][len[j]]++;
 		uint64_t i,yld=0;
-		char *p=rd[j];
-		char *q=ql[j];
 		uint64_t **bc=stats->base_counts_by_cycle[j];
+		uint64_t *bsc=stats->bs_counts[j];
+		int stype[2]={0,0};
+		int mapped=0;
+		uint64_t k=gt_alignment_get_num_counters(al[j]);
+		for(i=0;i<k;i++) {
+			if(gt_alignment_get_counter(al[j],i)) break;
+		}
+		if(al[j]->maps->used && i<k) {
+			char *p;
+			gt_map *map=gt_alignment_get_map(al[j],0);
+			mapped=1;
+			p=gt_string_get_string(map->seq_name);
+			int l=gt_string_get_length(map->seq_name);
+			for(;l>0;l--) if(p[l-1]=='#' || p[l-1]=='_') break;
+			if(l) {
+				if(!strncmp(p+l,"C2T",3)) stype[0]=SG_C2T;
+				else if(!strncmp(p+l,"G2A",3)) stype[0]=SG_G2A;
+			}
+			char *p1,*p2;
+			int sg;
+			for(sg=0;sg<3;sg++) {
+				p1=p;
+				p2=sg_names[sg];
+				i=0;
+				while(*p1) {
+					if(p2[i]==*p1) i++;
+					else {
+						if(!p2[i]) break;
+						i=(*p2==*p1)?1:0;
+					}
+					p1++;
+				}
+				if(!p2[i]) {
+					stype[1]=3+sg;
+					break;
+				}
+			}
+		}
+		char *q=ql[j];
+		char *p=rd[j];
 		for(i=0;i<len[j];i++) {
 			int base=base_tab[(int)p[i]]-1;
 			int qual=q[i]-qual_offset;
@@ -490,8 +535,21 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			}
 			if(base) yld++;
 			bc[i][qual*5+base]++;
+			if(mapped) {
+				bsc[stype[0]*5+base]++;
+				if(stype[1]) bsc[stype[1]*5+base]++;
+			}
 		}
 		stats->yield[j]+=yld;
+	}
+	// Count non-CpG cytosines in read (interesting for bisulphite sequence data)
+	uint64_t i,ct=0;
+	for(i=0;i<len[0]-1;i++) if(rd[0][i]=='C' && rd[0][i+1]!='G') ct++;
+	stats->non_cpg_cytosines[0][ct]++;
+	if(nrd==2) {
+		ct=0;
+		for(i=1;i<len[1];i++) if(rd[1][i]=='G' && rd[1][i-1]!='C') ct++;
+		stats->non_cpg_cytosines[1][ct]++;
 	}
 	// Filter maps (both single and paired end) to remove maps after first zero strata after the first hit
 	uint64_t nmaps[3]={0,0,0};
@@ -508,7 +566,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 				max_dist[j]=i;
 			} else if(nmaps[j]) break;
 		}
-		if(i==k-1 && paired_file==false) ambig[j]=true;
+		if(i==k && paired_file==false) ambig[j]=true;
 		// Collect error states from first alignment only
 		if(nmaps[j]) {
 			get_error_profile(stats,al[j],j,qual_offset);
@@ -543,9 +601,11 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		// And for paired alignments
 		bool flg=false;
 		GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,maps,maps_attr) {
-			if(maps_attr->distance<=max_dist[2]) {
-				if(gt_map_get_num_blocks(maps[0])>1 || gt_map_get_num_blocks(maps[1])>1) nsplit[2]++;
-				else flg=true;
+			if(maps[0] && maps[1]) {
+				if(maps_attr->distance<=max_dist[2]) {
+					if(gt_map_get_num_blocks(maps[0])>1 || gt_map_get_num_blocks(maps[1])>1) nsplit[2]++;
+					else flg=true;
+				}
 			}
 		}
 		if(nsplit[2]) {
@@ -566,12 +626,14 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			if(nmaps[2]==1 && (nmaps[0]<=gt_alignment_get_num_maps(al[0])) && (nmaps[1]<=gt_alignment_get_num_maps(al[1]))) {
 				stats->paired_unique++;
 				maps=gt_template_get_mmap_array(template,0,NULL);
-				gt_status gt_err;
-				int64_t ins_size=gt_template_get_insert_size(maps,&gt_err,0,0);
-				if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
-					dist_element* de=as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_PAIRED,ins_size);
-					if(nmaps[0]>1 || nmaps[1]>1) de->ct[AS_INSERT_TYPE_RECOVERED]++;
-					if(nsplit[2]) de->ct[AS_INSERT_TYPE_SPLIT]++;
+				if(maps[0] && maps[1]) {
+					gt_status gt_err;
+					int64_t ins_size=gt_template_get_insert_size(maps,&gt_err,0,0);
+					if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
+						dist_element* de=as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_PAIRED,ins_size);
+						if(nmaps[0]>1 || nmaps[1]>1) de->ct[AS_INSERT_TYPE_RECOVERED]++;
+						if(nsplit[2]) de->ct[AS_INSERT_TYPE_SPLIT]++;
+					}
 				}
 			}
 		}
@@ -585,6 +647,7 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			gt_string *contig;
 			int64_t ins_size=gt_template_get_insert_size(tmaps,&gt_err,&xx,&contig);
 			if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
+//				printf("%"PRId64"\n",ins_size);
 				(void)as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_ALL_UNIQUE,ins_size);
 				stats->paired_type[PAIR_TYPE_DS]++;
 				insert_loc(stats,xx,ins_size,idt->tile,contig);
@@ -726,7 +789,7 @@ static void *as_calc_duplicate_rate(void *ss)
 	}
 	double z1,z2,z3,z4,z5,z6;
 	z1=z2=z3=z4=z5=z6=0.0;
-  int k=0;
+  //int k=0;
 	for(i=0;i<=DUP_LIMIT;i++) {
 		z1+=(double)dup_cnt[0][i];
 		z2+=(double)dup_cnt[0][i]*(i+1);
@@ -734,7 +797,7 @@ static void *as_calc_duplicate_rate(void *ss)
 		z4+=(double)dup_cnt[2][i];
 		z5+=(double)dup_cnt[3][i];
 		z6+=(double)dup_cnt[4][i];
-		if(dup_cnt[0][i]) k=i;
+		//if(dup_cnt[0][i]) k=i;
 	}
 	if(z2 && (z3+z4+z5+z6)) {
 		double z,z7,z8,z9;
@@ -802,13 +865,12 @@ static void *as_merge_stats(void *ss)
 				st[0]->pbn_stats[j][k]+=st[i]->pbn_stats[j][k];
 			}
 			len[j]=st[i]->max_read_length[j];
-			uint64_t **bc0=st[0]->base_counts_by_cycle[j];
-			uint64_t **bc1=st[i]->base_counts_by_cycle[j];
 			if(st[i]->curr_read_store[j]) {
-				if(st[i]->curr_read_store[j]>st[0]->curr_read_store[j])
-					as_stats_resize(st[0],j,st[i]->curr_read_store[j]);
+				uint64_t **bc0=st[0]->base_counts_by_cycle[j];
+				uint64_t **bc1=st[i]->base_counts_by_cycle[j];
 				for(k=0;k<=len[j];k++) {
 					st[0]->read_length_stats[j][k]+=st[i]->read_length_stats[j][k];
+					st[0]->non_cpg_cytosines[j][k]+=st[i]->non_cpg_cytosines[j][k];
 					for(k1=0;k1<5*(MAX_QUAL+1);k1++) bc0[k][k1]+=bc1[k][k1];
 				}
 				for(k1=j*(MAX_QUAL+1);k1<(j+1)*(MAX_QUAL+1);k1++) {
@@ -825,9 +887,16 @@ static void *as_merge_stats(void *ss)
 		}
 		for(j=0;j<3;j++) {
 			st[0]->paired_type[j]+=st[i]->paired_type[j];
-			st[0]->bis_stats[j]+=st[i]->bis_stats[j];
 			st[0]->reads_with_splitmaps[j]+=st[i]->reads_with_splitmaps[j];
 			st[0]->reads_only_with_splitmaps[j]+=st[i]->reads_only_with_splitmaps[j];
+		}
+		for(j=0;j<6;j++) {
+			st[0]->sg_stats[j]+=st[i]->sg_stats[j];
+		}
+		for(j=0;j<2;j++) {
+			for(k=0;k<30;k++) {
+				st[0]->bs_counts[j][k]+=st[i]->bs_counts[j][k];
+			}
 		}
 		if(paired) {
 			st[0]->paired_mapped+=st[i]->paired_mapped;
@@ -898,6 +967,37 @@ static void as_print_yield_summary(FILE *f,as_param *param)
 	}
 }
 
+static double est_conv(double *bs,double *ct,double *mt)
+{
+  int it;
+  double l,l1,m,tau,tau1,n1,n2,m1,m2;
+  double z1,z2,x,x1,x2,x3,c,cm;
+
+  tau=ct[0]/(ct[0]+ct[2]);
+  tau1=bs[0]/(bs[0]+bs[2]);
+  n1=ct[1];
+  n2=ct[3];
+  m1=bs[1];
+  m2=bs[3];
+  l=1.0-bs[1]/bs[2];
+  m=0.01;
+  for(it=0;it<100000;it++) {
+    z1=(1.0-tau1)*l;
+    z2=m2*z1/(z1+tau1);
+    x=(1-m)*(1-tau)*l;
+    x1=m/(1.0-l+l*m);
+    x2=1.0-x1;
+    x3=n2*x/(x+tau);
+    l1=(z2+x3)/(z2+x3+m1+n1*x2);
+    cm=x1*n1;
+    c=x3+x2*n1;
+    m=cm/(c+cm);
+    if(fabs(l-l1)<1.0e-16) break;
+    l=l1;
+  }
+  *mt=m;
+  return l;
+}
 static void as_print_mapping_summary(FILE *f,as_param *param)
 {
 	bool paired=gt_input_generic_parser_attributes_is_paired(param->parser_attr);
@@ -906,7 +1006,8 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 	if(paired==true && !param->input_files[1]) paired_file=true;
 	uint64_t counts[4]={0,0,0,0};
 	dist_element *de;
-	int j;
+	uint64_t j;
+	char *sg_desc[]={"Normal Genome","C2T Genome","G2A Genome","PhiX174","Phage Lambda","Mitochondrial"};
 	for(de=st->insert_size;de;de=de->hh.next) {
 		for(j=0;j<4;j++) counts[j]+=de->ct[j];
 	}
@@ -997,6 +1098,59 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 		fprintf(f,"Reads with splitmaps:\t%" PRIu64 "\t(%g%%)\n",st->reads_with_splitmaps[0],100.0*(double)st->reads_with_splitmaps[0]/z);
 		fprintf(f,"Reads with only splitmaps:\t%" PRIu64 "\t(%g%%)\n",st->reads_only_with_splitmaps[0],100.0*(double)st->reads_only_with_splitmaps[0]/z);
 	}
+	uint64_t gcount[2][6];
+	uint64_t i,k,tt,tot=0,nrd;
+	nrd=paired?2:1;
+	fputs("\nSub-genome Mapping Summary\n\n",f);
+	for(i=0;i<nrd;i++) {
+		for(k=0;k<6;k++) {
+			tt=0;
+			for(j=0;j<5;j++) tt+=st->bs_counts[i][k*5+j];
+			gcount[i][k]=tt;
+			tot+=tt;
+		}
+	}
+	st->bisulphite=false;
+	for(k=0;k<6;k++) {
+		if((tt=gcount[0][k]+gcount[1][k])) {
+			fprintf(f,"Reads mapping to %s:\t%" PRIu64 "\t(%g%%)\n",sg_desc[k],tt,100.0*(double)tt/(double)tot);
+			if(k<2 && tt>10000) st->bisulphite=true;
+		}
+	}
+	if(st->bisulphite) {
+		uint64_t base_ct[2][5];
+		for(i=0;i<nrd;i++) {
+			for(j=0;j<5;j++) base_ct[i][j]=0;
+			for(j=0;j<=MAX_QUAL;j++) {
+				uint64_t tt[]={0,0,0,0,0};
+				for(k=0;k<st->max_read_length[i];k++) {
+					uint64_t *tb=st->base_counts_by_cycle[i][k]+j*5;
+					int k1;
+					for(k1=0;k1<5;k1++) tt[k1]+=tb[k1];
+				}
+				for(k=0;k<5;k++) base_ct[i][k]+=tt[k];
+			}
+		}
+		bool pflag=false;
+		for(k=4;k<6;k++) {
+			tt=gcount[0][k]+gcount[1][k];
+			if(tt>10000) {
+				if(!pflag) {
+					fputc('\n',f);
+					pflag=true;
+				}
+				fprintf(f,"Bisulphite conversion efficiency and methylation rate estimated from %s genome:",sg_desc[k]);
+				double m;
+				double pcounts[4],pscounts[4];
+				for(j=0;j<4;j++) {
+					pcounts[j]=(double)(base_ct[0][j+1]+base_ct[1][4-j]);
+					pscounts[j]=(double)(st->bs_counts[0][k*5+j+1]+st->bs_counts[1][k*5+4-j]);
+				}
+				double l=est_conv(pscounts,pcounts,&m);
+				fprintf(f,"\tconversion = %g%%,\tmethylation = %g%%\n",100.0*l,100.0*m);
+			}
+		}
+	}
 }
 
 static void as_print_read_lengths(FILE *f,as_param *param)
@@ -1030,6 +1184,30 @@ static void as_print_read_lengths(FILE *f,as_param *param)
 			}
 		} else if(x[0]) {
 			fprintf(f,"%" PRIu64 "\t%" PRIu64 "\t%.4f\n",i,x[0],(double)x[0]/tot[0]);
+		}
+	}
+	if(st->bisulphite) {
+		fputs("\nNon CpG cytosine count per read distribution\n\n",f);
+		if(paired) {
+			fputs("Count\tR1:n_reads\tR1:p\tR2:nreads\tR2:p\n",f);
+		} else {
+			fputs("Count\tn_reads\tp\n",f);
+		}
+		tot[0]=tot[1]=0.0;
+		for(i=0;i<=l;i++) {
+			for(k=0;k<j;k++) {
+				if(i<=st->max_read_length[k]) tot[k]+=(double)st->non_cpg_cytosines[k][i];
+			}
+		}
+		for(i=0;i<=l;i++) {
+			for(k=0;k<j;k++) x[k]=(i<=st->max_read_length[k]?st->non_cpg_cytosines[k][i]:0);
+			if(paired) {
+				if(x[0]||x[1]) {
+					fprintf(f,"%" PRIu64 "\t%" PRIu64 "\t%.4f\t%" PRIu64 "\t%.4f\n",i,x[0],(double)x[0]/tot[0],x[1],(double)x[1]/tot[1]);
+				}
+			} else if(x[0]) {
+				fprintf(f,"%" PRIu64 "\t%" PRIu64 "\t%.4f\n",i,x[0],(double)x[0]/tot[0]);
+			}
 		}
 	}
 }
@@ -1229,6 +1407,7 @@ int main(int argc,char *argv[])
 			{"insert_dist",required_argument,0,'d'},
 			{"phage_lambda",required_argument,0,'P'},
 			{"phix174",required_argument,0,'X'},
+			{"mitochondrian",required_argument,0,'N'},
 			{"paired",no_argument,0,'p'},
 			{"variable",no_argument,0,'V'},
 			{"ignore_id",no_argument,0,'i'},
@@ -1254,6 +1433,7 @@ int main(int argc,char *argv[])
 			.dist_file=NULL,
 			.phage_lambda=NULL,
 			.phix174=NULL,
+			.mito=NULL,
 			.mmap_input=false,
 			.parser_attr=gt_input_generic_parser_attributes_new(false),
 			.ignore_id=false,
@@ -1368,6 +1548,7 @@ int main(int argc,char *argv[])
 	}
 	if(!param.phage_lambda) param.phage_lambda=strdup(PHAGE_LAMBDA);
 	if(!param.phix174) param.phix174=strdup(PHIX174);
+	if(!param.mito) param.mito=strdup(MITO);
 	as_set_output_files(&param);
 	as_stats** stats=as_malloc(param.num_threads*sizeof(void *));
 	param.stats=stats;
@@ -1436,7 +1617,7 @@ int main(int argc,char *argv[])
 						if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param.min_insert && x<=param.max_insert) {
 							attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
 							attr.gt_score=GT_MAP_NO_GT_SCORE;
-							gt_template_inc_counter(template,attr.distance+1);
+							gt_template_inc_counter(template,attr.distance);
 							gt_template_add_mmap_ends(template,map1,map2,&attr);
 						}
 					}
@@ -1481,6 +1662,22 @@ int main(int argc,char *argv[])
 					al[1]=gt_template_get_block(template,1);
 					gt_alignment_recalculate_counters(al[0]);
 					gt_alignment_recalculate_counters(al[1]);
+					gt_mmap_attributes attr;
+					gt_map *mmap[2];
+					GT_ALIGNMENT_ITERATE(al[0],map1) {
+						mmap[0]=map1;
+						GT_ALIGNMENT_ITERATE(al[1],map2) {
+							mmap[1]=map2;
+							gt_status gt_err;
+							int64_t x=gt_template_get_insert_size(mmap,&gt_err,0,0);
+							if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=param.min_insert && x<=param.max_insert) {
+								attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
+								attr.gt_score=GT_MAP_NO_GT_SCORE;
+								gt_template_inc_counter(template,attr.distance);
+								gt_template_add_mmap_ends(template,map1,map2,&attr);
+							}
+						}
+					}
 				}
 				if(!param.ignore_id) {
 					uint64_t idt_err=parse_id_tag(template->tag,idt);

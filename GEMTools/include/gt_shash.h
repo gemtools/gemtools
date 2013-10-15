@@ -28,6 +28,10 @@ typedef struct {
 typedef struct {
   gt_shash_element* shash_head;
 } gt_shash;
+typedef struct {
+  gt_shash* shash;
+  gt_shash_element* next;
+} gt_shash_iterator;
 
 /*
  * Constructor
@@ -85,5 +89,13 @@ GT_INLINE void gt_shash_copy(gt_shash* const shash_dst,gt_shash* const shash_src
     char* const it_skey = shash_##sh_element->key;
 
 #define GT_SHASH_END_ITERATE }}
+
+GT_INLINE gt_shash_iterator* gt_shash_iterator_new(gt_shash* const shash);
+GT_INLINE void gt_shash_iterator_delete(gt_shash_iterator* const shash_iterator);
+
+GT_INLINE bool gt_shash_iterator_next(gt_shash_iterator* const shash_iterator);
+GT_INLINE char* gt_shash_iterator_get_key(gt_shash_iterator* const shash_iterator);
+GT_INLINE void* gt_shash_iterator_get_element(gt_shash_iterator* const shash_iterator);
+
 
 #endif /* GT_SHASH_H_ */

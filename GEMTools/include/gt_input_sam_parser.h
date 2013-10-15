@@ -69,7 +69,9 @@ GT_INLINE void gt_input_sam_parser_prompt_error(
     gt_buffered_input_file* const buffered_map_input,
     uint64_t line_num,uint64_t column_pos,const gt_status error_code);
 GT_INLINE void gt_input_sam_parser_next_record(gt_buffered_input_file* const buffered_map_input);
-
+GT_INLINE gt_status gt_input_file_sam_read_headers(
+    char* const buffer,const uint64_t buffer_size,gt_sam_headers* const sam_headers,
+    uint64_t* const characters_read,uint64_t* const lines_read);
 /*
  * High Level Parsers
  */

@@ -1,0 +1,6 @@
+@HD	VN:1.4
+@RG	ID:0	PG:GTools	SM:0
+@PG	ID:GToolsLib	PN:gt_output_sam	VN:1.6
+@CO	TM:2013/10/2::16:57:35 CET	GTools v1.6 https://github.com/gemtools/gemtools
+READ_1	99	chr1	1000	255	5M	=	1500	505	ACGTN	*
+READ_1	147	chr1	1500	255	5M	=	1000	-505	NACGT	*

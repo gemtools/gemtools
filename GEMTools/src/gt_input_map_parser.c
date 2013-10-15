@@ -8,8 +8,6 @@
 
 #include "gt_input_map_parser.h"
 
-#define GT_IMP_NUM_LINES          GT_NUM_LINES_10K
-#define GT_IMP_SUBSET_NUM_LINES   GT_NUM_LINES_10K
 #define GT_IMP_NUM_INIT_TAG_CHARS 200
 
 /*
@@ -705,9 +703,9 @@ GT_INLINE gt_status gt_imp_parse_map_score_v0(const char** const text_line,uint6
   return 0;
 }
 GT_INLINE gt_status gt_imp_parse_map_score_v1(const char** const text_line,uint64_t* const gt_score) {
-  // Parse score (just a number)
+  // Parse score (either a hex or decimal number)
   if (gt_expect_false(!gt_is_number((**text_line)))) return GT_IMP_PE_MAP_BAD_CHARACTER;
-  GT_PARSE_NUMBER(text_line,*gt_score);
+  GT_PARSE_HEX_OR_DEC(text_line,*gt_score);
   return 0;
 }
 GT_INLINE gt_status gt_imp_next_element(const char** const text_line) {
@@ -849,14 +847,6 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(const char** const text_line,gt_ma
   // Read acceptor's Strand
   if ((error_code=gt_imp_parse_strand(text_line,&(acceptor_map->strand)))) GT_IMP_PARSE_SPLIT_MAP_CLEAN2__RETURN(error_code);
   GT_NEXT_CHAR(text_line);
-  // Link both donor & acceptor
-  gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
-  if (gt_map_get_strand(donor_map)==FORWARD) {
-    gt_map_set_next_block(donor_map,acceptor_map,SPLICE,gt_map_get_position(acceptor_map)-gt_map_get_position(donor_map)+gt_map_get_length(donor_map));
-  } else {
-    const uint64_t acceptor_map_length = (read_base_length!=UINT64_MAX) ? gt_map_get_length(acceptor_map) : 0;
-    gt_map_set_next_block(acceptor_map,donor_map,SPLICE,gt_map_get_position(donor_map)-gt_map_get_position(acceptor_map)+acceptor_map_length);
-  }
   // Detect multiple donor position
   if (gt_expect_false((**text_line)==GT_MAP_SPLITMAP_OPEN_GEMv0)) { // [30;34]=chr10:F74776624~chr10:F[74790025;74790029]
     GT_NEXT_CHAR(text_line);
@@ -881,12 +871,16 @@ GT_INLINE gt_status gt_imp_parse_split_map_v0(const char** const text_line,gt_ma
     if (gt_expect_false((**text_line)!=GT_MAP_SPLITMAP_CLOSE_GEMv0)) GT_IMP_PARSE_SPLIT_MAP_CLEAN2__RETURN(GT_IMP_PE_MAP_BAD_CHARACTER);
     GT_NEXT_CHAR(text_line);
   }
-  // Add the SM
+  // Link both donor & acceptor
+  gt_map_set_base_length(acceptor_map,read_base_length-gt_map_get_base_length(donor_map));
   if (gt_map_get_strand(donor_map)==FORWARD) {
-    *split_map = donor_map;
+    gt_map_set_next_block(donor_map,acceptor_map,SPLICE,(int64_t)gt_map_get_position(acceptor_map)-(int64_t)gt_map_get_position(donor_map)+(int64_t)gt_map_get_length(donor_map));
   } else {
-    *split_map = acceptor_map;
+    const uint64_t acceptor_map_length = (read_base_length!=UINT64_MAX) ? gt_map_get_length(acceptor_map) : 0;
+    gt_map_set_next_block(donor_map,acceptor_map,SPLICE,(int64_t)gt_map_get_position(donor_map)-(int64_t)gt_map_get_position(acceptor_map)+(int64_t)acceptor_map_length);
   }
+  // Add the SM
+  *split_map = donor_map;
   // Return
   return 0;
 }
@@ -1105,6 +1099,7 @@ GT_INLINE gt_status gt_imp_parse_template_maps(
      */
     if (mmap[0]!=NULL) gt_alignment_add_map(gt_template_get_end1(template),mmap[0]);
     if (mmap[1]!=NULL) gt_alignment_add_map(gt_template_get_end2(template),mmap[1]);
+	 if (mmap[0]!=NULL && mmap[1]!=NULL) mmap_attr.paired = true;
     gt_template_add_mmap_array(template,mmap,&mmap_attr);
     ++num_maps_parsed;
     /*

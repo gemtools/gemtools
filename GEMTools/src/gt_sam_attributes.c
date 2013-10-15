@@ -15,64 +15,182 @@
 #define GT_ATTR_SAM_INIT_ELEMENTS 2
 GT_INLINE gt_sam_headers* gt_sam_header_new(void) {
   gt_sam_headers* sam_headers = gt_alloc(gt_sam_headers);
-  sam_headers->header = gt_string_new(50); // @HD
-  sam_headers->read_group = gt_vector_new(GT_ATTR_SAM_INIT_ELEMENTS,sizeof(gt_string*)); // @RG
-  sam_headers->program = gt_vector_new(GT_ATTR_SAM_INIT_ELEMENTS,sizeof(gt_string*)); // @PG
+  sam_headers->header = NULL; // @HD
+  sam_headers->read_group = gt_vector_new(GT_ATTR_SAM_INIT_ELEMENTS,sizeof(gt_sam_header_record*)); // @RG
+  sam_headers->program = gt_vector_new(GT_ATTR_SAM_INIT_ELEMENTS,sizeof(gt_sam_header_record*)); // @PG
+  sam_headers->sequence_dictionary = gt_vector_new(GT_ATTR_SAM_INIT_ELEMENTS,sizeof(gt_sam_header_record*)); // @SQ
   sam_headers->comments = gt_vector_new(GT_ATTR_SAM_INIT_ELEMENTS,sizeof(gt_string*)); // @ CO
-  sam_headers->sequence_archive = NULL; // @SQ
+  sam_headers->sequence_dictionary_sn_hash = NULL;
+  sam_headers->read_group_id_hash = NULL;
+  sam_headers->program_id_hash = NULL;
   return sam_headers;
 }
 GT_INLINE void gt_sam_header_clear(gt_sam_headers* const sam_headers) {
   GT_SAM_HEADERS_CHECK(sam_headers);
   // Header
-  gt_string_clear(sam_headers->header);
+  if(sam_headers->header) {
+  	gt_sam_header_record_delete(sam_headers->header);
+  	sam_headers->header = NULL;
+  }
   // Read group
-  GT_VECTOR_ITERATE(sam_headers->read_group,record_h,nh,gt_string*) { gt_string_delete(*record_h); }
+  GT_VECTOR_ITERATE(sam_headers->read_group,record_h,nh,gt_sam_header_record*) { gt_sam_header_record_delete(*record_h); }
   gt_vector_clear(sam_headers->read_group);
+  if(sam_headers->read_group_id_hash) gt_shash_clear(sam_headers->read_group_id_hash,true);
   // Program
-  GT_VECTOR_ITERATE(sam_headers->program,record_p,np,gt_string*) { gt_string_delete(*record_p); }
+  GT_VECTOR_ITERATE(sam_headers->program,record_p,np,gt_sam_header_record*) { gt_sam_header_record_delete(*record_p); }
   gt_vector_clear(sam_headers->program);
+  if(sam_headers->program_id_hash) gt_shash_clear(sam_headers->program_id_hash,true);
+  // Seq Dictionary
+  GT_VECTOR_ITERATE(sam_headers->sequence_dictionary,record_s,ns,gt_sam_header_record*) { gt_sam_header_record_delete(*record_s); }
+  gt_vector_clear(sam_headers->sequence_dictionary);
+  if(sam_headers->sequence_dictionary_sn_hash) gt_shash_clear(sam_headers->sequence_dictionary_sn_hash,true);
   // Comments
   GT_VECTOR_ITERATE(sam_headers->comments,comment,nc,gt_string*) { gt_string_delete(*comment); }
   gt_vector_clear(sam_headers->comments);
-  // Seq Archive
-  sam_headers->sequence_archive=NULL;
 }
 GT_INLINE void gt_sam_header_delete(gt_sam_headers* const sam_headers) {
   GT_SAM_HEADERS_CHECK(sam_headers);
   // Clear
   gt_sam_header_clear(sam_headers);
   // Delete
-  gt_string_delete(sam_headers->header);
   gt_vector_delete(sam_headers->read_group);
   gt_vector_delete(sam_headers->program);
+  gt_vector_delete(sam_headers->sequence_dictionary);
   gt_vector_delete(sam_headers->comments);
+  if(sam_headers->sequence_dictionary_sn_hash) gt_shash_delete(sam_headers->sequence_dictionary_sn_hash,true);
+  if(sam_headers->read_group_id_hash) gt_shash_delete(sam_headers->read_group_id_hash,true);
+  if(sam_headers->program_id_hash) gt_shash_delete(sam_headers->program_id_hash,true);
 }
 
-GT_INLINE void gt_sam_header_set_sequence_archive(gt_sam_headers* const sam_headers,gt_sequence_archive* const sequence_archive) {
+GT_INLINE void gt_sam_header_add_sequence_record(gt_sam_headers* const sam_headers,gt_sam_header_record* const header_record) {
   GT_SAM_HEADERS_CHECK(sam_headers);
-  sam_headers->sequence_archive = sequence_archive;
+  gt_string *sn_tag=gt_sam_header_record_get_tag(header_record,"SN");
+  gt_cond_error(!sn_tag,PARSE_SAM_HEADER_MISSING_TAG,"SQ","SN");
+  gt_cond_error(!gt_sam_header_record_get_tag(header_record,"LN"),PARSE_SAM_HEADER_MISSING_TAG,"SQ","LN");
+  if(sn_tag) {
+  	if(!sam_headers->sequence_dictionary_sn_hash) sam_headers->sequence_dictionary_sn_hash=gt_shash_new();
+  	char *sn_str=gt_string_get_string(sn_tag);
+  	size_t* ix=gt_shash_get_element(sam_headers->sequence_dictionary_sn_hash,sn_str);
+  	// If SN Tag already exists, overwrite.
+  	if(ix) {
+  		gt_sam_header_record_delete(*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->sequence_dictionary,*ix,gt_sam_header_record*));
+  		gt_vector_set_elm(sam_headers->sequence_dictionary,*ix,gt_sam_header_record*,header_record);
+  		gt_error(PARSE_SAM_HEADER_DUPLICATE_TAG,"SQ","SN",sn_str);
+  	} else {
+  		ix=gt_alloc(size_t);
+  		*ix=gt_vector_get_used(sam_headers->sequence_dictionary);
+  	  gt_shash_insert(sam_headers->sequence_dictionary_sn_hash,sn_str,ix,size_t*);
+  		gt_vector_insert(sam_headers->sequence_dictionary,header_record,gt_sam_header_record*);
+  	}
+  }
 }
-GT_INLINE void gt_sam_header_set_header_record(gt_sam_headers* const sam_headers,gt_string* const header_line) {
+GT_INLINE void gt_sam_header_set_header_record(gt_sam_headers* const sam_headers,gt_sam_header_record *header_record) {
   GT_SAM_HEADERS_CHECK(sam_headers);
-  GT_STRING_CHECK(header_line);
-  gt_string_copy(sam_headers->header,header_line);
+  GT_SAM_HEADER_RECORD_CHECK(header_record);
+  gt_cond_error(!gt_sam_header_record_get_tag(header_record,"VN"),PARSE_SAM_HEADER_MISSING_TAG,"HD","VN");
+  if(sam_headers->header) gt_sam_header_record_delete(sam_headers->header);
+  sam_headers->header=header_record;
 }
-GT_INLINE void gt_sam_header_add_read_group_record(gt_sam_headers* const sam_headers,gt_string* const read_group_record) {
+GT_INLINE void gt_sam_header_add_read_group_record(gt_sam_headers* const sam_headers,gt_sam_header_record *header_record) {
   GT_SAM_HEADERS_CHECK(sam_headers);
-  GT_STRING_CHECK(read_group_record);
-  gt_vector_insert(sam_headers->read_group,read_group_record,gt_string*);
+  GT_SAM_HEADER_RECORD_CHECK(header_record);
+  gt_string *id_tag=gt_sam_header_record_get_tag(header_record,"ID");
+  gt_cond_error(!id_tag,PARSE_SAM_HEADER_MISSING_TAG,"RG","ID");
+  if(id_tag) {
+  	if(!sam_headers->read_group_id_hash) sam_headers->read_group_id_hash=gt_shash_new();
+  	char *id_str=gt_string_get_string(id_tag);
+  	size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,id_str);
+  	// If ID Tag already exists, overwrite.
+  	if(ix) {
+  		gt_sam_header_record_delete(*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*));
+  		gt_vector_set_elm(sam_headers->read_group,*ix,gt_sam_header_record*,header_record);
+  		gt_error(PARSE_SAM_HEADER_DUPLICATE_TAG,"RG","ID",id_str);
+  	} else {
+  		ix=gt_alloc(size_t);
+  		*ix=gt_vector_get_used(sam_headers->read_group);
+  	  gt_shash_insert(sam_headers->read_group_id_hash,id_str,ix,size_t*);
+  		gt_vector_insert(sam_headers->read_group,header_record,gt_sam_header_record*);
+  	}
+  }
 }
-GT_INLINE void gt_sam_header_add_program_record(gt_sam_headers* const sam_headers,gt_string* const program_record) {
+GT_INLINE void gt_sam_header_add_program_record(gt_sam_headers* const sam_headers,gt_sam_header_record *header_record) {
   GT_SAM_HEADERS_CHECK(sam_headers);
-  GT_STRING_CHECK(program_record);
-  gt_vector_insert(sam_headers->program,program_record,gt_string*);
+  GT_SAM_HEADER_RECORD_CHECK(header_record);
+  gt_string *id_tag=gt_sam_header_record_get_tag(header_record,"ID");
+  gt_cond_error(!id_tag,PARSE_SAM_HEADER_MISSING_TAG,"PG","ID");
+  if(id_tag) {
+  	if(!sam_headers->program_id_hash) sam_headers->program_id_hash=gt_shash_new();
+  	char *id_str=gt_string_get_string(id_tag);
+  	size_t* ix=gt_shash_get_element(sam_headers->program_id_hash,id_str);
+  	// If ID Tag already exists, overwrite.
+  	if(ix) {
+  		gt_sam_header_record_delete(*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->program,*ix,gt_sam_header_record*));
+  		gt_vector_set_elm(sam_headers->program,*ix,gt_sam_header_record*,header_record);
+  		gt_error(PARSE_SAM_HEADER_DUPLICATE_TAG,"PG","ID",id_str);
+  	} else {
+  		ix=gt_alloc(size_t);
+  		*ix=gt_vector_get_used(sam_headers->program);
+  	  gt_shash_insert(sam_headers->program_id_hash,id_str,ix,size_t*);
+  		gt_vector_insert(sam_headers->program,header_record,gt_sam_header_record*);
+  	}
+  }
 }
 GT_INLINE void gt_sam_header_add_comment(gt_sam_headers* const sam_headers,gt_string* const comment) {
   GT_SAM_HEADERS_CHECK(sam_headers);
   GT_STRING_CHECK(comment);
   gt_vector_insert(sam_headers->comments,comment,gt_string*);
 }
+
+GT_INLINE void gt_sam_header_load_sequence_archive(gt_sam_headers* const sam_headers,gt_sequence_archive *sequence_archive)
+{
+  GT_SAM_HEADERS_CHECK(sam_headers);
+  GT_SEQUENCE_ARCHIVE_CHECK(sequence_archive);
+  gt_sequence_archive_iterator(sequence_archive_it);
+  gt_sequence_archive_new_iterator(sequence_archive,&sequence_archive_it);
+  gt_segmented_sequence *seq;
+  while ((seq=gt_sequence_archive_iterator_next(&sequence_archive_it))) {
+  	gt_sam_header_record *hr=gt_sam_header_record_new();
+		gt_sam_header_record_add_tag(hr,"SN",seq->seq_name);
+  	gt_string *st=gt_string_new(32);
+  	(void)gt_sprintf(st,"%"PRIu64,seq->sequence_total_length);
+		gt_sam_header_record_add_tag(hr,"LN",st);
+		gt_sam_header_add_sequence_record(sam_headers,hr);
+  }
+}
+/* SAM Header Record
+ *  SAM Header Records are a hash of @gt_sam_header_tag stored as
+ *  a gt_sam_header_record (gt_shash) for each record in the sam_headers structure
+ */
+
+GT_INLINE gt_sam_header_record* gt_sam_header_record_new(void) {
+	return gt_shash_new();
+}
+GT_INLINE void gt_sam_header_record_clear(gt_sam_header_record* const header_record) {
+  GT_SAM_HEADER_RECORD_CHECK(header_record);
+  gt_shash_clear(header_record,false);
+}
+GT_INLINE void gt_sam_header_record_delete(gt_sam_header_record *const header_record) {
+	GT_SAM_HEADER_RECORD_CHECK(header_record);
+  gt_shash_delete(header_record,false);
+}
+GT_INLINE gt_string *gt_sam_header_record_get_tag(gt_sam_header_record *const header_record,char* const tag) {
+	GT_SAM_HEADER_RECORD_CHECK(header_record);
+	return gt_shash_get_element(header_record,tag);
+}
+GT_INLINE void gt_sam_header_record_add_tag(gt_sam_header_record* const header_record,char* const tag,gt_string* string) {
+	GT_SAM_HEADER_RECORD_CHECK(header_record);
+  GT_STRING_CHECK(string);
+  gt_shash_insert(header_record,tag,string,gt_string*);
+}
+GT_INLINE void gt_sam_header_gprint_header_record(gt_generic_printer* const gprinter,gt_sam_header_record* const header_record,char* const tag) {
+	GT_SAM_HEADER_RECORD_CHECK(header_record);
+	gt_gprintf(gprinter,"@%.2s",tag);
+	GT_SHASH_BEGIN_ITERATE(header_record,tag,str,gt_string) {
+		gt_gprintf(gprinter,"\t%s:"PRIgts,tag,PRIgts_content(str));
+	} GT_SHASH_END_ITERATE;
+	gt_gprintf(gprinter,"\n");
+}
+
 /*
  * SAM Optional Fields
  *   - SAM Attributes(optional fields) are just a hash of @gt_sam_attribute
@@ -123,7 +241,7 @@ GT_INLINE void gt_attributes_delete_sam_attributes(gt_attributes* const general_
 GT_INLINE void gt_attributes_clear_sam_attributes(gt_attributes* const general_attributes) {
   GT_ATTRIBUTES_CHECK(general_attributes);
   gt_sam_attributes* sam_attributes = gt_attributes_get_sam_attributes(general_attributes);
-  if (sam_attributes==NULL) {
+  if (sam_attributes!=NULL) {
     gt_sam_attributes_clear(sam_attributes);
   }
 }
@@ -134,7 +252,7 @@ GT_INLINE bool gt_attributes_has_sam_attributes(gt_attributes* const general_att
 GT_INLINE gt_sam_attribute* gt_attributes_get_sam_attribute(gt_attributes* const general_attributes,char* const tag) {
   GT_ATTRIBUTES_CHECK(general_attributes);
   gt_sam_attributes* sam_attributes = gt_attributes_get_sam_attributes(general_attributes);
-  return (sam_attributes==NULL) ? gt_sam_attributes_get_attribute(sam_attributes,tag) : NULL;
+  return (sam_attributes!=NULL) ? gt_sam_attributes_get_attribute(sam_attributes,tag) : NULL;
 }
 /*
  * SAM Attribute Setup
@@ -144,7 +262,7 @@ GT_INLINE gt_sam_attribute* gt_attributes_get_sam_attribute(gt_attributes* const
   sam_attribute->tag[1]=tag_src[1]
 #define GT_ATTRIBUTE_SAM_CMP_TAG(sam_attribute_ptr,tag_src) \
   (sam_attribute_ptr->tag[0]==tag_src[0] && sam_attribute_ptr->tag[1]==tag_src[1])
-GT_INLINE void gt_sam_attribute_set_ivalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,const int32_t value) {
+GT_INLINE void gt_sam_attribute_set_ivalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,const int32_t value) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_ATTRIBUTE_SAM_COPY_TAG(sam_attribute,tag);
@@ -152,7 +270,7 @@ GT_INLINE void gt_sam_attribute_set_ivalue(gt_sam_attribute* const sam_attribute
   sam_attribute->type_id = type_id;
   sam_attribute->i_value = value;
 }
-GT_INLINE void gt_sam_attribute_set_fvalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,const float value) {
+GT_INLINE void gt_sam_attribute_set_fvalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,const float value) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_ATTRIBUTE_SAM_COPY_TAG(sam_attribute,tag);
@@ -160,7 +278,7 @@ GT_INLINE void gt_sam_attribute_set_fvalue(gt_sam_attribute* const sam_attribute
   sam_attribute->type_id = type_id;
   sam_attribute->f_value = value;
 }
-GT_INLINE void gt_sam_attribute_set_svalue(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_string* const string) {
+GT_INLINE void gt_sam_attribute_set_svalue(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_string* const string) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_STRING_CHECK(string);
@@ -169,7 +287,7 @@ GT_INLINE void gt_sam_attribute_set_svalue(gt_sam_attribute* const sam_attribute
   sam_attribute->type_id = type_id;
   sam_attribute->s_value = string;
 }
-GT_INLINE void gt_sam_attribute_set_ifunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*)) {
+GT_INLINE void gt_sam_attribute_set_ifunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*)) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(i_func);
@@ -178,7 +296,7 @@ GT_INLINE void gt_sam_attribute_set_ifunc(gt_sam_attribute* const sam_attribute,
   sam_attribute->type_id = type_id;
   sam_attribute->i_func = i_func;
 }
-GT_INLINE void gt_sam_attribute_set_ffunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*)) {
+GT_INLINE void gt_sam_attribute_set_ffunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*)) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(f_func);
@@ -187,7 +305,7 @@ GT_INLINE void gt_sam_attribute_set_ffunc(gt_sam_attribute* const sam_attribute,
   sam_attribute->type_id = type_id;
   sam_attribute->f_func = f_func;
 }
-GT_INLINE void gt_sam_attribute_set_sfunc(gt_sam_attribute* const sam_attribute,char* const tag,char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*)) {
+GT_INLINE void gt_sam_attribute_set_sfunc(gt_sam_attribute* const sam_attribute,const char* const tag,const char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*)) {
   GT_NULL_CHECK(sam_attribute); // TODO: type checking of i,Z,etc
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(s_func);
@@ -199,21 +317,21 @@ GT_INLINE void gt_sam_attribute_set_sfunc(gt_sam_attribute* const sam_attribute,
 /*
  * SAM Attributes Add
  */
-GT_INLINE void gt_sam_attributes_add_ivalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,const int32_t value) {
+GT_INLINE void gt_sam_attributes_add_ivalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,const int32_t value) {
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   gt_sam_attribute* const sam_attribute = gt_alloc(gt_sam_attribute);
   gt_sam_attribute_set_ivalue(sam_attribute,tag,type_id,value);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_fvalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,const float value){
+GT_INLINE void gt_sam_attributes_add_fvalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,const float value){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   gt_sam_attribute* const sam_attribute = gt_alloc(gt_sam_attribute);
   gt_sam_attribute_set_fvalue(sam_attribute,tag,type_id,value);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_svalue(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_string* const string){
+GT_INLINE void gt_sam_attributes_add_svalue(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_string* const string){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   GT_STRING_CHECK(string);
@@ -221,7 +339,7 @@ GT_INLINE void gt_sam_attributes_add_svalue(gt_sam_attributes* const sam_attribu
   gt_sam_attribute_set_svalue(sam_attribute,tag,type_id,string);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_ifunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*)){
+GT_INLINE void gt_sam_attributes_add_ifunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*i_func)(gt_sam_attribute_func_params*)){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(i_func);
@@ -229,7 +347,7 @@ GT_INLINE void gt_sam_attributes_add_ifunc(gt_sam_attributes* const sam_attribut
   gt_sam_attribute_set_ifunc(sam_attribute,tag,type_id,i_func);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_ffunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*)){
+GT_INLINE void gt_sam_attributes_add_ffunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*f_func)(gt_sam_attribute_func_params*)){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(f_func);
@@ -237,7 +355,7 @@ GT_INLINE void gt_sam_attributes_add_ffunc(gt_sam_attributes* const sam_attribut
   gt_sam_attribute_set_ffunc(sam_attribute,tag,type_id,f_func);
   gt_sam_attributes_add_attribute(sam_attributes,sam_attribute);
 }
-GT_INLINE void gt_sam_attributes_add_sfunc(gt_sam_attributes* const sam_attributes,char* const tag,char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*)){
+GT_INLINE void gt_sam_attributes_add_sfunc(gt_sam_attributes* const sam_attributes,const char* const tag,const char type_id,gt_status (*s_func)(gt_sam_attribute_func_params*)){
   GT_SAM_ATTRIBUTES_CHECK(sam_attributes);
   GT_NULL_CHECK(tag);
   GT_NULL_CHECK(s_func);
@@ -363,6 +481,11 @@ GT_INLINE void gt_sam_attributes_add_tag_RG(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_svalue(sam_attributes,"RG",'Z',read_group);
 }
 
+//  LB  Z  Read group. Value matches the header RG-LB tag if @RG is present in the header.
+GT_INLINE void gt_sam_attributes_add_tag_LB(gt_sam_attributes* const sam_attributes,gt_string* const library) {
+  gt_sam_attributes_add_svalue(sam_attributes,"LB",'Z',library);
+}
+
 /*
  * GT-library PRE-Implemented Functional Attributes
  *   X?  ?  Reserved fields for end users (together with Y? and Z?)
@@ -377,6 +500,7 @@ GT_INLINE void gt_sam_attributes_add_tag_RG(gt_sam_attributes* const sam_attribu
  *   XT:A:M => Mate-sw (Read is fixed due to paired end rescue)
  */
 typedef enum { GT_XT_UNIQUE, GT_XT_REPEAT, GT_XT_UNMAPPED, GT_XT_MATE_SW } gt_sam_xt_value;
+
 GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* func_params) {
   char* xt_char_value_attr = gt_attributes_get(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT);
   char xt_char_value;
@@ -420,6 +544,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* f
   gt_string_append_eos(func_params->return_s);
   return 0;
 }
+
 GT_INLINE void gt_sam_attributes_add_tag_XT(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_sfunc(sam_attributes,"XT",'A',gt_sam_attribute_generate_XT);
 }
@@ -482,27 +607,95 @@ GT_INLINE gt_status gt_sam_attribute_generate_XS(gt_sam_attribute_func_params* f
       gt_string* j_end = gt_string_new(8);
       gt_sequence_archive_get_sequence_string(index, gt_map_get_seq_name(map), gt_map_get_strand(map), junctions_start+1, 5, j_start);
       gt_sequence_archive_get_sequence_string(index, gt_map_get_seq_name(map), gt_map_get_strand(map), junctions_end-1-5, 5, j_end);
-
-
       gt_string_delete(j_start);
       gt_string_delete(j_end);
     }
   }
-//    // Set proper value to return
-//    switch (xt_value) {
-//      case GT_XT_UNIQUE:   xt_char_value = 'U'; break;
-//      case GT_XT_REPEAT:   xt_char_value = 'R'; break;
-//      case GT_XT_UNMAPPED: xt_char_value = 'N'; break;
-//      case GT_XT_MATE_SW:  xt_char_value = 'M'; break;
-//      default: return -1; break;
-//    }
-//    // Save as Functional Internal Data (let's save computations)
-//    xt_char_value_attr = &xt_char_value;
-//    gt_attributes_add(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT,&xt_char_value,char);
-
   return 0; // OK
 }
 GT_INLINE void gt_sam_attributes_add_tag_XS(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_sfunc(sam_attributes,"XS",'A',gt_sam_attribute_generate_XS);
+}
+
+//  MQ  i  MAPQ score for mate if paired end alignment
+GT_INLINE gt_status gt_sam_attribute_generate_MQ(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	func_params->return_i=func_params->alignment_info->paired_end.mate->phred_score;
+  	return 0;
+  }
+  return -1; // NOK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_MQ(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"MQ",'i',gt_sam_attribute_generate_MQ);
+}
+
+//  UQ  i  PHRED encoded likelihood for all read ends
+GT_INLINE gt_status gt_sam_attribute_generate_UQ(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
+  	func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff);
+  } else if (func_params->alignment_info->type==GT_MAP_PLACEHOLDER) {
+  	uint64_t sc=func_params->alignment_info->map->gt_score;
+  	func_params->return_i=(sc&0xffff);
+  } else return -1;
+  return 0; // NOK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_UQ(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"UQ",'i',gt_sam_attribute_generate_UQ);
+}
+
+//  PQ  i  PHRED encoded likelihood for template (includes insert size likelihood term)
+GT_INLINE gt_status gt_sam_attribute_generate_PQ(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL || func_params->alignment_info->type!=GT_MMAP_PLACEHOLDER_PAIRED) return -1;
+  uint64_t sc=func_params->alignment_info->paired_end.mmap_attributes->gt_score;
+  func_params->return_i=(sc&0xffff)+((sc>>16)&0xffff)+((sc>>32)&0xff);
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_PQ(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"PQ",'i',gt_sam_attribute_generate_PQ);
+}
+
+//  TQ  i  Custom tag - equivalent of MAPQ value for a template
+GT_INLINE gt_status gt_sam_attribute_generate_TQ(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	func_params->return_i=func_params->alignment_info->paired_end.mmap_attributes->phred_score;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_UNPAIRED) {
+  	func_params->return_i=0;
+  } else return -1;
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_TQ(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"TQ",'i',gt_sam_attribute_generate_TQ);
+}
+
+//  TP  i  Custom tag - as TQ but comparing to all possible pairings of mappings (not taking account of orientation, contig location or interval size)
+GT_INLINE gt_status gt_sam_attribute_generate_TP(gt_sam_attribute_func_params* func_params) {
+  // only for paired mmaps
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+    return -1;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  	func_params->return_i=func_params->alignment_info->paired_end.mmap_attributes->pair_score;
+  } else if (func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_UNPAIRED) {
+  	func_params->return_i=0;
+  } else return -1;
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_TP(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_ifunc(sam_attributes,"TP",'i',gt_sam_attribute_generate_TP);
 }
 

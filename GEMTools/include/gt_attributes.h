@@ -117,4 +117,11 @@ GT_INLINE void gt_attributes_annotate_right_trim(gt_attributes* const attributes
 
 GT_INLINE gt_segmented_read_info* gt_attributes_get_segmented_read_info(gt_attributes* const attributes);
 
+/*
+ * SAM Attributes Handlers
+ */
+GT_INLINE void gt_attributes_add_sam_ivalue(gt_attributes* const attributes,const char* const tag,const char type_id,const int32_t value);
+GT_INLINE void gt_attributes_add_sam_fvalue(gt_attributes* const attributes,const char* const tag,const char type_id,const float value);
+GT_INLINE void gt_attributes_add_sam_svalue(gt_attributes* const attributes,const char* const tag,const char type_id,gt_string* const string);
+
 #endif /* GT_ATTRIBUTES_H_ */

@@ -1,4 +1,4 @@
-VERSION			   = "1.7"
+VERSION			   = "1.8"
 VIRTUALENV         = dist-utils/virtualenv.py
 VIRTUALENV_NAME    = environment
 
@@ -25,6 +25,7 @@ test: all
 
 test-c: all
 	-$(MAKE) -C GEMTools check
+	-$(MAKE) -C GEMTools shcheck
 
 test-python: all
 	python setup.py nosetests --with-xunit

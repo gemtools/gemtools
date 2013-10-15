@@ -34,3 +34,5 @@ environment/
 .cproject
 .pydevproject
 .ropeproject/
+*~
+shtest.xml
