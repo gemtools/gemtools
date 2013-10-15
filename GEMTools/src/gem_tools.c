@@ -224,7 +224,6 @@ gt_option gt_scorereads_options[] = {
   { 302, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , false, "" , "" },
   { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
   /* Score Function */
-  { 'x', "insert-dist-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "" , "" },
   { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 402, "max-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
@@ -241,7 +240,7 @@ gt_option gt_scorereads_options[] = {
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , false, "" , "" },
   {  0, 0, 0, 0, 0, false, "", ""}
 };
-char* gt_scorereads_options_short = "i:q:pzjZo:x:s:M:m:vt:hJ";
+char* gt_scorereads_options_short = "i:q:pzjZo:s:M:m:vt:hJ";
 char* gt_scorereads_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",

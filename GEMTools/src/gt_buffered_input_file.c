@@ -9,7 +9,7 @@
 #include "gt_buffered_input_file.h"
 
 #define GT_BMI_BUFFER_SIZE GT_BUFFER_SIZE_4M
-#define GT_BMI_NUM_LINES GT_NUM_LINES_5K
+#define GT_BMI_NUM_LINES GT_NUM_LINES_10K
 
 /*
  * Buffered map file handlers

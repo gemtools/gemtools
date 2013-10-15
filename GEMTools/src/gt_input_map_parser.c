@@ -8,8 +8,6 @@
 
 #include "gt_input_map_parser.h"
 
-#define GT_IMP_NUM_LINES          GT_NUM_LINES_10K
-#define GT_IMP_SUBSET_NUM_LINES   GT_NUM_LINES_10K
 #define GT_IMP_NUM_INIT_TAG_CHARS 200
 
 /*

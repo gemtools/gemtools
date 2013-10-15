@@ -65,7 +65,7 @@ GT_INLINE void gt_buffered_input_file_set_id_attached_buffers(gt_vector* const a
  * Processing Macros (for parsing)
  */
 #define GT_INPUT_FILE_SKIP_LINE(buffered_map_input) { \
-  while (buffered_map_input->cursor[0]!=EOL) { \
+  while (buffered_map_input->cursor[0]!=EOS && buffered_map_input->cursor[0]!=EOL) { \
     ++buffered_map_input->cursor; \
   } \
   buffered_map_input->cursor[0]=EOS; \
