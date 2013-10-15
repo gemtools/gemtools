@@ -389,6 +389,7 @@ https://github.com/gemtools/gemtools
         setup_requires=["cython==0.18"],
         install_requires=[
                 "argparse",
+                "pyjip==0.1"
 #                "numpy==1.7.0",
 #                "matplotlib==1.2.0"
                 ],
