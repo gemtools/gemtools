@@ -12,7 +12,7 @@
 /*
  * VERSION
  */
-#define GT_VERSION "1.6"
+#define GT_VERSION "1.8"
 #define GT_GIT_URL "https://github.com/gemtools/gemtools"
 
 /*
