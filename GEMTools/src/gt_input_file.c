@@ -41,6 +41,7 @@ gt_input_file* gt_input_stream_general_open(FILE* stream,gt_file_format format) 
   input_file->buffer_pos = 0;
   input_file->global_pos = 0;
   input_file->processed_lines = 0;
+  input_file->sam_headers.program=NULL;
   // ID generator
   input_file->processed_id = 0;
   // Detect file format
@@ -61,6 +62,7 @@ gt_input_file* gt_input_file_general_open(char* const file_name,const bool mmap_
   input_file->file_size = stat_info.st_size;
   input_file->eof = (input_file->file_size==0);
   input_file->file_format = format;
+  input_file->sam_headers.program=NULL;
   gt_cond_fatal_error(pthread_mutex_init(&input_file->input_mutex,NULL),SYS_MUTEX_INIT);
   if (mmap_file) {
     input_file->file = NULL;
