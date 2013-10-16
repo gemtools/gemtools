@@ -30,7 +30,7 @@ GT_INLINE void gt_map_set_phred_score(gt_map* const map,const uint8_t phred_scor
 
 uint64_t gt_map_calculate_gt_score(gt_alignment *al, gt_map *map, gt_map_score_attributes *ms_attr)
 {
-	int qual_offset=ms_attr->quality_format=GT_QUALS_OFFSET_33?33:64;
+	int qual_offset=ms_attr->quality_format==GT_QUALS_OFFSET_33?33:64;
 	int indel_penalty=ms_attr->indel_penalty;
 	int split_penalty=ms_attr->split_penalty;
 	int map_cutoff=ms_attr->mapping_cutoff;

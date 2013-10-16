@@ -60,9 +60,6 @@ typedef struct {
   gt_generic_parser_attributes *parser_attr;
   gt_generic_printer_attributes *printer_attr;
   gt_buffered_output_file *buf_output[2];
-  int64_t min_insert;
-  int64_t max_insert;
-  uint8_t *ins_phred;
   int num_threads;
   gt_map_score_attributes map_score_attr;
 } sr_param;
@@ -98,6 +95,7 @@ sr_param param = {
 		.map_score_attr.split_penalty=INDEL_QUAL,
 		.map_score_attr.mapping_cutoff=0,
 		.map_score_attr.max_strata_searched=0,
+	  .map_score_attr.quality_format=GT_QUALS_OFFSET_33,
 		.map_score_attr.minimum_insert=0,
 		.map_score_attr.maximum_insert=0,
 		.map_score_attr.insert_phred=NULL,
@@ -230,7 +228,7 @@ static int sort_dist_element(void *a,void *b)
 	return ((sr_dist_element *)a)->x-((sr_dist_element *)b)->x;
 }
 
-int estimate_insert_histogram(sr_dist_element *ins,sr_param *param)
+int estimate_insert_histogram(sr_dist_element *ins,gt_map_score_attributes *ms_attr)
 {
 	uint64_t tot=0;
 	sr_dist_element *elem;
@@ -258,7 +256,7 @@ int estimate_insert_histogram(sr_dist_element *ins,sr_param *param)
 	double sd=(q3>q1)?(double)(q3-q1)/1.349:1.0;
 	// Select bandwidth for kde (Silverman's rule of thumb)
 	double h=exp(log(sd)+.2*log(4.0/(3.0*(double)tot)));
-	size_t l=param->max_insert-param->min_insert+1;
+	size_t l=ms_attr->maximum_insert-ms_attr->minimum_insert+1;
 	double *p=gt_malloc(sizeof(double)*2*l);
 	double *cp=p+l;
 	int *ph=gt_malloc(sizeof(int)*l);
@@ -267,7 +265,7 @@ int estimate_insert_histogram(sr_dist_element *ins,sr_param *param)
 		double x=(double)elem->x;
 		double n=(double)elem->ct;
 		for(i=0;i<l;i++) {
-			double d=(x-(double)(param->min_insert+i))/h;
+			double d=(x-(double)(ms_attr->minimum_insert+i))/h;
 			p[i]+=n*exp(-.5*d*d);
 		}
 	}
@@ -315,12 +313,12 @@ int estimate_insert_histogram(sr_dist_element *ins,sr_param *param)
 			}
 		}
 	}
-	param->max_insert=param->min_insert+i2;
-	param->min_insert+=i1;
+	ms_attr->maximum_insert=ms_attr->minimum_insert+i2;
+	ms_attr->minimum_insert+=i1;
 	l=i2-i1+1;
-	param->ins_phred=gt_malloc(l);
-	for(i=i1,k=0;i<=i2;i++) param->ins_phred[k++]=ph[i];
-//	for(i=0;i<l;i++) printf("%"PRId64"\t%d\n",param->min_insert+i,param->ins_phred[i]);
+	ms_attr->insert_phred=gt_malloc(l);
+	for(i=i1,k=0;i<=i2;i++) ms_attr->insert_phred[k++]=ph[i];
+//	for(i=0;i<l;i++) printf("%"PRId64"\t%d\n",ms_attr->minimum_insert+i,ms_attr->ins_phred[i]);
 	free(p);
 	free(ph);
 	return GT_STATUS_OK;
@@ -383,7 +381,7 @@ void read_dist_file(sr_param *param)
 		if(i<nl) break;
 	} while(nl);
 	if(ftype==UNKNOWN) fprintf(stderr,"Insert distribution file format not recognized\n");
-	else estimate_insert_histogram(ins_dist,param);
+	else estimate_insert_histogram(ins_dist,&param->map_score_attr);
 	gt_scorereads_free_insert_hash(ins_dist);
 	gt_buffered_input_file_close(bfile);
 	gt_input_file_close(file);
@@ -462,7 +460,7 @@ gt_status gt_scorereads_process(sr_param *param)
 		gt_buffered_input_file* buffered_input_a=gt_buffered_input_file_new(input_file1);
 		gt_buffered_input_file* buffered_input_b=gt_buffered_input_file_new(input_file2);
 		// If no insert size file supplied, estimate from the first GT_SCOREREADS_NUM_LINES records
-		if(!param->ins_phred) {
+		if(!param->map_score_attr.insert_phred) {
 			uint64_t nread=0;
 			gt_template *template=gt_template_new();
 			sr_dist_element *ins_dist=NULL;
@@ -480,7 +478,7 @@ gt_status gt_scorereads_process(sr_param *param)
 			buffered_input_a->current_line_num=0;
 			buffered_input_b->cursor=gt_vector_get_mem(buffered_input_b->block_buffer,char);
 			buffered_input_b->current_line_num=0;
-			(void)estimate_insert_histogram(ins_dist,param);
+			(void)estimate_insert_histogram(ins_dist,&param->map_score_attr);
 			gt_scorereads_free_insert_hash(ins_dist);
 		}
 
@@ -498,39 +496,42 @@ gt_status gt_scorereads_process(sr_param *param)
 			gt_buffered_input_file* buffered_input2=tid?gt_buffered_input_file_new(input_file2):buffered_input_b;
 			gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
 			gt_buffered_input_file_attach_buffered_output(buffered_input1,buffered_output);
-		  // Set up optional record TAGs
-	    gt_output_sam_attributes* const output_sam_attributes = gt_output_sam_attributes_new();
-	    // Set out attributes
-	    gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
-	    gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
-	    gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
-	    gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
-	    gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
-	    gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
-	    gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
-	    gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
-	    if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
-	    if (param->optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
-	    if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
-	    if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
-	  	if(sam_headers->read_group_id_hash) {
-	  		gt_sam_header_record *hr=NULL;
-	  		if (param->read_group_id) {
-	      		size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,param->read_group_id);
-	      		if(ix) {
-	      			hr=*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*);
-	      		} else gt_error(SAM_OUTPUT_UNKNOWN_RG_ID,param->read_group_id);
-	  		} else {
-	  			hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->read_group,gt_sam_header_record*);
-	  		}
-	  		if(hr) {
-	  			gt_string *id_tag=gt_sam_header_record_get_tag(hr,"ID");
-	  			if(!id_tag) gt_fatal_error(PARSE_SAM_HEADER_MISSING_TAG,"RG","ID"); // Should have been detected before, but we check again anyway
-	  			gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,id_tag);
-	  			gt_string *lib_tag=gt_sam_header_record_get_tag(hr,"LB");
-	  			if(lib_tag) gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,lib_tag);
-	  		}
-	    } else if(param->read_group_id) gt_error(SAM_OUTPUT_NO_HEADER_FOR_RG);
+			gt_output_sam_attributes* output_sam_attributes = NULL;
+			if(param->output_format==SAM) {
+				// Set up optional record TAGs
+				// Set out attributes
+				output_sam_attributes = gt_output_sam_attributes_new();
+				gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
+				gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
+				gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
+				gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
+				gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
+				gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
+				gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
+				gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
+				if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
+				if (param->optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
+				if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
+				if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
+				if(sam_headers->read_group_id_hash) {
+					gt_sam_header_record *hr=NULL;
+					if (param->read_group_id) {
+						size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,param->read_group_id);
+						if(ix) {
+							hr=*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*);
+						} else gt_error(SAM_OUTPUT_UNKNOWN_RG_ID,param->read_group_id);
+					} else {
+						hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->read_group,gt_sam_header_record*);
+					}
+					if(hr) {
+						gt_string *id_tag=gt_sam_header_record_get_tag(hr,"ID");
+						if(!id_tag) gt_fatal_error(PARSE_SAM_HEADER_MISSING_TAG,"RG","ID"); // Should have been detected before, but we check again anyway
+						gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,id_tag);
+						gt_string *lib_tag=gt_sam_header_record_get_tag(hr,"LB");
+						if(lib_tag) gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,lib_tag);
+					}
+				} else if(param->read_group_id) gt_error(SAM_OUTPUT_NO_HEADER_FOR_RG);
+			}
 	  	gt_status error_code;
 			gt_template *template=gt_template_new();
 			while((error_code=gt_input_map_parser_synch_get_template(buffered_input1,buffered_input2,template,&mutex))) {
@@ -549,7 +550,7 @@ gt_status gt_scorereads_process(sr_param *param)
 				}
 			}
 			gt_template_delete(template);
-	    gt_output_sam_attributes_delete(output_sam_attributes);
+	    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 			gt_buffered_input_file_close(buffered_input1);
 			gt_buffered_input_file_close(buffered_input2);
 			gt_buffered_output_file_close(buffered_output);
@@ -561,7 +562,7 @@ gt_status gt_scorereads_process(sr_param *param)
 		gt_buffered_input_file* buffered_input_a=gt_buffered_input_file_new(input_file);
 		if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
 			// If no insert size file supplied, estimate from the first GT_SCOREREADS_NUM_LINES records
-			if(!param->ins_phred) {
+			if(!param->map_score_attr.insert_phred) {
 				uint64_t nread=0;
 				gt_template *template=gt_template_new();
 				sr_dist_element *ins_dist=NULL;
@@ -577,7 +578,7 @@ gt_status gt_scorereads_process(sr_param *param)
 				// Reset input buffers to the beginning of the file
 				buffered_input_a->cursor=gt_vector_get_mem(buffered_input_a->block_buffer,char);
 				buffered_input_a->current_line_num=0;
-				(void)estimate_insert_histogram(ins_dist,param);
+				(void)estimate_insert_histogram(ins_dist,&param->map_score_attr);
 				gt_scorereads_free_insert_hash(ins_dist);
 			}
 #ifdef OPENMP
@@ -592,39 +593,42 @@ gt_status gt_scorereads_process(sr_param *param)
 				gt_buffered_input_file* buffered_input=tid?gt_buffered_input_file_new(input_file):buffered_input_a;
 				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
 				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
-			  // Set up optional record TAGs
-		    gt_output_sam_attributes* const output_sam_attributes = param->printer_attr->output_sam_attributes;
-		    // Set out attributes
-		    gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
-		    gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
-		    gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
-		    if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
-		    if (param->optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
-		    if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
-		    if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
-		  	if(sam_headers->read_group_id_hash) {
-		  		gt_sam_header_record *hr=NULL;
-		  		if (param->read_group_id) {
-		      		size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,param->read_group_id);
-		      		if(ix) {
-		      			hr=*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*);
-		      		} else gt_error(SAM_OUTPUT_UNKNOWN_RG_ID,param->read_group_id);
-		  		} else {
-		  			hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->read_group,gt_sam_header_record*);
-		  		}
-		  		if(hr) {
-		  			gt_string *id_tag=gt_sam_header_record_get_tag(hr,"ID");
-		  			if(!id_tag) gt_fatal_error(PARSE_SAM_HEADER_MISSING_TAG,"RG","ID"); // Should have been detected before, but we check again anyway
-		  			gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,id_tag);
-		  			gt_string *lib_tag=gt_sam_header_record_get_tag(hr,"LB");
-		  			if(lib_tag) gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,lib_tag);
-		  		}
-		    } else if(param->read_group_id) gt_error(SAM_OUTPUT_NO_HEADER_FOR_RG);
+				gt_output_sam_attributes* output_sam_attributes = NULL;
+				if(param->output_format==SAM) {
+					// Set up optional record TAGs
+					// Set out attributes
+					output_sam_attributes = gt_output_sam_attributes_new();
+					gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
+					gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
+					gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
+					if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
+					if (param->optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
+					if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
+					if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
+					if(sam_headers->read_group_id_hash) {
+						gt_sam_header_record *hr=NULL;
+						if (param->read_group_id) {
+							size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,param->read_group_id);
+							if(ix) {
+								hr=*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*);
+							} else gt_error(SAM_OUTPUT_UNKNOWN_RG_ID,param->read_group_id);
+						} else {
+							hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->read_group,gt_sam_header_record*);
+						}
+						if(hr) {
+							gt_string *id_tag=gt_sam_header_record_get_tag(hr,"ID");
+							if(!id_tag) gt_fatal_error(PARSE_SAM_HEADER_MISSING_TAG,"RG","ID"); // Should have been detected before, but we check again anyway
+							gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,id_tag);
+							gt_string *lib_tag=gt_sam_header_record_get_tag(hr,"LB");
+							if(lib_tag) gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,lib_tag);
+						}
+					} else if(param->read_group_id) gt_error(SAM_OUTPUT_NO_HEADER_FOR_RG);
+				}
 				gt_status error_code;
 				gt_template *template=gt_template_new();
 				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
@@ -644,7 +648,7 @@ gt_status gt_scorereads_process(sr_param *param)
 				}
 				// Clean
 				gt_template_delete(template);
-		    gt_output_sam_attributes_delete(output_sam_attributes);
+		    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 				gt_buffered_input_file_close(buffered_input);
 				gt_buffered_output_file_close(buffered_output);
 			}
@@ -657,39 +661,42 @@ gt_status gt_scorereads_process(sr_param *param)
 				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
 				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
 				gt_status error_code;
-			  // Set up optional record TAGs
-		    gt_output_sam_attributes* const output_sam_attributes = param->printer_attr->output_sam_attributes;
-		    // Set out attributes
-		    gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
-		    gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
-		    gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
-		    gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
-		    if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
-		    if (param->optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
-		    if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
-		    if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
-		  	if(sam_headers->read_group_id_hash) {
-		  		gt_sam_header_record *hr=NULL;
-		  		if (param->read_group_id) {
-		      		size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,param->read_group_id);
-		      		if(ix) {
-		      			hr=*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*);
-		      		} else gt_error(SAM_OUTPUT_UNKNOWN_RG_ID,param->read_group_id);
-		  		} else {
-		  			hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->read_group,gt_sam_header_record*);
-		  		}
-		  		if(hr) {
-		  			gt_string *id_tag=gt_sam_header_record_get_tag(hr,"ID");
-		  			if(!id_tag) gt_fatal_error(PARSE_SAM_HEADER_MISSING_TAG,"RG","ID"); // Should have been detected before, but we check again anyway
-		  			gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,id_tag);
-		  			gt_string *lib_tag=gt_sam_header_record_get_tag(hr,"LB");
-		  			if(lib_tag) gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,lib_tag);
-		  		}
-		    } else if(param->read_group_id) gt_error(SAM_OUTPUT_NO_HEADER_FOR_RG);
+				gt_output_sam_attributes* output_sam_attributes = NULL;
+				if(param->output_format==SAM) {
+					// Set up optional record TAGs
+					// Set out attributes
+					output_sam_attributes = gt_output_sam_attributes_new();
+					gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
+					gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
+					gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
+					gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
+					if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
+					if (param->optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
+					if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
+					if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
+					if(sam_headers->read_group_id_hash) {
+						gt_sam_header_record *hr=NULL;
+						if (param->read_group_id) {
+							size_t* ix=gt_shash_get_element(sam_headers->read_group_id_hash,param->read_group_id);
+							if(ix) {
+								hr=*(gt_sam_header_record **)gt_vector_get_elm(sam_headers->read_group,*ix,gt_sam_header_record*);
+							} else gt_error(SAM_OUTPUT_UNKNOWN_RG_ID,param->read_group_id);
+						} else {
+							hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->read_group,gt_sam_header_record*);
+						}
+						if(hr) {
+							gt_string *id_tag=gt_sam_header_record_get_tag(hr,"ID");
+							if(!id_tag) gt_fatal_error(PARSE_SAM_HEADER_MISSING_TAG,"RG","ID"); // Should have been detected before, but we check again anyway
+							gt_sam_attributes_add_tag_RG(output_sam_attributes->sam_attributes,id_tag);
+							gt_string *lib_tag=gt_sam_header_record_get_tag(hr,"LB");
+							if(lib_tag) gt_sam_attributes_add_tag_LB(output_sam_attributes->sam_attributes,lib_tag);
+						}
+					} else if(param->read_group_id) gt_error(SAM_OUTPUT_NO_HEADER_FOR_RG);
+				}
 				gt_template *template=gt_template_new();
 				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
 					if (error_code!=GT_IMP_OK) {
@@ -716,7 +723,7 @@ gt_status gt_scorereads_process(sr_param *param)
 				}
 				// Clean
 				gt_template_delete(template);
-		    gt_output_sam_attributes_delete(output_sam_attributes);
+		    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 				gt_buffered_input_file_close(buffered_input);
 				gt_buffered_output_file_close(buffered_output);
 			}
@@ -725,7 +732,7 @@ gt_status gt_scorereads_process(sr_param *param)
 	}
 	gt_output_file_close(output_file);
 	if(param->output_format==MAP) gt_generic_printer_attributes_delete(param->printer_attr);
-	if(param->ins_phred) free(param->ins_phred);
+	if(param->map_score_attr.insert_phred) free(param->map_score_attr.insert_phred);
 	return err;
 }
 
@@ -802,15 +809,15 @@ gt_status parse_arguments(int argc,char** argv) {
        }
        break;
   	case 401:
-  		param.min_insert=(int)strtol(optarg,&p,10);
-  		if(*p || param.min_insert<0) {
+  		param.map_score_attr.minimum_insert=(int)strtol(optarg,&p,10);
+  		if(*p || param.map_score_attr.minimum_insert<0) {
   			fprintf(stderr,"Illegal minimum insert size: '%s'\n",optarg);
   			err=-7;
   		} else insert_set[0]=1;
   		break;
   	case 402:
-  		param.max_insert=(int)strtol(optarg,&p,10);
-  		if(*p || param.max_insert<0) {
+  		param.map_score_attr.maximum_insert=(int)strtol(optarg,&p,10);
+  		if(*p || param.map_score_attr.maximum_insert<0) {
   			fprintf(stderr,"Illegal maximum insert size: '%s'\n",optarg);
   			err=-7;
   		} else insert_set[1]=1;
@@ -892,8 +899,12 @@ gt_status parse_arguments(int argc,char** argv) {
   /*
    * Parameters check
    */
+  if(param.input_files[1] && param.input_files[0]==NULL) {
+  	param.input_files[0]=param.input_files[1];
+  	param.input_files[1]=NULL;
+  }
 	if(param.input_files[1]) gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
-	if(err==GT_STATUS_OK && insert_set[0] && insert_set[1] && param.min_insert>param.max_insert) {
+	if(err==GT_STATUS_OK && insert_set[0] && insert_set[1] && param.map_score_attr.minimum_insert>param.map_score_attr.maximum_insert) {
 		fputs("Minimum insert size > maximum insert size\n",stderr);
     usage(gt_scorereads_options,gt_scorereads_groups,false);
 		err=-15;
@@ -921,8 +932,8 @@ gt_status parse_arguments(int argc,char** argv) {
 			}
 		}
 		if(!insert_set[1]) {
-				if(param.min_insert<=1000) param.max_insert=1000;
-				else param.max_insert=param.min_insert+1000;
+				if(param.map_score_attr.minimum_insert<=1000) param.map_score_attr.maximum_insert=1000;
+				else param.map_score_attr.maximum_insert=param.map_score_attr.minimum_insert+1000;
 		}
 		if(gt_input_generic_parser_attributes_is_paired(param.parser_attr) && param.dist_file) read_dist_file(&param);
 	}
