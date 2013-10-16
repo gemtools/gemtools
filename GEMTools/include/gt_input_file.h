@@ -51,8 +51,8 @@ typedef struct {
   union {
     gt_map_file_format map_type;
     gt_fasta_file_format fasta_type;
-    gt_sam_headers sam_headers;
   };
+  gt_sam_headers sam_headers;
   pthread_mutex_t input_mutex;
   /* Auxiliary Buffer (for synch purposes) */
   uint8_t* file_buffer;

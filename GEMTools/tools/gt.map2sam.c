@@ -25,7 +25,6 @@ typedef struct {
   char* sam_header_file;
   bool mmap_input;
   bool paired_end;
-  gt_qualities_offset_t quality_format;
   /* Headers */
   char *read_group_id;
   /* SAM format */
@@ -37,13 +36,13 @@ typedef struct {
   bool optional_field_XS;
   bool optional_field_md;
   bool calc_phred;
-  int uniq_mapq_thresh;
   /* Misc */
   uint64_t num_threads;
   bool verbose;
   /* Control flags */
   bool load_index;
   bool load_index_sequences;
+  gt_map_score_attributes map_score_attr;
 } gt_stats_args;
 
 gt_stats_args parameters = {
@@ -55,7 +54,6 @@ gt_stats_args parameters = {
   .sam_header_file=NULL,
   .mmap_input=false,
   .paired_end=false,
-  .quality_format=GT_QUALS_OFFSET_33,
   /* Headers */
   .read_group_id=NULL,
   /* SAM format */
@@ -67,13 +65,14 @@ gt_stats_args parameters = {
   .optional_field_XS=false,
   .optional_field_md=false,
   .calc_phred=false,
-  .uniq_mapq_thresh=30,
   /* Misc */
   .num_threads=1,
   .verbose=false,
   /* Control flags */
   .load_index=false,
-  .load_index_sequences=false
+  .load_index_sequences=false,
+  .map_score_attr.quality_format=GT_QUALS_OFFSET_33,
+  .map_score_attr.max_strata_searched=0,
 };
 
 gt_sequence_archive* gt_filter_open_sequence_archive(const bool load_sequences) {
@@ -200,7 +199,7 @@ void gt_map2sam_calc_phred(gt_template *template)
 	  uint64_t i;
 	  int *qvs=malloc(sizeof(int)*quals->length);
 	  size_t k=0;
-	  int quals_offset=parameters.quality_format==GT_QUALS_OFFSET_33?33:64;
+	  int quals_offset=parameters.map_score_attr.quality_format==GT_QUALS_OFFSET_33?33:64;
 	  for(i=0;i<quals->length;i++) {
 	  	int q=gt_string_get_string(quals)[i]-quals_offset;
 	  	if(q>=map_cutoff) qvs[k++]=q;
@@ -383,7 +382,7 @@ void gt_map2sam_read__write() {
     gt_output_sam_attributes* const output_sam_attributes = gt_output_sam_attributes_new();
     // Set out attributes
     gt_output_sam_attributes_set_compact_format(output_sam_attributes,parameters.compact_format);
-    gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,parameters.quality_format);
+    gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,parameters.map_score_attr.quality_format);
     if (parameters.optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_NM) gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
@@ -490,9 +489,9 @@ void parse_arguments(int argc,char** argv) {
     /* Alignments */
     case 'q':
       if (gt_streq(optarg,"offset-64")) {
-        parameters.quality_format=GT_QUALS_OFFSET_64;
+        parameters.map_score_attr.quality_format=GT_QUALS_OFFSET_64;
       } else if (gt_streq(optarg,"offset-33")) {
-        parameters.quality_format=GT_QUALS_OFFSET_33;
+        parameters.map_score_attr.quality_format=GT_QUALS_OFFSET_33;
       } else {
         gt_fatal_error_msg("Quality format not recognized: '%s'",optarg);
       }

@@ -203,5 +203,7 @@ GT_INLINE gt_status gt_input_map_parser_synch_blocks_a(
 GT_INLINE gt_status gt_input_map_parser_synch_blocks_by_subset(
     pthread_mutex_t* const input_mutex,gt_map_parser_attributes* const map_parser_attr,
     gt_buffered_input_file* const buffered_map_input_master,gt_buffered_input_file* const buffered_map_input_slave); // Used to merge files in parallel
+GT_INLINE gt_status gt_input_map_parser_synch_get_template(
+		gt_buffered_input_file *buffered_input_file1,gt_buffered_input_file *buffered_input_file2,gt_template *template,pthread_mutex_t *mutex);
 
 #endif /* GT_INPUT_MAP_PARSER_H_ */
