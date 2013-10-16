@@ -11,6 +11,8 @@
 
 #include "gt_essentials.h"
 
+typedef enum { GT_XT_UNKNOWN, GT_XT_UNIQUE, GT_XT_REPEAT, GT_XT_UNMAPPED, GT_XT_MATE_SW } gt_xt_value;
+
 #include "gt_alignment_utils.h"
 #include "gt_template_utils.h"
 #include "gt_dna_read.h"

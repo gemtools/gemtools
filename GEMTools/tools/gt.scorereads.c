@@ -49,7 +49,6 @@ typedef struct {
   bool compact_format; // for SAM output
   /* Optional Fields */
   bool optional_field_NH;
-  bool optional_field_XT;
   bool optional_field_XS;
   bool optional_field_md;
   /* Control flags */
@@ -84,7 +83,6 @@ sr_param param = {
 		.verbose=false,
 		.compact_format=false,
 	  .optional_field_NH=false,
-	  .optional_field_XT=false,
 	  .optional_field_XS=false,
 	  .optional_field_md=false,
 	  .load_index=false,
@@ -397,12 +395,15 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
 	gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
 	gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
 	gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
-	gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
-	gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
-	gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
-	gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
+	gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
+	gt_sam_attributes_add_tag_XP(output_sam_attributes->sam_attributes);
+	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
+		gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
+		gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
+		gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
+		gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
+	}
 	if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
-	if (param->optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
 	if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
 	if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
 	if(sam_headers->read_group_id_hash) {
@@ -581,13 +582,15 @@ gt_status gt_scorereads_process(sr_param *param)
 		gt_input_file_close(input_file1);
 		gt_input_file_close(input_file2);
 	} else { // Single input file
-		/*
-		 * Paired input
-		 */
 		gt_input_file* input_file=param->input_files[0]?gt_input_file_open(param->input_files[0],param->mmap_input):gt_input_stream_open(stdin);
 		gt_buffered_input_file* buffered_input_a=gt_buffered_input_file_new(input_file);
 		if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
-			// If no insert size file supplied, estimate from the first GT_SCOREREADS_NUM_LINES records
+			/*
+			 * Paired input
+			 *
+			 * If no insert size file supplied, estimate from the first GT_SCOREREADS_NUM_LINES records
+			 *
+			 */
 			if(!param->map_score_attr.insert_phred) {
 				uint64_t nread=0;
 				gt_template *template=gt_template_new();
@@ -791,9 +794,6 @@ gt_status parse_arguments(int argc,char** argv) {
   		break;
     case 500: // NH
       param.optional_field_NH = true;
-      break;
-    case 502: // XT
-      param.optional_field_XT = true;
       break;
     case 503: // XS
       param.optional_field_XS = true;

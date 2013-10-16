@@ -238,7 +238,6 @@ gt_option gt_scorereads_options[] = {
 
   /* Optional Fields */
   { 500, "NH", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
-  { 502, "XT", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 503, "XS", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 504, "md", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
 

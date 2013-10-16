@@ -7,7 +7,7 @@
  */
 
 #include "gt_map_score.h"
-
+#include "gt_sam_attributes.h"
 /*
  * Map Score Accessors
  */
@@ -62,7 +62,6 @@ uint64_t gt_map_calculate_gt_score(gt_alignment *al, gt_map *map, gt_map_score_a
 	return score;
 }
 
-
 void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr)
 {
 	GT_TEMPLATE_CHECK(template);
@@ -71,14 +70,21 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 	gt_mmap_attributes attr;
 	gt_alignment *al[2];
 	gt_map *mmap[2];
-	uint64_t nmap[2],rd;
+	uint64_t rd,nmap[3]={0,0,0};
 	for(rd=0;rd<2;rd++) {
-		al[rd]=gt_template_get_block_dyn(template,rd);
-		gt_alignment_recalculate_counters(al[rd]);
-		nmap[rd]=gt_alignment_get_num_maps(al[rd]);
-		if(nmap[rd]) {
-			GT_ALIGNMENT_ITERATE(al[rd],map) {
-				map->gt_score=gt_map_calculate_gt_score(al[rd],map,ms_attr);
+		al[rd]=gt_template_get_block(template,rd);
+		if(al[rd]) {
+			uint64_t max_complete_strata=gt_alignment_get_mcs(al[rd]);
+			if(ms_attr->max_strata_searched) {
+				uint32_t limit=ms_attr->max_strata_searched+1;
+				if(max_complete_strata>limit) max_complete_strata=limit;
+			}
+//			gt_alignment_recalculate_counters(al[rd]);
+			nmap[rd]=gt_alignment_get_num_maps(al[rd]);
+			if(nmap[rd]) {
+				GT_ALIGNMENT_ITERATE(al[rd],map) {
+					map->gt_score=gt_map_calculate_gt_score(al[rd],map,ms_attr);
+				}
 			}
 		}
 	}
@@ -102,6 +108,7 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 					gt_template_inc_counter(template,attr.distance);
 					gt_template_add_mmap_ends(template,map1,map2,&attr);
 					map_flag[0][i]=map_flag[1][j]=1;
+					nmap[2]++;
 				}
 				j++;
 			}
@@ -323,7 +330,7 @@ void gt_map_calculate_template_mapq_score(gt_template *template,gt_map_score_att
 				memcpy(buf+ssize,&maps[rd]->position,sizeof(maps[rd]->position));
 				HASH_FIND(hh,mhash[rd],buf,key_size,mp_hash);
 				assert(mp_hash);
-				maps[rd]->phred_score=fake_sc[rd]?mp_hash->phred:255;
+				maps[rd]->phred_score=mp_hash->phred;
 			}
 			if(maps[0] && maps[1]) { // True paired alignments.  Shouldn't need to check for duplicates, but we will anyway
 				// seq_name should be the same for the two ends in a paired alignment, but we're not taking any chances

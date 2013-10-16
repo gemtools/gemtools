@@ -757,7 +757,6 @@ GT_INLINE void gt_map_placeholder_set_sam_fields(gt_map_placeholder* const map_p
 #define GT_MAP_PLACEHOLDER_CMP_CHECK_BOUNDARY_CONDITIONS(ph_map_a,ph_map_b) \
   /* Boundary conditions (Different type, same map, unmapped) */ \
   if (ph_map_a->type!=ph_map_b->type) return ((int)ph_map_a->type - (int)ph_map_b->type); /* Check different type */ \
-//  if (ph_map_a->map==ph_map_b->map) return 0; /* Check same map */ \
   if (ph_map_a->map==NULL || ph_map_b->map==NULL) return (ph_map_a->map==NULL) ? 1 : -1; /* Check unmapped */
 int gt_map_placeholder_cmp_coordinates(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
   // NOTE: Doesn't check chromosome
