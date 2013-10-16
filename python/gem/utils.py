@@ -428,7 +428,7 @@ class ProcessInput(object):
         self.process.stdin.close()
 
     def wait(self):
-        if self.thread is not None:
+        if self.thread is not None and self.thread._parent_pid == os.getpid():
             self.thread.join()
 
 
@@ -540,7 +540,7 @@ class ProcessWrapper(object):
             if isinstance(e, OSError) and e.errno == 10:
                 pass
             else:
-                print "An error occured while waiting for "\
+                print >>sys.stderr, "An error occured while waiting for "\
                     "one the child processes:", e
                 self.exit_value = 1
         finally:
