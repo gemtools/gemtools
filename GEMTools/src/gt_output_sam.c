@@ -652,7 +652,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_core_fields_pe(gt_generic_printer* 
       mate_segment,
       (mate_segment!=NULL) ? gt_map_get_global_coordinate(mate_segment) : 0,
       (map_segment!=NULL && mate_segment!=NULL) ? gt_map_get_observed_template_size(map_segment,mate_segment) : 0,
-      hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,mmap_attributes->paired,attributes);
+      hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,mmap_attributes?mmap_attributes->paired:false,attributes);
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities,map_placeholder,output_attributes

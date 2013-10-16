@@ -397,9 +397,9 @@ gt_status gt_scorereads_process(sr_param *param)
 	// Open out file
 	gt_output_file *output_file;
 	if(param->output_file) {
-		output_file=gt_output_file_new_compress(param->output_file,SORTED_FILE,param->compress);
+		output_file=gt_output_file_new_compress(param->output_file,UNSORTED_FILE,param->compress);
 	} else {
-		output_file=gt_output_stream_new_compress(stdout,SORTED_FILE,param->compress);
+		output_file=gt_output_stream_new_compress(stdout,UNSORTED_FILE,param->compress);
 	}
 	gt_cond_fatal_error(!output_file,FILE_OPEN,param->output_file);
   gt_sam_headers* sam_headers = NULL; // SAM headers
