@@ -21,7 +21,6 @@ setuptools-*.egg
 GEMTools/.settings/
 distribute-0.6.34-py2.7.egg
 distribute-0.6.34.tar.gz
-python/src/gemtools.c
 Cython-0.18-py2.7-macosx-10.8-intel.egg/
 argparse-1.2.1-py2.6.egg
 distribute-0.6.34-py2.6.egg
