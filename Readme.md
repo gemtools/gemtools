@@ -26,16 +26,15 @@ If you have any questions or you run into problems, feel free to join the
 gemtools mailing list at gemtools@googlegroups.com
 
 Installation
-==================
+============
 The GEM-Tools library is distributed in three different flavors. You can get a
-statically compiled binary bundle if you are just interested in teh command
+statically compiled binary bundle if you are just interested in the command
 line tools. If you would like to explore the library functionality, you can
 install the latest release from pypi. If you want to get the latest and
 greatest, you can clone the git repository and install the library from source. 
 
 Static distribution
 -------------------
-
 The GEM-Tools command line tools are bundled and distributed as a static binary
 bundle that includes all dependencies. You do not have to install any other
 software to use the binary bundle, but you will not be able to write your own
@@ -54,12 +53,11 @@ i3 bundle. Otherwise use core2.
 
 The latest release can be downloaded here:
 
-* [GEM-Tools static binary bundle 1.6 for i3](http://barnaserver.com/gemtools/releases/GEMTools-static-i3-1.7.tar.gz)
-* [GEM-Tools static binary bundle 1.6 for core2](http://barnaserver.com/gemtools/releases/GEMTools-static-core2-1.7.tar.gz)
+* [GEM-Tools static binary bundle 1.7 for i3](http://barnaserver.com/gemtools/releases/GEMTools-static-i3-1.7.tar.gz)
+* [GEM-Tools static binary bundle 1.7 for core2](http://barnaserver.com/gemtools/releases/GEMTools-static-core2-1.7.tar.gz)
 
 Library distribution
 --------------------
-
 In order to install the GEM-Tool library on your system and get access to the
 command line tools as well as the library functionality, you need to have a
 couple of dependencies installed. Unfortunately we can currently not install
@@ -74,7 +72,6 @@ include:
 
 Dependencies
 ------------
-
 The C API needs to have gzlib and bzlib installed with header files.  Both
 libraries are used to transparently open compressed files. On a Debian/Ubuntu
 system the packages are libbz2-dev and zlib-dev.
@@ -85,8 +82,8 @@ the C-library on a Debian/Ubuntu system:
     sudo apt-get install make gcc libbz2-dev
 
 For the python part, the library will work both with Python 2.6 and Python 2.7.
-In order to compile the the C binding, you need to have
-[Cython](http://www.cython.org/) installed, as well as the python header files. 
+In order to compile the the C binding, you need to have the python header 
+files installed.
 
 Here is an example of how you can install the necessary dependencies to build
 the Python library on a Debian/Ubuntu system: 
@@ -96,10 +93,8 @@ the Python library on a Debian/Ubuntu system:
 
 Install from pypi 
 -----------------
-
 Gemtools is distributed through pypi and you can install the latest released
-version using `pip` or `easy_install`. But please make sure you have all the
-dependencies installed first.
+version using `pip` or `easy_install`. 
 
 As root:
 
@@ -112,8 +107,7 @@ As non-root user:
 
 Install from github
 -------------------
-
-You can install GEM-Tool from the github repository using the distributed 
+You can install Gemtools from the github repository using the distributed 
 setup.py script. 
 
 Clone the repository
@@ -142,12 +136,11 @@ to your ~/.bashrc to make the change permanent.
 
 Build the library package
 -------------------------
-
 From the repository, you can build the python library package. This you can use
-to moved to a dedicated folder and can be managed by your prefered module
+to moved to a dedicated folder and can be managed by your preferred module
 manager easily. 
 
-In order to build the library package, clone the the repository and call
+In order to build the library package, clone the repository and call
 
     make package
 
@@ -173,7 +166,6 @@ library into the python search path so you can leverage it from your scripts.
 
 Build the static binary bundle
 ------------------------------
-
 If you are not interested in using any python library functions from your 
 script, you can build portable static binary package by calling the `dist` 
 target in the Makefile.
@@ -186,7 +178,7 @@ structured as follows:
 
     bin/ -- all the executables
     lib/ -- symlink to lib64
-    lib64/ -- contains the gemtools c library as limgemtools.a
+    lib64/ -- contains the gemtools c library as libgemtools.a
     include/ -- the C API header files
 
 Say you moved the package to `/opt/gemtools`. You can activate the package by
@@ -196,7 +188,7 @@ exporting the following variables to your environment:
 
     
 Bugs and feature requests
-=====================
+=========================
 Please feel free to use the Github bug tracker to report issues and feature
 requests that you find in the GEM-Tools library. 
 
@@ -208,6 +200,8 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 Change log
 =====================
     1.8 
+    - Integrated the jip library to build pipelines
+    - Removed the strict dependency to cython for installation
 
     1.7
     - Fixed issue with junctions of length 0 in gtf extraction
