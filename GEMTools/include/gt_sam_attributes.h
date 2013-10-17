@@ -285,6 +285,9 @@ GT_INLINE void gt_sam_attributes_add_tag_TP(gt_sam_attributes* const sam_attribu
  */
 GT_INLINE void gt_sam_attributes_add_tag_XT(gt_sam_attributes* const sam_attributes);
 
+/* Similar to XT, but for a template */
+GT_INLINE void gt_sam_attributes_add_tag_XP(gt_sam_attributes* const sam_attributes);
+
 /*
  *  XA  Z  Alternative hits; format: (chr,pos,CIGAR,NM;)*
  *    => Implemented by means of setting ...

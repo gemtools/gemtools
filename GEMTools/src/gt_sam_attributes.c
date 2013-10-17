@@ -481,7 +481,7 @@ GT_INLINE void gt_sam_attributes_add_tag_RG(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_svalue(sam_attributes,"RG",'Z',read_group);
 }
 
-//  LB  Z  Read group. Value matches the header RG-LB tag if @RG is present in the header.
+//  LB  Z  Library group. Value matches the header RG-LB tag if @RG is present in the header.
 GT_INLINE void gt_sam_attributes_add_tag_LB(gt_sam_attributes* const sam_attributes,gt_string* const library) {
   gt_sam_attributes_add_svalue(sam_attributes,"LB",'Z',library);
 }
@@ -494,53 +494,40 @@ GT_INLINE void gt_sam_attributes_add_tag_LB(gt_sam_attributes* const sam_attribu
 /*
  *  XT  A  Type: Unique/Repeat/N/Mate-sw
  * i.e.
- *   XT:A:U => Unique alignment
- *   XT:A:R => Repeat
+ *   XT:A:U => Unique alignment (MAPQ >= 30)
+ *   XT:A:R => Repeat (MAPQ < 30)
  *   XT:A:N => Not mapped
  *   XT:A:M => Mate-sw (Read is fixed due to paired end rescue)
  */
-typedef enum { GT_XT_UNIQUE, GT_XT_REPEAT, GT_XT_UNMAPPED, GT_XT_MATE_SW } gt_sam_xt_value;
 
 GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* func_params) {
-  char* xt_char_value_attr = gt_attributes_get(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT);
   char xt_char_value;
-  if (xt_char_value_attr==NULL) {
-    gt_sam_xt_value xt_value;
-    if (func_params->alignment_info->map==NULL) { // Unmapped
-      xt_value = GT_XT_UNMAPPED;
-    } else if (func_params->alignment_info->type==GT_MAP_PLACEHOLDER) {
-      if (func_params->alignment_info->single_end.template!=NULL) {
-        const int64_t uniq_degree = gt_template_get_uniq_degree(func_params->alignment_info->single_end.template);
-        xt_value = (uniq_degree!=GT_NO_STRATA) ? GT_XT_UNIQUE : GT_XT_REPEAT;
-      } else if (func_params->alignment_info->single_end.alignment!=NULL) {
-        const int64_t uniq_degree = gt_alignment_get_uniq_degree(func_params->alignment_info->single_end.alignment);
-        xt_value = (uniq_degree!=GT_NO_STRATA) ? GT_XT_UNIQUE : GT_XT_REPEAT;
-      } else {
-        return -1;
-      }
-    } else { // GT_MMAP_PLACEHOLDER_PAIRED, GT_MMAP_PLACEHOLDER_UNPAIRED
-      if (func_params->alignment_info->paired_end.template!=NULL) {
-        const int64_t uniq_degree = gt_template_get_uniq_degree(func_params->alignment_info->paired_end.template);
-        xt_value = (uniq_degree!=GT_NO_STRATA) ? GT_XT_UNIQUE : GT_XT_REPEAT;
-      } else {
-        return -1;
-      }
-    }
-    // Set proper value to return
-    switch (xt_value) {
-      case GT_XT_UNIQUE:   xt_char_value = 'U'; break;
-      case GT_XT_REPEAT:   xt_char_value = 'R'; break;
-      case GT_XT_UNMAPPED: xt_char_value = 'N'; break;
-      case GT_XT_MATE_SW:  xt_char_value = 'M'; break;
-      default: return -1; break;
-    }
-    // Save as Functional Internal Data (let's save computations)
-    xt_char_value_attr = &xt_char_value;
-    gt_attributes_add(func_params->attributes,GT_ATTR_ID_SAM_TAG_XT,&xt_char_value,char);
+  gt_xt_value xt_value;
+  if (func_params->alignment_info->map==NULL) { // Unmapped
+  	xt_value = GT_XT_UNMAPPED;
+  } else {
+  	int mapq = func_params->alignment_info->map->phred_score;
+  	if(mapq==255) return -1;
+  	if(mapq>=30) xt_value=GT_XT_UNIQUE;
+  	else {
+  		xt_value=GT_XT_REPEAT;
+  		if(func_params->alignment_info->type==GT_MMAP_PLACEHOLDER_PAIRED) {
+  			int pair_mapq=func_params->alignment_info->paired_end.mate->phred_score;
+  			if(pair_mapq>=30 && pair_mapq<255) xt_value=GT_XT_MATE_SW;
+  		}
+  	}
   }
-  // Return value
+  // Set proper value to return
+  switch (xt_value) {
+  case GT_XT_UNIQUE:    xt_char_value = 'U'; break;
+  case GT_XT_REPEAT:    xt_char_value = 'R'; break;
+  case GT_XT_UNMAPPED:  xt_char_value = 'N'; break;
+  case GT_XT_MATE_SW:   xt_char_value = 'M'; break;
+  default: return -1; break;
+  }
+   // Return value
   gt_string_clear(func_params->return_s);
-  gt_string_append_char(func_params->return_s,*xt_char_value_attr);
+  gt_string_append_char(func_params->return_s,xt_char_value);
   gt_string_append_eos(func_params->return_s);
   return 0;
 }
@@ -548,6 +535,36 @@ GT_INLINE gt_status gt_sam_attribute_generate_XT(gt_sam_attribute_func_params* f
 GT_INLINE void gt_sam_attributes_add_tag_XT(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_sfunc(sam_attributes,"XT",'A',gt_sam_attribute_generate_XT);
 }
+
+
+GT_INLINE gt_status gt_sam_attribute_generate_XP(gt_sam_attribute_func_params* func_params) {
+  char xt_char_value;
+  gt_xt_value xt_value;
+  if (func_params->alignment_info->map==NULL || func_params->alignment_info->type!=GT_MMAP_PLACEHOLDER_PAIRED) xt_value=GT_XT_UNMAPPED;
+  else {
+  	int mapq = func_params->alignment_info->paired_end.mmap_attributes->phred_score;
+  	int map_sc = func_params->alignment_info->paired_end.mmap_attributes->pair_score;
+  	if(mapq<255 && mapq>=30 && map_sc<255 && map_sc>=30) xt_value=GT_XT_UNIQUE;
+  	else xt_value=GT_XT_REPEAT;
+  }
+  // Set proper value to return
+  switch (xt_value) {
+  case GT_XT_UNIQUE:    xt_char_value = 'U'; break;
+  case GT_XT_REPEAT:    xt_char_value = 'R'; break;
+  case GT_XT_UNMAPPED:  xt_char_value = 'N'; break;
+  default: return -1; break;
+  }
+   // Return value
+  gt_string_clear(func_params->return_s);
+  gt_string_append_char(func_params->return_s,xt_char_value);
+  gt_string_append_eos(func_params->return_s);
+  return 0;
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_XP(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_sfunc(sam_attributes,"XP",'A',gt_sam_attribute_generate_XT);
+}
+
 //  cs  Z  Casava TAG (if any)
 GT_INLINE gt_status gt_sam_attribute_generate_cs(gt_sam_attribute_func_params* func_params) {
   gt_string* casava_string = NULL;

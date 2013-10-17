@@ -757,7 +757,6 @@ GT_INLINE void gt_map_placeholder_set_sam_fields(gt_map_placeholder* const map_p
 #define GT_MAP_PLACEHOLDER_CMP_CHECK_BOUNDARY_CONDITIONS(ph_map_a,ph_map_b) \
   /* Boundary conditions (Different type, same map, unmapped) */ \
   if (ph_map_a->type!=ph_map_b->type) return ((int)ph_map_a->type - (int)ph_map_b->type); /* Check different type */ \
-  if (ph_map_a->map==ph_map_b->map) return 0; /* Check same map */ \
   if (ph_map_a->map==NULL || ph_map_b->map==NULL) return (ph_map_a->map==NULL) ? 1 : -1; /* Check unmapped */
 int gt_map_placeholder_cmp_coordinates(gt_map_placeholder* const ph_map_a,gt_map_placeholder* const ph_map_b) {
   // NOTE: Doesn't check chromosome
@@ -941,6 +940,8 @@ GT_INLINE void gt_map_placeholder_build_from_template(
   if (placeholder_template!=NULL) mmap_ph=*placeholder_template;
   mmap_ph.paired_end.template = template;
   mmap_ph.secondary_alignment = true;
+  if(primary_mmap_end1_pos!=NULL) *primary_mmap_end1_pos=0;
+  if(primary_mmap_end2_pos!=NULL) *primary_mmap_end2_pos=0;
   // Gather initial data
   const uint64_t num_initial_placeholders = gt_vector_get_used(mmap_placeholder);
   gt_string* const read[2] = {gt_template_get_end1(template)->read,gt_template_get_end2(template)->read};
@@ -949,7 +950,7 @@ GT_INLINE void gt_map_placeholder_build_from_template(
   gt_map_placeholder best_mmap_ph_end1, best_mmap_ph_end2;
   uint64_t best_mmap_ph_end1_pos = UINT64_MAX, best_mmap_ph_end2_pos = UINT64_MAX;
   if (gt_template_get_num_mmaps(template)==0) { // Unmmapped
-    // Include unampped mmap
+    // Include unmapped mmap
     mmap_ph.paired_end.mmap_attributes = NULL;
     gt_map_placeholder_add_mmap(NULL,NULL,read[0],0,
         mmap_placeholder,split_segments,gt_ph_cmp_fx,primary_mmap_end1_pos!=NULL,
@@ -1071,6 +1072,7 @@ GT_INLINE void gt_map_placeholder_build_from_alignment(
   GT_ALIGNMENT_CHECK(alignment);
   GT_VECTOR_CHECK(mmap_placeholder);
   // Prepare placeholder template
+  if(primary_map_position!=NULL) *primary_map_position=0;
   gt_map_placeholder mmap_ph;
   if (placeholder_template!=NULL) mmap_ph=*placeholder_template;
   const uint64_t num_maps = gt_alignment_get_num_maps(alignment);

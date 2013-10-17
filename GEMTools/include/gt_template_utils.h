@@ -171,6 +171,7 @@ typedef struct {
   bool secondary_alignment;
   bool not_passing_QC;
   bool PCR_duplicate;
+  gt_xt_value xt_value;
   uint32_t hard_trim_left;
   uint32_t hard_trim_right;
 } gt_map_placeholder;
