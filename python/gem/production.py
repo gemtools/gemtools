@@ -1727,21 +1727,6 @@ class RnaPipeline(Command):
         _set_default('denovo', 'strata_after_best')
 
         _set_default('pairing', 'quality_threshold')
-        ###########################################################
-        # General input data checks
-        ###########################################################
-        # check for at least one input file
-        _check("No input file specified!", not args['first'])
-        # check input files for single end alignments
-        _check("Single end runs take only one input file!",
-               args['single_end'] and args['second'])
-        if not args['single_end'] and not args['no_pair_search']:
-            # check paired end
-            if not args['second']:
-                self._find_second_pair(args)
-        ## check that all input files exists
-        self.options['first'].check_files()
-        self.options['second'].check_files()
 
         ## check the .gem index
         _check("Genome GEM index not found: %s" % args['index'],
@@ -1780,9 +1765,24 @@ class RnaPipeline(Command):
                 with open(self.options['save'].get(), 'w') as f:
                     json.dump(values, f, indent=4)
                 print "Saved configuration in %s" % self.options['save']
-
             except Exception as err:
                 raise CommandException("Error while saving config : %s" % err)
+
+        ###########################################################
+        # General input data checks
+        ###########################################################
+        # check for at least one input file
+        _check("No input file specified!", not args['first'])
+        # check input files for single end alignments
+        _check("Single end runs take only one input file!",
+               args['single_end'] and args['second'])
+        if not args['single_end'] and not args['no_pair_search']:
+            # check paired end
+            if not args['second']:
+                self._find_second_pair(args)
+        ## check that all input files exists
+        self.options['first'].check_files()
+        self.options['second'].check_files()
         return True
 
     def pipeline(self):
@@ -1929,6 +1929,10 @@ class RnaPipeline(Command):
             annotation=args['annotation'] if args['annotation'] else None,
             junctions=junctions.output,
             max_length=args['read_length'])
+        # this is a workaround for a jip bug! Somehow
+        # the tool is not valudated and therefore the output
+        # is not added ?
+        #denovo_transcriptome._tool.validate()
 
         junctions_index = job('Denovo.Index', temp=True).run(
             'gemtools_index',
@@ -2439,6 +2443,34 @@ class VcPipeline(Command):
                 #opts[name].value = opts[glob].get()
 
         #_set_default('pairing', 'quality_threshold')
+
+        ## check the .gem index
+        _check("Genome GEM index not found: %s" % args['index'],
+               not exists(args['index']))
+        _check("Genome GEM does not end in .gem: %s" % args['index'],
+               not args['index'].endswith(".gem"))
+
+        ## check quality value
+        _check("Quality offset value is not valid! Supported are 33|64|ignore",
+               not args['quality'] in ("33", "64", "ignore"))
+
+        if self.options['save']:
+            import json
+            try:
+                ex_opts = ['help', 'dry', 'load', 'save', 'name']
+                values = {}
+                for o in filter(lambda o: o.name not in ex_opts,
+                                self.options):
+                    if o.raw() != o.default:
+                        values[o.name] = o.raw()
+                with open(self.options['save'].get(), 'w') as f:
+                    json.dump(values, f, indent=4)
+                print "Saved configuration in %s" % self.options['save']
+                return False
+
+            except Exception as err:
+                raise CommandException("Error while saving config : %s" % err)
+
         ###########################################################
         # General input data checks
         ###########################################################
@@ -2454,32 +2486,6 @@ class VcPipeline(Command):
         ## check that all input files exists
         self.options['first'].check_files()
         self.options['second'].check_files()
-
-        ## check the .gem index
-        _check("Genome GEM index not found: %s" % args['index'],
-               not exists(args['index']))
-        _check("Genome GEM does not end in .gem: %s" % args['index'],
-               not args['index'].endswith(".gem"))
-
-        ## check quality value
-        _check("Quality offset value is not valid! Supported are 33|64|ignore",
-               not args['quality'] in ("33", "64", "ignore"))
-
-        if self.options['save']:
-            import json
-            try:
-                ex_opts = ['help', 'dry', 'load', 'save']
-                values = {}
-                for o in filter(lambda o: o.name not in ex_opts,
-                                self.options):
-                    if o.raw() != o.default:
-                        values[o.name] = o.raw()
-                with open(self.options['save'].get(), 'w') as f:
-                    json.dump(values, f, indent=4)
-                print "Saved configuration in %s" % self.options['save']
-
-            except Exception as err:
-                raise CommandException("Error while saving config : %s" % err)
         return True
 
     def pipeline(self):

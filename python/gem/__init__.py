@@ -75,11 +75,18 @@ class execs_dict(dict):
             if os.path.exists(file):
                 gemtools_logger.debug("Using binary from GEM_PATH : %s" % file)
                 return file
+        try:
+            if use_bundled_executables and pkg_resources.resource_exists(
+                    "gem",
+                    "gembinaries/%s" % item):
+                f = pkg_resources.resource_filename(
+                    "gem", "gembinaries/%s" % item
+                )
+                gemtools_logger.debug("Using embedded binary : %s" % f)
+                return f
+        except:
+            pass
 
-        if use_bundled_executables and pkg_resources.resource_exists("gem", "gembinaries/%s" % item):
-            f = pkg_resources.resource_filename("gem", "gembinaries/%s" % item)
-            gemtools_logger.debug("Using bundled binary : %s" % f)
-            return f
         # try to find from static distribution
         if use_bundled_executables and len(sys.argv) > 0:
             try:

@@ -38,14 +38,14 @@ prep-dist: all
 	python setup.py build_ext -i
 
 fetch-pyinstaller:
-	test -s dist-utils/pyinstaller-2.0.tar.bz2 || wget -O dist-utils/pyinstaller-2.0.tar.bz2  http://sourceforge.net/projects/pyinstaller/files/2.0/pyinstaller-2.0.tar.bz2/download
+	test -s dist-utils/pyinstaller-2.1.tar.bz2 || wget --no-check-certificate -O dist-utils/pyinstaller-2.1.tar.bz2 https://pypi.python.org/packages/source/P/PyInstaller/PyInstaller-2.1.tar.gz 
 
 install-pyinstaller: fetch-pyinstaller
-	test -s dist-utils/pyinstaller-2.0 || tar -C dist-utils -xjvf dist-utils/pyinstaller-2.0.tar.bz2
+	test -s dist-utils/PyInstaller-2.1 || (tar -C dist-utils -xzvf dist-utils/pyinstaller-2.1.tar.bz2 && patch dist-utils/PyInstaller-2.1/PyInstaller/depend/imptracker.py dist-utils/pyinstaller_warnings.patch)
 
 dist: prep-dist install-pyinstaller
 	@mkdir -p dist
-	./dist-utils/pyinstaller-2.0/pyinstaller.py -F -p python/ --hidden-import=matplotlib --hidden-import=pylab --hidden-import=numpy --hidden-import=gem --hidden-import=gem.gemtools -o dist/ -y python/gem/commands.py -n gemtools
+	./dist-utils/PyInstaller-2.1/pyinstaller.py --hidden-import=jip.scripts -F -p python/ -y python/gem/__main__.py -n gemtools --specpath dist-utils --clean
 	python setup.py package_static
 
 clean:

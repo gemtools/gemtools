@@ -1,0 +1,11 @@
+--- imptracker.py	2013-10-16 14:18:32.000000000 +0200
++++ /home/devel/thasso/git/github/gemtools/dist-utils/PyInstaller-2.1/PyInstaller/depend/imptracker.py	2013-10-16 14:19:00.000000000 +0200
+@@ -377,7 +377,7 @@
+     def getwarnings(self):
+         warnings = self.warnings.keys()
+         for nm, mod in self.modules.items():
+-            if mod:
++            if mod and isinstance(mod.warnings, (list, tuple)):
+                 for w in mod.warnings:
+                     warnings.append(w + ' - %s (%s)' % (mod.__name__, mod.__file__))
+         return warnings

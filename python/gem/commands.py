@@ -8,7 +8,7 @@ from textwrap import dedent
 import os
 
 import gem.utils
-from .utils import CommandException
+from gem.utils import CommandException
 
 import jip
 import jip.jobs
@@ -17,11 +17,10 @@ import jip.cli
 __VERSION__ = "1.8"
 
 
-_cmd_registry = None
-
-
 class cli(object):
     """Command decorator"""
+    _cmd_registry = {}
+
     def __init__(self, name, inputs=None, outputs=None,
                  title=None, description=None, add_outputs=None,
                  pipeline=None):
@@ -34,10 +33,6 @@ class cli(object):
         self.pipeline = pipeline
 
     def __call__(self, cls):
-        global _cmd_registry
-        if _cmd_registry is None:
-            _cmd_registry = {}
-
         wrapped_function = False
         if isinstance(cls, types.FunctionType):
             wrapped_function = True
@@ -61,7 +56,7 @@ class cli(object):
             cls = __command_wrapper
 
         cls.name = self.name
-        _cmd_registry[self.name] = cls
+        cli._cmd_registry[self.name] = cls
 
         def _help(inst):
             from jip.tools import Tool
@@ -116,7 +111,7 @@ def gemtools():
         The following sub-commands are available:
         """
         cmds = []
-        for k, v in _cmd_registry.iteritems():
+        for k, v in cli._cmd_registry.iteritems():
             cmds.append("    %30s  %s" % (k, v.title))
 
         doc_string = dedent(gemtools.__doc__) + \
@@ -131,7 +126,7 @@ def gemtools():
             gem.loglevel(args["--loglevel"])
 
         cmd = args["<cmd>"]
-        if not cmd in _cmd_registry:
+        if not cmd in cli._cmd_registry:
             print >>sys.stderr, "gemtools command '%s' not found!" % cmd
             print >>sys.stderr, "See gemtools --help for a list of commands"
             sys.exit(1)

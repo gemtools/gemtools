@@ -19,7 +19,7 @@ fi
 
 
 # copy start script
-cp dist/dist/gemtools $DIR/bin/gemtools
+cp dist/gemtools $DIR/bin/gemtools
 chmod +x $DIR/bin/gemtools
 
 # build tools and copy lib/include and bin

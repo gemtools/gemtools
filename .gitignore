@@ -27,6 +27,8 @@ argparse-1.2.1-py2.6.egg
 distribute-0.6.34-py2.6.egg
 dist-utils/pyinstaller-2.0.tar.bz2
 dist-utils/pyinstaller-2.0/
+dist-utils/pyinstaller-2.1.tar.bz2
+dist-utils/PyInstaller-2.1/
 Cython-0.18*
 environment/
 .project
@@ -37,3 +39,4 @@ environment/
 *~
 shtest.xml
 test_results
+dist-utils/gemtools.spec
