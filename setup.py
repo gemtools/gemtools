@@ -9,7 +9,8 @@ import platform
 if platform.system() == "Darwin":
     from distutils import sysconfig
     sysconfig._config_vars['CC'] = "gcc"
-    sysconfig._config_vars['LDSHARED'] = "gcc -Wl,-F. -bundle -undefined dynamic_lookup"
+    sysconfig._config_vars['LDSHARED'] = "gcc -Wl,-F. " \
+        "-bundle -undefined dynamic_lookup"
 
 import os
 import sys
@@ -76,7 +77,8 @@ def download(type, target_dir=None):
         shutil.copyfile(jenkins_src, target)
     else:
         if not os.path.exists(target):
-            print "Downloading %s bundle from %s to %s" % (type, base_url, target)
+            print "Downloading %s bundle from %s to %s" % (type,
+                                                           base_url, target)
             urllib.urlretrieve(base_url, target)
 
 
@@ -106,14 +108,17 @@ class package(Command):
         print "Fetching binaries"
         download("i3")
         download("core2")
-        subprocess.Popen(["dist-utils/create_distribution.sh", __VERSION__, "i3"]).wait()
-        subprocess.Popen(["dist-utils/create_distribution.sh", __VERSION__, "core2"]).wait()
+        subprocess.Popen(["dist-utils/create_distribution.sh",
+                          __VERSION__, "i3"]).wait()
+        subprocess.Popen(["dist-utils/create_distribution.sh",
+                          __VERSION__, "core2"]).wait()
 
     def initialize_options(self):
         pass
 
     def finalize_options(self):
         pass
+
 
 class package_static(Command):
     """Package static distribution"""
@@ -124,8 +129,10 @@ class package_static(Command):
         print "Fetching binaries"
         download("i3")
         download("core2")
-        subprocess.Popen(["dist-utils/create_static_distribution.sh", __VERSION__, "i3"]).wait()
-        subprocess.Popen(["dist-utils/create_static_distribution.sh", __VERSION__, "core2"]).wait()
+        subprocess.Popen(["dist-utils/create_static_distribution.sh",
+                          __VERSION__, "i3"]).wait()
+        subprocess.Popen(["dist-utils/create_static_distribution.sh",
+                          __VERSION__, "core2"]).wait()
 
     def initialize_options(self):
         pass
@@ -176,7 +183,9 @@ def _install_bundle(install_dir, base=None):
             if not os.path.exists(target):
                 download(type, dirpath)
 
-    tar = subprocess.Popen("tar xzf %s --exclude \"._*\"" % (os.path.abspath(target)), shell=True, cwd=dirpath)
+    tar = subprocess.Popen("tar xzf %s --exclude \"._*\"" % (
+        os.path.abspath(target)), shell=True, cwd=dirpath
+    )
     if tar.wait() != 0:
         print "Error while extracting gem bundle"
         exit(1)
@@ -202,7 +211,6 @@ def _install_bundle(install_dir, base=None):
                 os.remove(result_file)
             shutil.copy("%s/%s" % ("GEMTools/bin", file), install_dir)
             os.chmod(result_file, 0755)
-
 
     # remove temp directory
     if base is None:
@@ -242,9 +250,9 @@ def compile_gemtools():
 
 Error while compiling GEMTools. That is very unfortunate.
 
-A possible reason might be a missing dependency. Please take a look at the lines
-before this one. You need the following programs and libraries installed to compile
-the GEMTools library.
+A possible reason might be a missing dependency. Please take a look at the
+lines before this one. You need the following programs and libraries installed
+to compile the GEMTools library.
 
 Programms needed:
     * make
@@ -254,20 +262,23 @@ Libraris needed:
     * python-dev (the python headers and include files)
     * libbz2-dev (for bz compression support)
 
-On a Debian/Ubuntu system you should be able to get all needed dependencies with:
+On a Debian/Ubuntu system you should be able to get all needed dependencies
+with:
 
 sudo apt-get install make gcc python-dev libbz2-dev
 
 """
             exit(1)
 
+
 class build_ext(_build_ext):
     """Custom implementation of the extension builder to make sure that
-    libgemtools is build and to trigger the cython build AFTER cython dependency
-    was installed."""
+    libgemtools is build and to trigger the cython build AFTER cython
+    dependency was installed."""
     def run(self):
         compile_gemtools()
         try:
+            from Cython.Distutils import build_ext as c_build_ext
             """Fix the extensions, the .pyx file extensions are changed
             to .c somewhere along the line. This is a DIRTY hack and
             at some point we have to figure a better way"""
@@ -284,17 +295,24 @@ class build_ext(_build_ext):
 
             # import cython, create a new instance of cythons build_ext
             # initialize it and run it
-            from Cython.Distutils import build_ext as c_build_ext
             cb = c_build_ext(self.distribution)
             cb.finalize_options()
             cb.inplace = self.inplace
             cb.run()
         except ImportError:
-            sys.stderr.write("\nERROR: Unable to load Cython builder. Please make sure Cython is installed on your system.\n\n")
+            sys.stderr.write("\nERROR: Unable to load Cython builder. "
+                             "Please make sure Cython is installed on "
+                             "your system.\n\n")
             exit(1)
 
     def build_extensions(self):
         pass
+
+
+class build_ext_default(_build_ext):
+    def run(self):
+        compile_gemtools()
+        _build_ext.run(self)
 
 
 class build_py(_build_py):
@@ -306,7 +324,11 @@ class build_py(_build_py):
         _build_py.run(self)
 
 
-_commands = {'install': install, 'build_ext': build_ext, 'fetch': fetch, 'package': package, 'package_static': package_static, 'build_py': build_py}
+_commands = {'install': install,
+             'build_ext': build_ext,
+             'fetch': fetch, 'package':
+             package, 'package_static':
+             package_static, 'build_py': build_py}
 
 # extend nosetests command to
 # ensure we have the bundle installed and
@@ -324,28 +346,50 @@ try:
 except:
     pass
 
-gemtools = Extension("gem.gemtools", sources=["python/src/gemtools_binding.c", "python/src/gemtools.pyx", "python/src/gemapi.pxd"],
-                    include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
-                    library_dirs=['GEMTools/lib'],
-                    libraries=['z', 'bz2', 'gemtools'],
-                    extra_compile_args=['-fopenmp'],
-                    extra_link_args=["-fopenmp"]
-)
+
+# see if we have cython installed
+# if not, we should use a plain extension
+try:
+    import Cython
+    gemtools = Extension(
+        "gem.gemtools",
+        sources=["python/src/gemtools_binding.c",
+                 "python/src/gemtools.pyx",
+                 "python/src/gemapi.pxd"],
+        include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
+        library_dirs=['GEMTools/lib'],
+        libraries=['z', 'bz2', 'gemtools'],
+        extra_compile_args=['-fopenmp'],
+        extra_link_args=["-fopenmp"]
+    )
+except:
+    _commands['build_ext'] = build_ext_default
+    gemtools = Extension(
+        "gem.gemtools",
+        sources=["python/src/gemtools_binding.c", "python/src/gemtools.c"],
+        include_dirs=['GEMTools/include', 'GEMTools/resources/include/'],
+        library_dirs=['GEMTools/lib'],
+        libraries=['z', 'bz2', 'gemtools'],
+        extra_compile_args=['-fopenmp'],
+        extra_link_args=["-fopenmp"]
+    )
 
 
 setup(
-        cmdclass=_commands,
-        name='Gemtools',
-        version=__VERSION__,
-        description='Python support library for the GEM mapper and the gemtools library',
-        author='Thasso Griebel, Santiago Marco Sola',
-        author_email='thasso.griebel@gmail.com',
-        url='https://github.com/gemtools/gemtools',
-        license="GNU General Public License (GPL)",
-        long_description='''This is the python binding and wrapper library around the GEM mapper.
-The module allows you to run teh GEM mapper and simplifies building mapping
-pipeline in python. In addition, we provide a fast C based parsing library that
-is used to parse GEM results and extract mapping information.
+    cmdclass=_commands,
+    name='Gemtools',
+    version=__VERSION__,
+    description='Python support library for the GEM mapper '
+    'and the gemtools library',
+    author='Thasso Griebel, Santiago Marco Sola',
+    author_email='thasso.griebel@gmail.com',
+    url='https://github.com/gemtools/gemtools',
+    license="GNU General Public License (GPL)",
+    long_description='''This is the python binding and wrapper library around
+the GEM mapper.  The module allows you to run teh GEM mapper and simplifies
+building mapping pipeline in python. In addition, we provide a fast C based
+parsing library that is used to parse GEM results and extract mapping
+information.
 
 For more information about the GEM see
 
@@ -355,45 +399,40 @@ The code for this project can be found on github:
 
 https://github.com/gemtools/gemtools
 ''',
-        package_dir={'': 'python'},
-        packages=['gem'],
-#        package_data={"": ["%s/%s" % ("gem/gembinaries",x) for x in os.listdir("python/gem/gembinaries")]},
-        package_data={"": ["%s/%s" % ("python/gem/gembinaries", x) for x in ["gem-2-sam",
-                                                                     "gem-indexer_bwt-dna",
-                                                                     "gem-indexer_generate",
-                                                                     "gem-2-gem",
-                                                                     "gem-retriever",
-                                                                     "gtf-2-junctions",
-                                                                     "gem-indexer",
-                                                                     "gem-indexer_fasta2meta+cont",
-                                                                     "gem-info",
-                                                                     "gem-mapper",
-                                                                     "gem-rna-tools"
-                                                                     ]]},
-        ext_modules=[gemtools],
-        test_suite='nose.collector',
-        zip_safe=False,
-        include_package_data=False,
-        platforms=['lx64'],
-        classifiers=[
-          'Development Status :: 4 - Beta',
-          'Environment :: Console',
-          'Intended Audience :: End Users/Desktop',
-          'Intended Audience :: Developers',
-          'License :: OSI Approved :: GNU General Public License (GPL)',
-          'Operating System :: POSIX :: Linux',
-          'Programming Language :: Python',
-          'Programming Language :: C',
-          'Topic :: Scientific/Engineering :: Bio-Informatics',
-        ],
-        setup_requires=["cython==0.18"],
-        install_requires=[
-                "argparse",
-                "pyjip==0.2"
-                ],
-        entry_points={
-            'console_scripts': [
-                'gemtools = gem.commands:gemtools'
-            ]
-        },
+    package_dir={'': 'python'},
+    packages=['gem'],
+    package_data={"": [
+        "%s/%s" % ("python/gem/gembinaries", x)
+        for x in ["gem-2-sam",
+                  "gem-indexer_bwt-dna",
+                  "gem-indexer_generate",
+                  "gem-2-gem",
+                  "gem-retriever",
+                  "gtf-2-junctions",
+                  "gem-indexer",
+                  "gem-indexer_fasta2meta+cont",
+                  "gem-info", "gem-mapper", "gem-rna-tools"]
+    ]},
+    ext_modules=[gemtools],
+    test_suite='nose.collector',
+    zip_safe=False,
+    include_package_data=False,
+    platforms=['lx64'],
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Environment :: Console',
+        'Intended Audience :: End Users/Desktop',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: GNU General Public License (GPL)',
+        'Operating System :: POSIX :: Linux',
+        'Programming Language :: Python',
+        'Programming Language :: C',
+        'Topic :: Scientific/Engineering :: Bio-Informatics',
+    ],
+    install_requires=["argparse", "pyjip==0.2"],
+    entry_points={
+        'console_scripts': [
+            'gemtools = gem.commands:gemtools'
+        ]
+    },
 )
