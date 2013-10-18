@@ -826,7 +826,7 @@ gt_status parse_arguments(int argc,char** argv) {
       usage(gt_scorereads_options,gt_scorereads_groups,true);
       exit(1);
     case 'J':
-      gt_options_fprint_json_menu(stderr,gt_map2sam_options,gt_map2sam_groups,true,false);
+      gt_options_fprint_json_menu(stderr,gt_scorereads_options,gt_map2sam_groups,true,false);
       exit(1);
       break;
     case '?':
