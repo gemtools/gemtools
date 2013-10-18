@@ -653,12 +653,14 @@ GT_INLINE void gt_stats_make_population_profile(
   // Iterate over all/best maps
   GT_TEMPLATE_ITERATE(template,mmap) {
     GT_MMAP_ITERATE(mmap,map,end_pos) {
-      ++num_maps;
-      gt_stats_add_map_to_population(population_profile->_local_diversity_hash,map->seq_name);
-      gt_stats_add_map_to_population(population_profile->_global_diversity_hash,map->seq_name);
-      if (gt_map_segment_get_num_segments(map)>1) ++population_profile->num_map_quimeras;
+      if(map != NULL){
+        ++num_maps;
+        gt_stats_add_map_to_population(population_profile->_local_diversity_hash,map->seq_name);
+        gt_stats_add_map_to_population(population_profile->_global_diversity_hash,map->seq_name);
+        if (gt_map_segment_get_num_segments(map)>1) ++population_profile->num_map_quimeras;
+      }
     }
-    if (paired_map) {
+    if (paired_map && mmap[0] != NULL && mmap[1] != NULL) {
       if (!gt_string_equals(mmap[0]->seq_name,mmap[1]->seq_name)) ++population_profile->num_pair_quimeras;
     }
     // FIRST-MAP :: Break if we just proccess the first one
@@ -688,6 +690,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
   uint64_t total_bases=0, total_bases_trimmed=0, total_bases_not_matching=0;
   // Iterate all MMAPS
   GT_MMAP_ITERATE_ENDS(mmap,num_blocks,map,end_pos) { // Iterate over ends (/1,/2)
+    if(map == NULL) continue;
     gt_alignment* const alignment = gt_template_get_block(template,end_pos);
     gt_string* const read = alignment->read;
     gt_string* const quals = alignment->qualities;
@@ -696,6 +699,7 @@ GT_INLINE void gt_stats_make_maps_error_profile(
     uint64_t multi_block_offset = 0;
     uint64_t position = 0;
     GT_MAP_ITERATE(map,map_block) { // Iterate over splits (map blocks)
+      if(map_block == NULL) continue;
       total_bases += gt_map_get_base_length(map_block);
       GT_MISMS_ITERATE(map_block,misms) { // Iterate over mismatches/indels
         ++total_errors_events;
@@ -791,14 +795,16 @@ GT_INLINE void gt_stats_make_mmaps_profile(
       if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
         gt_stats_get_inss_distribution(maps_error_profile->inss,ins_size);
       }
-      if (mmap[0]->strand==FORWARD && mmap[1]->strand==REVERSE) { // F+R
-        ++maps_error_profile->pair_strand_fr;
-      } else if (mmap[0]->strand==REVERSE && mmap[1]->strand==FORWARD) { // R+F
-        ++maps_error_profile->pair_strand_rf;
-      } else if (mmap[0]->strand==FORWARD && mmap[1]->strand==FORWARD) { // F+F
-        ++maps_error_profile->pair_strand_ff;
-      } else { // R+R
-        ++maps_error_profile->pair_strand_rr;
+      if (gt_err != GT_TEMPLATE_INSERT_SIZE_UNPAIRED) {
+        if (mmap[0]->strand==FORWARD && mmap[1]->strand==REVERSE) { // F+R
+          ++maps_error_profile->pair_strand_fr;
+        } else if (mmap[0]->strand==REVERSE && mmap[1]->strand==FORWARD) { // R+F
+          ++maps_error_profile->pair_strand_rf;
+        } else if (mmap[0]->strand==FORWARD && mmap[1]->strand==FORWARD) { // F+F
+          ++maps_error_profile->pair_strand_ff;
+        } else { // R+R
+          ++maps_error_profile->pair_strand_rr;
+        }
       }
     } else {
       if (mmap[0]->strand==FORWARD) {
@@ -820,6 +826,9 @@ GT_INLINE void gt_stats_make_mmaps_profile(
       // SM block stats
       bool has_sm[2] = {true, true};
       GT_MMAP_ITERATE(mmap,map,end_pos) {
+        if(map == NULL){
+          continue;
+        }
         const uint64_t num_blocks = gt_map_get_num_blocks(map);
         // Calculate total_junctions & total_splitmaps
         if (num_blocks > 1) {

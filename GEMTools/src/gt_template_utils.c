@@ -263,13 +263,21 @@ GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,gt_status* gt_
   int64_t x=0;
   *gt_error=GT_TEMPLATE_INSERT_SIZE_OK;
   GT_MAP_ITERATE(mmap[0],map_it) {
-    block[0]=map_it;
-    length[0]+=gt_map_get_base_length(block[0]);
+    if(map_it != NULL){
+      block[0]=map_it;
+      length[0]+=gt_map_get_base_length(block[0]);
+    }
   } 
   GT_MAP_ITERATE(mmap[1],map_it2) {
-    block[1]=map_it2;
-    length[1]+=gt_map_get_base_length(block[1]);
+    if(map_it != NULL){
+      block[1]=map_it2;
+      length[1]+=gt_map_get_base_length(block[1]);
+    }
   } 
+  if(block[0] == NULL || block[1] == NULL){
+    *gt_error=GT_TEMPLATE_INSERT_SIZE_UNPAIRED;
+    return 0;
+  }
   if(gt_string_equals(block[0]->seq_name,block[1]->seq_name)) {
     if(block[0]->strand!=block[1]->strand) {
       if(block[0]->strand==FORWARD) {
