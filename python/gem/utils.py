@@ -22,7 +22,7 @@ import json
 import signal
 import sys
 
-# clobal process registry
+# global process registry
 # which is used to save multiprocessing.Process instances
 # to be able to terminate them in case
 # an error occured somewhere

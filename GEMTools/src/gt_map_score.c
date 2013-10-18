@@ -122,7 +122,8 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 					attr.gt_score=map->gt_score;
 					attr.phred_score=255;
 					gt_template_inc_counter(template,attr.distance);
-					gt_template_add_mmap_ends(template,map,0,&attr);
+					if(!rd)	gt_template_add_mmap_ends(template,map,0,&attr);
+					else gt_template_add_mmap_ends(template,0,map,&attr);
 				}
 			}
 		}
@@ -331,6 +332,7 @@ void gt_map_calculate_template_mapq_score(gt_template *template,gt_map_score_att
 				HASH_FIND(hh,mhash[rd],buf,key_size,mp_hash);
 				assert(mp_hash);
 				maps[rd]->phred_score=mp_hash->phred;
+      	if(maps[rd]->next_block.map) maps[rd]->next_block.map->phred_score=maps[rd]->phred_score;
 			}
 			if(maps[0] && maps[1]) { // True paired alignments.  Shouldn't need to check for duplicates, but we will anyway
 				// seq_name should be the same for the two ends in a paired alignment, but we're not taking any chances
@@ -420,6 +422,7 @@ void gt_map_calculate_alignment_mapq_score(gt_alignment *alignment,gt_map_score_
 				int tp=(int)(0.5+log(1.0-maplist[k].prob)/PHRED_KONST);
 				if(tp>254) tp=254;
 				maplist[k].map->phred_score=tp;
+      	if(maplist[k].map->next_block.map) maplist[k].map->next_block.map->phred_score=tp;
 			}
 		}
 		free(maplist);
