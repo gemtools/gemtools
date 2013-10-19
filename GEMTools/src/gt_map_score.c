@@ -79,7 +79,6 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 				uint32_t limit=ms_attr->max_strata_searched+1;
 				if(max_complete_strata>limit) max_complete_strata=limit;
 			}
-//			gt_alignment_recalculate_counters(al[rd]);
 			nmap[rd]=gt_alignment_get_num_maps(al[rd]);
 			if(nmap[rd]) {
 				GT_ALIGNMENT_ITERATE(al[rd],map) {
@@ -119,7 +118,7 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 				if(!map_flag[rd][i]) {
 					gt_map *map=gt_alignment_get_map(al[rd],i);
 					attr.distance=gt_map_get_global_distance(map);
-					attr.gt_score=map->gt_score;
+					attr.gt_score=rd?(map->gt_score<<16):map->gt_score;
 					attr.phred_score=255;
 					gt_template_inc_counter(template,attr.distance);
 					if(!rd)	gt_template_add_mmap_ends(template,map,0,&attr);
@@ -129,7 +128,7 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 		}
 		free(map_flag[0]);
 	}
-	gt_attributes_remove(template->attributes,GT_ATTR_ID_TAG_PAIR);
+//	gt_attributes_remove(template->attributes,GT_ATTR_ID_TAG_PAIR);
 }
 
 /*
@@ -369,10 +368,7 @@ void gt_map_calculate_template_mapq_score(gt_template *template,gt_map_score_att
 				size_t key_size=gt_map_score_make_key(buf,maps[rd]);
 				HASH_FIND(hh,mhash[rd],buf,key_size,mp_hash);
 				assert(mp_hash);
-	      GT_MAP_SEGMENT_ITERATOR(maps[rd],map_segment_iterator) {
-	      	 gt_map_segment_iterator_get_map(&map_segment_iterator)->phred_score=mp_hash->phred;
-	      }
-      	if(maps[rd]->next_block.map) maps[rd]->next_block.map->phred_score=maps[rd]->phred_score;
+	      GT_MAP_ITERATE(maps[rd],mapb) { mapb->phred_score=mp_hash->phred; }
 			}
 			if(maps[0] && maps[1]) {
 				size_t key_size=gt_map_score_make_pair_key(buf,maps[0],maps[1]);
@@ -458,9 +454,7 @@ void gt_map_calculate_alignment_mapq_score(gt_alignment *alignment,gt_map_score_
 				tp=(int)(0.5+log(1.0-maplist[k].prob)/PHRED_KONST);
 				if(tp>254) tp=254;
 			}
-			GT_MAP_SEGMENT_ITERATOR(maplist[k].map,map_segment_iterator) {
-				gt_map_segment_iterator_get_map(&map_segment_iterator)->phred_score=tp;
-			}
+			GT_MAP_ITERATE(maplist[k].map,mapb) { mapb->phred_score=tp;	}
 		}
 		free(maplist);
 	}

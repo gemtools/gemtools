@@ -418,10 +418,8 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar(
     gt_map* const next_map_block = gt_map_get_next_block(map_block);
     if (next_map_block!=NULL && GT_MAP_IS_SAME_SEGMENT(map_block,next_map_block)) { // SplitMap (Otherwise is a quimera)
       int64_t sz=gt_map_get_junction_size(map_block);
-      if(sz>=0) {
-      	error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
-      	if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
-      }
+      error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
+      if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
     }
     // Print CIGAR for current map block
     gt_output_sam_gprint_map_block_cigar_reverse(gprinter,map_block,attributes);
@@ -432,10 +430,8 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar(
     gt_map* const next_map_block = gt_map_get_next_block(map_block);
     if (next_map_block!=NULL && GT_MAP_IS_SAME_SEGMENT(map_block,next_map_block)) { // SplitMap (Otherwise is a quimera)
       int64_t sz=gt_map_get_junction_size(map_block);
-      if(sz>=0) {
-      	if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
-      	error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
-      }
+      if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
+      error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
     }
   }
   return error_code;

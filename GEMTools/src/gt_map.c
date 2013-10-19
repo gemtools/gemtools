@@ -603,7 +603,7 @@ GT_INLINE bool gt_map_next_segment(gt_map_segment_iterator* const map_segment_it
   do {
     next_map = gt_map_get_next_block(map);
     // Check not connected or end
-    if (next_map==NULL || !GT_MAP_IS_SAME_SEGMENT(base_map,next_map) || base_map->next_block.junction_size<0) break;
+    if (next_map==NULL || !GT_MAP_IS_SAME_SEGMENT(base_map,next_map)) break;
     // Add Block
     map_segment_iterator->total_base_length += gt_map_get_base_length(next_map);
     ++(map_segment_iterator->total_map_blocks);
