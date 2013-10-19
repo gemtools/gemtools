@@ -222,6 +222,7 @@ GT_INLINE gt_status gt_output_sam_gprint_qname(gt_generic_printer* const gprinte
  * 0x100 (Bit 8)  => Secondary alignment [not primary alignment]
  * 0x200 (Bit 9)  => Not passing quality controls [read fails platform/vendor quality checks]
  * 0x400 (Bit 10) => PCR or optical duplicate [read is PCR or optical duplicate]
+ * 0x800 (Bit 11) => Supplementary alignment [second or subsequent segment in a chimeric alignment]
  *
  * - RULE1:: Bit 0x4 is the only reliable place to tell whether the segment is unmapped. If 0x4 is set,
  *     no assumptions can be made about RNAME, POS, CIGAR, MAPQ, bits 0x2, 0x10 and 0x100
@@ -235,14 +236,14 @@ GT_INLINE gt_status gt_output_sam_gprint_qname(gt_generic_printer* const gprinte
  * - RULE4:: If 0x1 is unset, no assumptions can be made about 0x2, 0x8, 0x20, 0x40 and 0x80.
 */
 GT_INLINE uint16_t gt_output_sam_calculate_flag_se_map(
-    gt_map* const map,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
+    gt_map* const map,const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
   return (gt_expect_true(map!=NULL)) ?
-      gt_output_sam_calculate_flag_se(true,map->strand,secondary_alignment,not_passing_QC,PCR_duplicate): // Mapped
-      gt_output_sam_calculate_flag_se(false,FORWARD,secondary_alignment,not_passing_QC,PCR_duplicate); // Unmapped
+      gt_output_sam_calculate_flag_se(true,map->strand,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate): // Mapped
+      gt_output_sam_calculate_flag_se(false,FORWARD,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate); // Unmapped
 }
 GT_INLINE uint16_t gt_output_sam_calculate_flag_pe_map(
     gt_map* const map,gt_map* const mate,const bool is_map_first_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired) {
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired) {
   return gt_output_sam_calculate_flag_pe(
       map!=NULL && mate!=NULL && paired, /* read_paired */
       map!=NULL,               /* read_mapped */
@@ -251,13 +252,13 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_pe_map(
       (mate!=NULL) ? mate->strand : FORWARD, /* mate_strand */
       is_map_first_in_pair,    /* first_in_pair */
       !is_map_first_in_pair,   /* last_in_pair */
-      secondary_alignment,not_passing_QC,PCR_duplicate);
+      secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate);
 }
 GT_INLINE uint16_t gt_output_sam_calculate_flag_pe(
     const bool read_paired,const bool read_mapped,const bool mate_mapped,
     const gt_strand read_strand,const gt_strand mate_strand,
     const bool first_in_pair,const bool last_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
   /* 0x1 */
   uint16_t sam_flag = GT_SAM_FLAG_MULTIPLE_SEGMENTS;
   /* 0x4  */
@@ -272,6 +273,7 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_pe(
   } else {
     /* 0x10 */  if (read_strand==REVERSE) sam_flag |= GT_SAM_FLAG_REVERSE_COMPLEMENT;
     /* 0x100 */ if (secondary_alignment) sam_flag |= GT_SAM_FLAG_SECONDARY_ALIGNMENT;
+    /* 0x800 */ if (supplementary_alignment) sam_flag |= GT_SAM_FLAG_SUPPLEMENTARY_ALIGNMENT;
     /* 0x8 */
     if (!mate_mapped) {
       sam_flag |= GT_SAM_FLAG_NEXT_UNMAPPED;
@@ -290,7 +292,7 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_pe(
 }
 GT_INLINE uint16_t gt_output_sam_calculate_flag_se(
     const bool read_mapped,const gt_strand read_strand,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
   uint16_t sam_flag = 0; // (**RULE4)
   /* 0x4  */
   if (!read_mapped) { // (**RULE1)
@@ -298,6 +300,7 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_se(
   } else {
     /* 0x10 */  if (read_strand==REVERSE) sam_flag |= GT_SAM_FLAG_REVERSE_COMPLEMENT;
     /* 0x100 */ if (secondary_alignment) sam_flag |= GT_SAM_FLAG_SECONDARY_ALIGNMENT;
+    /* 0x800 */ if (supplementary_alignment) sam_flag |= GT_SAM_FLAG_SUPPLEMENTARY_ALIGNMENT;
   }
   /* 0x200 */
   if (not_passing_QC) sam_flag |= GT_SAM_FLAG_NOT_PASSING_QC;
@@ -310,14 +313,14 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag(
     const bool read_mapped,const bool mate_mapped,
     const gt_strand read_strand,const gt_strand mate_strand,
     const bool first_in_pair,const bool last_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate) {
   return (paired_end) ? /* 0x1 */
       gt_output_sam_calculate_flag_pe(
           read_paired,read_mapped,mate_mapped,
           read_strand,mate_strand,first_in_pair,last_in_pair,
-          secondary_alignment,not_passing_QC,PCR_duplicate): // PE
+          secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate): // PE
       gt_output_sam_calculate_flag_se(read_mapped,read_strand,
-          secondary_alignment,not_passing_QC,PCR_duplicate); // SE
+          secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate); // SE
 }
 /*
  * SAM CIGAR
@@ -414,9 +417,11 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar(
     // Check following map blocks
     gt_map* const next_map_block = gt_map_get_next_block(map_block);
     if (next_map_block!=NULL && GT_MAP_IS_SAME_SEGMENT(map_block,next_map_block)) { // SplitMap (Otherwise is a quimera)
-      error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
       int64_t sz=gt_map_get_junction_size(map_block);
-      if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
+      if(sz>=0) {
+      	error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
+      	if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
+      }
     }
     // Print CIGAR for current map block
     gt_output_sam_gprint_map_block_cigar_reverse(gprinter,map_block,attributes);
@@ -427,8 +432,10 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar(
     gt_map* const next_map_block = gt_map_get_next_block(map_block);
     if (next_map_block!=NULL && GT_MAP_IS_SAME_SEGMENT(map_block,next_map_block)) { // SplitMap (Otherwise is a quimera)
       int64_t sz=gt_map_get_junction_size(map_block);
-      if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
-      error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
+      if(sz>=0) {
+      	if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
+      	error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
+      }
     }
   }
   return error_code;
@@ -482,25 +489,25 @@ GT_INLINE void gt_output_sam_gprint_map_placeholder_xa(gt_generic_printer* const
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities,map,position,phred_score, \
-    hard_left_trim_read,hard_right_trim_read,secondary_alignment,not_passing_QC,PCR_duplicate,attributes
+    hard_left_trim_read,hard_right_trim_read,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate,attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_core_fields_se,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes);
 GT_INLINE gt_status gt_output_sam_gprint_core_fields_se(gt_generic_printer* const gprinter,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
   // (1) Print QNAME
   gt_output_sam_gprint_qname(gprinter,tag);
   // (2) Print FLAG
-  gt_gprintf(gprinter,"\t%"PRId16,gt_output_sam_calculate_flag_se_map(map,secondary_alignment,not_passing_QC,PCR_duplicate));
+  gt_gprintf(gprinter,"\t%"PRId16,gt_output_sam_calculate_flag_se_map(map,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate));
   // Is mapped?
   if (gt_expect_true(map!=NULL)) {
     // (3) Print RNAME
@@ -541,20 +548,20 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_se(gt_generic_printer* cons
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities, \
     map,position,phred_score,mate,mate_position,template_length, \
-    hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,paired,attributes
+    hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate,paired,attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_core_fields_pe,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     gt_map* const mate,const uint64_t mate_position,const int64_t template_length,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
     gt_output_sam_attributes* const attributes);
 GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* const gprinter,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     gt_map* const mate,const uint64_t mate_position,const int64_t template_length,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
     gt_output_sam_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
@@ -562,7 +569,7 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* cons
   gt_output_sam_gprint_qname(gprinter,tag);
   // (2) Print FLAG
   gt_gprintf(gprinter,"\t%"PRId16,gt_output_sam_calculate_flag_pe_map(
-      map,mate,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,paired));
+      map,mate,is_map_first_in_pair,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate,paired));
   // (3) Print RNAME
   // (4) Print POS
   // (5) Print MAPQ
@@ -609,16 +616,16 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* cons
   return 0;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities,map_segment,hard_left_trim_read,hard_right_trim_read,secondary_alignment,not_passing_QC,PCR_duplicate,attributes
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities,map_segment,hard_left_trim_read,hard_right_trim_read,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate,attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_map_core_fields_se,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_map* const map_segment,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes);
 GT_INLINE gt_status gt_output_sam_gprint_map_core_fields_se(gt_generic_printer* const gprinter,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_map* const map_segment,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
@@ -626,22 +633,22 @@ GT_INLINE gt_status gt_output_sam_gprint_map_core_fields_se(gt_generic_printer* 
       map_segment,
       (map_segment!=NULL) ? gt_map_get_global_coordinate(map_segment) : 0,
       (map_segment!=NULL) ? gt_map_get_phred_score(map_segment) : GT_MAP_NO_PHRED_SCORE,
-      hard_left_trim_read,hard_right_trim_read,secondary_alignment,not_passing_QC,PCR_duplicate,attributes);
+      hard_left_trim_read,hard_right_trim_read,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate,attributes);
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities,map_segment,mate_segment,mmap_attributes, \
-    hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,attributes
+    hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate,attributes
 GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_map_core_fields_pe,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map_segment,gt_map* const mate_segment,gt_mmap_attributes* const mmap_attributes,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes);
 GT_INLINE gt_status gt_output_sam_gprint_map_core_fields_pe(gt_generic_printer* const gprinter,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map_segment,gt_map* const mate_segment,gt_mmap_attributes* const mmap_attributes,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_STRING_CHECK(tag);
@@ -652,7 +659,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_core_fields_pe(gt_generic_printer* 
       mate_segment,
       (mate_segment!=NULL) ? gt_map_get_global_coordinate(mate_segment) : 0,
       (map_segment!=NULL && mate_segment!=NULL) ? gt_map_get_observed_template_size(map_segment,mate_segment) : 0,
-      hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,not_passing_QC,PCR_duplicate,mmap_attributes?mmap_attributes->paired:false,attributes);
+      hard_left_trim_read,hard_right_trim_read,is_map_first_in_pair,secondary_alignment,supplementary_alignment,not_passing_QC,PCR_duplicate,mmap_attributes?mmap_attributes->paired:false,attributes);
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
 #define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS tag,read,qualities,map_placeholder,output_attributes
@@ -667,14 +674,14 @@ GT_INLINE gt_status gt_output_sam_gprint_map_placeholder(gt_generic_printer* con
   if (map_placeholder->type==GT_MAP_PLACEHOLDER) {
     return gt_output_sam_gprint_map_core_fields_se(gprinter,tag,read,qualities,map_placeholder->map,
         map_placeholder->hard_trim_left,map_placeholder->hard_trim_right,
-        map_placeholder->secondary_alignment,map_placeholder->not_passing_QC,map_placeholder->PCR_duplicate,
+        map_placeholder->secondary_alignment,map_placeholder->supplementary_alignment,map_placeholder->not_passing_QC,map_placeholder->PCR_duplicate,
         output_attributes);
   } else {
     return gt_output_sam_gprint_map_core_fields_pe(gprinter,tag,read,qualities,
         map_placeholder->map,map_placeholder->paired_end.mate,map_placeholder->paired_end.mmap_attributes,
         map_placeholder->hard_trim_left,map_placeholder->hard_trim_right,
         map_placeholder->paired_end.paired_end_position==0,
-        map_placeholder->secondary_alignment,map_placeholder->not_passing_QC,map_placeholder->PCR_duplicate,output_attributes);
+        map_placeholder->secondary_alignment,map_placeholder->supplementary_alignment,map_placeholder->not_passing_QC,map_placeholder->PCR_duplicate,output_attributes);
   }
 }
 /*

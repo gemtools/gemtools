@@ -393,6 +393,7 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
 	gt_output_sam_attributes *output_sam_attributes = gt_output_sam_attributes_new();
 	gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
 	gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
+	gt_output_sam_attributes_set_print_mismatches(output_sam_attributes,true);
 	gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
 	gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
 	gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
@@ -429,7 +430,7 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
 
 void gt_scorereads_print_template(gt_buffered_output_file *buffered_output,gt_template *template,gt_output_sam_attributes *output_sam_attributes,sr_param *param)
 {
-	gt_status print_code;
+	gt_status print_code=GT_STATUS_OK;
 	if(param->output_format==MAP) {
 		gt_template_add_mcs_tags(template,&param->map_score_attr);
 		print_code=gt_output_generic_bofprint_template(buffered_output,template,param->printer_attr);
@@ -444,7 +445,7 @@ void gt_scorereads_print_template(gt_buffered_output_file *buffered_output,gt_te
 
 void gt_scorereads_print_alignment(gt_buffered_output_file *buffered_output,gt_alignment *alignment,gt_output_sam_attributes *output_sam_attributes,sr_param *param)
 {
-	gt_status print_code;
+	gt_status print_code=GT_STATUS_OK;
 	if(param->output_format==MAP) {
 		gt_alignment_add_mcs_tags(alignment,&param->map_score_attr);
 		print_code=gt_output_generic_bofprint_alignment(buffered_output,alignment,param->printer_attr);
