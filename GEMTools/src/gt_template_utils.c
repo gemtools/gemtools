@@ -906,6 +906,9 @@ GT_INLINE void gt_map_placeholder_add_mmap(
         if(mmap_ph->supplementary_alignment == false) {
         	// Pick primary alignment
         	if (cmp_with_best) GT_MAP_PLACEHOLDER_CMP_BEST_PH(*best_mmap_ph,*best_mmap_ph_position,*mmap_ph,num_placeholders);
+        } else {
+        	if(!mmap_ph->map->attributes) mmap_ph->map->attributes=gt_attributes_new();
+        	gt_attributes_add(mmap_ph->map->attributes,GT_ATTR_ID_HEAD_BLOCK,&map_endA,gt_map*);
         }
         ++num_placeholders;
         if (!split_segments) break; // Break if quimeras are not supposed to be unfolded
@@ -926,6 +929,9 @@ GT_INLINE void gt_map_placeholder_add_mmap(
           if(mmap_ph->supplementary_alignment == false) {
           	// Pick primary alignment
           	if (cmp_with_best) GT_MAP_PLACEHOLDER_CMP_BEST_PH(*best_mmap_ph,*best_mmap_ph_position,*mmap_ph,num_placeholders);
+          } else {
+          	if(!mmap_ph->map->attributes) mmap_ph->map->attributes=gt_attributes_new();
+          	gt_attributes_add(mmap_ph->map->attributes,GT_ATTR_ID_HEAD_BLOCK,&map_endA,gt_map*);
           }
           ++num_placeholders;
           if (!split_segments) break; // Break if quimeras are not supposed to be unfolded
@@ -1062,6 +1068,7 @@ GT_INLINE void gt_map_placeholder_add_map(
     gt_map_placeholder* const mmap_ph) {
   uint64_t num_placeholders = gt_vector_get_used(mmap_placeholder);
   mmap_ph->type = GT_MAP_PLACEHOLDER;
+  mmap_ph->supplementary_alignment = false;
   if (map==NULL) { // Unmapped
     mmap_ph->map = NULL;
     mmap_ph->hard_trim_left = 0;
@@ -1076,12 +1083,17 @@ GT_INLINE void gt_map_placeholder_add_map(
       mmap_ph->hard_trim_right = (split_segments) ? gt_map_segment_iterator_get_remaining_bases(&map_segment_iterator,read) : 0;
       gt_vector_insert(mmap_placeholder,*mmap_ph,gt_map_placeholder);
       // Pick primary alignment
-      if (best_mmap_ph_position!=NULL) {
-        GT_MAP_PLACEHOLDER_CMP_BEST_PH(*best_mmap_ph,*best_mmap_ph_position,*mmap_ph,num_placeholders);
+      if(mmap_ph->supplementary_alignment == false) {
+        if (best_mmap_ph_position!=NULL)
+          GT_MAP_PLACEHOLDER_CMP_BEST_PH(*best_mmap_ph,*best_mmap_ph_position,*mmap_ph,num_placeholders);
+      } else {
+      	if(!mmap_ph->map->attributes) mmap_ph->map->attributes=gt_attributes_new();
+      	gt_attributes_add(mmap_ph->map->attributes,GT_ATTR_ID_HEAD_BLOCK,map,gt_map*);
       }
       ++num_placeholders;
       // Break if quimeras are not supposed to be unfolded
       if (!split_segments) break;
+      mmap_ph->supplementary_alignment = true;
     }
   }
 }

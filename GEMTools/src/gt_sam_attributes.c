@@ -8,6 +8,7 @@
 
 
 #include "gt_sam_attributes.h"
+#include "gt_output_sam.h"
 
 /*
  * SAM File specifics Attribute (SAM Headers)
@@ -630,8 +631,52 @@ GT_INLINE gt_status gt_sam_attribute_generate_XS(gt_sam_attribute_func_params* f
   }
   return 0; // OK
 }
+
 GT_INLINE void gt_sam_attributes_add_tag_XS(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_sfunc(sam_attributes,"XS",'A',gt_sam_attribute_generate_XS);
+}
+//  SA  Z  Other supplementary alignmnets for chimeric alignment
+GT_INLINE gt_status gt_sam_attribute_generate_SA(gt_sam_attribute_func_params *func_params) {
+	if(func_params->alignment_info->map==NULL) { // Unmapped
+		return -1;
+	}
+	gt_map* map=func_params->alignment_info->map;
+	/* If we are a chimeric alignment there are two situations:
+	 *  (a) We are the first segment, in which case supplementary_alignment will be false and the first block is given by map
+	 *  (b) We are a later segment, in which case supplementary_alignment will be true and the first map block is given by GT_ATTR_ID_HEAD_BLOCK
+	 */
+	gt_map* map_head=NULL;
+	if(func_params->alignment_info->supplementary_alignment==true && map->attributes) {
+		gt_map **mpp=gt_attributes_get(map->attributes,GT_ATTR_ID_HEAD_BLOCK);
+		if(mpp) map_head=*mpp;
+	} else {
+		if(gt_map_segment_get_num_segments(map)>1) map_head=map;
+	}
+	// If map_head is not set either we are not chimeric or we don't have the information on the primary segment for some reason
+	if(!map_head) return -1;
+	gt_string *sa_string=gt_string_new(16);
+	gt_generic_printer *gpr=gt_alloc(gt_generic_printer);
+	gt_generic_new_string_printer(gpr,sa_string);
+	gt_gprintf(gpr,"SA:Z");
+	char sep=':';
+	gt_map_placeholder *mph=func_params->alignment_info;
+  GT_MAP_SEGMENT_ITERATOR(map_head,map_segment_iterator) {
+    gt_map *seg=gt_map_segment_iterator_get_map(&map_segment_iterator);
+    if(seg!=map) { // Only print output for other segments
+  		gt_string_clear(sa_string);
+  		gt_gprintf(gpr,"%c"PRIgts",%"PRIu64",%c,",sep,PRIgts_content(seg->seq_name),gt_map_get_global_coordinate(seg),
+    				(seg->strand==FORWARD)?'+':'-');
+  		gt_output_sam_gprint_map_cigar(gpr,seg,true,mph->hard_trim_left,mph->hard_trim_right);
+  		gt_gprintf(gpr,",%d",seg->phred_score);
+  		sep=';';
+    }
+  }
+  func_params->return_s=sa_string;
+  free(gpr);
+	return 0; // OK
+}
+GT_INLINE void gt_sam_attributes_add_tag_SA(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_sfunc(sam_attributes,"SA",'Z',gt_sam_attribute_generate_SA);
 }
 
 //  MQ  i  MAPQ score for mate if paired end alignment

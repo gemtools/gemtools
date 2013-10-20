@@ -327,15 +327,15 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag(
  */
 #define GT_OUTPUT_SAM_CIGAR_FORWARD_MATCH() \
   if (misms_pos!=centinel) { \
-    gt_gprintf(gprinter,"%"PRIu64"%c",misms_pos-centinel,(attributes->print_mismatches)?'=':'M'); \
+    gt_gprintf(gprinter,"%"PRIu64"%c",misms_pos-centinel,(print_mismatches)?'=':'M'); \
     centinel = misms_pos; \
   }
 #define GT_OUTPUT_SAM_CIGAR_REVERSE_MATCH() \
   if (misms_pos!=centinel) { \
-    gt_gprintf(gprinter,"%"PRIu64"%c",centinel-misms_pos,(attributes->print_mismatches)?'=':'M'); \
+    gt_gprintf(gprinter,"%"PRIu64"%c",centinel-misms_pos,(print_mismatches)?'=':'M'); \
     centinel = misms_pos; \
   }
-GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_reverse(gt_generic_printer* const gprinter,gt_map* const map,gt_output_sam_attributes* const attributes) {
+GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_reverse(gt_generic_printer* const gprinter,gt_map* const map,bool print_mismatches) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_MAP_CHECK(map);
   // Map auxiliary variables
@@ -350,7 +350,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_reverse(gt_generic_prin
     const uint64_t misms_pos = gt_misms_get_position(misms);
     switch (misms->misms_type) {
       case MISMS:
-        if (attributes->print_mismatches) {
+        if (print_mismatches) {
           GT_OUTPUT_SAM_CIGAR_REVERSE_MATCH();
           gt_gprintf(gprinter,"1X");
           --centinel;
@@ -375,7 +375,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_reverse(gt_generic_prin
   if (centinel > 0) gt_gprintf(gprinter,"%"PRIu64"M",centinel);
   return 0;
 }
-GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_forward(gt_generic_printer* const gprinter,gt_map* const map,gt_output_sam_attributes* const attributes) {
+GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_forward(gt_generic_printer* const gprinter,gt_map* const map,bool print_mismatches) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_MAP_CHECK(map);
   const uint64_t map_length = gt_map_get_base_length(map);
@@ -384,7 +384,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_forward(gt_generic_prin
     const uint64_t misms_pos = gt_misms_get_position(misms);
     switch (misms->misms_type) {
       case MISMS:
-        if (attributes->print_mismatches) {
+        if (print_mismatches) {
           GT_OUTPUT_SAM_CIGAR_FORWARD_MATCH();
           gt_gprintf(gprinter,"1X");
           ++centinel;
@@ -409,7 +409,7 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar_forward(gt_generic_prin
   return 0;
 }
 GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar(
-    gt_generic_printer* const gprinter,gt_map* const map_block,gt_output_sam_attributes* const attributes) {
+    gt_generic_printer* const gprinter,gt_map* const map_block,bool print_mismatches) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_MAP_CHECK(map_block);
   gt_status error_code = 0;
@@ -418,26 +418,26 @@ GT_INLINE gt_status gt_output_sam_gprint_map_block_cigar(
     gt_map* const next_map_block = gt_map_get_next_block(map_block);
     if (next_map_block!=NULL && GT_MAP_IS_SAME_SEGMENT(map_block,next_map_block)) { // SplitMap (Otherwise is a quimera)
       int64_t sz=gt_map_get_junction_size(map_block);
-      error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
+      error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,print_mismatches);
       if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
     }
     // Print CIGAR for current map block
-    gt_output_sam_gprint_map_block_cigar_reverse(gprinter,map_block,attributes);
+    gt_output_sam_gprint_map_block_cigar_reverse(gprinter,map_block,print_mismatches);
   } else {
     // Print CIGAR for current map block
-    gt_output_sam_gprint_map_block_cigar_forward(gprinter,map_block,attributes);
+    gt_output_sam_gprint_map_block_cigar_forward(gprinter,map_block,print_mismatches);
     // Check following map blocks
     gt_map* const next_map_block = gt_map_get_next_block(map_block);
     if (next_map_block!=NULL && GT_MAP_IS_SAME_SEGMENT(map_block,next_map_block)) { // SplitMap (Otherwise is a quimera)
       int64_t sz=gt_map_get_junction_size(map_block);
       if(sz) gt_gprintf(gprinter,"%"PRId64"N",sz);
-      error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,attributes);
+      error_code = gt_output_sam_gprint_map_block_cigar(gprinter,next_map_block,print_mismatches);
     }
   }
   return error_code;
 }
 GT_INLINE gt_status gt_output_sam_gprint_map_cigar(
-    gt_generic_printer* const gprinter,gt_map* const map_segment,gt_output_sam_attributes* const attributes,
+    gt_generic_printer* const gprinter,gt_map* const map_segment,bool print_mismatches,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_MAP_CHECK(map_segment);
@@ -445,22 +445,21 @@ GT_INLINE gt_status gt_output_sam_gprint_map_cigar(
   // Check strandness
   if (gt_map_get_strand(map_segment)==FORWARD) {
     if (hard_left_trim_read>0) gt_gprintf(gprinter,"%"PRIu64"H",hard_left_trim_read);
-    error_code=gt_output_sam_gprint_map_block_cigar(gprinter,map_segment,attributes);
+    error_code=gt_output_sam_gprint_map_block_cigar(gprinter,map_segment,print_mismatches);
     if (hard_right_trim_read>0) gt_gprintf(gprinter,"%"PRIu64"H",hard_right_trim_read);
   } else {
     if (hard_right_trim_read>0) gt_gprintf(gprinter,"%"PRIu64"H",hard_right_trim_read);
-    error_code=gt_output_sam_gprint_map_block_cigar(gprinter,map_segment,attributes);
+    error_code=gt_output_sam_gprint_map_block_cigar(gprinter,map_segment,print_mismatches);
     if (hard_left_trim_read>0) gt_gprintf(gprinter,"%"PRIu64"H",hard_left_trim_read);
   }
   return error_code;
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS
-#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map_segment,attributes
-GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_cigar,gt_map* const map_segment,gt_output_sam_attributes* const attributes);
-GT_INLINE gt_status gt_output_sam_gprint_cigar(gt_generic_printer* const gprinter,gt_map* const map_segment,gt_output_sam_attributes* const attributes) {
-  GT_GENERIC_PRINTER_CHECK(gprinter);
+#define GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS map_segment,print_mismatches
+GT_GENERIC_PRINTER_IMPLEMENTATION(gt_output_sam,print_cigar,gt_map* const map_segment,bool print_mismatches);
+GT_INLINE gt_status gt_output_sam_gprint_cigar(gt_generic_printer* const gprinter,gt_map* const map_segment,bool print_mismatches) {
   GT_MAP_CHECK(map_segment);
-  return gt_output_sam_gprint_map_cigar(gprinter,map_segment,attributes,0,0);
+  return gt_output_sam_gprint_map_cigar(gprinter,map_segment,print_mismatches,0,0);
 }
 /*
  * SAM CORE fields
@@ -480,7 +479,7 @@ GT_INLINE void gt_output_sam_gprint_map_placeholder_xa(gt_generic_printer* const
       PRIgts_content(map_ph->map->seq_name),
       (map_ph->map->strand==FORWARD)?'+':'-',
       gt_map_get_global_coordinate(map_ph->map)); // Print the map
-  gt_output_sam_gprint_map_cigar(gprinter,map_ph->map,attributes,map_ph->hard_trim_left,map_ph->hard_trim_right);
+  gt_output_sam_gprint_map_cigar(gprinter,map_ph->map,attributes->print_mismatches,map_ph->hard_trim_left,map_ph->hard_trim_right);
   gt_gprintf(gprinter,",%"PRIu64";",gt_map_get_levenshtein_distance(map_ph->map));
 }
 #undef GT_GENERIC_PRINTER_DELEGATE_CALL_PARAMS

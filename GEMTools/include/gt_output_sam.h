@@ -150,7 +150,11 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag_pe_map(
 /*
  * SAM CIGAR
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_cigar,gt_map* const map_segment,gt_output_sam_attributes* const attributes);
+GT_INLINE gt_status gt_output_sam_gprint_map_cigar(
+    gt_generic_printer* const gprinter,gt_map* const map_segment,bool print_mismatches,
+    const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read);
+
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_cigar,gt_map* const map_segment,bool print_mismatches);
 /*
  * SAM CORE fields
  *   (QNAME,FLAG,RNAME,POS,MAPQ,CIGAR,RNEXT,PNEXT,TLEN,SEQ,QUAL). No EOL is printed

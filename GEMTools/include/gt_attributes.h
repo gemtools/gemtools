@@ -23,6 +23,8 @@
 #define GT_ATTR_ID_LEFT_TRIM  "LTrim"  // (gt_read_trim)
 #define GT_ATTR_ID_RIGHT_TRIM "RTrim"  // (gt_read_trim)
 
+#define GT_ATTR_ID_HEAD_BLOCK "HBlock" // (gt_map)
+
 #define GT_ATTR_ID_SEGMENTED_READ_INFO "SegmentedReadInfo" // (gt_segmented_read_info)
 
 #define GT_ATTR_ID_SAM_FLAGS "SAM_FLAGS"
