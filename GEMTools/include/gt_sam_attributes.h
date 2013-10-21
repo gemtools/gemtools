@@ -309,4 +309,7 @@ GT_INLINE void gt_sam_attributes_add_tag_md(gt_sam_attributes* const sam_attribu
 GT_INLINE void gt_sam_attributes_add_tag_XS(gt_sam_attributes* const sam_attributes);
 //  SA  Z  Supplementary alignment information for chimeric alignments
 GT_INLINE void gt_sam_attributes_add_tag_SA(gt_sam_attributes* const sam_attributes);
+//  MD  Z  Mismatch information (complementary to CIGAR string)
+GT_INLINE void gt_sam_attributes_add_tag_MD(gt_sam_attributes* const sam_attributes);
+
 #endif /* GT_SAM_DATA_ATTRIBUTES_H_ */
