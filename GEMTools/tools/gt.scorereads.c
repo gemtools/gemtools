@@ -393,12 +393,12 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
 	gt_output_sam_attributes *output_sam_attributes = gt_output_sam_attributes_new();
 	gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
 	gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
-	gt_output_sam_attributes_set_print_mismatches(output_sam_attributes,true);
+	gt_output_sam_attributes_set_print_mismatches(output_sam_attributes,false);
 	gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
-	gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
 	gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
 	gt_sam_attributes_add_tag_SA(output_sam_attributes->sam_attributes);
 	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
+		gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
 		gt_sam_attributes_add_tag_XP(output_sam_attributes->sam_attributes);
 		gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
 		gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);

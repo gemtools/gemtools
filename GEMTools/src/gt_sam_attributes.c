@@ -666,7 +666,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_SA(gt_sam_attribute_func_params *f
   		gt_string_clear(sa_string);
   		gt_gprintf(gpr,"%c"PRIgts",%"PRIu64",%c,",sep,PRIgts_content(seg->seq_name),gt_map_get_global_coordinate(seg),
     				(seg->strand==FORWARD)?'+':'-');
-  		gt_output_sam_gprint_map_cigar(gpr,seg,true,mph->hard_trim_left,mph->hard_trim_right);
+  		gt_output_sam_gprint_map_cigar(gpr,seg,false,mph->hard_trim_left,mph->hard_trim_right);
   		gt_gprintf(gpr,",%d",seg->phred_score);
   		sep=';';
     }

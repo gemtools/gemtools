@@ -510,7 +510,7 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_se(gt_generic_printer* cons
     // (5) Print MAPQ
     gt_gprintf(gprinter,"\t"PRIgts"\t%"PRIu64"\t%"PRIu8"\t",PRIgts_content(map->seq_name),position,phred_score);
     // (6) Print CIGAR
-    gt_output_sam_gprint_map_cigar(gprinter,map,attributes,hard_left_trim_read,hard_right_trim_read);
+    gt_output_sam_gprint_map_cigar(gprinter,map,attributes->print_mismatches,hard_left_trim_read,hard_right_trim_read);
   } else {
     // (3) Print RNAME
     // (4) Print POS
@@ -571,7 +571,7 @@ GT_INLINE gt_status gt_output_sam_gprint_core_fields_pe(gt_generic_printer* cons
   // (6) Print CIGAR
   if (map!=NULL) {
     gt_gprintf(gprinter,"\t"PRIgts"\t%"PRIu64"\t%"PRIu8"\t",PRIgts_content(map->seq_name),position,phred_score);
-    gt_output_sam_gprint_map_cigar(gprinter,map,attributes,hard_left_trim_read,hard_right_trim_read); // CIGAR
+    gt_output_sam_gprint_map_cigar(gprinter,map,attributes->print_mismatches,hard_left_trim_read,hard_right_trim_read); // CIGAR
   } else if(mate!=NULL) {
     gt_gprintf(gprinter,"\t"PRIgts"\t%"PRIu64"\t0\t*",PRIgts_content(mate->seq_name),mate_position);
   } else {
