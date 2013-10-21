@@ -190,7 +190,7 @@ GT_INLINE void gt_map_reverse_misms(gt_map* const map);
  */
 #define GT_MAP_IS_SAME_SEGMENT(map_1,map_2) \
   (gt_string_equals(gt_map_get_string_seq_name(map_1),gt_map_get_string_seq_name(map_2)) && \
-   gt_map_get_strand(map_1)==gt_map_get_strand(map_2))
+   gt_map_get_strand(map_1)==gt_map_get_strand(map_2) && map_1->next_block.junction_size>=0)
 GT_INLINE uint64_t gt_map_segment_get_num_segments(gt_map* const map);
 GT_INLINE gt_map* gt_map_segment_get_next_block(gt_map* const map);
 GT_INLINE gt_map* gt_map_segment_get_last_block(gt_map* const map);

@@ -79,7 +79,6 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 				uint32_t limit=ms_attr->max_strata_searched+1;
 				if(max_complete_strata>limit) max_complete_strata=limit;
 			}
-//			gt_alignment_recalculate_counters(al[rd]);
 			nmap[rd]=gt_alignment_get_num_maps(al[rd]);
 			if(nmap[rd]) {
 				GT_ALIGNMENT_ITERATE(al[rd],map) {
@@ -119,7 +118,7 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 				if(!map_flag[rd][i]) {
 					gt_map *map=gt_alignment_get_map(al[rd],i);
 					attr.distance=gt_map_get_global_distance(map);
-					attr.gt_score=map->gt_score;
+					attr.gt_score=rd?(map->gt_score<<16):map->gt_score;
 					attr.phred_score=255;
 					gt_template_inc_counter(template,attr.distance);
 					if(!rd)	gt_template_add_mmap_ends(template,map,0,&attr);
@@ -129,7 +128,53 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 		}
 		free(map_flag[0]);
 	}
-	gt_attributes_remove(template->attributes,GT_ATTR_ID_TAG_PAIR);
+//	gt_attributes_remove(template->attributes,GT_ATTR_ID_TAG_PAIR);
+}
+
+/*
+ * To check for duplicate alignments we make a key out of a concatenation of sequence name, position and strand.  If we have
+ * multiple segments, keys for all segments are concatenated.  Keys for paired alignments are formed from the two keys
+ * for each end joined with "::"
+ *
+ */
+
+static size_t gt_map_score_get_key_size(gt_map *map)
+{
+	size_t ksize=0;
+	uint64_t nbl=0;
+	GT_MAP_SEGMENT_ITERATOR(map,map_segment_iterator) {
+		nbl++;
+		ksize+=gt_string_get_length(gt_map_segment_iterator_get_map(&map_segment_iterator)->seq_name);
+	}
+	return ksize+nbl*(sizeof(map->position)+sizeof(map->strand));
+}
+
+static size_t gt_map_score_get_pair_key_size(gt_map *map1,gt_map *map2)
+{
+	return gt_map_score_get_key_size(map1)+gt_map_score_get_key_size(map2)+2;
+}
+
+static size_t gt_map_score_make_key(void *buf,gt_map *map)
+{
+	size_t bpos=0;
+  GT_MAP_SEGMENT_ITERATOR(map,map_segment_iterator) {
+  	gt_map *mp=gt_map_segment_iterator_get_map(&map_segment_iterator);
+  	gt_string *seq=mp->seq_name;
+  	memcpy(buf+bpos,gt_string_get_string(seq),gt_string_get_length(seq));
+  	bpos+=gt_string_get_length(seq);
+  	memcpy(buf+bpos,&mp->position,sizeof(mp->position));
+  	bpos+=sizeof(mp->position);
+  	memcpy(buf+bpos,&mp->strand,sizeof(mp->strand));
+  	bpos+=sizeof(mp->strand);
+  }
+  return bpos;
+}
+
+static size_t gt_map_score_make_pair_key(void *buf,gt_map *map1,gt_map *map2)
+{
+	size_t bpos=gt_map_score_make_key(buf,map1);
+	memcpy(buf+bpos,"::",2);
+	return bpos+2+gt_map_score_make_key(buf+bpos+2,map2);
 }
 
 static int gt_map_cmp_int(const void *s1,const void *s2)
@@ -180,15 +225,13 @@ void gt_map_calculate_template_mapq_score(gt_template *template,gt_map_score_att
 			// Build up list of single end alignments (need this so we can scale the MAPQ score)
 			// Use hash to avoid counting a single end alignment twice if it occurs in two paired alignments
 			for(rd=0;rd<2;rd++) if(maps[rd]) {
-				size_t ssize=gt_string_get_length(maps[rd]->seq_name);
-				size_t key_size=ssize+sizeof(maps[rd]->position);
+				size_t key_size=gt_map_score_get_key_size(maps[rd]);
 				if(key_size>buf_len) {
 					buf_len=key_size*2;
 					buf=realloc(buf,buf_len);
 					gt_cond_fatal_error(!buf,MEM_HANDLER);
 				}
-				memcpy(buf,gt_string_get_string(maps[rd]->seq_name),ssize);
-				memcpy(buf+ssize,&maps[rd]->position,sizeof(maps[rd]->position));
+				(void)gt_map_score_make_key(buf,maps[rd]);
 				HASH_FIND(hh,mhash[rd],buf,key_size,mp_hash);
 				if(!mp_hash) {
 					mp_hash=malloc(sizeof(map_hash));
@@ -203,16 +246,13 @@ void gt_map_calculate_template_mapq_score(gt_template *template,gt_map_score_att
 				}
 			}
 			if(maps[0] && maps[1]) { // True paired alignments.  Shouldn't need to check for duplicates, but we will anyway
-				size_t ssize=gt_string_get_length(maps[0]->seq_name);
-				size_t key_size=ssize+2*sizeof(maps[0]->position);
+				size_t key_size=gt_map_score_get_pair_key_size(maps[0],maps[1]);
 				if(key_size>buf_len) {
 					buf_len=key_size*2;
 					buf=realloc(buf,buf_len);
 					gt_cond_fatal_error(!buf,MEM_HANDLER);
 				}
-				memcpy(buf,gt_string_get_string(maps[0]->seq_name),ssize);
-				memcpy(buf+ssize,&maps[0]->position,sizeof(maps[0]->position));
-				memcpy(buf+ssize+sizeof(maps[0]->position),&maps[1]->position,sizeof(maps[0]->position));
+				(void)gt_map_score_make_pair_key(buf,maps[0],maps[1]);
 				HASH_FIND(hh,mhash[2],buf,key_size,mp_hash);
 				if(!mp_hash) {
 					mp_hash=malloc(sizeof(map_hash));
@@ -325,22 +365,13 @@ void gt_map_calculate_template_mapq_score(gt_template *template,gt_map_score_att
 	{
 		GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,maps,maps_attr) {
 			for(rd=0;rd<2;rd++) if(maps[rd]) {
-				size_t ssize=gt_string_get_length(maps[rd]->seq_name);
-				size_t key_size=ssize+sizeof(maps[rd]->position);
-				memcpy(buf,gt_string_get_string(maps[rd]->seq_name),ssize);
-				memcpy(buf+ssize,&maps[rd]->position,sizeof(maps[rd]->position));
+				size_t key_size=gt_map_score_make_key(buf,maps[rd]);
 				HASH_FIND(hh,mhash[rd],buf,key_size,mp_hash);
 				assert(mp_hash);
-				maps[rd]->phred_score=mp_hash->phred;
-      	if(maps[rd]->next_block.map) maps[rd]->next_block.map->phred_score=maps[rd]->phred_score;
+	      GT_MAP_ITERATE(maps[rd],mapb) { mapb->phred_score=mp_hash->phred; }
 			}
-			if(maps[0] && maps[1]) { // True paired alignments.  Shouldn't need to check for duplicates, but we will anyway
-				// seq_name should be the same for the two ends in a paired alignment, but we're not taking any chances
-				size_t ssize=gt_string_get_length(maps[0]->seq_name);
-				size_t key_size=ssize+2*sizeof(maps[0]->position);
-				memcpy(buf,gt_string_get_string(maps[0]->seq_name),ssize);
-				memcpy(buf+ssize,&maps[0]->position,sizeof(maps[0]->position));
-				memcpy(buf+ssize+sizeof(maps[0]->position),&maps[1]->position,sizeof(maps[0]->position));
+			if(maps[0] && maps[1]) {
+				size_t key_size=gt_map_score_make_pair_key(buf,maps[0],maps[1]);
 				HASH_FIND(hh,mhash[2],buf,key_size,mp_hash);
 				assert(mp_hash);
 				maps_attr->phred_score=mp_hash->phred;
@@ -417,13 +448,13 @@ void gt_map_calculate_alignment_mapq_score(gt_alignment *alignment,gt_map_score_
 		}
 		for(k=0;k<nmaps;k++) {
 			maplist[k].prob/=z;
-			if(1.0-maplist[k].prob<1.0e-255) maplist[k].map->phred_score=254;
+			int tp;
+			if(1.0-maplist[k].prob<1.0e-255) tp=254;
 			else {
-				int tp=(int)(0.5+log(1.0-maplist[k].prob)/PHRED_KONST);
+				tp=(int)(0.5+log(1.0-maplist[k].prob)/PHRED_KONST);
 				if(tp>254) tp=254;
-				maplist[k].map->phred_score=tp;
-      	if(maplist[k].map->next_block.map) maplist[k].map->next_block.map->phred_score=tp;
 			}
+			GT_MAP_ITERATE(maplist[k].map,mapb) { mapb->phred_score=tp;	}
 		}
 		free(maplist);
 	}

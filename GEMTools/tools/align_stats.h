@@ -113,7 +113,7 @@ typedef struct {
   uint64_t *mm_stats[2*(MAX_QUAL+1)]; // [read*(MAX_QUAL+1)+qual][cycle]
   uint64_t *qual_stats[2*(MAX_QUAL+1)]; // [read*(MAX_QUAL+1)+qual][cycle]
   uint64_t bs_counts[2][30];
-  uint64_t *non_cpg_cytosines[2];
+  uint64_t *non_cpg_cytosines[3];
   uint64_t tv_stats[2][MAX_QUAL+1];
   uint64_t ts_stats[2][MAX_QUAL+1];
   uint64_t pbc_stats[2][MAX_QUAL+1];

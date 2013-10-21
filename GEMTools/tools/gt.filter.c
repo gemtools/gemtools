@@ -389,7 +389,7 @@ GT_INLINE uint64_t gt_filter_count_junctions_in_region(gt_map* const map,const u
   return count;
 }
 GT_INLINE bool gt_filter_are_overlapping_pairs_coherent(gt_map** const mmap) {
-  if (!gt_map_has_next_block(mmap[0]) && !gt_map_has_next_block(mmap[1])) return true;
+  if ((mmap[0] == NULL || mmap[1] == NULL) || (!gt_map_has_next_block(mmap[0]) && !gt_map_has_next_block(mmap[1]))) return true;
 
   // Check overlap
   uint64_t overlap_start, overlap_end;
@@ -950,7 +950,7 @@ GT_INLINE bool gt_filter_apply_filters(
     gt_template *template_filtered = gt_template_dup(template,false,false);
     const uint64_t num_blocks = gt_template_get_num_blocks(template);
     GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attributes) {
-      if (!gt_filter_are_overlapping_pairs_coherent(mmap))continue;
+      if (mmap[0] == NULL || mmap[1] == NULL || !gt_filter_are_overlapping_pairs_coherent(mmap))continue;
       gt_map** mmap_copy = gt_mmap_array_copy(mmap,num_blocks);
       gt_template_insert_mmap(template_filtered,mmap_copy,mmap_attributes, parameters.check_duplicates);
       free(mmap_copy);

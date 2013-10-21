@@ -91,235 +91,44 @@ gt_sequence_archive* gt_filter_open_sequence_archive(const bool load_sequences) 
   return sequence_archive;
 }
 
-#define PHRED_KONST -0.23025850929940456840 // -log(10)/10;
-
-static int cmp_int(const void *s1,const void *s2)
+void gt_map2sam_set_mapq_attr(gt_template *template,gt_map_score_attributes *ms_attr)
 {
-	return (*(int *)s1)-(*(int *)s2);
-}
-
-void gt_map2sam_calc_phred(gt_template *template)
-{
-	typedef struct {
-		char *key;
-		gt_map *map;
-		double prob;
-		double prob1;
-		uint64_t score;
-		uint8_t phred;
-		uint8_t phred1;
-		UT_hash_handle hh;
-	} map_hash;
-
-	map_hash *mhash[3]={0,0,0}, *mp_hash, *tmp;
-	int rd;
-	size_t buf_len=1024;
 	gt_sam_attribute *ys=NULL,*yq=NULL;
 	ys=gt_attributes_get_sam_attribute(template->attributes,"ms");
 	if(!ys || ys->type_id!='B') return;
 	yq=gt_attributes_get_sam_attribute(template->attributes,"mx");
-	uint32_t map_cutoff=(yq && yq->type_id=='i')?yq->i_value:0;
-	uint32_t max_complete_strata[2]={0,0};
+	ms_attr->mapping_cutoff=(yq && yq->type_id=='i')?yq->i_value:0;
+	uint64_t max_complete_strata[2]={0,0};
 	char *p=gt_string_get_string(ys->s_value);
 	if(p && *p && p[1]==',') {
 		char *p1;
-		max_complete_strata[0]=(uint32_t)strtoul(p+2,&p1,10);
-		if(*p1==',') max_complete_strata[1]=(uint32_t)strtoul(p1+1,&p,10);
+		max_complete_strata[0]=(uint64_t)strtoul(p+2,&p1,10);
+		if(*p1==',') max_complete_strata[1]=(uint64_t)strtoul(p1+1,&p,10);
 	}
-	char *buf=malloc(buf_len);
-	gt_cond_fatal_error(!buf,MEM_HANDLER);
-	bool unpaired=false;
-	uint64_t min_score[4]={0xffff,0xffff,0xffff,0xffff};
-	{
-		GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,maps,maps_attr) {
-			if(!maps_attr) gt_fatal_error(TEMPLATE_NOT_SCORED);
-			uint64_t score=maps_attr->gt_score;
-			if(score==GT_MAP_NO_GT_SCORE) gt_fatal_error(TEMPLATE_NOT_SCORED);
-			uint64_t seq_like[2],interval_like;
-			seq_like[0]=score&0xffff;
-			seq_like[1]=(score>>16)&0xffff;
-			interval_like=(score>>32)&0xff;
-			// Build up list of single end alignments (need this so we can scale the MAPQ score)
-			// Use hash to avoid counting a single end alignment twice if it occurs in two paired alignments
-			for(rd=0;rd<2;rd++) if(maps[rd]) {
-				size_t ssize=gt_string_get_length(maps[rd]->seq_name);
-				size_t key_size=ssize+sizeof(maps[rd]->position);
-				if(key_size>buf_len) {
-					buf_len=key_size*2;
-					buf=realloc(buf,buf_len);
-					gt_cond_fatal_error(!buf,MEM_HANDLER);
-				}
-				memcpy(buf,gt_string_get_string(maps[rd]->seq_name),ssize);
-				memcpy(buf+ssize,&maps[rd]->position,sizeof(maps[rd]->position));
-				HASH_FIND(hh,mhash[rd],buf,key_size,mp_hash);
-				if(!mp_hash) {
-					mp_hash=malloc(sizeof(map_hash));
-					gt_cond_fatal_error(!mp_hash,MEM_HANDLER);
-					mp_hash->key=malloc(key_size);
-					gt_cond_fatal_error(!mp_hash->key,MEM_HANDLER);
-					memcpy(mp_hash->key,buf,key_size);
-					mp_hash->score=seq_like[rd];
-					mp_hash->map=maps[rd];
-					HASH_ADD_KEYPTR(hh,mhash[rd],mp_hash->key,key_size,mp_hash);
-					if(seq_like[rd]<min_score[rd]) min_score[rd]=seq_like[rd];
-				}
-			}
-			if(maps[0] && maps[1]) { // True paired alignments.  Shouldn't need to check for duplicates, but we will anyway
-				size_t ssize=gt_string_get_length(maps[0]->seq_name);
-				size_t key_size=ssize+2*sizeof(maps[0]->position);
-				if(key_size>buf_len) {
-					buf_len=key_size*2;
-					buf=realloc(buf,buf_len);
-					gt_cond_fatal_error(!buf,MEM_HANDLER);
-				}
-				memcpy(buf,gt_string_get_string(maps[0]->seq_name),ssize);
-				memcpy(buf+ssize,&maps[0]->position,sizeof(maps[0]->position));
-				memcpy(buf+ssize+sizeof(maps[0]->position),&maps[1]->position,sizeof(maps[0]->position));
-				HASH_FIND(hh,mhash[2],buf,key_size,mp_hash);
-				if(!mp_hash) {
-					mp_hash=malloc(sizeof(map_hash));
-					gt_cond_fatal_error(!mp_hash,MEM_HANDLER);
-					mp_hash->key=malloc(key_size);
-					gt_cond_fatal_error(!mp_hash->key,MEM_HANDLER);
-					memcpy(mp_hash->key,buf,key_size);
-					uint64_t sc=seq_like[0]+seq_like[1]+interval_like;
-					mp_hash->score=sc;
-					HASH_ADD_KEYPTR(hh,mhash[2],mp_hash->key,key_size,mp_hash);
-					if(sc<min_score[2]) min_score[2]=sc;
-				}
-			} else unpaired=true;
-		}
-	}
-	// Get score of best possible aligning read that we didn't look for with the mapping parameters
-	uint64_t fake_sc[3]={0,0,0};
-	for(rd=0;rd<2;rd++) if(max_complete_strata[rd]) {
+	uint64_t rd;
+	for(rd=0;rd<2;rd++) {
 		gt_alignment *al=gt_template_get_block(template,rd);
-		if(!al) continue;
-	  gt_string* const quals=al->qualities;
-	  uint64_t i;
-	  int *qvs=malloc(sizeof(int)*quals->length);
-	  size_t k=0;
-	  int quals_offset=parameters.map_score_attr.quality_format==GT_QUALS_OFFSET_33?33:64;
-	  for(i=0;i<quals->length;i++) {
-	  	int q=gt_string_get_string(quals)[i]-quals_offset;
-	  	if(q>=map_cutoff) qvs[k++]=q;
-	  }
-	  if(k>=max_complete_strata[rd]) {
-	  	qsort(qvs,k,sizeof(int),cmp_int);
-	  	for(i=0;i<max_complete_strata[rd];i++) fake_sc[rd]+=qvs[i];
-	  }
-	  free(qvs);
+		if(al) gt_attributes_add(al->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA,&max_complete_strata[rd],uint64_t);
 	}
-	// For paired reads, the best aligning read that we didn't find would be the best read found from one end combined
-	// with the fake score from the other with the most likely interval size (i.e. 0)
-	uint64_t f1=fake_sc[0]+min_score[1];
-	uint64_t f2=fake_sc[1]+min_score[0];
-	fake_sc[2]=f1<f2?f1:f2;
-	// Insert fake scores into hash structures
-	for(rd=0;rd<3;rd++) if(fake_sc[rd]) {
-	  size_t key_size=6;
-	  mp_hash=malloc(sizeof(map_hash));
-	  gt_cond_fatal_error(!mp_hash,MEM_HANDLER);
-	  mp_hash->key=malloc(key_size);
-	  gt_cond_fatal_error(!mp_hash->key,MEM_HANDLER);
-	  memcpy(mp_hash->key,"_FAKE_",key_size);
-	  mp_hash->score=fake_sc[rd];
-	  mp_hash->map=0;
-	  HASH_ADD_KEYPTR(hh,mhash[rd],mp_hash->key,key_size,mp_hash);
-		if(fake_sc[rd]<min_score[rd]) min_score[rd]=fake_sc[rd];
-	}
-	// Now we can calculate the single and paired end MAPQ values
-	double z;
-	for(rd=0;rd<3;rd++) if(mhash[rd]) {
-		z=0.0;
-		for(mp_hash=mhash[rd];mp_hash;mp_hash=mp_hash->hh.next) {
-			mp_hash->prob=exp(PHRED_KONST*((double)(mp_hash->score)-(double)min_score[rd]));
-			z+=mp_hash->prob;
-		}
-		for(mp_hash=mhash[rd];mp_hash;mp_hash=mp_hash->hh.next) {
-			mp_hash->prob/=z;
-			if(1.0-mp_hash->prob<1.0e-255) mp_hash->phred=254;
-			else {
-				int tp=(int)(0.5+log(1.0-mp_hash->prob)/PHRED_KONST);
-				if(tp>254) tp=254;
-				mp_hash->phred=tp;
-			}
-		}
-	}
-	// To see how well supported our paired reads are compared to all unpaired combinations,
-	// if unpaired alignments exist we look at all combinations of single end reads
-	if(unpaired) {
-		map_hash *mp1,*mp2;
-		for(mp1=mhash[0];mp1;mp1=mp1->hh.next) {
-			for(mp2=mhash[1];mp2;mp2=mp2->hh.next) {
-				uint64_t sc=mp1->score+mp2->score;
-				if(sc<min_score[3]) min_score[3]=sc;
-			}
-		}
-		z=0.0;
-		for(mp1=mhash[0];mp1;mp1=mp1->hh.next) {
-			for(mp2=mhash[1];mp2;mp2=mp2->hh.next) {
-				uint64_t sc=mp1->score+mp2->score;
-				double prb=exp(PHRED_KONST*((double)sc-(double)min_score[3]));
-				z+=prb;
-				if(mp1->map && mp2->map) {
-					size_t ssize=gt_string_get_length(mp1->map->seq_name);
-					size_t key_size=ssize+2*sizeof(mp1->map->position);
-					memcpy(buf,gt_string_get_string(mp1->map->seq_name),ssize);
-					memcpy(buf+ssize,&mp1->map->position,sizeof(mp1->map->position));
-					memcpy(buf+ssize+sizeof(mp1->map->position),&mp2->map->position,sizeof(mp1->map->position));
-					HASH_FIND(hh,mhash[2],buf,key_size,mp_hash);
-					if(mp_hash) mp_hash->prob1=prb;
-				}
-			}
-		}
-		for(mp_hash=mhash[2];mp_hash;mp_hash=mp_hash->hh.next) {
-			mp_hash->prob1/=z;
-			if(1.0-mp_hash->prob1<1.0e-255) mp_hash->phred1=254;
-			else {
-				int tp=(int)(0.5+log(1.0-mp_hash->prob1)/PHRED_KONST);
-				if(tp>254) tp=254;
-				mp_hash->phred1=tp>mp_hash->phred?mp_hash->phred:tp;
-			}
-		}
-	}
-	// And now we have to enter the MAPQ values in the map structures
-	{
-		GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,maps,maps_attr) {
-			for(rd=0;rd<2;rd++) if(maps[rd]) {
-				size_t ssize=gt_string_get_length(maps[rd]->seq_name);
-				size_t key_size=ssize+sizeof(maps[rd]->position);
-				memcpy(buf,gt_string_get_string(maps[rd]->seq_name),ssize);
-				memcpy(buf+ssize,&maps[rd]->position,sizeof(maps[rd]->position));
-				HASH_FIND(hh,mhash[rd],buf,key_size,mp_hash);
-				assert(mp_hash);
-				maps[rd]->phred_score=fake_sc[rd]?mp_hash->phred:255;
-			}
-			if(maps[0] && maps[1]) { // True paired alignments.  Shouldn't need to check for duplicates, but we will anyway
-				// seq_name should be the same for the two ends in a paired alignment, but we're not taking any chances
-				size_t ssize=gt_string_get_length(maps[0]->seq_name);
-				size_t key_size=ssize+2*sizeof(maps[0]->position);
-				memcpy(buf,gt_string_get_string(maps[0]->seq_name),ssize);
-				memcpy(buf+ssize,&maps[0]->position,sizeof(maps[0]->position));
-				memcpy(buf+ssize+sizeof(maps[0]->position),&maps[1]->position,sizeof(maps[0]->position));
-				HASH_FIND(hh,mhash[2],buf,key_size,mp_hash);
-				assert(mp_hash);
-				maps_attr->phred_score=mp_hash->phred;
-				maps_attr->pair_score=unpaired?mp_hash->phred1:mp_hash->phred;
-			}
-		}
-	}
-	free(buf);
-	for(rd=0;rd<3;rd++) if(mhash[rd]) {
-		HASH_ITER(hh,mhash[rd],mp_hash,tmp) {
-			HASH_DEL(mhash[rd],mp_hash);
-			free(mp_hash->key);
-			free(mp_hash);
-		}
-	}
+	gt_map_calculate_template_mapq_score(template,ms_attr);
 }
 
-void gt_map2sam_read__write() {
+gt_status gt_map2sam_print_template(gt_buffered_output_file *buffered_output,gt_template *template,gt_output_sam_attributes *output_sam_attributes,gt_stats_args *param)
+{
+	if(parameters.calc_phred || parameters.optional_field_XT) gt_map_calculate_template_mapq_score(template,&param->map_score_attr);
+	// Print SAM template
+	return gt_output_sam_bofprint_template(buffered_output,template,output_sam_attributes);
+}
+
+gt_status gt_map2sam_print_alignment(gt_buffered_output_file *buffered_output,gt_alignment *alignment,gt_output_sam_attributes *output_sam_attributes,gt_stats_args *param)
+{
+	if(parameters.calc_phred || parameters.optional_field_XT) gt_map_calculate_alignment_mapq_score(alignment,&param->map_score_attr);
+	// Print SAM template
+	return gt_output_sam_bofprint_alignment(buffered_output,alignment,output_sam_attributes);
+}
+
+void gt_map2sam_read__write()
+{
   // Open file IN/OUT
   gt_input_file* const input_file = (parameters.name_input_file==NULL) ?
       gt_input_stream_map_open(stdin) : gt_input_file_map_open(parameters.name_input_file,parameters.mmap_input);
@@ -383,17 +192,21 @@ void gt_map2sam_read__write() {
     // Set out attributes
     gt_output_sam_attributes_set_compact_format(output_sam_attributes,parameters.compact_format);
     gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,parameters.map_score_attr.quality_format);
+  	gt_output_sam_attributes_set_print_mismatches(output_sam_attributes,false);
+
     if (parameters.optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_NM) gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
     if (parameters.optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
+  	gt_sam_attributes_add_tag_SA(output_sam_attributes->sam_attributes);
     if (parameters.calc_phred) {
-    	gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
-    	gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
-    	gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
-    	gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
-    	gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
+  		gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
+  		gt_sam_attributes_add_tag_XP(output_sam_attributes->sam_attributes);
+  		gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
+  		gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
+  		gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
+  		gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
     }
   	if(sam_headers->read_group_id_hash) {
   		gt_sam_header_record *hr=NULL;
@@ -419,11 +232,14 @@ void gt_map2sam_read__write() {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
         continue;
       }
-      if(parameters.calc_phred || parameters.optional_field_XT) gt_map2sam_calc_phred(template);
-      // Print SAM template
-      gt_output_sam_bofprint_template(buffered_output,template,output_sam_attributes);
+    	gt_status print_code;
+  		if(parameters.paired_end) {
+  			print_code=gt_map2sam_print_template(buffered_output,template,output_sam_attributes,&parameters);
+  		} else {
+  			print_code=gt_map2sam_print_alignment(buffered_output,gt_template_get_block(template,0),output_sam_attributes,&parameters);
+  		}
+  		if(print_code) gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
     }
-
     // Clean
     gt_template_delete(template);
     gt_input_map_parser_attributes_delete(input_map_attributes);

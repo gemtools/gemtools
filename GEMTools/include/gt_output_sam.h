@@ -115,6 +115,7 @@ GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_qname,gt_string* const tag);
  * 0x100 (Bit 8)  => Secondary alignment [not primary alignment]
  * 0x200 (Bit 9)  => Not passing quality controls [read fails platform/vendor quality checks]
  * 0x400 (Bit 10) => PCR or optical duplicate [read is PCR or optical duplicate]
+ * 0x800 (Bit 11) => Supplementary alignment [second or subsequent segment in a chimeric alignment]
  *
  * - Bit 0x4 is the only reliable place to tell whether the segment is unmapped. If 0x4 is set,
  *     no assumptions can be made about RNAME, POS, CIGAR, MAPQ, bits 0x2, 0x10 and 0x100
@@ -132,24 +133,28 @@ GT_INLINE uint16_t gt_output_sam_calculate_flag(
     const bool read_mapped,const bool mate_mapped,
     const gt_strand read_strand,const gt_strand mate_strand,
     const bool first_in_pair,const bool last_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
 GT_INLINE uint16_t gt_output_sam_calculate_flag_pe(
     const bool read_paired,const bool read_mapped,const bool mate_mapped,
     const gt_strand read_strand,const gt_strand mate_strand,
     const bool first_in_pair,const bool last_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
 GT_INLINE uint16_t gt_output_sam_calculate_flag_se(
     const bool read_mapped,const gt_strand read_strand,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
 GT_INLINE uint16_t gt_output_sam_calculate_flag_se_map(
-    gt_map* const map,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
+    gt_map* const map,const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate);
 GT_INLINE uint16_t gt_output_sam_calculate_flag_pe_map(
     gt_map* const map,gt_map* const mate,const bool is_map_first_in_pair,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paire);
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paire);
 /*
  * SAM CIGAR
  */
-GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_cigar,gt_map* const map_segment,gt_output_sam_attributes* const attributes);
+GT_INLINE gt_status gt_output_sam_gprint_map_cigar(
+    gt_generic_printer* const gprinter,gt_map* const map_segment,bool print_mismatches,
+    const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read);
+
+GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_cigar,gt_map* const map_segment,bool print_mismatches);
 /*
  * SAM CORE fields
  *   (QNAME,FLAG,RNAME,POS,MAPQ,CIGAR,RNEXT,PNEXT,TLEN,SEQ,QUAL). No EOL is printed
@@ -159,25 +164,25 @@ GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_core_fields_se,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_core_fields_pe,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map,const uint64_t position,const uint8_t phred_score,
     gt_map* const mate,const uint64_t mate_position,const int64_t template_length,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,const bool paired,
     gt_output_sam_attributes* const attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_core_fields_se,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,gt_map* const map_segment,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_core_fields_pe,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
     gt_map* const map_segment,gt_map* const mate_segment,gt_mmap_attributes* const mmap_attributes,
     const uint64_t hard_left_trim_read,const uint64_t hard_right_trim_read,
-    const bool is_map_first_in_pair,const bool secondary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
+    const bool is_map_first_in_pair,const bool secondary_alignment,const bool supplementary_alignment,const bool not_passing_QC,const bool PCR_duplicate,
     gt_output_sam_attributes* const output_attributes);
 GT_GENERIC_PRINTER_PROTOTYPE(gt_output_sam,print_map_placeholder,
     gt_string* const tag,gt_string* const read,gt_string* const qualities,
