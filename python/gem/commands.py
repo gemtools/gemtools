@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 """Gemtools commands"""
 
+import imp
 import sys
 from sys import exit
 import types
 from textwrap import dedent
 import os
+import logging
 
 import gem.utils
 from gem.utils import CommandException
@@ -15,6 +17,8 @@ import jip.jobs
 import jip.cli
 
 __VERSION__ = "1.8"
+
+log = logging.getLogger("gemtools.command")
 
 
 class cli(object):
@@ -83,6 +87,73 @@ class cli(object):
         return cls
 
 
+def _load_plugins():
+    """Load plugin modules form PYTHONPATH and dedicated folders
+
+    Plugin modules are loaded in three flavors:
+
+        1) we try to load a gemtools_plugins module from python path
+        2) we check the GEMTOOLS_PLUGINS environment variable for
+           folders that exists and load all modules that end in _plugin
+           from those folders or all files directly
+        3) we check the $HOME/.gemtools/plugins folder and load all files
+           there as modules
+    """
+    # 1) try to load gemtools_plugins
+    try:
+        import gemtools_plugins
+        log.info("gemtools_plugins module loaded")
+    except ImportError:
+        pass
+
+    # 2) check GEMTOOLS_PLUGINS envorinment
+    plugin_paths = os.getenv("GEMTOOLS_PLUGINS", None)
+    if plugin_paths:
+        for path in plugin_paths.split(":"):
+            _load_plugins_from_folder(path)
+    # 3) load $HOME/.gemtools/plugins folder
+    _load_plugins_from_folder(
+        os.path.join(os.getenv("HOME", ""), ".gemtools/plugins")
+    )
+
+
+def _load_plugins_from_folder(path):
+    """Helper function that puts path in the python search path and
+    loads modules that end in _plugin
+
+    :param path: the root path
+    """
+    if not os.path.exists(path):
+        return
+    if os.path.isfile(path):
+        ## load file as module
+        module_name = os.path.basename(path)[:-3]
+        imp.load_source(module_name, path)
+    else:
+        # we found a directory. put the directory in python path
+        # and iterate all files, loading them as modules if
+        # they end in _plugin.py
+        sys.path.append(os.path.abspath(path))
+        for root, dirs, files in os.walk(path):
+            for f in [x for x in files if x.endswith("_plugin.py")]:
+                module_dir = root.replace(path, "")
+                if len(module_dir) > 0 and module_dir[0] == "/":
+                    module_dir = module_dir[1:]
+                module_dir = module_dir.replace("/", ".")
+                module_name = f.replace(".py", "")
+                if module_dir:
+                    if "__init__.py" in files:
+                        __import__(".".join([module_dir, module_name]))
+                    else:
+                        imp.load_source(
+                            module_name,
+                            os.path.join(root, f)
+                        )
+                else:
+                    __import__(module_name)
+
+
+
 def gemtools():
     """\
     The gemtools driver executes different sub-commands and pipelines.
@@ -106,6 +177,9 @@ def gemtools():
     ## import all modules that contain commands
     import gem.production
     try:
+        # load modules from plugin folders
+        _load_plugins()
+
         from jip.vendor.docopt import docopt
         commands_string = """
         The following sub-commands are available:
