@@ -658,7 +658,6 @@ gt_status gt_scorereads_process(sr_param *param)
 						continue;
 					}
 					gt_alignment *alignment=gt_template_get_block(template,0);
-					gt_alignment_recalculate_counters(alignment);
 					GT_ALIGNMENT_ITERATE(alignment,map) {
 						if(map->gt_score==GT_MAP_NO_GT_SCORE) map->gt_score=gt_map_calculate_gt_score(alignment,map,&param->map_score_attr);
 						map->phred_score=255;

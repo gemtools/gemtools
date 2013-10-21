@@ -91,9 +91,7 @@ gt_sequence_archive* gt_filter_open_sequence_archive(const bool load_sequences) 
   return sequence_archive;
 }
 
-#define PHRED_KONST -0.23025850929940456840 // -log(10)/10;
-
-void gt_map2sam_calc_phred(gt_template *template,gt_map_score_attributes *ms_attr)
+void gt_map2sam_set_mapq_attr(gt_template *template,gt_map_score_attributes *ms_attr)
 {
 	gt_sam_attribute *ys=NULL,*yq=NULL;
 	ys=gt_attributes_get_sam_attribute(template->attributes,"ms");
@@ -110,12 +108,27 @@ void gt_map2sam_calc_phred(gt_template *template,gt_map_score_attributes *ms_att
 	uint64_t rd;
 	for(rd=0;rd<2;rd++) {
 		gt_alignment *al=gt_template_get_block(template,rd);
-		gt_attributes_add(al->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA,&max_complete_strata[rd],uint64_t);
+		if(al) gt_attributes_add(al->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA,&max_complete_strata[rd],uint64_t);
 	}
 	gt_map_calculate_template_mapq_score(template,ms_attr);
 }
 
-void gt_map2sam_read__write() {
+gt_status gt_map2sam_print_template(gt_buffered_output_file *buffered_output,gt_template *template,gt_output_sam_attributes *output_sam_attributes,gt_stats_args *param)
+{
+	if(parameters.calc_phred || parameters.optional_field_XT) gt_map_calculate_template_mapq_score(template,&param->map_score_attr);
+	// Print SAM template
+	return gt_output_sam_bofprint_template(buffered_output,template,output_sam_attributes);
+}
+
+gt_status gt_map2sam_print_alignment(gt_buffered_output_file *buffered_output,gt_alignment *alignment,gt_output_sam_attributes *output_sam_attributes,gt_stats_args *param)
+{
+	if(parameters.calc_phred || parameters.optional_field_XT) gt_map_calculate_alignment_mapq_score(alignment,&param->map_score_attr);
+	// Print SAM template
+	return gt_output_sam_bofprint_alignment(buffered_output,alignment,output_sam_attributes);
+}
+
+void gt_map2sam_read__write()
+{
   // Open file IN/OUT
   gt_input_file* const input_file = (parameters.name_input_file==NULL) ?
       gt_input_stream_map_open(stdin) : gt_input_file_map_open(parameters.name_input_file,parameters.mmap_input);
@@ -219,11 +232,14 @@ void gt_map2sam_read__write() {
         gt_error_msg("Fatal error parsing file '%s':%"PRIu64"\n",parameters.name_input_file,buffered_input->current_line_num-1);
         continue;
       }
-      if(parameters.calc_phred || parameters.optional_field_XT) gt_map2sam_calc_phred(template,&parameters.map_score_attr);
-      // Print SAM template
-      gt_output_sam_bofprint_template(buffered_output,template,output_sam_attributes);
+    	gt_status print_code;
+  		if(parameters.paired_end) {
+  			print_code=gt_map2sam_print_template(buffered_output,template,output_sam_attributes,&parameters);
+  		} else {
+  			print_code=gt_map2sam_print_alignment(buffered_output,gt_template_get_block(template,0),output_sam_attributes,&parameters);
+  		}
+  		if(print_code) gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
     }
-
     // Clean
     gt_template_delete(template);
     gt_input_map_parser_attributes_delete(input_map_attributes);

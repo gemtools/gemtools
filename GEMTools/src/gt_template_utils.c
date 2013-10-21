@@ -1088,7 +1088,7 @@ GT_INLINE void gt_map_placeholder_add_map(
           GT_MAP_PLACEHOLDER_CMP_BEST_PH(*best_mmap_ph,*best_mmap_ph_position,*mmap_ph,num_placeholders);
       } else {
       	if(!mmap_ph->map->attributes) mmap_ph->map->attributes=gt_attributes_new();
-      	gt_attributes_add(mmap_ph->map->attributes,GT_ATTR_ID_HEAD_BLOCK,map,gt_map*);
+      	gt_attributes_add(mmap_ph->map->attributes,GT_ATTR_ID_HEAD_BLOCK,&map,gt_map*);
       }
       ++num_placeholders;
       // Break if quimeras are not supposed to be unfolded
