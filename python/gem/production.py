@@ -2502,7 +2502,8 @@ class VcPipeline(Command):
         opts = self.options
         opts.add_output('prepare_out', fn("_prepare.fq", c=False))
         opts.add_output('initial_map_out', fn("_initial.map"))
-        opts.add_output('split_out', fn(".map", c=False))
+        opts.add_output('split_out', fn("_splitmap.map", c=False))
+        opts.add_output('merge_out', fn("_merged.map", c=False))
         opts.add_output('final_out', fn(".map", c=True))
         opts.add_output('bam_out', fn(".bam", c=False))
         opts.add_output('stats_out', fn(".stats.txt", c=False))
@@ -2641,52 +2642,68 @@ class VcPipeline(Command):
         ###################################################################
         # Run the split mapper un unmapped or max errors
         ###################################################################
-        #filter_maps = job('Filter.Initial', temp=True).run(
-            #'gemtools_filter',
-            #unmapped=True,
-        #)
+        filter_maps = job('Filter.Splitmapper', temp=True).run(
+            'gemtools_filter',
+            input=initial_mapping,
+            unmapped=True,
+            output_format="FASTA"
+        )
+        split_mapping = job('Splitmapper', temp=True).run(
+            'gemtools_split_mapper',
+            output=args['split_out'],
+            threads=threads,
+            index=index,
+            quality=quality,
+            quality_threshold=args['quality_threshold'],
+            mismatch_alphabet=args['mismatch_alphabet'],
+            strata_after_best=0,
+            filter=None,
+            consensus='"."+"."',
+            compress=args['compress_all'],
+        )
+        filter_maps | split_mapping
+        all_mappings.append(split_mapping)
+
         ###################################################################
         # Merge and pair if not single end
         ###################################################################
-        final_mapping = None
-        if len(all_mappings) == 1:
-            final_mapping = all_mappings[0]
-        else:
-            merge = job('Merge').run(
-                'gemtools_merge',
-                same=True,
-                threads=threads,
-                output=args['final_out'] if args['single_end'] else None,
-                input=all_mappings,
-                compress=args['single_end'])
-            final_mapping = merge
-
-        pair = job('Score').run(
+        merged = job('Merge', temp=True).run(
+            'gemtools_merge',
+            same=False,
+            threads=threads,
+            output=args['merge_out'],
+            input=all_mappings,
+            compress=args['compress_all']
+        )
+        scored = job('Score').run(
             'gemtools_scorereads',
+            i1=merged,
             threads=threads,
             output=args['final_out'],
             paired_end=not args['single_end'],
             gzip=True
         )
-        final_mapping >> pair
-        final_mapping = pair
 
         job('BAM').run(
             'gemtools_map2sam',
-            input=final_mapping,
+            input=scored,
             output=args['bam_out'],
             gem_index=args['index'],
             paired_end=not args['single_end'],
             threads=threads,
             memory=args['sort_mem'],
             no_sort=args['no_sort'],
-            no_index=args['no_index']
+            no_index=args['no_index'],
+            NM=True,
+            NH=True,
+            XT=True,
+            calc_mapq=True
         )
 
         # create stats
         job('Stats').run(
             'gemtools_stats',
-            input=final_mapping,
+            input=scored,
             threads=threads,
             output=args['stats_out'],
             json=args['stats_json_out'],
