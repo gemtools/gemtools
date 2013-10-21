@@ -344,7 +344,7 @@ gt_sam_attribute_option gt_map2sam_attribute_option_list[] = {
 		GT_SAM_ATTRIBUTES_TAG(TP,true),
 		GT_SAM_ATTRIBUTES_TAG(TQ,true),
 		GT_SAM_ATTRIBUTES_TAG(cs,false),
-//		GT_SAM_ATTRIBUTES_TAG(md,false),
+		GT_SAM_ATTRIBUTES_TAG(md,false),
 		GT_SAM_ATTRIBUTES_NULL_TAG // Should always finish list with this
 };
 
