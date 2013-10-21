@@ -170,6 +170,7 @@ typedef struct {
   };
   /* SAM info */
   bool secondary_alignment;
+  bool supplementary_alignment;
   bool not_passing_QC;
   bool PCR_duplicate;
   gt_xt_value xt_value;

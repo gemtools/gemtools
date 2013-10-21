@@ -43,6 +43,8 @@
 #define GT_SAM_FLAG_SECONDARY_ALIGNMENT 0x100
 #define GT_SAM_FLAG_NOT_PASSING_QC 0x200
 #define GT_SAM_FLAG_PCR_OR_OPTICAL_DUPLICATE 0x400
+#define GT_SAM_FLAG_SUPPLEMENTARY_ALIGNMENT 0x800
+
 /*
  * SAM File specifics Attribute (SAM Headers)
  */
@@ -305,5 +307,6 @@ GT_INLINE void gt_sam_attributes_add_tag_cs(gt_sam_attributes* const sam_attribu
 GT_INLINE void gt_sam_attributes_add_tag_md(gt_sam_attributes* const sam_attributes);
 //  XS  A  XS directionality information
 GT_INLINE void gt_sam_attributes_add_tag_XS(gt_sam_attributes* const sam_attributes);
-
+//  SA  Z  Supplementary alignment information for chimeric alignments
+GT_INLINE void gt_sam_attributes_add_tag_SA(gt_sam_attributes* const sam_attributes);
 #endif /* GT_SAM_DATA_ATTRIBUTES_H_ */

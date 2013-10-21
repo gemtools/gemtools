@@ -228,7 +228,7 @@ gt_option gt_scorereads_options[] = {
   { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file> (GEM2-Index)" , "" },
 
   /* Score Function */
-  { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , false, "'offset-33'|'offset-64'" , "" },
+  { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , true, "'offset-33'|'offset-64'" , "" },
     { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 402, "max-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 403, "indel-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
@@ -285,7 +285,7 @@ gt_option gt_map2sam_options[] = {
   /* Headers */
    { 300, "read-group-id", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<read group id>" , "" },
      /* Alignments */
-   { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , false, "'offset-33'|'offset-64'" , "" },
+   { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , true, "'offset-33'|'offset-64'" , "" },
   /* Optional Fields */
   { 500, "NH", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   { 501, "NM", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
