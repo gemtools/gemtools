@@ -9,10 +9,12 @@ from gem.commands import cli
 import gem
 import gem.commands
 import gem.gemtools as gt
-
+import logging
 from gem.utils import Command, CommandException
 
 from jip import Pipeline
+
+log = logging.getLogger("gem.commands")
 
 
 def _check(msg, statement=None):
@@ -737,6 +739,7 @@ class Stats(Command):
             args["output_format"] = "both"
             stderr = open(args["json"], 'wb')
         cmd = self.get_command(args)
+        log.info("Starting:\n\t%s" % (" ".join(cmd)))
         p = subprocess.Popen(cmd, stderr=stderr)
         p.wait()
         if stderr is not None:
@@ -767,6 +770,7 @@ class GtfCount(Command):
             args["output_format"] = "both"
             stderr = open(args["json"], 'wb')
         cmd = self.get_command(args)
+        log.info("Starting:\n\t%s" % (" ".join(cmd)))
         p = subprocess.Popen(cmd, stderr=stderr)
         p.wait()
         if stderr is not None:
@@ -805,12 +809,82 @@ class Filter(Command):
             args['output'] = None
 
         cmd = self.get_command(args)
+        log.info("Starting:\n\t%s" % (" ".join(cmd)))
         p = subprocess.Popen(cmd, stdout=outstream)
         r = p.wait()
         if compressor:
             compressor.stdin.close()
             compressor.wait()
         sys.exit(r)
+
+
+@cli("map2sam",
+     inputs=['--input'],
+     outputs=['--output'])
+class Map2Sam(Command):
+    title = "Convert .map to .sam using the gt.map2sam"
+    description = """Take a .map file or reads from stdin and converts
+    to .sam.
+    """
+
+    def register(self, parser):
+        parser.description = Map2Sam.description
+        self.add_options('gt.map2sam', parser, stream_in="input",
+                         stream_out="output")
+        parser.add_argument("-m", "--memory",
+                            default="768M",
+                            help="Memory to use per sorting threads. "
+                            "Default 768M")
+        parser.add_argument("--no-bam", action="store_true", default=False,
+                            help="Disable sorting")
+        parser.add_argument("--no-sort", action="store_true", default=False,
+                            help="Disable sorting")
+        parser.add_argument("--no-index", action="store_true", default=False,
+                            help="Disable indexing the bam file")
+
+    def run(self, args):
+        original_out = args['output']
+        if not args['no_bam']:
+            # reset to stdout to pipe to samtools
+            args['output'] = sys.stdout
+
+        cmd = self.get_command(args)
+        log.info("Starting:\n\t%s" % (" ".join(cmd)))
+        p = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE if not args['no_bam'] else None
+        )
+        if not args['no_bam']:
+            gem.sam2bam(gem._prepare_output(p),
+                        output=original_out,
+                        threads=args['threads'],
+                        sorted=not args['no_sort'],
+                        sort_memory=args['memory'])
+            if not args['no_index'] and isinstance(original_out, basestring):
+                # index the bam file if we actually wrote a file
+                gem.bamIndex(original_out)
+        sys.exit(p.wait())
+
+
+@cli("scorereads",
+     inputs=['--i1', '--i2'],
+     outputs=['--output'])
+class Scorereads(Command):
+    title = "Calculate mapq scores and pair reads"
+    description = """Calculate scores and pairs reads
+
+    """
+
+    def register(self, parser):
+        parser.description = Scorereads.description
+        self.add_options('gt.scorereads', parser, stream_in="i1",
+                         stream_out="output")
+
+    def run(self, args):
+        cmd = self.get_command(args)
+        log.info("Starting:\n\t%s" % (" ".join(cmd)))
+        p = subprocess.Popen(cmd)
+        sys.exit(p.wait())
 
 
 @cli("gtf-junctions",
@@ -2564,16 +2638,13 @@ class VcPipeline(Command):
         set_mapping_input(initial_mapping)
         all_mappings.append(initial_mapping)
 
-
         ###################################################################
         # Run the split mapper un unmapped or max errors
         ###################################################################
-        filter_maps = job('Filter.Initial', temp=True).run(
-            'gemtools_filter',
-            unmapped=True,
-
-        )
-
+        #filter_maps = job('Filter.Initial', temp=True).run(
+            #'gemtools_filter',
+            #unmapped=True,
+        #)
         ###################################################################
         # Merge and pair if not single end
         ###################################################################
@@ -2590,37 +2661,27 @@ class VcPipeline(Command):
                 compress=args['single_end'])
             final_mapping = merge
 
-        if not args['single_end']:
-            pair = job('Pair').run(
-                'gemtools_pairalign',
-                quality=quality,
-                threads=threads,
-                index=args['index'],
-                max_extendable_matches=0,
-                max_matches_per_extension=0,
-                filter_max_matches=0,
-                output=args['final_out'],
-                compress=True
-            )
-            final_mapping >> pair
-            final_mapping = pair
-
-        # create sorted bam
-        bam_cfg = dict(
+        pair = job('Score').run(
+            'gemtools_scorereads',
             threads=threads,
-            index=args['index'],
-            quality=quality,
-            memory=args['sort_mem'],
-            paired=not args['single_end'],
-            no_sort=args['no_sort'],
-            no_xs=True,
-            no_index=args['no_index']
+            output=args['final_out'],
+            paired_end=not args['single_end'],
+            gzip=True
         )
+        final_mapping >> pair
+        final_mapping = pair
+
         job('BAM').run(
-            'gemtools_convert',
+            'gemtools_map2sam',
             input=final_mapping,
             output=args['bam_out'],
-            **bam_cfg)
+            gem_index=args['index'],
+            paired_end=not args['single_end'],
+            threads=threads,
+            memory=args['sort_mem'],
+            no_sort=args['no_sort'],
+            no_index=args['no_index']
+        )
 
         # create stats
         job('Stats').run(

@@ -919,7 +919,7 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1,
 
         bam_sort = _check_samtools("sort", threads=threads, extend=["-m", str(sort_memory), "-o", "-"])
         suffix = ""
-        if output is not None:
+        if output is not None and isinstance(output, basestring):
             suffix = "-" + os.path.basename(output)
         tmpfile = tempfile.NamedTemporaryFile(prefix="sort", suffix=suffix)
         tmpfile.close()

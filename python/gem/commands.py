@@ -121,6 +121,8 @@ def gemtools():
         if args["--version"]:
             print "GEMTools version %s" % __VERSION__
             exit(0)
+        # set loglevel from environment
+        gem.loglevel(os.getenv("_GT_LOGLEVEL", "ERROR"))
 
         if args["--loglevel"]:
             gem.loglevel(args["--loglevel"])
