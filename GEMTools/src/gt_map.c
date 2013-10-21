@@ -670,8 +670,12 @@ GT_INLINE gt_map** gt_mmap_array_copy(gt_map** mmap,const uint64_t num_blocks) {
   gt_map** mmap_copy = gt_calloc(num_blocks,gt_map*,false);
   uint64_t i;
   for (i=0;i<num_blocks;++i) {
-    GT_MAP_CHECK(mmap[i]);
-    mmap_copy[i] = gt_map_copy(mmap[i]);
+    if(mmap[i] != NULL){
+      GT_MAP_CHECK(mmap[i]);
+      mmap_copy[i] = gt_map_copy(mmap[i]);
+    }else{
+      mmap_copy[i] = NULL;
+    }
   }
   return mmap_copy;
 }
