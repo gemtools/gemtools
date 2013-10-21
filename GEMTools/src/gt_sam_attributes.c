@@ -799,3 +799,63 @@ GT_INLINE void gt_sam_attributes_add_tag_TP(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_ifunc(sam_attributes,"TP",'i',gt_sam_attribute_generate_TP);
 }
 
+/*
+ * Functions for activating/de-activating SAM optional tags, and adding them to a gt_sam_attributes structure
+ */
+
+GT_INLINE gt_status gt_sam_attributes_parse_tag_option_string(gt_sam_attribute_option *options,char *p)
+{
+	char *response_str[]={"yes","1","on","true","no","0","off","false",0};
+	bool response[]={true,true,true,true,false,false,false,false};
+	char buf[8];
+	size_t buf_size=sizeof(buf);
+	GT_NULL_CHECK(p);
+	char *tag=p;
+	while(*tag) {
+		gt_sam_attribute_option *attr_opt=options;
+		while(attr_opt->tag[0]) {
+			if(tag[0]==attr_opt->tag[0] && tag[1]==attr_opt->tag[1]) break;
+			attr_opt++;
+		}
+		if(!attr_opt->tag[0]) {
+			gt_error_msg("SAM optional tag '%.2s' not recognized",tag);
+			return GT_STATUS_FAIL;
+		}
+		if(tag[2]!=':') {
+			gt_error_msg("Expecting ':' after SAM optional tag '%.2s'",tag);
+			return GT_STATUS_FAIL;
+		}
+		tag+=3;
+		char *st_start=tag;
+		while(*tag && *tag!=';') tag++;
+		size_t sz=tag-st_start;
+		if(!sz || sz>=buf_size) {
+			gt_error_msg("Unrecognized option parameter after SAM optional tag '%.2s'",attr_opt->tag);
+			return GT_STATUS_FAIL;
+		}
+		sz=0;
+		while(st_start<tag) buf[sz++]=tolower(*(st_start++));
+		buf[sz]=0;
+		uint64_t ix=0;
+		while(response_str[ix]) {
+			if(!strcmp(response_str[ix],buf)) break;
+			ix++;
+		}
+		if(!response_str[ix]) {
+			gt_error_msg("Unrecognized option parameter '%s' after SAM optional tag '%.2s'",buf,attr_opt->tag);
+			return GT_STATUS_FAIL;
+		}
+		attr_opt->active=response[ix];
+		if(*tag) tag++;
+	}
+	return GT_STATUS_OK;
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_options(gt_sam_attribute_option* const options,gt_sam_attributes* const sam_attributes)
+{
+	gt_sam_attribute_option *attr_opt=options;
+	while(attr_opt->tag[0]) {
+		if(attr_opt->active) attr_opt->add_tag_func(sam_attributes);
+		attr_opt++;
+	}
+}

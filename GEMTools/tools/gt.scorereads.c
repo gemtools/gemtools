@@ -394,20 +394,7 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
 	gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
 	gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
 	gt_output_sam_attributes_set_print_mismatches(output_sam_attributes,false);
-	gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
-	gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
-	gt_sam_attributes_add_tag_SA(output_sam_attributes->sam_attributes);
-	if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
-		gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
-		gt_sam_attributes_add_tag_XP(output_sam_attributes->sam_attributes);
-		gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
-		gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
-		gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
-		gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
-	}
-	if (param->optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
-	if (param->optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
-	if (param->optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
+	gt_sam_attributes_add_tag_options(gt_scorereads_attribute_option_list,output_sam_attributes->sam_attributes);
 	if(sam_headers->read_group_id_hash) {
 		gt_sam_header_record *hr=NULL;
 		if (param->read_group_id) {
@@ -693,7 +680,7 @@ gt_status parse_arguments(int argc,char** argv) {
         gt_string_get_string(gt_scorereads_short_getopt),gt_scorereads_getopt,&option_index))==-1) break;
     switch (option) {
     /* I/O */
-    case 'i':
+    case 303:
     	param.dist_file = optarg;
     	break;
     case 'o':
@@ -711,6 +698,7 @@ gt_status parse_arguments(int argc,char** argv) {
     	param.sam_header_file = optarg;
     	break;
     case 300:
+    case 'i':
       param.input_files[0] = optarg;
       break;
     case 301:
@@ -772,6 +760,12 @@ gt_status parse_arguments(int argc,char** argv) {
   			err=-7;
   		}
   		break;
+  	case 500:
+  		if(gt_sam_attributes_parse_tag_option_string(gt_scorereads_attribute_option_list,optarg)!=GT_STATUS_OK) {
+  			fprintf(stderr,"Unable to parse --tag option '%s'\n",optarg);
+  			err=-8;
+  		}
+  		break;
   	case 'S':
   		param.map_score_attr.split_penalty=(int)strtol(optarg,&p,10);
   		if(*p || param.map_score_attr.split_penalty<0) {
@@ -793,15 +787,6 @@ gt_status parse_arguments(int argc,char** argv) {
   			err=-7;
   		}
   		break;
-    case 500: // NH
-      param.optional_field_NH = true;
-      break;
-    case 503: // XS
-      param.optional_field_XS = true;
-      break;
-    case 504: // md
-      param.optional_field_md = true;
-      break;
     /* Headers */
     case 600: // Read-group ID
     	param.read_group_id = optarg;

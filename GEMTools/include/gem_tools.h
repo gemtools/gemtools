@@ -110,6 +110,7 @@ extern char* gt_mapset_groups[];
 
 extern gt_option gt_scorereads_options[];
 extern char* gt_scorereads_groups[];
+extern gt_sam_attribute_option gt_scorereads_attribute_option_list[];
 
 extern gt_option gt_map2sam_options[];
 extern char* gt_map2sam_groups[];

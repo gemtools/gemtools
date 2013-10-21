@@ -214,9 +214,9 @@ char* gt_mapset_groups[] = {
 gt_option gt_scorereads_options[] = {
   /* Operations */
    /* I/O */
-  { 300, "i1", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 'i', "i1", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
   { 301, "i2", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
-  { 'i', "insert-dist", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 303, "insert-dist", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
   { 'z', "gzip", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
   { 'j', "bzip2", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
@@ -229,7 +229,7 @@ gt_option gt_scorereads_options[] = {
 
   /* Score Function */
   { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , true, "'offset-33'|'offset-64'" , "" },
-    { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 401, "min-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 402, "max-insert", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 403, "indel-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 'm', "mismatch-limit", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
@@ -237,9 +237,7 @@ gt_option gt_scorereads_options[] = {
   { 'S', "split-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
 
   /* Optional Fields */
-  { 500, "NH", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
-  { 503, "XS", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
-  { 504, "md", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
+  { 500, "tags", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "" , "" },
 
   /* Headers */
   { 600, "read-group-id", GT_OPT_REQUIRED, GT_OPT_STRING, 6 , true, "<read group id>" , "" },
@@ -269,6 +267,24 @@ char* gt_scorereads_groups[] = {
   /*  7 */ "Format",
   /*  8 */ "Misc",
 };
+gt_sam_attribute_option gt_scorereads_attribute_option_list[] = {
+		GT_SAM_ATTRIBUTES_TAG(NH,true),
+		GT_SAM_ATTRIBUTES_TAG(NM,true),
+		GT_SAM_ATTRIBUTES_TAG(XT,true),
+		GT_SAM_ATTRIBUTES_TAG(XP,true),
+		GT_SAM_ATTRIBUTES_TAG(MD,true),
+		GT_SAM_ATTRIBUTES_TAG(XS,true),
+		GT_SAM_ATTRIBUTES_TAG(SA,true),
+		GT_SAM_ATTRIBUTES_TAG(MQ,true),
+		GT_SAM_ATTRIBUTES_TAG(UQ,true),
+		GT_SAM_ATTRIBUTES_TAG(PQ,true),
+		GT_SAM_ATTRIBUTES_TAG(TP,true),
+		GT_SAM_ATTRIBUTES_TAG(TQ,true),
+		GT_SAM_ATTRIBUTES_TAG(cs,false),
+		GT_SAM_ATTRIBUTES_TAG(md,false),
+		GT_SAM_ATTRIBUTES_NULL_TAG // Should always finish list with this
+};
+
 
 /*
  * gt.map2sam menu options

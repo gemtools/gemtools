@@ -131,6 +131,16 @@ typedef struct {
     gt_status (*s_func)(gt_sam_attribute_func_params*);
   };
 } gt_sam_attribute;
+
+typedef struct {
+	char tag[2];
+	bool active;
+	void (*add_tag_func)(gt_sam_attributes* const);
+} gt_sam_attribute_option;
+
+#define GT_SAM_ATTRIBUTES_TAG(sam_tag,default_state) {.tag = #sam_tag, .active = default_state, .add_tag_func = gt_sam_attributes_add_tag_##sam_tag}
+#define GT_SAM_ATTRIBUTES_NULL_TAG {.tag = {0,0}, .active = false, .add_tag_func = NULL}
+
 /*
  * SAM Optional Fields
  *   - SAM Attributes(optional fields) are just a hash of @gt_sam_attribute
@@ -194,6 +204,10 @@ GT_INLINE void gt_sam_attribute_func_params_set_se(
 GT_INLINE void gt_sam_attribute_func_params_set_pe(
     gt_sam_attribute_func_params* const func_params,gt_template* const template,
     uint64_t paired_end_position,gt_map* const map,gt_map* const mate,gt_mmap_attributes* const mmap_attributes);
+
+GT_INLINE gt_status gt_sam_attributes_parse_tag_option_string(gt_sam_attribute_option *options,char *p);
+GT_INLINE void gt_sam_attributes_add_tag_options(gt_sam_attribute_option* const options,gt_sam_attributes* const sam_attributes);
+
 
 /*
  * Functional Internal Data
