@@ -193,21 +193,8 @@ void gt_map2sam_read__write()
     gt_output_sam_attributes_set_compact_format(output_sam_attributes,parameters.compact_format);
     gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,parameters.map_score_attr.quality_format);
   	gt_output_sam_attributes_set_print_mismatches(output_sam_attributes,false);
+  	gt_sam_attributes_add_tag_options(gt_map2sam_attribute_option_list,output_sam_attributes->sam_attributes);
 
-    if (parameters.optional_field_NH) gt_sam_attributes_add_tag_NH(output_sam_attributes->sam_attributes);
-    if (parameters.optional_field_NM) gt_sam_attributes_add_tag_NM(output_sam_attributes->sam_attributes);
-    if (parameters.optional_field_XT) gt_sam_attributes_add_tag_XT(output_sam_attributes->sam_attributes);
-    if (parameters.optional_field_md) gt_sam_attributes_add_tag_md(output_sam_attributes->sam_attributes);
-    if (parameters.optional_field_XS) gt_sam_attributes_add_tag_XS(output_sam_attributes->sam_attributes);
-  	gt_sam_attributes_add_tag_SA(output_sam_attributes->sam_attributes);
-    if (parameters.calc_phred) {
-  		gt_sam_attributes_add_tag_MQ(output_sam_attributes->sam_attributes);
-  		gt_sam_attributes_add_tag_XP(output_sam_attributes->sam_attributes);
-  		gt_sam_attributes_add_tag_UQ(output_sam_attributes->sam_attributes);
-  		gt_sam_attributes_add_tag_PQ(output_sam_attributes->sam_attributes);
-  		gt_sam_attributes_add_tag_TQ(output_sam_attributes->sam_attributes);
-  		gt_sam_attributes_add_tag_TP(output_sam_attributes->sam_attributes);
-    }
   	if(sam_headers->read_group_id_hash) {
   		gt_sam_header_record *hr=NULL;
   		if (parameters.read_group_id) {
@@ -313,21 +300,11 @@ void parse_arguments(int argc,char** argv) {
       }
       break;
     /* Optional Fields */
-    case 500: // NH
-      parameters.optional_field_NH = true;
-      break;
-    case 501: // NM
-      parameters.optional_field_NM = true;
-      break;
-    case 502: // XT
-      parameters.optional_field_XT = true;
-      break;
-    case 503: // XS
-      parameters.optional_field_XS = true;
-      break;
-    case 504: // md
-      parameters.optional_field_md = true;
-      break;
+  	case 500:
+  		if(gt_sam_attributes_parse_tag_option_string(gt_map2sam_attribute_option_list,optarg)!=GT_STATUS_OK) {
+  			gt_fatal_error_msg("Unable to parse --tag option '%s'\n",optarg);
+  		}
+  		break;
     /* Format */
     case 'c':
       parameters.compact_format = true;
