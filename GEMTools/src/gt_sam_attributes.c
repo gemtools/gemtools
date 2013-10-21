@@ -606,7 +606,47 @@ GT_INLINE void gt_sam_attributes_add_tag_md(gt_sam_attributes* const sam_attribu
   gt_sam_attributes_add_sfunc(sam_attributes,"md",'Z',gt_sam_attribute_generate_md);
 }
 
-//  XS  A  +/- directionality infomration for split reads
+/*  MD  Z  Mismatch information (complementary to CIGAR string)
+ *
+ *  Give information about mismatches and deletions to allow reconstruction of reference
+ *  from read + CIGAR + MD flag.  Note insertions and skips are not reflected in the MD tag
+ *
+ */
+
+GT_INLINE gt_status gt_sam_attribute_generate_MD(gt_sam_attribute_func_params* func_params) {
+  if (func_params->alignment_info->map == NULL) return -1; // Don't print anything
+  // Print MD String into the buffer
+  gt_map *map=func_params->alignment_info->map;
+  gt_string* md_tag=gt_string_new(8);
+  const uint64_t map_length = gt_map_get_base_length(map);
+  gt_alignment *al=(func_params->alignment_info->type==GT_MAP_PLACEHOLDER)?func_params->alignment_info->single_end.alignment:
+  		gt_template_get_block(func_params->alignment_info->paired_end.template,func_params->alignment_info->paired_end.paired_end_position);
+  gt_string *read=al->read;
+  uint64_t ix=0;
+	GT_MAP_ITERATE(map,map_block) {
+		GT_MISMS_ITERATE(map_block,misms) {
+			switch (misms->misms_type) {
+			case MISMS:
+				gt_sprintf_append(md_tag,"%"PRIu64"%c",misms->position-ix,gt_string_get_string(read)[misms->position]);
+				break;
+			case DEL:
+				gt_sprintf_append(md_tag,"%"PRIu64"^%.*s",misms->position-ix,misms->size,gt_string_get_string(read)+misms->position);
+				break;
+			default:
+				break;
+			}
+			ix=misms->position+1;
+		}
+	}
+	if(ix<map_length) gt_sprintf_append(md_tag,"%"PRIu64,map_length-ix);
+	func_params->return_s=md_tag;
+  return 0; // OK
+}
+GT_INLINE void gt_sam_attributes_add_tag_MD(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_sfunc(sam_attributes,"MD",'Z',gt_sam_attribute_generate_MD);
+}
+
+//  XS  A  +/- directionality information for split reads
 GT_INLINE gt_status gt_sam_attribute_generate_XS(gt_sam_attribute_func_params* func_params) {
   // do not print this for non split maps
   if (func_params->alignment_info->map==NULL) { // Unmapped
@@ -657,18 +697,16 @@ GT_INLINE gt_status gt_sam_attribute_generate_SA(gt_sam_attribute_func_params *f
 	gt_string *sa_string=gt_string_new(16);
 	gt_generic_printer *gpr=gt_alloc(gt_generic_printer);
 	gt_generic_new_string_printer(gpr,sa_string);
-	gt_gprintf(gpr,"SA:Z");
-	char sep=':';
 	gt_map_placeholder *mph=func_params->alignment_info;
+	bool first=true;
   GT_MAP_SEGMENT_ITERATOR(map_head,map_segment_iterator) {
     gt_map *seg=gt_map_segment_iterator_get_map(&map_segment_iterator);
     if(seg!=map) { // Only print output for other segments
   		gt_string_clear(sa_string);
-  		gt_gprintf(gpr,"%c"PRIgts",%"PRIu64",%c,",sep,PRIgts_content(seg->seq_name),gt_map_get_global_coordinate(seg),
-    				(seg->strand==FORWARD)?'+':'-');
+  		if(!first) gt_gprintf(gpr,";"PRIgts",%"PRIu64",%c,",PRIgts_content(seg->seq_name),gt_map_get_global_coordinate(seg),(seg->strand==FORWARD)?'+':'-');
+  		else gt_gprintf(gpr,PRIgts",%"PRIu64",%c,",PRIgts_content(seg->seq_name),gt_map_get_global_coordinate(seg),(seg->strand==FORWARD)?'+':'-');
   		gt_output_sam_gprint_map_cigar(gpr,seg,false,mph->hard_trim_left,mph->hard_trim_right);
   		gt_gprintf(gpr,",%d",seg->phred_score);
-  		sep=';';
     }
   }
   func_params->return_s=sa_string;
