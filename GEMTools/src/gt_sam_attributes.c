@@ -661,6 +661,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_XS(gt_sam_attribute_func_params* f
       uint64_t junctions_start = gt_map_get_end_mapping_position(forward ? map: gt_map_get_next_block(map));
       uint64_t junctions_end = gt_map_get_begin_mapping_position(forward ? gt_map_get_next_block(map): map);
       gt_sequence_archive* index = func_params->sequence_archive;
+      if(index==NULL) return -1; // Need index to do this
       gt_string* j_start = gt_string_new(8);
       gt_string* j_end = gt_string_new(8);
       gt_sequence_archive_get_sequence_string(index, gt_map_get_seq_name(map), gt_map_get_strand(map), junctions_start+1, 5, j_start);
