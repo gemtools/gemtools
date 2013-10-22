@@ -1222,12 +1222,12 @@ index generated from your annotation.""")
         elif self.transcript_keys is not None and os.path.exists(self.transcript_keys):
             self.transcript_keys = os.path.abspath(self.transcript_keys)
 
-        # check inpuf compression
+        # check input compression
         if self.compress_all and not self.direct_input:
-            logging.gemtools.warning("Enabeling direct input for compressed temporay files")
+            logging.gemtools.warning("Enabling direct input for compressed temporary files")
             self.direct_input = True
 
-        # annotaiton junctons should be generated if not found
+        # annotation junctions should be generated if not found
         #self.junctions_annotation = None  # file with the annotation junctions
 
         # todo : can we check for a valid scoring scheme ?
