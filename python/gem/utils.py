@@ -146,8 +146,12 @@ class Command(object):
         output = subprocess.Popen([gem.executables[tool], '-J'],
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE).communicate()[1]
-
-        args = json.loads(output)
+        try:
+            args = json.loads(output)
+        except:
+            log.warn("Error while loading json output from %s, "
+                     "check the -J output!", tool)
+            return
         groups = {}
         self.tool = tool
         self.tool_opts = {}
