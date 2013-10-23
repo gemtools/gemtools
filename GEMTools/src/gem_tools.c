@@ -13,30 +13,30 @@
  */
 gt_option gt_filter_options[] = {
   /* I/O */
-  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
-  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "" },
-  { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (MultiFASTA/FASTA)" , "" },
-  { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GEM2-Index)" , "" },
-  { 200, "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file> (GTF Annotation)" , "" },
-  { 201, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , false, "" , "" },
-  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
-  { 202, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "'FASTA'|'MAP'|'SAM' (default='InputFormat')" , "" },
-  { 203, "discarded-output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "" , "" },
-  { 204, "no-output", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 'i', "input", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "Input file. (default: stdin)" },
+  { 'o', "output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "Output file. (default: stdout)" },
+  { 'r', "reference", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "MultiFASTA/FASTA genomic reference" },
+  { 'I', "gem-index", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GEM Index" },
+  { 200, "annotation", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "GTF reference annotation" },
+  { 201, "mmap-input", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , false, "" , "Memory-map input file" },
+  { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "Paired-end input" },
+  { 202, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<format>", "'FASTA'|'MAP'|'SAM' (default: 'InputFormat')" },
+  { 203, "discarded-output", GT_OPT_REQUIRED, GT_OPT_STRING, 2 , true, "<file>" , "Write discarded reads to this file" },
+  { 204, "no-output", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "Do not write output" },
   { 205, "check-duplicates", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "Check for duplicated mappings" },
   /* Filter Read/Qualities */
-  { 300, "hard-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , true, "<left>,<right>" , "" },
-  { 301, "quality-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , false, "<quality-threshold>,<min-read-length>" , "" },
-  { 302, "restore-trim", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "(Previously annotated in the read)" , "" },
+  { 300, "hard-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , true, "<left>,<right>" , "Hard trim the reads by <left> and <right> number of bases" },
+  { 301, "quality-trim", GT_OPT_REQUIRED, GT_OPT_FLOAT, 3 , false, "<quality-threshold>,<min-read-length>" , "Quality trim the reads" },
+  { 302, "restore-trim", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "Restore previously annotated in the read (i.e. trimmed reads)" },
   { 303, "uniform-read", GT_OPT_OPTIONAL, GT_OPT_STRING, 3 , true, "['strict']" , "" },
-  { 304, "qualities-to-offset-33", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
-  { 305, "qualities-to-offset-64", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
-  { 306, "remove-qualities", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
-  { 307, "add-qualities", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
+  { 304, "qualities-to-offset-33", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "Convert qualities to offset 64" },
+  { 305, "qualities-to-offset-64", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "Convert qualities to offset 33" },
+  { 306, "remove-qualities", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "Remove qualities" },
+  { 307, "add-qualities", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "Add qualitites" },
   /* Filter Template/Alignments */
-  { 400, "mapped", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "" , "" },
-  { 401, "unmapped", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "" , "" },
-  { 402, "unique-level", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "<number>|<float>" , "" },
+  { 400, "mapped", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "" , "Output only mapped reads" },
+  { 401, "unmapped", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4 , true, "" , "Output only unmapped reads" },
+  { 402, "unique-level", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "<number>|<float>" , "Output only reads that map uniquely up to the given level" },
   { 403, "min-length", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
   { 404, "max-length", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
   { 405, "min-maps", GT_OPT_REQUIRED, GT_OPT_INT, 4 , true, "<number>" , "" },
@@ -237,13 +237,29 @@ gt_option gt_scorereads_options[] = {
   { 'S', "split-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
 
   /* Optional Fields */
-  { 500, "tags", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "" , "" },
+  { 500, "tags", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<tags>" , "Enable/Disable additional fields with <field>:[0|1].\\n"
+                                                                      "The following fields are available:\\n"
+                                                                      "\\n"
+                                                                      "NH on\\n"
+                                                                      "NM on\\n"
+                                                                      "XT on\\n"
+                                                                      "XP on\\n"
+                                                                      "MD on\\n"
+                                                                      "XS off\\n"
+                                                                      "SA on\\n"
+                                                                      "MQ on\\n"
+                                                                      "UQ on\\n"
+                                                                      "PQ on\\n"
+                                                                      "TP on\\n"
+                                                                      "cs off\\n"
+                                                                      "md off\\n"
+                                                                      "" },
 
   /* Headers */
-  { 600, "read-group-id", GT_OPT_REQUIRED, GT_OPT_STRING, 6 , true, "<read group id>" , "" },
+  { 600, "read-group-id", GT_OPT_REQUIRED, GT_OPT_STRING, 6 , true, "<id>" , "Read group id" },
 
   /* Format */
-  { 704, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 7 , true, "'MAP'|'SAM' (default='MAP')" , "" },
+  { 704, "output-format", GT_OPT_REQUIRED, GT_OPT_STRING, 7 , true, "'MAP'|'SAM'", "Output format. (default: 'MAP')" },
   { 'c', "compact", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 7 , false, "" , "" },
 
   /* Misc */
@@ -302,7 +318,23 @@ gt_option gt_map2sam_options[] = {
      /* Alignments */
    { 'q', "quality-format", GT_OPT_REQUIRED, GT_OPT_STRING, 4 , true, "'offset-33'|'offset-64'" , "" },
   /* Optional Fields */
-   { 500, "tags", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "" , "" },
+   { 500, "tags", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<tags>" , "Enable/Disable additional fields with <field>:[0|1].\\n"
+                                                                      "The following fields are available:\\n"
+                                                                      "\\n"
+                                                                      "NH on\\n"
+                                                                      "NM on\\n"
+                                                                      "XT on\\n"
+                                                                      "XP on\\n"
+                                                                      "MD on\\n"
+                                                                      "XS off\\n"
+                                                                      "SA on\\n"
+                                                                      "MQ on\\n"
+                                                                      "UQ on\\n"
+                                                                      "PQ on\\n"
+                                                                      "TP on\\n"
+                                                                      "cs off\\n"
+                                                                      "md off\\n"
+                                                                      "" },
   { 'Q', "calc-mapq", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
 //  { 500, "", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 5 , true, "" , "" },
   /* Format */
