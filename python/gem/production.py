@@ -2694,10 +2694,8 @@ class VcPipeline(Command):
             memory=args['sort_mem'],
             no_sort=args['no_sort'],
             no_index=args['no_index'],
-            NM=True,
-            NH=True,
-            XT=True,
-            calc_mapq=True
+            calc_mapq=True,
+            quality_format=gem._prepare_quality_parameter(quality)
         )
 
         # create stats
