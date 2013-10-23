@@ -475,12 +475,14 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 	gt_alignment *al[2];
 	char *rd[2],*ql[2];
 	uint64_t len[2];
+	bool has_qualities[2];
 	register int qual_offset=param->qual_offset;
 	// Get alignments, qualities, reads and lengths for both ends
 	for(j=0;j<nrd;j++) {
 		al[j]=gt_template_get_block(template,j);
 		rd[j]=gt_alignment_get_read(al[j]);
 		ql[j]=gt_alignment_get_qualities(al[j]);
+	   has_qualities[j] = gt_alignment_has_qualities(al[j]);
 		len[j]=strlen(rd[j]);
 		// Update yield max_read_length and resize stats arrays if necessary
 		if(stats->max_read_length[j]<len[j]) as_stats_resize(stats,j,len[j]);
@@ -529,11 +531,14 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		char *p=rd[j];
 		for(i=0;i<len[j];i++) {
 			int base=base_tab[(int)p[i]]-1;
-			int qual=q[i]-qual_offset;
-			if(qual<0 || qual>MAX_QUAL || base<0) {
-				gt_fatal_error_msg("Illegal base or quality character '%c %c' in read\n",p[i],q[i]);
-			}
-			if(base) yld++;
+			int qual;
+			if(has_qualities[j]) {
+				qual=q[i]-qual_offset;
+				if(qual<0 || qual>MAX_QUAL || base<0) {
+					gt_fatal_error_msg("Illegal base or quality character '%c %c' in read\n",p[i],q[i]);
+				}
+				if(base) yld++;
+			} else qual=MISSING_QUAL;
 			bc[i][qual*5+base]++;
 			if(mapped) {
 				bsc[stype[0]*5+base]++;
@@ -647,7 +652,6 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 			gt_string *contig;
 			int64_t ins_size=gt_template_get_insert_size(tmaps,&gt_err,&xx,&contig);
 			if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK) {
-//				printf("%"PRId64"\n",ins_size);
 				(void)as_increase_insert_count(&stats->insert_size,AS_INSERT_TYPE_ALL_UNIQUE,ins_size);
 				stats->paired_type[PAIR_TYPE_DS]++;
 				insert_loc(stats,xx,ins_size,idt->tile,contig);
@@ -918,9 +922,9 @@ static void as_print_yield_summary(FILE *f,as_param *param)
 	bool paired=gt_input_generic_parser_attributes_is_paired(param->parser_attr);
 	as_stats* st=param->stats[0];
 	uint64_t trimmed[2]={0,0},yield[2]={0,0},min_rl[2],i,j,k;
-	fputs("Yield summary\n\n",f);
+		fputs("Yield summary\n\n",f);
 	j=paired?2:1;
-	for(i=0;i<j;i++) {
+	for(i=0;i<j;i++) if(st->read_length_stats[i]) {
 		uint64_t l=st->max_read_length[i];
 		for(k=0;k<=l;k++) if(st->read_length_stats[i][k]) break;
 		min_rl[i]=k;
@@ -930,6 +934,7 @@ static void as_print_yield_summary(FILE *f,as_param *param)
 			yield[i]+=k*x;
 		}
 	}
+	if(!(yield[0] || yield[1])) return;
 	if(paired) {
 		fprintf(f,"Paired end reads.  No. pairs =\t%" PRIu64 "\n",st->nreads);
 		if(!param->variable_read_length) {
@@ -1175,7 +1180,7 @@ static void as_print_read_lengths(FILE *f,as_param *param)
 			if(i<=st->max_read_length[k]) tot[k]+=(double)st->read_length_stats[k][i];
 		}
 	}
-	uint64_t x[2];
+	uint64_t x[2]={0,0};
 	for(i=0;i<=l;i++) {
 		for(k=0;k<j;k++) x[k]=(i<=st->max_read_length[k]?st->read_length_stats[k][i]:0);
 		if(paired) {
@@ -1596,12 +1601,14 @@ int main(int argc,char *argv[])
 				}
 				if(!(gt_string_nequals(template->tag,alignment2->tag,gt_string_get_length(template->tag)))) {
 					gt_error_msg("Fatal ID mismatch ('%*s','%*s') parsing files '%s','%s'\n",PRIgts_content(template->tag),PRIgts_content(alignment2->tag),param.input_files[0],param.input_files[1]);
+					err=-10;
 					break;
 				}
 				if(!param.ignore_id) {
 					uint64_t idt_err=parse_id_tag(template->tag,idt);
 					if(idt_err!=ID_TAG_OK) {
 						gt_error_msg("Fatal error parsing ID '"PRIgts"'\n",PRIgts_content(template->tag));
+						err=-20;
 						break;
 					}
 				}
@@ -1683,6 +1690,7 @@ int main(int argc,char *argv[])
 					uint64_t idt_err=parse_id_tag(template->tag,idt);
 					if(idt_err!=ID_TAG_OK) {
 						gt_error_msg("Fatal error parsing ID '"PRIgts"'\n",PRIgts_content(template->tag));
+						err=-20;
 						break;
 					}
 				}
@@ -1707,7 +1715,7 @@ int main(int argc,char *argv[])
 	}
 	pthread_join(calc_dup,NULL);
 	pthread_join(stats_merge,NULL);
-	as_print_stats(&param);
+	if(!err) as_print_stats(&param);
 	as_stats_free(stats[0]);
 	free(stats);
 	return err;

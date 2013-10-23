@@ -7,7 +7,9 @@
  */
 
 #include <getopt.h>
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 
 #include "gem_tools.h"
 
@@ -259,7 +261,9 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
   }
 
   // Parallel reading+process
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
     gt_buffered_input_file* buffered_input = gt_buffered_input_file_new(input_file);
     gt_status error_code;
@@ -267,7 +271,11 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
     gt_generic_parser_attributes* generic_parser_attr = gt_input_generic_parser_attributes_new(parameters.paired);
 
     // local maps
+#ifdef HAVE_OPENMP
     uint64_t tid = omp_get_thread_num();
+#else
+	 uint64_t tid = 0;
+#endif
     gt_shash* l_gene_counts = gene_counts_list[tid];
     gt_shash* l_type_counts = type_counts_list[tid];
     gt_shash* l_single_patterns = single_patterns_list[tid];

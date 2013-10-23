@@ -7,7 +7,9 @@
  */
 
 #include <getopt.h>
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 
 #include "gem_tools.h"
 
@@ -41,7 +43,9 @@ GT_INLINE void gt_region_read(gt_gtf* const gtf) {
             gt_output_stream_new(stdout,SORTED_FILE) : gt_output_file_new(parameters.output_file,SORTED_FILE);
 
   // Parallel I/O
+#ifdef HAVE_OPENMP
   #pragma omp parallel num_threads(parameters.num_threads)
+#endif
   {
     gt_vector* hits = gt_vector_new(16, sizeof(gt_gtf_entry*));
     gt_output_map_attributes* const output_map_attributes = gt_output_map_attributes_new();

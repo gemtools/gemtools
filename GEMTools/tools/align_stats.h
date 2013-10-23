@@ -8,6 +8,7 @@
 #define DEFAULT_MAX_INSERT 1000
 #define MAX_INDEL_SIZE 1024
 #define DUP_LIMIT 255
+#define MISSING_QUAL 30
 
 #define PAIR_TYPE_DS 0 // Reads on different strands, same contig
 #define PAIR_TYPE_SS 1 // Reads on same strand, same contig

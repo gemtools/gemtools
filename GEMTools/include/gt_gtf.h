@@ -12,7 +12,9 @@
 #include "gt_template.h"
 #include "gt_output_map.h"
 #include "gt_input_map_parser.h"
+#ifdef HAVE_OPENMP
 #include <omp.h>
+#endif
 
 
 #define GT_GTF_TYPE_EXON "exon"
