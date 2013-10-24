@@ -34,7 +34,7 @@
 #define AL_REVERSE 8
 #define AL_DIRECTIONS ((AL_FORWARD)|(AL_REVERSE))
 #define AL_USED 128
-#define GT_SCOREREADS_NUM_LINES GT_IMP_NUM_LINES
+#define GT_SCOREREADS_NUM_LINES (GT_IMP_NUM_LINES>>1)
 
 typedef struct {
   char *input_files[2];
@@ -599,7 +599,7 @@ gt_status gt_scorereads_process(sr_param *param)
 				(void)estimate_insert_histogram(ins_dist,&param->map_score_attr);
 				gt_scorereads_free_insert_hash(ins_dist);
 			}
-#ifdef OPENMP
+#ifdef HAVE_OPENMP
 #pragma omp parallel num_threads(param->num_threads)
 #endif
 			{
@@ -629,7 +629,7 @@ gt_status gt_scorereads_process(sr_param *param)
 			/*
 			 * Single end reads
 			 */
-#ifdef OPENMP
+#ifdef HAVE_OPENMP
 #pragma omp parallel num_threads(param->num_threads)
 #endif
 			{

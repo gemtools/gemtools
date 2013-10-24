@@ -330,7 +330,7 @@ GT_INLINE void gt_template_recalculate_counters(gt_template* const template) {
   const uint64_t num_blocks = gt_template_get_num_blocks(template);
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
     uint64_t i, total_distance = 0;
-    for (i=0;i<num_blocks;++i) {
+    for (i=0;i<num_blocks;++i) if(mmap[i] != NULL) {
       total_distance+=gt_map_get_global_distance(mmap[i]);
     }
     mmap_attr->distance=total_distance;
@@ -349,7 +349,7 @@ GT_INLINE void gt_template_recalculate_counters_no_splits(gt_template* const tem
   const uint64_t num_blocks = gt_template_get_num_blocks(template);
   GT_TEMPLATE_ITERATE_MMAP__ATTR_(template,mmap,mmap_attr) {
     uint64_t i, total_distance = 0;
-    for (i=0;i<num_blocks;++i) {
+    for (i=0;i<num_blocks;++i) if(mmap[i] != NULL) {
       total_distance+=gt_map_get_no_split_distance(mmap[i]);
     }
     mmap_attr->distance=total_distance;
