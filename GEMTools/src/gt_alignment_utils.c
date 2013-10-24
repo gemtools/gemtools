@@ -253,7 +253,7 @@ GT_INLINE uint64_t gt_alignment_sum_mismatch_qualities(gt_alignment* const align
   GT_MAP_ITERATE_MAP_BLOCK(map, block){
     GT_MISMS_ITERATE(block, misms) {
       if (misms->misms_type == MISMS) {
-        qv =+ qualities[misms->position + split_map_offset];
+        qv += qualities[misms->position + split_map_offset];
       }
     }
     split_map_offset += gt_map_get_base_length(block);

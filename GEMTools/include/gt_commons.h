@@ -125,7 +125,11 @@
 #define gt_expect_false(condition) __builtin_expect(condition,0)
 
 // GemTools Inline
+#ifdef USE_INLINE
 #define GT_INLINE inline
+#else
+#define GT_INLINE
+#endif
 
 // Macro Stringify
 #define GT_QUOTE(value) #value

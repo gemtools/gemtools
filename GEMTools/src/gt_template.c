@@ -385,7 +385,7 @@ GT_INLINE void gt_template_add_mmap_ends(
     gt_template* const template,
     gt_map* const map_end1,gt_map* const map_end2,gt_mmap_attributes* const mmap_attributes) {
   GT_TEMPLATE_CHECK(template);
-  gt_cond_fatal_error(map_end1==NULL && map_end2==NULL,TEMPLATE_MMAP_NULL);
+//  gt_cond_fatal_error(map_end1==NULL && map_end2==NULL,TEMPLATE_MMAP_NULL);
   GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
     gt_alignment_add_map(alignment,map_end1);
   } GT_TEMPLATE_END_REDUCTION__RETURN;

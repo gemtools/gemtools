@@ -32,7 +32,7 @@ typedef struct {
 } gt_map_score_attributes;
 
 #define GT_MAP_SCORE_MAX_QUALITY 50
-#define GT_MAP_SCORE_MISSING_QUALITY 40 // Value to use in calculations if qualities not available
+#define GT_MAP_SCORE_MISSING_QUALITY 30 // Value to use in calculations if qualities not available
 #define GT_MAP_SCORE_MAX_GT_SCORE 0xffff
 
 #define GT_MAP_SCORE_ATTRIBUTES_CHECK(ms_attr) GT_NULL_CHECK(ms_attr);

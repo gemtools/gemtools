@@ -127,6 +127,11 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 			}
 		}
 		free(map_flag[0]);
+	} else {
+		attr.distance=0;
+		attr.gt_score=0;
+		attr.phred_score=255;
+		gt_template_add_mmap_ends(template,0,0,&attr);
 	}
 //	gt_attributes_remove(template->attributes,GT_ATTR_ID_TAG_PAIR);
 }

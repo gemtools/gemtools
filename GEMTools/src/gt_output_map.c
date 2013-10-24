@@ -490,28 +490,35 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps(
     uint64_t strata = 0, pending_maps = 0, total_maps_printed = 0;
     while (gt_template_get_next_matching_strata(template,strata,&strata,&pending_maps)) {
       GT_TEMPLATE_ITERATE_MMAP__ATTR(template,map_array,map_array_attr) {
-        if (map_array_attr->distance!=strata) continue;
-        // Print mmap
-        --pending_maps;
-        if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
-        GT_MMAP_ITERATE(map_array,map,end_position) {
-          if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
-          if (map!=NULL) error_code|=gt_output_map_gprint_map_(gprinter,map,output_map_attributes,false,true,true);
-        }
-        // Print scores
-        if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->gt_score!=GT_MAP_NO_GT_SCORE) {
-        	if(output_map_attributes->hex_print_scores)
-            gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"0x%"PRIx64,map_array_attr->gt_score);
-        	else gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->gt_score);
-        }
-        if (total_maps_printed>=output_map_attributes->max_printable_maps || total_maps_printed>=num_maps) return error_code;
-        if (pending_maps==0) break;
+      	if (map_array_attr->distance!=strata) continue;
+      	// Print mmap
+      	--pending_maps;
+      	if ((total_maps_printed++)>0) gt_gprintf(gprinter,GT_MAP_NEXT_S);
+      	GT_MMAP_ITERATE(map_array,map,end_position) {
+      		if (end_position>0) gt_gprintf(gprinter,GT_MAP_TEMPLATE_SEP);
+      		if (map!=NULL) error_code|=gt_output_map_gprint_map_(gprinter,map,output_map_attributes,false,true,true);
+      	}
+      	// Print scores
+      	if (output_map_attributes->print_scores && map_array_attr!=NULL && map_array_attr->gt_score!=GT_MAP_NO_GT_SCORE) {
+      		if(output_map_attributes->hex_print_scores)
+      			gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"0x%"PRIx64,map_array_attr->gt_score);
+      		else gt_gprintf(gprinter,GT_MAP_TEMPLATE_SCORE"%"PRIu64,map_array_attr->gt_score);
+      	}
       }
+      if (total_maps_printed>=output_map_attributes->max_printable_maps || total_maps_printed>=num_maps) return error_code;
+      if (pending_maps==0) break;
       if (pending_maps>0) {
-        gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
-        return GT_MOE_INCONSISTENT_COUNTERS;
+      	gt_error(TEMPLATE_INCONSISTENT_COUNTERS);
+      	return GT_MOE_INCONSISTENT_COUNTERS;
       }
       ++strata;
+    }
+    if(!total_maps_printed && num_maps==1) {
+      gt_mmap* const mmap_ph = gt_vector_get_elm(template->mmaps,0,gt_mmap);
+      if(!(mmap_ph->mmap[0] && mmap_ph->mmap[1])) {
+        gt_gprintf(gprinter,GT_MAP_NONE_S);
+        return error_code;
+      }
     }
     if (gt_expect_false(total_maps_printed!=num_maps)) {
       gt_error(TEMPLATE_INCONSISTENT_COUNTERS);

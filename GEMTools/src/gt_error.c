@@ -19,31 +19,31 @@ bool mute_report_stream = false;
 /*
  * Getters/Setters ELD-streams
  */
-inline FILE* gt_error_get_stream() {
+GT_INLINE FILE* gt_error_get_stream() {
   return (gt_error_stream!=NULL) ? gt_error_stream : stderr;
 }
-inline void gt_error_set_stream(FILE* const stream) {
+GT_INLINE void gt_error_set_stream(FILE* const stream) {
   gt_error_stream = stream;
 }
-inline FILE* gt_log_get_stream() {
+GT_INLINE FILE* gt_log_get_stream() {
   return (gt_log_stream!=NULL) ? gt_log_stream : stderr;
 }
-inline void gt_log_set_stream(FILE* const stream) {
+GT_INLINE void gt_log_set_stream(FILE* const stream) {
   gt_log_stream = stream;
 }
-inline FILE* gt_debug_get_stream() {
+GT_INLINE FILE* gt_debug_get_stream() {
   return (gt_debug_stream!=NULL) ? gt_debug_stream : stderr;
 }
-inline void gt_debug_set_stream(FILE* const stream) {
+GT_INLINE void gt_debug_set_stream(FILE* const stream) {
   gt_debug_stream = stream;
 }
 /*
  * Mute/Articulate ELD-streams
  */
-inline void gt_mute_error_stream() {mute_error_stream=true;}
-inline void gt_mute_report_stream() {mute_error_stream=true;}
-inline void gt_articulate_error_stream() {mute_error_stream=false;}
-inline void gt_articulate_report_stream() {mute_error_stream=false;}
+GT_INLINE void gt_mute_error_stream() {mute_error_stream=true;}
+GT_INLINE void gt_mute_report_stream() {mute_error_stream=true;}
+GT_INLINE void gt_articulate_error_stream() {mute_error_stream=false;}
+GT_INLINE void gt_articulate_report_stream() {mute_error_stream=false;}
 
 /*
  * StackTrace Printer
@@ -63,7 +63,7 @@ void gt_print_stack_trace() {
 }
 
 #else
-inline void gt_print_stack_trace() {}
+GT_INLINE void gt_print_stack_trace() {}
 #endif
 
 /*
