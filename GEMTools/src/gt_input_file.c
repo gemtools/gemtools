@@ -6,6 +6,7 @@
  * DESCRIPTION: // TODO
  */
 
+#include <sys/wait.h>
 #ifdef ZLIB
 #include <zlib.h>
 #endif
@@ -66,7 +67,7 @@ gt_input_file* gt_input_file_pipe_open(char *const file_name,gt_file_format form
 gt_input_file* gt_input_file_general_open(char* const file_name,const bool mmap_file,gt_file_format format)
 {
   GT_NULL_CHECK(file_name);
-  // Check for pipe at end of file_name
+  // Check for pipe
   if(strchr(file_name,'|')) return gt_input_file_pipe_open(file_name,format);
   // Allocate handler
   gt_input_file* input_file = gt_alloc(gt_input_file);
@@ -167,6 +168,10 @@ gt_status gt_input_file_close(gt_input_file* const input_file) {
       break;
     case STREAM:
       gt_free(input_file->file_buffer);
+      // In case the stream is from a pipe where we forked a shell we should wait for the child to die
+      signal(SIGCHLD,SIG_DFL);
+      int i;
+      while(waitpid(-1,&i,WNOHANG)>0);
       break;
   }
   gt_free(input_file);
