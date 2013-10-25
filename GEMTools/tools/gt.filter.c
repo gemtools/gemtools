@@ -809,14 +809,14 @@ void gt_template_rna_filter(gt_template* const template_dst,gt_template* const t
         // Check SM contained and get minimum intron length
         uint64_t has_sm = false;
         uint64_t min_intron_length = UINT64_MAX, min_block_length = UINT64_MAX;
-        if (parameters.no_split_maps || parameters.only_split_maps || parameters.min_intron_length >= 0) {
+        if (parameters.no_split_maps || parameters.only_split_maps || parameters.min_intron_length != UINT64_MAX) {
           GT_MMAP_ITERATE(mmap,map,end_p) {
             if (gt_map_get_num_blocks(map) > 1) {
               const uint64_t mil = gt_map_get_min_intron_length(map);
               const uint64_t mbl = gt_map_get_min_block_length(map);
               has_sm = true;
-              if (mil >= 0 && mil < min_intron_length) min_intron_length = mil;
-              if (mbl >= 0 && mbl < min_block_length) min_block_length = mbl;
+              if (mil != UINT64_MAX && mil < min_intron_length) min_intron_length = mil;
+              if (mbl != UINT64_MAX && mbl < min_block_length) min_block_length = mbl;
             }
           }
         }

@@ -774,15 +774,15 @@ gt_status parse_arguments(int argc,char** argv) {
   		}
   		break;
   	case 'M':
-  		param.map_score_attr.mapping_cutoff=(int)strtol(optarg,&p,10);
-  		if(*p || param.map_score_attr.mapping_cutoff<0) {
+  		param.map_score_attr.mapping_cutoff=strtoul(optarg,&p,10);
+  		if(*p) {
   			fprintf(stderr,"Illegal mapping cutoff: '%s'\n",optarg);
   			err=-7;
   		}
   		break;
   	case 'm':
-  		param.map_score_attr.max_strata_searched=(int)strtol(optarg,&p,10);
-  		if(*p || param.map_score_attr.max_strata_searched<0) {
+  		param.map_score_attr.max_strata_searched=strtoul(optarg,&p,10);
+  		if(*p) {
   			fprintf(stderr,"Illegal mismatch limit: '%s'\n",optarg);
   			err=-7;
   		}

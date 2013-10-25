@@ -14,6 +14,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
+#include "gt_commons.h"
+
 // Internally to Gem-tools error codes are returned as gt_status
 typedef int32_t gt_status;
 
@@ -34,17 +36,17 @@ extern bool mute_error_stream;
 extern bool mute_report_stream;
 // Getters/Setters ELD-streams
 #define GT_DEFAULT_REPORT_STREAM stderr
-inline FILE* gt_error_get_stream();
-inline void gt_error_set_stream(FILE* const stream);
-inline FILE* gt_log_get_stream();
-inline void gt_log_set_stream(FILE* const stream);
-inline FILE* gt_debug_get_stream();
-inline void gt_debug_set_stream(FILE* const stream);
+GT_INLINE FILE* gt_error_get_stream();
+GT_INLINE void gt_error_set_stream(FILE* const stream);
+GT_INLINE FILE* gt_log_get_stream();
+GT_INLINE void gt_log_set_stream(FILE* const stream);
+GT_INLINE FILE* gt_debug_get_stream();
+GT_INLINE void gt_debug_set_stream(FILE* const stream);
 // Mute/Articulate ELD-streams
-inline void gt_mute_error_stream();
-inline void gt_mute_report_stream();
-inline void gt_articulate_error_stream();
-inline void gt_articulate_report_stream();
+GT_INLINE void gt_mute_error_stream();
+GT_INLINE void gt_mute_report_stream();
+GT_INLINE void gt_articulate_error_stream();
+GT_INLINE void gt_articulate_report_stream();
 
 // Labels
 #define GT_LABEL_ERROR "Error"
