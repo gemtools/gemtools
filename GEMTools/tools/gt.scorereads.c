@@ -430,19 +430,29 @@ void gt_scorereads_print_template(gt_vector *outputs,gt_vector *buffered_outputs
 	GT_VECTOR_ITERATE(outputs,odef_p,idx,output_def*) {
 		output_def* odef=*odef_p;
 		gt_status print_code=GT_STATUS_OK;
-		if(odef->format==MAP) {
+		switch(odef->format) {
+		case MAP:
 			if(!added_tags) {
 				gt_template_add_mcs_tags(template,map_score_attr);
 				added_tags=true;
 			}
 			print_code=gt_output_generic_bofprint_template(buf_out->buffered_output,template,odef->printer_attr);
-		} else if(odef->format==SAM) {
+			break;
+		case SAM:
 			if(!calculated_mapq) {
 				gt_map_calculate_template_mapq_score(template,map_score_attr);
 				calculated_mapq=true;
 			}
 			print_code=gt_output_sam_bofprint_template(buf_out->buffered_output,template,buf_out->sam_attributes);
-		} else gt_fatal_error_msg("Fatal error - unsupported output format");
+			break;
+		case FASTA:
+		case FASTQ:
+			print_code=gt_output_fasta_bofprint_template(buf_out->buffered_output,template,odef->printer_attr->output_fasta_attributes);
+			break;
+		default:
+			gt_fatal_error_msg("Fatal error - unsupported output format");
+			break;
+		}
 		if(print_code) {
 			gt_error_msg("Error outputting read '"PRIgts"' in %s format\n",PRIgts_content(gt_template_get_string_tag(template)),odef->format==MAP?"MAP":"SAM");
 		}
@@ -456,13 +466,23 @@ void gt_scorereads_print_alignment(gt_vector *outputs,gt_vector *buffered_output
 	GT_VECTOR_ITERATE(outputs,odef_p,idx,output_def*) {
 		output_def* odef=*odef_p;
 		gt_status print_code=GT_STATUS_OK;
-		if(odef->format==MAP) {
+		switch(odef->format) {
+		case MAP:
 			gt_alignment_add_mcs_tags(alignment,map_score_attr);
 			print_code=gt_output_generic_bofprint_alignment(buf_out->buffered_output,alignment,odef->printer_attr);
-		} else if(odef->format==SAM) {
+			break;
+		case SAM:
 			gt_map_calculate_alignment_mapq_score(alignment,map_score_attr);
 			print_code=gt_output_sam_bofprint_alignment(buf_out->buffered_output,alignment,buf_out->sam_attributes);
-		} else gt_fatal_error_msg("Fatal error - unsupported output format");
+			break;
+		case FASTQ:
+		case FASTA:
+			print_code=gt_output_fasta_bofprint_alignment(buf_out->buffered_output,alignment,odef->printer_attr->output_fasta_attributes);
+			break;
+		default:
+			gt_fatal_error_msg("Fatal error - unsupported output format");
+			break;
+		}
 		if(print_code) {
 			gt_error_msg("Error outputting read '"PRIgts"' in %s format\n",PRIgts_content(gt_alignment_get_string_tag(alignment)),odef->format==MAP?"MAP":"SAM");
 		}
@@ -546,18 +566,26 @@ gt_status gt_scorereads_process(sr_param *param)
 		odef->output_file=odef->name?gt_output_file_new_compress(gt_string_get_string(odef->name),UNSORTED_FILE,param->compress):
 				gt_output_stream_new_compress(stdout,UNSORTED_FILE,param->compress);
 		gt_cond_fatal_error(!odef->output_file,FILE_OPEN,odef->name?gt_string_get_string(odef->name):"<STDOUT>");
-		if(odef->format==MAP) {
+		switch(odef->format) {
+		case MAP:
 			odef->printer_attr=gt_generic_printer_attributes_new(MAP);
 			odef->printer_attr->output_map_attributes->print_casava=true;
 			odef->printer_attr->output_map_attributes->print_extra=true;
 			odef->printer_attr->output_map_attributes->print_scores=true;
 			odef->printer_attr->output_map_attributes->hex_print_scores=true;
-		} else if(odef->format==SAM) {
+			break;
+		case FASTA:
+		case FASTQ:
+			odef->printer_attr=gt_generic_printer_attributes_new(odef->format);
+			break;
+		case SAM:
 			if(sam_headers == NULL) sam_headers=gt_scorereads_setup_sam_headers(param);
 		  // Print SAM headers
 		  gt_output_sam_ofprint_headers_sh(odef->output_file,sam_headers);
-		} else {
-				gt_fatal_error_msg("Unsupported file format\n");
+		  break;
+		default:
+			gt_fatal_error_msg("Fatal error - unsupported output format");
+			break;
 		}
 	}
 	// Do we have two map files as input (one for each read)?
@@ -843,6 +871,10 @@ gt_status parse_arguments(int argc,char** argv) {
           output_format = MAP;
         } else if (gt_streq(optarg,"SAM")) {
           output_format = SAM;
+        } else if (gt_streq(optarg,"FASTA")) {
+          output_format = FASTA;
+        } else if (gt_streq(optarg,"FASTQ")) {
+          output_format = FASTQ;
         } else {
           gt_fatal_error_msg("Output format '%s' not recognized",optarg);
         }

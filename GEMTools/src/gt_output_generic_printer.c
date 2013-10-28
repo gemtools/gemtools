@@ -35,8 +35,10 @@ GT_INLINE void gt_generic_printer_attributes_set_format(
       attributes->output_sam_attributes = gt_output_sam_attributes_new();
       break;
     case FASTA:
-      attributes->output_format = FASTA;
+    case FASTQ:
+      attributes->output_format = file_format;
       attributes->output_fasta_attributes = gt_output_fasta_attributes_new();
+      attributes->output_fasta_attributes->format=file_format==FASTA?F_FASTA:F_FASTQ;
       break;
     case MAP:
     default:
