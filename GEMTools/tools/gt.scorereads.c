@@ -426,14 +426,21 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
 void gt_scorereads_print_template(gt_vector *outputs,gt_vector *buffered_outputs,gt_template *template,gt_map_score_attributes *map_score_attr)
 {
 	gt_scorereads_buffered_output *buf_out=gt_vector_get_mem(buffered_outputs,gt_scorereads_buffered_output);
+	bool added_tags=false,calculated_mapq=false;
 	GT_VECTOR_ITERATE(outputs,odef_p,idx,output_def*) {
 		output_def* odef=*odef_p;
 		gt_status print_code=GT_STATUS_OK;
 		if(odef->format==MAP) {
-			gt_template_add_mcs_tags(template,map_score_attr);
+			if(!added_tags) {
+				gt_template_add_mcs_tags(template,map_score_attr);
+				added_tags=true;
+			}
 			print_code=gt_output_generic_bofprint_template(buf_out->buffered_output,template,odef->printer_attr);
 		} else if(odef->format==SAM) {
-			gt_map_calculate_template_mapq_score(template,map_score_attr);
+			if(!calculated_mapq) {
+				gt_map_calculate_template_mapq_score(template,map_score_attr);
+				calculated_mapq=true;
+			}
 			print_code=gt_output_sam_bofprint_template(buf_out->buffered_output,template,buf_out->sam_attributes);
 		} else gt_fatal_error_msg("Fatal error - unsupported output format");
 		if(print_code) {
