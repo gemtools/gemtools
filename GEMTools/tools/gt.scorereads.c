@@ -996,7 +996,7 @@ gt_status parse_arguments(int argc,char** argv) {
 				}
 			} else {
 				if(use_stdout) {
-					gt_error_msg("Erro in output definitions: multiple outputs to stdout stream defined\n");
+					gt_error_msg("Error in output definitions: multiple outputs to stdout stream defined\n");
 					err=GT_STATUS_FAIL;
 				} else use_stdout=true;
 			}

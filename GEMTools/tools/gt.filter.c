@@ -251,7 +251,7 @@ gt_filter_args parameters = {
  * mapped pairs
  */
 GT_INLINE uint64_t gt_filter_get_num_maps(gt_template* template){
-  GT_TEMPLATE_IF_SE_ALINGMENT(template) {
+  GT_TEMPLATE_IF_SE_ALIGNMENT(template) {
     return gt_template_get_num_mmaps(template);
   } else {
     if (!gt_template_is_mapped(template)) {
@@ -460,7 +460,7 @@ GT_INLINE bool gt_filter_make_reduce_by_annotation_alignment(gt_template* const 
 
 GT_INLINE bool gt_filter_make_reduce_by_annotation(gt_template* const template_dst,gt_template* const template_src) {
   bool filtered = false;
-  GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
+  GT_TEMPLATE_IF_SE_ALIGNMENT(template_src) {
     GT_TEMPLATE_REDUCTION(template_src,alignment_src);
     gt_gtf_hits* hits = gt_gtf_hits_new();
     filtered = gt_filter_make_reduce_by_annotation_alignment(template_dst, alignment_src, 0, hits);
@@ -607,7 +607,7 @@ void gt_alignment_dna_filter(gt_alignment* const alignment_dst,gt_alignment* con
   }
 }
 void gt_template_reduction_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
-  GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
+  GT_TEMPLATE_IF_SE_ALIGNMENT(template_src) {
     GT_TEMPLATE_REDUCTION(template_src,alignment_src);
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
     gt_alignment_reduction_filter(alignment_dst,alignment_src,file_format);
@@ -644,7 +644,7 @@ void gt_template_dna_filter(gt_template* const template_dst,gt_template* const t
    *   (3) Reduction of all maps (taking them into account as a whole)
    *   (4) Post-filtering steps
    */
-  GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
+  GT_TEMPLATE_IF_SE_ALIGNMENT(template_src) {
     GT_TEMPLATE_REDUCTION(template_src,alignment_src);
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
     gt_alignment_dna_filter(alignment_dst,alignment_src,file_format);
@@ -787,7 +787,7 @@ void gt_alignment_rna_filter(gt_alignment* const alignment_dst,gt_alignment* con
 }
 
 void gt_template_rna_filter(gt_template* const template_dst,gt_template* const template_src,const gt_file_format file_format) {
-  GT_TEMPLATE_IF_SE_ALINGMENT(template_src) {
+  GT_TEMPLATE_IF_SE_ALIGNMENT(template_src) {
     GT_TEMPLATE_REDUCTION(template_src,alignment_src);
     GT_TEMPLATE_REDUCTION(template_dst,alignment_dst);
     /*
