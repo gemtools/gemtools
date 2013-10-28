@@ -48,6 +48,12 @@ typedef struct {
   gt_generic_printer_attributes *printer_attr;
 } output_def;
 
+
+typedef struct {
+	gt_buffered_output_file *buffered_output;
+	gt_output_sam_attributes *sam_attributes;
+} gt_scorereads_buffered_output;
+
 typedef struct {
   char *input_files[2];
   gt_vector *outputs; // output_def*
@@ -417,50 +423,69 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
 	return output_sam_attributes;
 }
 
-void gt_scorereads_print_template(gt_buffered_output_file *buffered_output,gt_template *template,gt_output_sam_attributes *output_sam_attributes,gt_file_format format
-		,gt_map_score_attributes *map_score_attr,gt_generic_printer_attributes *printer_attr)
+void gt_scorereads_print_template(gt_vector *outputs,gt_vector *buffered_outputs,gt_template *template,gt_map_score_attributes *map_score_attr)
 {
-	gt_status print_code=GT_STATUS_OK;
-	if(format==MAP) {
-		gt_template_add_mcs_tags(template,map_score_attr);
-		print_code=gt_output_generic_bofprint_template(buffered_output,template,printer_attr);
-	} else if(format==SAM) {
-		gt_map_calculate_template_mapq_score(template,map_score_attr);
-		print_code=gt_output_sam_bofprint_template(buffered_output,template,output_sam_attributes);
-	}
-	if(print_code) {
-		gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_template_get_string_tag(template)));
+	gt_scorereads_buffered_output *buf_out=gt_vector_get_mem(buffered_outputs,gt_scorereads_buffered_output);
+	GT_VECTOR_ITERATE(outputs,odef_p,idx,output_def*) {
+		output_def* odef=*odef_p;
+		gt_status print_code=GT_STATUS_OK;
+		if(odef->format==MAP) {
+			gt_template_add_mcs_tags(template,map_score_attr);
+			print_code=gt_output_generic_bofprint_template(buf_out->buffered_output,template,odef->printer_attr);
+		} else if(odef->format==SAM) {
+			gt_map_calculate_template_mapq_score(template,map_score_attr);
+			print_code=gt_output_sam_bofprint_template(buf_out->buffered_output,template,buf_out->sam_attributes);
+		} else gt_fatal_error_msg("Fatal error - unsupported output format");
+		if(print_code) {
+			gt_error_msg("Error outputting read '"PRIgts"' in %s format\n",PRIgts_content(gt_template_get_string_tag(template)),odef->format==MAP?"MAP":"SAM");
+		}
+		buf_out++;
 	}
 }
 
-void gt_scorereads_print_alignment(gt_buffered_output_file *buffered_output,gt_alignment *alignment,gt_output_sam_attributes *output_sam_attributes,
-		gt_file_format format,gt_map_score_attributes *map_score_attr,gt_generic_printer_attributes *printer_attr)
+void gt_scorereads_print_alignment(gt_vector *outputs,gt_vector *buffered_outputs,gt_alignment *alignment,gt_map_score_attributes *map_score_attr)
 {
-	gt_status print_code=GT_STATUS_OK;
-	if(format==MAP) {
-		gt_alignment_add_mcs_tags(alignment,map_score_attr);
-		print_code=gt_output_generic_bofprint_alignment(buffered_output,alignment,printer_attr);
-	} else if(format==SAM) {
-		gt_map_calculate_alignment_mapq_score(alignment,map_score_attr);
-		print_code=gt_output_sam_bofprint_alignment(buffered_output,alignment,output_sam_attributes);
-	}
-	if(print_code) {
-		gt_error_msg("Fatal error outputting read '"PRIgts"'\n",PRIgts_content(gt_alignment_get_string_tag(alignment)));
+	gt_scorereads_buffered_output *buf_out=gt_vector_get_mem(buffered_outputs,gt_scorereads_buffered_output);
+	GT_VECTOR_ITERATE(outputs,odef_p,idx,output_def*) {
+		output_def* odef=*odef_p;
+		gt_status print_code=GT_STATUS_OK;
+		if(odef->format==MAP) {
+			gt_alignment_add_mcs_tags(alignment,map_score_attr);
+			print_code=gt_output_generic_bofprint_alignment(buf_out->buffered_output,alignment,odef->printer_attr);
+		} else if(odef->format==SAM) {
+			gt_map_calculate_alignment_mapq_score(alignment,map_score_attr);
+			print_code=gt_output_sam_bofprint_alignment(buf_out->buffered_output,alignment,buf_out->sam_attributes);
+		} else gt_fatal_error_msg("Fatal error - unsupported output format");
+		if(print_code) {
+			gt_error_msg("Error outputting read '"PRIgts"' in %s format\n",PRIgts_content(gt_alignment_get_string_tag(alignment)),odef->format==MAP?"MAP":"SAM");
+		}
+		buf_out++;
 	}
 }
 
-gt_vector* gt_scorereads_open_and_attach_buffered_output_files(gt_vector *outputs,gt_buffered_input_file *buffered_input)
+gt_vector* gt_scorereads_open_and_attach_buffered_output_files(gt_vector *outputs,gt_buffered_input_file *buffered_input,gt_sam_headers *sam_headers,sr_param *param)
 {
 	GT_NULL_CHECK(outputs);
 	GT_NULL_CHECK(buffered_input);
-	gt_vector *output_buffers=gt_vector_new(gt_vector_get_used(outputs),sizeof(gt_buffered_output_file *));
-	GT_VECTOR_ITERATE(param->outputs,odef_p,idx,output_def*) {
+	gt_vector *output_buffers=gt_vector_new(gt_vector_get_used(outputs),sizeof(gt_scorereads_buffered_output));
+	GT_VECTOR_ITERATE(outputs,odef_p,idx,output_def*) {
 		output_def* odef=*odef_p;
-		gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(odef->output_file);
-		gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
-		gt_output_sam_attributes* const output_sam_attributes = odef->format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
+		gt_scorereads_buffered_output *buf_out=gt_vector_get_free_elm(output_buffers,gt_scorereads_buffered_output);
+		gt_vector_inc_used(output_buffers);
+		buf_out->buffered_output=gt_buffered_output_file_new(odef->output_file);
+		gt_buffered_input_file_attach_buffered_output(buffered_input,buf_out->buffered_output);
+		buf_out->sam_attributes = odef->format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
 	}
 	return output_buffers;
+}
+
+void gt_scorereads_close_buffered_output_files(gt_vector *buffered_outputs)
+{
+	GT_NULL_CHECK(buffered_outputs);
+	GT_VECTOR_ITERATE(buffered_outputs,buf_out,idx,gt_scorereads_buffered_output) {
+		if(buf_out->sam_attributes) gt_output_sam_attributes_delete(buf_out->sam_attributes);
+		gt_buffered_output_file_close(buf_out->buffered_output);
+	}
 }
 
 gt_sam_headers *gt_scorereads_setup_sam_headers(sr_param *param)
@@ -573,22 +598,18 @@ gt_status gt_scorereads_process(sr_param *param)
       
 			gt_buffered_input_file* buffered_input1=tid?gt_buffered_input_file_new(input_file1):buffered_input_a;
 			gt_buffered_input_file* buffered_input2=tid?gt_buffered_input_file_new(input_file2):buffered_input_b;
-			gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input1);
-			gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
-			gt_buffered_input_file_attach_buffered_output(buffered_input1,buffered_output);
-			gt_output_sam_attributes* const output_sam_attributes = param->output_format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
+			gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input1,sam_headers,param);
 			gt_status error_code;
 			gt_template *template=gt_template_new();
 			while((error_code=gt_input_map_parser_synch_get_template(buffered_input1,buffered_input2,template,&mutex))) {
 				if(error_code!=GT_IMP_OK) continue;
 				gt_map_pair_template(template,&param->map_score_attr);
-				gt_scorereads_print_template(buffered_output,template,output_sam_attributes,param);
+				gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
 			}
 			gt_template_delete(template);
-	    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 			gt_buffered_input_file_close(buffered_input1);
 			gt_buffered_input_file_close(buffered_input2);
-			gt_buffered_output_file_close(buffered_output);
+			gt_scorereads_close_buffered_output_files(buffered_outputs);
 		}
 		gt_input_file_close(input_file1);
 		gt_input_file_close(input_file2);
@@ -631,21 +652,18 @@ gt_status gt_scorereads_process(sr_param *param)
 				uint64_t tid=0;
 #endif
 				gt_buffered_input_file* buffered_input=tid?gt_buffered_input_file_new(input_file):buffered_input_a;
-				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
-				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
-				gt_output_sam_attributes* const output_sam_attributes = param->output_format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
+				gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input,sam_headers,param);
 				gt_status error_code;
 				gt_template *template=gt_template_new();
 				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
 					if (error_code!=GT_IMP_OK) continue;
 					gt_map_pair_template(template,&param->map_score_attr);
-					gt_scorereads_print_template(buffered_output,template,output_sam_attributes,param);
+					gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
 				}
 				// Clean
 				gt_template_delete(template);
-		    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 				gt_buffered_input_file_close(buffered_input);
-				gt_buffered_output_file_close(buffered_output);
+				gt_scorereads_close_buffered_output_files(buffered_outputs);
 			}
 		} else {
 			/*
@@ -656,10 +674,8 @@ gt_status gt_scorereads_process(sr_param *param)
 #endif
 			{
 				gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
-				gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
-				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
+				gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input,sam_headers,param);
 				gt_status error_code;
-				gt_output_sam_attributes* const output_sam_attributes = param->output_format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
 				gt_template *template=gt_template_new();
 				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
 					if (error_code!=GT_IMP_OK) {
@@ -671,19 +687,21 @@ gt_status gt_scorereads_process(sr_param *param)
 						if(map->gt_score==GT_MAP_NO_GT_SCORE) map->gt_score=gt_map_calculate_gt_score(alignment,map,&param->map_score_attr);
 						map->phred_score=255;
 					}
-					gt_scorereads_print_alignment(buffered_output,alignment,output_sam_attributes,param);
+					gt_scorereads_print_alignment(param->outputs,buffered_outputs,alignment,&param->map_score_attr);
 				}
 				// Clean
 				gt_template_delete(template);
-		    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 				gt_buffered_input_file_close(buffered_input);
-				gt_buffered_output_file_close(buffered_output);
+				gt_scorereads_close_buffered_output_files(buffered_outputs);
 			}
 		}
 		gt_input_file_close(input_file);
 	}
-	gt_output_file_close(output_file);
-	if(param->output_format==MAP) gt_generic_printer_attributes_delete(param->printer_attr);
+	GT_VECTOR_ITERATE(param->outputs,odef_p1,idx1,output_def*) {
+		output_def* odef = *odef_p1;
+		gt_output_file_close(odef->output_file);
+		if(odef->format==MAP) gt_generic_printer_attributes_delete(odef->printer_attr);
+	}
 	if(param->map_score_attr.insert_phred) free(param->map_score_attr.insert_phred);
 	return err;
 }
