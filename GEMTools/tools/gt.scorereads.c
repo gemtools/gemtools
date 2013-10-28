@@ -15,6 +15,7 @@
 #endif
 #include <pthread.h>
 #include "gem_tools.h"
+#include "gt_pipe_io.h"
 
 #define MAP_THRESHOLD 3
 #define AP_BUF_SIZE 16384
@@ -35,30 +36,34 @@
 #define AL_DIRECTIONS ((AL_FORWARD)|(AL_REVERSE))
 #define AL_USED 128
 #define GT_SCOREREADS_NUM_LINES (GT_IMP_NUM_LINES>>1)
+#define GT_SCOREREADS_DEFAULT_OUTPUT_FORMAT MAP
+
+typedef enum {all, unmapped, poorly_mapped, discordant, trim_maps, one_end_anchored} gt_scorereads_filter;
+
+typedef struct {
+  gt_string *name;
+  gt_file_format format;
+  gt_scorereads_filter filter;
+  gt_output_file *output_file;
+  gt_generic_printer_attributes *printer_attr;
+} output_def;
 
 typedef struct {
   char *input_files[2];
-  char *output_file;
+  gt_vector *outputs; // output_def*
   char *dist_file;
   char* name_reference_file;
   char* name_gem_index_file;
   char* sam_header_file;
-  char *read_group_id;
+  char* read_group_id;
   bool mmap_input;
   bool verbose;
   bool compact_format; // for SAM output
-  /* Optional Fields */
-  bool optional_field_NH;
-  bool optional_field_XS;
-  bool optional_field_md;
   /* Control flags */
   bool load_index;
   bool load_index_sequences;
-  gt_file_format output_format;
   gt_output_file_compression compress;
   gt_generic_parser_attributes *parser_attr;
-  gt_generic_printer_attributes *printer_attr;
-  gt_buffered_output_file *buf_output[2];
   int num_threads;
   gt_map_score_attributes map_score_attr;
 } sr_param;
@@ -70,33 +75,29 @@ typedef struct {
 } sr_dist_element;
 
 sr_param param = {
-		.input_files={NULL,NULL},
-		.output_file=NULL,
-		.dist_file=NULL,
-		.name_reference_file=NULL,
-		.name_gem_index_file=NULL,
-		.sam_header_file=NULL,
-		.read_group_id=NULL,
-		.mmap_input=false,
-		.compress=NONE,
-		.parser_attr=NULL,
-		.verbose=false,
-		.compact_format=false,
-	  .optional_field_NH=false,
-	  .optional_field_XS=false,
-	  .optional_field_md=false,
-	  .load_index=false,
-	  .load_index_sequences=false,
-		.output_format=MAP,
-		.num_threads=1,
-		.map_score_attr.indel_penalty=INDEL_QUAL,
-		.map_score_attr.split_penalty=INDEL_QUAL,
-		.map_score_attr.mapping_cutoff=0,
-		.map_score_attr.max_strata_searched=0,
-	  .map_score_attr.quality_format=GT_QUALS_OFFSET_33,
-		.map_score_attr.minimum_insert=0,
-		.map_score_attr.maximum_insert=0,
-		.map_score_attr.insert_phred=NULL,
+  .input_files={NULL,NULL},
+  .outputs=NULL,
+  .dist_file=NULL,
+  .name_reference_file=NULL,
+  .name_gem_index_file=NULL,
+  .sam_header_file=NULL,
+  .read_group_id=NULL,
+  .mmap_input=false,
+  .compress=NONE,
+  .parser_attr=NULL,
+  .verbose=false,
+  .compact_format=false,
+  .load_index=false,
+  .load_index_sequences=false,
+  .num_threads=1,
+  .map_score_attr.indel_penalty=INDEL_QUAL,
+  .map_score_attr.split_penalty=INDEL_QUAL,
+  .map_score_attr.mapping_cutoff=0,
+  .map_score_attr.max_strata_searched=0,
+  .map_score_attr.quality_format=GT_QUALS_OFFSET_33,
+  .map_score_attr.minimum_insert=0,
+  .map_score_attr.maximum_insert=0,
+  .map_score_attr.insert_phred=NULL,
 };
 
 void usage(const gt_option* const options,char* groups[],const bool print_inactive) {
@@ -230,7 +231,7 @@ int estimate_insert_histogram(sr_dist_element *ins,gt_map_score_attributes *ms_a
 {
 	uint64_t tot=0;
 	sr_dist_element *elem;
-
+  
 	// Get interquartile range
 	HASH_SORT(ins,sort_dist_element);
 	for(elem=ins;elem;elem=elem->hh.next) tot+=elem->ct;
@@ -316,7 +317,7 @@ int estimate_insert_histogram(sr_dist_element *ins,gt_map_score_attributes *ms_a
 	l=i2-i1+1;
 	ms_attr->insert_phred=gt_malloc(l);
 	for(i=i1,k=0;i<=i2;i++) ms_attr->insert_phred[k++]=ph[i];
-//	for(i=0;i<l;i++) printf("%"PRId64"\t%d\n",ms_attr->minimum_insert+i,ms_attr->ins_phred[i]);
+  //	for(i=0;i<l;i++) printf("%"PRId64"\t%d\n",ms_attr->minimum_insert+i,ms_attr->ins_phred[i]);
 	free(p);
 	free(ph);
 	return GT_STATUS_OK;
@@ -383,7 +384,7 @@ void read_dist_file(sr_param *param)
 	gt_scorereads_free_insert_hash(ins_dist);
 	gt_buffered_input_file_close(bfile);
 	gt_input_file_close(file);
-
+  
 }
 
 gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_headers,sr_param *param)
@@ -416,14 +417,15 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
 	return output_sam_attributes;
 }
 
-void gt_scorereads_print_template(gt_buffered_output_file *buffered_output,gt_template *template,gt_output_sam_attributes *output_sam_attributes,sr_param *param)
+void gt_scorereads_print_template(gt_buffered_output_file *buffered_output,gt_template *template,gt_output_sam_attributes *output_sam_attributes,gt_file_format format
+		,gt_map_score_attributes *map_score_attr,gt_generic_printer_attributes *printer_attr)
 {
 	gt_status print_code=GT_STATUS_OK;
-	if(param->output_format==MAP) {
-		gt_template_add_mcs_tags(template,&param->map_score_attr);
-		print_code=gt_output_generic_bofprint_template(buffered_output,template,param->printer_attr);
-	} else if(param->output_format==SAM) {
-		gt_map_calculate_template_mapq_score(template,&param->map_score_attr);
+	if(format==MAP) {
+		gt_template_add_mcs_tags(template,map_score_attr);
+		print_code=gt_output_generic_bofprint_template(buffered_output,template,printer_attr);
+	} else if(format==SAM) {
+		gt_map_calculate_template_mapq_score(template,map_score_attr);
 		print_code=gt_output_sam_bofprint_template(buffered_output,template,output_sam_attributes);
 	}
 	if(print_code) {
@@ -431,14 +433,15 @@ void gt_scorereads_print_template(gt_buffered_output_file *buffered_output,gt_te
 	}
 }
 
-void gt_scorereads_print_alignment(gt_buffered_output_file *buffered_output,gt_alignment *alignment,gt_output_sam_attributes *output_sam_attributes,sr_param *param)
+void gt_scorereads_print_alignment(gt_buffered_output_file *buffered_output,gt_alignment *alignment,gt_output_sam_attributes *output_sam_attributes,
+		gt_file_format format,gt_map_score_attributes *map_score_attr,gt_generic_printer_attributes *printer_attr)
 {
 	gt_status print_code=GT_STATUS_OK;
-	if(param->output_format==MAP) {
-		gt_alignment_add_mcs_tags(alignment,&param->map_score_attr);
-		print_code=gt_output_generic_bofprint_alignment(buffered_output,alignment,param->printer_attr);
-	} else if(param->output_format==SAM) {
-		gt_map_calculate_alignment_mapq_score(alignment,&param->map_score_attr);
+	if(format==MAP) {
+		gt_alignment_add_mcs_tags(alignment,map_score_attr);
+		print_code=gt_output_generic_bofprint_alignment(buffered_output,alignment,printer_attr);
+	} else if(format==SAM) {
+		gt_map_calculate_alignment_mapq_score(alignment,map_score_attr);
 		print_code=gt_output_sam_bofprint_alignment(buffered_output,alignment,output_sam_attributes);
 	}
 	if(print_code) {
@@ -446,66 +449,84 @@ void gt_scorereads_print_alignment(gt_buffered_output_file *buffered_output,gt_a
 	}
 }
 
+gt_vector* gt_scorereads_open_and_attach_buffered_output_files(gt_vector *outputs,gt_buffered_input_file *buffered_input)
+{
+	GT_NULL_CHECK(outputs);
+	GT_NULL_CHECK(buffered_input);
+	gt_vector *output_buffers=gt_vector_new(gt_vector_get_used(outputs),sizeof(gt_buffered_output_file *));
+	GT_VECTOR_ITERATE(param->outputs,odef_p,idx,output_def*) {
+		output_def* odef=*odef_p;
+		gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(odef->output_file);
+		gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
+		gt_output_sam_attributes* const output_sam_attributes = odef->format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
+	}
+	return output_buffers;
+}
+
+gt_sam_headers *gt_scorereads_setup_sam_headers(sr_param *param)
+{
+  gt_sam_headers* sam_headers = gt_sam_header_new();
+  if(param->sam_header_file) {
+  	gt_input_file* const sam_headers_input_file = gt_input_file_sam_open(param->sam_header_file,false);
+  	uint64_t characters_read = 0, lines_read = 0;
+  	gt_status error_code=gt_input_file_sam_read_headers((char *)sam_headers_input_file->file_buffer,sam_headers_input_file->buffer_size,sam_headers,&characters_read,&lines_read);
+  	if(error_code) gt_error(PARSE_SAM_HEADER_NOT_SAM,sam_headers_input_file->file_name);
+  	gt_input_file_close(sam_headers_input_file);
+  }
+  uint64_t xx=0;
+  gt_string *pg_id=gt_string_new(64);
+  gt_sprintf(pg_id,"GToolsLib#%"PRIu64,++xx);
+  gt_string *prev_id=NULL;
+  if(sam_headers->program_id_hash) {
+  	gt_sam_header_record* hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->program,gt_sam_header_record*);
+  	prev_id=gt_sam_header_record_get_tag(hr,"ID");
+  	do {
+  		if(!gt_shash_get_element(sam_headers->program_id_hash,gt_string_get_string(pg_id))) break;
+  		gt_sprintf(pg_id,"GToolsLib#%"PRIu64,++xx);
+  	} while(xx<10000);
+  }
+  if(xx<10000) {
+  	gt_sam_header_record *hr=gt_sam_header_record_new();
+  	gt_sam_header_record_add_tag(hr,"ID",pg_id);
+  	gt_string *pn_st=gt_string_set_new(GT_SCOREREADS);
+  	gt_sam_header_record_add_tag(hr,"PN",pn_st);
+  	gt_string *vn_st=gt_string_set_new(GT_SCOREREADS_VERSION);
+  	if(prev_id) gt_sam_header_record_add_tag(hr,"PP",prev_id);
+  	gt_sam_header_record_add_tag(hr,"VN",vn_st);
+  	gt_sam_header_add_program_record(sam_headers,hr);
+  }
+  // Open reference file
+  gt_sequence_archive* sequence_archive = NULL;
+  if (param->load_index) {
+  	sequence_archive = gt_open_sequence_archive(param->load_index_sequences);
+  	gt_sam_header_load_sequence_archive(sam_headers,sequence_archive);
+  }
+  return sam_headers;
+}
+
 gt_status gt_scorereads_process(sr_param *param)
 {
 	gt_status err=GT_STATUS_OK;
-
-	// Open out file
-	gt_output_file *output_file;
-	if(param->output_file) {
-		output_file=gt_output_file_new_compress(param->output_file,UNSORTED_FILE,param->compress);
-	} else {
-		output_file=gt_output_stream_new_compress(stdout,UNSORTED_FILE,param->compress);
-	}
-	gt_cond_fatal_error(!output_file,FILE_OPEN,param->output_file);
-  gt_sam_headers* sam_headers = NULL; // SAM headers
-	if(param->output_format==MAP) {
-		param->printer_attr=gt_generic_printer_attributes_new(MAP);
-		param->printer_attr->output_map_attributes->print_casava=true;
-		param->printer_attr->output_map_attributes->print_extra=true;
-		param->printer_attr->output_map_attributes->print_scores=true;
-		param->printer_attr->output_map_attributes->hex_print_scores=true;
-	} else if(param->output_format==SAM) {
-	  sam_headers = gt_sam_header_new(); // SAM headers
-	  if(param->sam_header_file) {
-	  	gt_input_file* const sam_headers_input_file = gt_input_file_sam_open(param->sam_header_file,false);
-	  	uint64_t characters_read = 0, lines_read = 0;
-	  	gt_status error_code=gt_input_file_sam_read_headers((char *)sam_headers_input_file->file_buffer,sam_headers_input_file->buffer_size,sam_headers,&characters_read,&lines_read);
-	  	if(error_code) gt_error(PARSE_SAM_HEADER_NOT_SAM,sam_headers_input_file->file_name);
-	  	gt_input_file_close(sam_headers_input_file);
-	  	uint64_t xx=0;
-	  	gt_string *pg_id=gt_string_new(64);
-			gt_sprintf(pg_id,"GToolsLib#%"PRIu64,++xx);
-			gt_string *prev_id=NULL;
-	  	if(sam_headers->program_id_hash) {
-	  		gt_sam_header_record* hr=*(gt_sam_header_record **)gt_vector_get_last_elm(sam_headers->program,gt_sam_header_record*);
-				prev_id=gt_sam_header_record_get_tag(hr,"ID");
-	  		do {
-	  			if(!gt_shash_get_element(sam_headers->program_id_hash,gt_string_get_string(pg_id))) break;
-	  			gt_sprintf(pg_id,"GToolsLib#%"PRIu64,++xx);
-	  		} while(xx<10000);
-	  	}
-	  	if(xx<10000) {
-	  		gt_sam_header_record *hr=gt_sam_header_record_new();
-	  		gt_sam_header_record_add_tag(hr,"ID",pg_id);
-	  		gt_string *pn_st=gt_string_set_new(GT_SCOREREADS);
-	  		gt_sam_header_record_add_tag(hr,"PN",pn_st);
-	  		gt_string *vn_st=gt_string_set_new(GT_SCOREREADS_VERSION);
-	  		if(prev_id) gt_sam_header_record_add_tag(hr,"PP",prev_id);
-	  		gt_sam_header_record_add_tag(hr,"VN",vn_st);
-	  		gt_sam_header_add_program_record(sam_headers,hr);
-	  	}
-	  }
-	  // Open reference file
-	  gt_sequence_archive* sequence_archive = NULL;
-	  if (param->load_index) {
-	    sequence_archive = gt_open_sequence_archive(param->load_index_sequences);
-	    gt_sam_header_load_sequence_archive(sam_headers,sequence_archive);
-	  }
-	  // Print SAM headers
-	  gt_output_sam_ofprint_headers_sh(output_file,sam_headers);
-	} else {
-		gt_fatal_error_msg("Unsupported file format\n");
+	gt_sam_headers* sam_headers = NULL; // SAM headers
+	// Open output file(s)
+	GT_VECTOR_ITERATE(param->outputs,odef_p,idx,output_def*) {
+		output_def* odef = *odef_p;
+		odef->output_file=odef->name?gt_output_file_new_compress(gt_string_get_string(odef->name),UNSORTED_FILE,param->compress):
+				gt_output_stream_new_compress(stdout,UNSORTED_FILE,param->compress);
+		gt_cond_fatal_error(!odef->output_file,FILE_OPEN,odef->name?gt_string_get_string(odef->name):"<STDOUT>");
+		if(odef->format==MAP) {
+			odef->printer_attr=gt_generic_printer_attributes_new(MAP);
+			odef->printer_attr->output_map_attributes->print_casava=true;
+			odef->printer_attr->output_map_attributes->print_extra=true;
+			odef->printer_attr->output_map_attributes->print_scores=true;
+			odef->printer_attr->output_map_attributes->hex_print_scores=true;
+		} else if(odef->format==SAM) {
+			if(sam_headers == NULL) sam_headers=gt_scorereads_setup_sam_headers(param);
+		  // Print SAM headers
+		  gt_output_sam_ofprint_headers_sh(odef->output_file,sam_headers);
+		} else {
+				gt_fatal_error_msg("Unsupported file format\n");
+		}
 	}
 	// Do we have two map files as input (one for each read)?
 	if(param->input_files[1]) {
@@ -539,7 +560,7 @@ gt_status gt_scorereads_process(sr_param *param)
 			(void)estimate_insert_histogram(ins_dist,&param->map_score_attr);
 			gt_scorereads_free_insert_hash(ins_dist);
 		}
-
+    
 #ifdef HAVE_OPENMP
 #pragma omp parallel num_threads(param->num_threads)
 #endif
@@ -549,9 +570,10 @@ gt_status gt_scorereads_process(sr_param *param)
 #else
 			uint64_t tid=0;
 #endif
-
+      
 			gt_buffered_input_file* buffered_input1=tid?gt_buffered_input_file_new(input_file1):buffered_input_a;
 			gt_buffered_input_file* buffered_input2=tid?gt_buffered_input_file_new(input_file2):buffered_input_b;
+			gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input1);
 			gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
 			gt_buffered_input_file_attach_buffered_output(buffered_input1,buffered_output);
 			gt_output_sam_attributes* const output_sam_attributes = param->output_format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
@@ -666,159 +688,221 @@ gt_status gt_scorereads_process(sr_param *param)
 	return err;
 }
 
+output_def *gt_scorereads_new_output_def(char *name,gt_file_format format,gt_scorereads_filter filter)
+{
+  output_def *od=gt_alloc(output_def);
+  if(name==NULL || !strcmp(name,"-")) od->name=NULL;
+  else od->name=gt_string_set_new(name);
+  od->format=format;
+  od->filter=filter;
+  od->output_file=NULL;
+  od->printer_attr=NULL;
+  return od;
+}
+
+char *gt_scorereads_parse_output_option(char *opt)
+{
+  char *format_st[]={"MAP","FASTA","SAM","FASTQ",0};
+  gt_file_format formats[]={MAP,FASTA,SAM,FASTQ};
+  char *filter_st[]={"ALL","UNMAPPED","POORLY-MAPPED","DISCORDANT","TRIM-MAPS","ONE-END-ANCHORED",0};
+  gt_scorereads_filter filters[]={all,unmapped,poorly_mapped,discordant,trim_maps,one_end_anchored};
+  
+  char *p=strchr(opt,',');
+  while(p) {
+    p++;
+    int idx=0;
+    while(format_st[idx] && strncasecmp(p,format_st[idx],strlen(format_st[idx]))) idx++;
+    if(format_st[idx]) {
+      char *p1=p+strlen(format_st[idx]);
+      gt_file_format format=formats[idx];
+      if(*p1==',') {
+        idx=0;
+        p1++;
+        while(filter_st[idx] && strncasecmp(p1,filter_st[idx],strlen(filter_st[idx]))) idx++;
+        if(filter_st[idx]) {
+          p1+=strlen(format_st[idx]);
+          if(!*p1) {
+            size_t sz=p-opt;
+            char *nm=gt_malloc(sz);
+            strncpy(nm,opt,sz-1);
+            nm[sz-1]=0;
+            gt_vector_insert(param.outputs,gt_scorereads_new_output_def(nm,format,filters[idx]),output_def*);
+            return NULL;
+          }
+        }
+      } else if(!*p1) {
+        size_t sz=p-opt;
+        char *nm=NULL;
+        if(sz!=2 || *opt!='-') {
+        	nm=gt_malloc(sz);
+        	strncpy(nm,opt,sz-1);
+        	nm[sz-1]=0;
+        }
+        gt_vector_insert(param.outputs,gt_scorereads_new_output_def(nm,format,all),output_def*);
+        return NULL;
+      } else p=strchr(p,',');
+    }
+  }
+  return opt;
+}
+
 gt_status parse_arguments(int argc,char** argv) {
 	gt_status err=GT_STATUS_OK;
 	param.parser_attr=gt_input_generic_parser_attributes_new(false);
   struct option* gt_scorereads_getopt = gt_options_adaptor_getopt(gt_scorereads_options);
   gt_string* const gt_scorereads_short_getopt = gt_options_adaptor_getopt_short(gt_scorereads_options);
   int option, option_index;
-  char *p;
+  char *p,*output_file=NULL;
+  gt_file_format output_format=GT_SCOREREADS_DEFAULT_OUTPUT_FORMAT;
+  param.outputs=gt_vector_new(2,sizeof(output_def *));
+
   int insert_set[2]={0,0};
   while (true) {
     // Get option &  Select case
     if ((option=getopt_long(argc,argv,
-        gt_string_get_string(gt_scorereads_short_getopt),gt_scorereads_getopt,&option_index))==-1) break;
+                            gt_string_get_string(gt_scorereads_short_getopt),gt_scorereads_getopt,&option_index))==-1) break;
     switch (option) {
-    /* I/O */
-    case 303:
-    	param.dist_file = optarg;
-    	break;
-    case 'o':
-    	param.output_file = optarg;
-    	break;
-    case 'r':
-      param.name_reference_file = optarg;
-      param.load_index = true;
-      break;
-    case 'I':
-      param.name_gem_index_file = optarg;
-      param.load_index = true;
-      break;
-    case 's':
-    	param.sam_header_file = optarg;
-    	break;
-    case 300:
-    case 'i':
-      param.input_files[0] = optarg;
-      break;
-    case 301:
-      param.input_files[1] = optarg;
-      break;
-  	case 'p':
-  		gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
-  		break;
-  	case 'z':
+        /* I/O */
+      case 303:
+        param.dist_file = optarg;
+        break;
+      case 'o':
+        output_file = gt_scorereads_parse_output_option(optarg);
+        break;
+      case 'r':
+        param.name_reference_file = optarg;
+        param.load_index = true;
+        break;
+      case 'I':
+        param.name_gem_index_file = optarg;
+        param.load_index = true;
+        break;
+      case 's':
+        param.sam_header_file = optarg;
+        break;
+      case 300:
+      case 'i':
+        param.input_files[0] = optarg;
+        break;
+      case 301:
+        param.input_files[1] = optarg;
+        break;
+      case 'p':
+        gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
+        break;
+      case 'z':
 #ifdef HAVE_ZLIB
-  		param.compress=GZIP;
+        param.compress=GZIP;
 #endif
-  		break;
-  	case 'j':
+        break;
+      case 'j':
 #ifdef HAVE_BZLIB
-  		param.compress=BZIP2;
+        param.compress=BZIP2;
 #endif
-  		break;
-  	case 'Z':
-  		param.compress=NONE;
-  		break;
- 		/* Score function */
-    case 'q':
-      if (gt_streq(optarg,"offset-64")) {
-        param.map_score_attr.quality_format=GT_QUALS_OFFSET_64;
-      } else if (gt_streq(optarg,"offset-33")) {
-        param.map_score_attr.quality_format=GT_QUALS_OFFSET_33;
-      } else {
-        gt_fatal_error_msg("Quality format not recognized: '%s'",optarg);
-      }
-      break;
-    case 704: // output-format
-       if (gt_streq(optarg,"MAP")) {
-         param.output_format = MAP;
-       } else if (gt_streq(optarg,"SAM")) {
-         param.output_format = SAM;
-       } else {
-         gt_fatal_error_msg("Output format '%s' not recognized",optarg);
-       }
-       break;
-  	case 401:
-  		param.map_score_attr.minimum_insert=(int)strtol(optarg,&p,10);
-  		if(*p || param.map_score_attr.minimum_insert<0) {
-  			fprintf(stderr,"Illegal minimum insert size: '%s'\n",optarg);
-  			err=-7;
-  		} else insert_set[0]=1;
-  		break;
-  	case 402:
-  		param.map_score_attr.maximum_insert=(int)strtol(optarg,&p,10);
-  		if(*p || param.map_score_attr.maximum_insert<0) {
-  			fprintf(stderr,"Illegal maximum insert size: '%s'\n",optarg);
-  			err=-7;
-  		} else insert_set[1]=1;
-  		break;
-  	case 403:
-  		param.map_score_attr.indel_penalty=(int)strtol(optarg,&p,10);
-  		if(*p || param.map_score_attr.indel_penalty<0) {
-  			fprintf(stderr,"Illegal indel penalty: '%s'\n",optarg);
-  			err=-7;
-  		}
-  		break;
-  	case 500:
-  		if(gt_sam_attributes_parse_tag_option_string(gt_scorereads_attribute_option_list,optarg)!=GT_STATUS_OK) {
-  			fprintf(stderr,"Unable to parse --tag option '%s'\n",optarg);
-  			err=-8;
-  		}
-  		break;
-  	case 'S':
-  		param.map_score_attr.split_penalty=(int)strtol(optarg,&p,10);
-  		if(*p || param.map_score_attr.split_penalty<0) {
-  			fprintf(stderr,"Illegal split penalty score: '%s'\n",optarg);
-  			err=-7;
-  		}
-  		break;
-  	case 'M':
-  		param.map_score_attr.mapping_cutoff=strtoul(optarg,&p,10);
-  		if(*p) {
-  			fprintf(stderr,"Illegal mapping cutoff: '%s'\n",optarg);
-  			err=-7;
-  		}
-  		break;
-  	case 'm':
-  		param.map_score_attr.max_strata_searched=strtoul(optarg,&p,10);
-  		if(*p) {
-  			fprintf(stderr,"Illegal mismatch limit: '%s'\n",optarg);
-  			err=-7;
-  		}
-  		break;
-    /* Headers */
-    case 600: // Read-group ID
-    	param.read_group_id = optarg;
-    	break;
-    /* Format */
-    case 'c':
-      param.compact_format = true;
-      break;
-    /* Misc */
-    case 'v':
-      param.verbose = true;
-      break;
-    case 't':
+        break;
+      case 'Z':
+        param.compress=NONE;
+        break;
+        /* Score function */
+      case 'q':
+        if (gt_streq(optarg,"offset-64")) {
+          param.map_score_attr.quality_format=GT_QUALS_OFFSET_64;
+        } else if (gt_streq(optarg,"offset-33")) {
+          param.map_score_attr.quality_format=GT_QUALS_OFFSET_33;
+        } else {
+          gt_fatal_error_msg("Quality format not recognized: '%s'",optarg);
+        }
+        break;
+      case 704: // output-format
+        if (gt_streq(optarg,"MAP")) {
+          output_format = MAP;
+        } else if (gt_streq(optarg,"SAM")) {
+          output_format = SAM;
+        } else {
+          gt_fatal_error_msg("Output format '%s' not recognized",optarg);
+        }
+        break;
+      case 401:
+        param.map_score_attr.minimum_insert=(int)strtol(optarg,&p,10);
+        if(*p || param.map_score_attr.minimum_insert<0) {
+          fprintf(stderr,"Illegal minimum insert size: '%s'\n",optarg);
+          err=-7;
+        } else insert_set[0]=1;
+        break;
+      case 402:
+        param.map_score_attr.maximum_insert=(int)strtol(optarg,&p,10);
+        if(*p || param.map_score_attr.maximum_insert<0) {
+          fprintf(stderr,"Illegal maximum insert size: '%s'\n",optarg);
+          err=-7;
+        } else insert_set[1]=1;
+        break;
+      case 403:
+        param.map_score_attr.indel_penalty=(int)strtol(optarg,&p,10);
+        if(*p || param.map_score_attr.indel_penalty<0) {
+          fprintf(stderr,"Illegal indel penalty: '%s'\n",optarg);
+          err=-7;
+        }
+        break;
+      case 500:
+        if(gt_sam_attributes_parse_tag_option_string(gt_scorereads_attribute_option_list,optarg)!=GT_STATUS_OK) {
+          fprintf(stderr,"Unable to parse --tag option '%s'\n",optarg);
+          err=-8;
+        }
+        break;
+      case 'S':
+        param.map_score_attr.split_penalty=(int)strtol(optarg,&p,10);
+        if(*p || param.map_score_attr.split_penalty<0) {
+          fprintf(stderr,"Illegal split penalty score: '%s'\n",optarg);
+          err=-7;
+        }
+        break;
+      case 'M':
+        param.map_score_attr.mapping_cutoff=strtoul(optarg,&p,10);
+        if(*p) {
+          fprintf(stderr,"Illegal mapping cutoff: '%s'\n",optarg);
+          err=-7;
+        }
+        break;
+      case 'm':
+        param.map_score_attr.max_strata_searched=strtoul(optarg,&p,10);
+        if(*p) {
+          fprintf(stderr,"Illegal mismatch limit: '%s'\n",optarg);
+          err=-7;
+        }
+        break;
+        /* Headers */
+      case 600: // Read-group ID
+        param.read_group_id = optarg;
+        break;
+        /* Format */
+      case 'c':
+        param.compact_format = true;
+        break;
+        /* Misc */
+      case 'v':
+        param.verbose = true;
+        break;
+      case 't':
 #ifdef HAVE_OPENMP
-      param.num_threads = atol(optarg);
+        param.num_threads = atol(optarg);
 #endif
-      break;
-    case 'h':
-      usage(gt_scorereads_options,gt_scorereads_groups,false);
-      exit(1);
-      break;
-    case 'H':
-      usage(gt_scorereads_options,gt_scorereads_groups,true);
-      exit(1);
-    case 'J':
-      gt_options_fprint_json_menu(stderr,gt_scorereads_options,gt_scorereads_groups,true,false);
-      exit(1);
-      break;
-    case '?':
-    default:
-      usage(gt_scorereads_options,gt_scorereads_groups,false);
-      gt_fatal_error_msg("Option '%c' %d not recognized",option,option);
+        break;
+      case 'h':
+        usage(gt_scorereads_options,gt_scorereads_groups,false);
+        exit(1);
+        break;
+      case 'H':
+        usage(gt_scorereads_options,gt_scorereads_groups,true);
+        exit(1);
+      case 'J':
+        gt_options_fprint_json_menu(stderr,gt_scorereads_options,gt_scorereads_groups,true,false);
+        exit(1);
+        break;
+      case '?':
+      default:
+        usage(gt_scorereads_options,gt_scorereads_groups,false);
+        gt_fatal_error_msg("Option '%c' %d not recognized",option,option);
+        break;
     }
   }
   /*
@@ -835,30 +919,34 @@ gt_status parse_arguments(int argc,char** argv) {
 		err=-15;
 	}
 	if(err==GT_STATUS_OK) {
-		if(param.output_file && param.compress!=NONE) {
-			size_t l=strlen(param.output_file);
-			switch(param.compress) {
-			case GZIP:
-				if(l<3 || strcmp(param.output_file+l-3,".gz")) {
-					char *s;
-					asprintf(&s,"%s.gz",param.output_file);
-					param.output_file=s;
+		// Create output_def for normal (non specified) output using specified format.  If no output command at all specified, create a stdout stream
+		if(param.outputs!=NULL || !gt_vector_get_used(param.outputs))
+			gt_vector_insert(param.outputs,gt_scorereads_new_output_def(output_file,output_format,all),output_def*);
+		bool use_stdout=false;
+		GT_VECTOR_ITERATE(param.outputs,odef_p,idx,output_def*) {
+			gt_string *com;
+			if((com=(*odef_p)->name)) {
+				uint64_t l=gt_string_get_length(com);
+				switch(param.compress) {
+				case GZIP:
+					if(l<3 || strcmp(gt_string_get_string(com)+l-3,".gz")) gt_string_append_string(com,".gz",3);
+					break;
+				case BZIP2:
+					if(l<4 || strcmp(gt_string_get_string(com)+l-4,".bz2")) gt_string_append_string(com,".bz2",4);
+					break;
+				default:
+					break;
 				}
-				break;
-			case BZIP2:
-				if(l<4 || strcmp(param.output_file+l-4,".bz2")) {
-					char *s;
-					asprintf(&s,"%s.bz2",param.output_file);
-					param.output_file=s;
-				}
-				break;
-			default:
-				break;
+			} else {
+				if(use_stdout) {
+					gt_error_msg("Erro in output definitions: multiple outputs to stdout stream defined\n");
+					err=GT_STATUS_FAIL;
+				} else use_stdout=true;
 			}
 		}
 		if(!insert_set[1]) {
-				if(param.map_score_attr.minimum_insert<=1000) param.map_score_attr.maximum_insert=1000;
-				else param.map_score_attr.maximum_insert=param.map_score_attr.minimum_insert+1000;
+			if(param.map_score_attr.minimum_insert<=1000) param.map_score_attr.maximum_insert=1000;
+			else param.map_score_attr.maximum_insert=param.map_score_attr.minimum_insert+1000;
 		}
 		if(gt_input_generic_parser_attributes_is_paired(param.parser_attr) && param.dist_file) read_dist_file(&param);
 	}
@@ -872,7 +960,7 @@ int main(int argc,char *argv[])
 	gt_status err=0;
   // GT error handler
   gt_handle_error_signals();
-
+  
   // Parsing command-line options
   err=parse_arguments(argc,argv);
   if(err==GT_STATUS_OK) err=gt_scorereads_process(&param);
