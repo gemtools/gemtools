@@ -938,7 +938,7 @@ gt_status parse_arguments(int argc,char** argv) {
 	}
 	if(err==GT_STATUS_OK) {
 		// Create output_def for normal (non specified) output using specified format.  If no output command at all specified, create a stdout stream
-		if(param.outputs!=NULL || !gt_vector_get_used(param.outputs))
+		if(output_file!=NULL || !gt_vector_get_used(param.outputs))
 			gt_vector_insert(param.outputs,gt_scorereads_new_output_def(output_file,output_format,all),output_def*);
 		bool use_stdout=false;
 		GT_VECTOR_ITERATE(param.outputs,odef_p,idx,output_def*) {
