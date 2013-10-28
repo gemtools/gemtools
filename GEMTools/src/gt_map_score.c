@@ -346,11 +346,7 @@ void gt_map_calculate_template_mapq_score(gt_template *template,gt_map_score_att
 				double prb=exp(PHRED_KONST*((double)sc-(double)min_score[3]));
 				z+=prb;
 				if(mp1->map && mp2->map) {
-					size_t ssize=gt_string_get_length(mp1->map->seq_name);
-					size_t key_size=ssize+2*sizeof(mp1->map->position);
-					memcpy(buf,gt_string_get_string(mp1->map->seq_name),ssize);
-					memcpy(buf+ssize,&mp1->map->position,sizeof(mp1->map->position));
-					memcpy(buf+ssize+sizeof(mp1->map->position),&mp2->map->position,sizeof(mp1->map->position));
+					size_t key_size=gt_map_score_make_pair_key(buf,mp1->map,mp2->map);
 					HASH_FIND(hh,mhash[2],buf,key_size,mp_hash);
 					if(mp_hash) mp_hash->prob1=prb;
 				}
