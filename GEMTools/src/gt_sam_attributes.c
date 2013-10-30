@@ -617,7 +617,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_MD(gt_sam_attribute_func_params* f
   if (func_params->alignment_info->map == NULL) return -1; // Don't print anything
   // Print MD String into the buffer
   gt_map *map=func_params->alignment_info->map;
-  gt_string* md_tag=gt_string_new(8);
+  gt_string* md_tag=func_params->return_s;
   const uint64_t map_length = gt_map_get_base_length(map);
   gt_alignment *al=(func_params->alignment_info->type==GT_MAP_PLACEHOLDER)?func_params->alignment_info->single_end.alignment:
   		gt_template_get_block(func_params->alignment_info->paired_end.template,func_params->alignment_info->paired_end.paired_end_position);
@@ -639,7 +639,6 @@ GT_INLINE gt_status gt_sam_attribute_generate_MD(gt_sam_attribute_func_params* f
 		}
 	}
 	if(ix<map_length) gt_sprintf_append(md_tag,"%"PRIu64,map_length-ix);
-	func_params->return_s=md_tag;
   return 0; // OK
 }
 GT_INLINE void gt_sam_attributes_add_tag_MD(gt_sam_attributes* const sam_attributes) {
@@ -695,7 +694,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_SA(gt_sam_attribute_func_params *f
 	}
 	// If map_head is not set either we are not chimeric or we don't have the information on the primary segment for some reason
 	if(!map_head) return -1;
-	gt_string *sa_string=gt_string_new(16);
+	gt_string *sa_string=func_params->return_s;
 	gt_generic_printer *gpr=gt_alloc(gt_generic_printer);
 	gt_generic_new_string_printer(gpr,sa_string);
 	gt_map_placeholder *mph=func_params->alignment_info;
@@ -710,7 +709,6 @@ GT_INLINE gt_status gt_sam_attribute_generate_SA(gt_sam_attribute_func_params *f
   		gt_gprintf(gpr,",%d",seg->phred_score);
     }
   }
-  func_params->return_s=sa_string;
   free(gpr);
 	return 0; // OK
 }
