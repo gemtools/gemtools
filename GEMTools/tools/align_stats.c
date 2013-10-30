@@ -445,11 +445,10 @@ static void get_error_profile(as_stats *stats,gt_alignment *al,uint64_t rd,int q
       	add_indel_stats(stats,misms->size,misms->position,rd);
       	break;
       case DEL:
-      	add_indel_stats(stats,misms->size,misms->position,2+rd);
+      	add_indel_stats(stats,misms->size,misms->position,1+rd);
       	break;
       }
     }
-
   }
 }
 
@@ -660,8 +659,10 @@ static void as_collect_stats(gt_template* template,as_stats* stats,as_param *par
 		}
 	} else {
 		/* We can still track duplicates for single end reads, although we will find too many */
-		gt_map* tmap=gt_alignment_get_map(al[0],0);
-		insert_loc(stats,tmap->position,0,idt->tile,tmap->seq_name);
+		if(al[0]->maps->used) {
+			gt_map* tmap=gt_alignment_get_map(al[0],0);
+			insert_loc(stats,tmap->position,0,idt->tile,tmap->seq_name);
+		}
 	}
 }
 
@@ -1115,6 +1116,7 @@ static void as_print_mapping_summary(FILE *f,as_param *param)
 			tot+=tt;
 		}
 	}
+	for(;i<2;i++) for(k=0;k<6;k++) gcount[i][k]=0;
 	st->bisulphite=false;
 	for(k=0;k<6;k++) {
 		if((tt=gcount[0][k]+gcount[1][k])) {
