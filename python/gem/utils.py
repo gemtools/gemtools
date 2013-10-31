@@ -834,7 +834,7 @@ def get_max_read_length(input, threads=1, paired=False):
         raise ValueError("Error while getting max read length from stats!")
     return max_len
 
-def get_commandline(executable=None, unnamedargs=None, args=None, arg_prefix='--', text=False, include=None, exclude=None):
+def get_commandline(executable=None, unnamedargs=None, args=None, arg_prefix='--', text=False, expandBooleans=False, include=None, exclude=None):
     """Generate a valid command line from its arguments.
     
     Given a set of binaries and parameters, generate the command
@@ -849,6 +849,7 @@ def get_commandline(executable=None, unnamedargs=None, args=None, arg_prefix='--
     arg_prefix -- string that will be prepended to the argument names
         (by default '--')
     text -- do we need a string as output? Otherwise, a list is obtained
+    expandBooleans -- will the booleans be explicitly stated?
     include -- list of argument names that will be included in the output
     exclude -- list of argument names that will be excluded in the output
     
@@ -875,7 +876,7 @@ def get_commandline(executable=None, unnamedargs=None, args=None, arg_prefix='--
         
         if len(reducedArgs)>0:
             for k in reducedArgs:
-                if isinstance(args[k], bool):
+                if isinstance(args[k], bool) and not expandBooleans:
                     if args[k]==True:
                         elementsList.append(arg_prefix + k)
                 else:
