@@ -165,7 +165,7 @@ class PrepareInput(Command):
     def validate(self):
         input = self.options['input'].raw()
         _check("No input specified", input is None or len(input) == 0)
-        _check("You can not perpare more than 2 files", len(input) > 2)
+        _check("You can not prepare more than 2 files", len(input) > 2)
         if len(input) == 1 and self.options['discover'].raw():
             # search for second file
             (n, p) = gem.utils.find_pair(input[0])
