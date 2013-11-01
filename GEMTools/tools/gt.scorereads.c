@@ -93,7 +93,7 @@ sr_param param = {
 		.map_score_attr.split_penalty=INDEL_QUAL,
 		.map_score_attr.mapping_cutoff=0,
 		.map_score_attr.max_strata_searched=0,
-	  .map_score_attr.max_paired_score_delta=GT_MAP_SCORE_MAX_SCORE_DELTA,
+	  .map_score_attr.max_pair_maps=GT_MAP_SCORE_MAX_PAIR_MAPS,
 	  .map_score_attr.quality_format=GT_QUALS_OFFSET_33,
 		.map_score_attr.minimum_insert=0,
 		.map_score_attr.maximum_insert=0,
@@ -770,6 +770,13 @@ gt_status parse_arguments(int argc,char** argv) {
   			err=-7;
   		}
   		break;
+   	case 404:
+    		param.map_score_attr.max_pair_maps=strtoul(optarg,&p,10);
+    		if(*p) {
+    			fprintf(stderr,"Illegal max pair maps value: '%s'\n",optarg);
+    			err=-7;
+    		}
+    		break;
   	case 500:
   		if(gt_sam_attributes_parse_tag_option_string(gt_scorereads_attribute_option_list,optarg)!=GT_STATUS_OK) {
   			fprintf(stderr,"Unable to parse --tag option '%s'\n",optarg);

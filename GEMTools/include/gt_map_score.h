@@ -27,7 +27,7 @@ typedef struct {
 	gt_qualities_offset_t quality_format;
   uint32_t mapping_cutoff;
   uint32_t max_strata_searched;
-  uint32_t max_paired_score_delta;
+  uint64_t max_pair_maps; // Max pair maps to store;
   int indel_penalty;
   int split_penalty;
 } gt_map_score_attributes;
@@ -35,7 +35,7 @@ typedef struct {
 #define GT_MAP_SCORE_MAX_QUALITY 50
 #define GT_MAP_SCORE_MISSING_QUALITY 30 // Value to use in calculations if qualities not available
 #define GT_MAP_SCORE_MAX_GT_SCORE 0xffff
-#define GT_MAP_SCORE_MAX_SCORE_DELTA 60
+#define GT_MAP_SCORE_MAX_PAIR_MAPS 128
 #define GT_MAP_SCORE_ATTRIBUTES_CHECK(ms_attr) GT_NULL_CHECK(ms_attr);
 
 /*

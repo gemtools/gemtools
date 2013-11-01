@@ -235,6 +235,7 @@ gt_option gt_scorereads_options[] = {
   { 'm', "mismatch-limit", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 'M', "mapping-quality-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 'S', "split-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 404, "max-pair-maps", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
 
   /* Optional Fields */
   { 500, "tags", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<tags>" , "Enable/Disable additional fields with <field>:[0|1].\\n"
