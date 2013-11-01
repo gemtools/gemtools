@@ -93,6 +93,7 @@ sr_param param = {
 		.map_score_attr.split_penalty=INDEL_QUAL,
 		.map_score_attr.mapping_cutoff=0,
 		.map_score_attr.max_strata_searched=0,
+	  .map_score_attr.max_paired_score_delta=GT_MAP_SCORE_MAX_SCORE_DELTA,
 	  .map_score_attr.quality_format=GT_QUALS_OFFSET_33,
 		.map_score_attr.minimum_insert=0,
 		.map_score_attr.maximum_insert=0,

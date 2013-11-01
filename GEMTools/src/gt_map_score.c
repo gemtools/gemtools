@@ -87,6 +87,7 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 			}
 		}
 	}
+	uint32_t min_score=UINT32_MAX;
 	if(nmap[0]+nmap[1]) {
 		uint64_t i=0;
 		char *map_flag[2];
@@ -102,7 +103,13 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 				if(gt_err==GT_TEMPLATE_INSERT_SIZE_OK && x>=ms_attr->minimum_insert && x<=ms_attr->maximum_insert) {
 					attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
 					attr.gt_score=map1->gt_score|(map2->gt_score<<16);
-					if(ms_attr->insert_phred) attr.gt_score|=((uint64_t)ms_attr->insert_phred[x-ms_attr->minimum_insert]<<32);
+					uint32_t pair_score=map1->gt_score+map2->gt_score;
+					if(ms_attr->insert_phred) {
+						pair_score+=ms_attr->insert_phred[x-ms_attr->minimum_insert];
+						attr.gt_score|=((uint64_t)ms_attr->insert_phred[x-ms_attr->minimum_insert]<<32);
+					}
+					if(pair_score<min_score) min_score=pair_score;
+					else if(pair_score-min_score>ms_attr->max_paired_score_delta) continue;
 					attr.phred_score=255;
 					gt_template_inc_counter(template,attr.distance);
 					gt_template_add_mmap_ends(template,map1,map2,&attr);
