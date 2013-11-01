@@ -68,8 +68,11 @@ typedef struct {
   /* Control flags */
   bool load_index;
   bool load_index_sequences;
+  bool is_paired;
+  gt_file_format output_format;
   gt_output_file_compression compress;
-  gt_generic_parser_attributes *parser_attr;
+  gt_generic_printer_attributes *printer_attr;
+  gt_buffered_output_file *buf_output[2];
   int num_threads;
   gt_map_score_attributes map_score_attr;
 } sr_param;
@@ -90,11 +93,11 @@ sr_param param = {
   .read_group_id=NULL,
   .mmap_input=false,
   .compress=NONE,
-  .parser_attr=NULL,
   .verbose=false,
   .compact_format=false,
   .load_index=false,
   .load_index_sequences=false,
+  .is_paired=false,
   .num_threads=1,
   .map_score_attr.indel_penalty=INDEL_QUAL,
   .map_score_attr.split_penalty=INDEL_QUAL,
@@ -591,8 +594,8 @@ gt_status gt_scorereads_process(sr_param *param)
 	// Do we have two map files as input (one for each read)?
 	if(param->input_files[1]) {
 		pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
-		gt_input_file* input_file1=gt_input_file_open(param->input_files[0],param->mmap_input);
-		gt_input_file* input_file2=gt_input_file_open(param->input_files[1],param->mmap_input);
+		gt_input_file* input_file1=gt_input_file_map_open(param->input_files[0],param->mmap_input);
+		gt_input_file* input_file2=gt_input_file_map_open(param->input_files[1],param->mmap_input);
 		if(input_file1->file_format!=MAP || input_file2->file_format!=MAP) {
 			gt_fatal_error_msg("Fatal error: paired files '%s','%s' are not in MAP format\n",param->input_files[0],param->input_files[1]);
 		}
@@ -649,9 +652,10 @@ gt_status gt_scorereads_process(sr_param *param)
 		gt_input_file_close(input_file1);
 		gt_input_file_close(input_file2);
 	} else { // Single input file
-		gt_input_file* input_file=param->input_files[0]?gt_input_file_open(param->input_files[0],param->mmap_input):gt_input_stream_open(stdin);
+		gt_input_file* input_file=param->input_files[0]?gt_input_file_map_open(param->input_files[0],param->mmap_input):gt_input_stream_map_open(stdin);
 		gt_buffered_input_file* buffered_input_a=gt_buffered_input_file_new(input_file);
-		if(gt_input_generic_parser_attributes_is_paired(param->parser_attr)) {
+    gt_map_parser_attributes* input_map_attributes_a = gt_input_map_parser_attributes_new(param->is_paired);
+		if(param->is_paired) {
 			/*
 			 * Paired input
 			 *
@@ -663,7 +667,7 @@ gt_status gt_scorereads_process(sr_param *param)
 				gt_template *template=gt_template_new();
 				sr_dist_element *ins_dist=NULL;
 				gt_status error_code;
-				while ((error_code=gt_input_generic_parser_get_template(buffered_input_a,template,param->parser_attr))) {
+				while ((error_code=gt_input_map_parser_get_template(buffered_input_a,template,input_map_attributes_a))) {
 					if(error_code!=GT_IMP_OK) continue;
 					int64_t size;
 					error_code=gt_scorereads_get_insert_size(template,&size);
@@ -688,15 +692,19 @@ gt_status gt_scorereads_process(sr_param *param)
 #endif
 				gt_buffered_input_file* buffered_input=tid?gt_buffered_input_file_new(input_file):buffered_input_a;
 				gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input,sam_headers,param);
+		    gt_map_parser_attributes* input_map_attributes=tid?gt_input_map_parser_attributes_new(param->is_paired):input_map_attributes_a;
+				gt_output_sam_attributes* const output_sam_attributes = param->output_format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
 				gt_status error_code;
 				gt_template *template=gt_template_new();
-				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
+				while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
 					if (error_code!=GT_IMP_OK) continue;
 					gt_map_pair_template(template,&param->map_score_attr);
 					gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
 				}
 				// Clean
 				gt_template_delete(template);
+		    gt_input_map_parser_attributes_delete(input_map_attributes);
+		    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 				gt_buffered_input_file_close(buffered_input);
 				gt_scorereads_close_buffered_output_files(buffered_outputs);
 			}
@@ -708,11 +716,17 @@ gt_status gt_scorereads_process(sr_param *param)
 #pragma omp parallel num_threads(param->num_threads)
 #endif
 			{
-				gt_buffered_input_file* buffered_input=gt_buffered_input_file_new(input_file);
+#ifdef HAVE_OPENMP
+				uint64_t tid=omp_get_thread_num();
+#else
+				uint64_t tid=0;
+#endif
+				gt_buffered_input_file* buffered_input=tid?gt_buffered_input_file_new(input_file):buffered_input_a;
 				gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input,sam_headers,param);
+		    gt_map_parser_attributes* input_map_attributes=tid?gt_input_map_parser_attributes_new(false):input_map_attributes_a;
 				gt_status error_code;
 				gt_template *template=gt_template_new();
-				while ((error_code=gt_input_generic_parser_get_template(buffered_input,template,param->parser_attr))) {
+				while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
 					if (error_code!=GT_IMP_OK) {
 						gt_error_msg("Error parsing file '%s'\n",param->input_files[0]);
 						continue;
@@ -726,6 +740,7 @@ gt_status gt_scorereads_process(sr_param *param)
 				}
 				// Clean
 				gt_template_delete(template);
+		    gt_input_map_parser_attributes_delete(input_map_attributes);
 				gt_buffered_input_file_close(buffered_input);
 				gt_scorereads_close_buffered_output_files(buffered_outputs);
 			}
@@ -801,7 +816,6 @@ char *gt_scorereads_parse_output_option(char *opt)
 
 gt_status parse_arguments(int argc,char** argv) {
 	gt_status err=GT_STATUS_OK;
-	param.parser_attr=gt_input_generic_parser_attributes_new(false);
   struct option* gt_scorereads_getopt = gt_options_adaptor_getopt(gt_scorereads_options);
   gt_string* const gt_scorereads_short_getopt = gt_options_adaptor_getopt_short(gt_scorereads_options);
   int option, option_index;
@@ -841,7 +855,7 @@ gt_status parse_arguments(int argc,char** argv) {
         param.input_files[1] = optarg;
         break;
       case 'p':
-        gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
+        param.is_paired=true;
         break;
       case 'z':
 #ifdef HAVE_ZLIB
@@ -969,7 +983,7 @@ gt_status parse_arguments(int argc,char** argv) {
   	param.input_files[0]=param.input_files[1];
   	param.input_files[1]=NULL;
   }
-	if(param.input_files[1]) gt_input_generic_parser_attributes_set_paired(param.parser_attr,true);
+	if(param.input_files[1]) param.is_paired=true;
 	if(err==GT_STATUS_OK && insert_set[0] && insert_set[1] && param.map_score_attr.minimum_insert>param.map_score_attr.maximum_insert) {
 		fputs("Minimum insert size > maximum insert size\n",stderr);
     usage(gt_scorereads_options,gt_scorereads_groups,false);
@@ -1005,7 +1019,7 @@ gt_status parse_arguments(int argc,char** argv) {
 			if(param.map_score_attr.minimum_insert<=1000) param.map_score_attr.maximum_insert=1000;
 			else param.map_score_attr.maximum_insert=param.map_score_attr.minimum_insert+1000;
 		}
-		if(gt_input_generic_parser_attributes_is_paired(param.parser_attr) && param.dist_file) read_dist_file(&param);
+		if(param.is_paired && param.dist_file) read_dist_file(&param);
 	}
   // Free
   gt_string_delete(gt_scorereads_short_getopt);
