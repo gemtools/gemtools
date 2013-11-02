@@ -214,7 +214,7 @@ char* gt_mapset_groups[] = {
 gt_option gt_scorereads_options[] = {
   /* Operations */
    /* I/O */
-  { 'i', "i1", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
+  { 300, "i1", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
   { 301, "i2", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
   { 303, "insert-dist", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
   { 'p', "paired-end", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3 , true, "" , "" },
@@ -236,6 +236,7 @@ gt_option gt_scorereads_options[] = {
   { 'M', "mapping-quality-cutoff", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 'S', "split-penalty", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
   { 404, "max-pair-maps", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
+  { 405, "max-orphan-maps", GT_OPT_REQUIRED, GT_OPT_FLOAT, 4 , true, "" , "" },
 
   /* Optional Fields */
   { 500, "tags", GT_OPT_REQUIRED, GT_OPT_STRING, 5 , true, "<tags>" , "Enable/Disable additional fields with <field>:[0|1].\\n"
@@ -272,7 +273,7 @@ gt_option gt_scorereads_options[] = {
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8 , false, "" , "" },
   {  0, 0, 0, 0, 0, false, "", ""}
 };
-char* gt_scorereads_options_short = "i:q:pzjcZo:s:S:I:r:M:m:vt:hJ";
+char* gt_scorereads_options_short = "q:pzjcZo:s:S:I:r:M:m:vt:hJ";
 char* gt_scorereads_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",

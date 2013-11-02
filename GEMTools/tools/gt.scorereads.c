@@ -94,6 +94,7 @@ sr_param param = {
 		.map_score_attr.mapping_cutoff=0,
 		.map_score_attr.max_strata_searched=0,
 	  .map_score_attr.max_pair_maps=GT_MAP_SCORE_MAX_PAIR_MAPS,
+	  .map_score_attr.max_orphan_maps=GT_MAP_SCORE_MAX_ORPHAN_MAPS,
 	  .map_score_attr.quality_format=GT_QUALS_OFFSET_33,
 		.map_score_attr.minimum_insert=0,
 		.map_score_attr.maximum_insert=0,
@@ -556,14 +557,16 @@ gt_status gt_scorereads_process(sr_param *param)
 			gt_buffered_output_file *buffered_output=gt_buffered_output_file_new(output_file);
 			gt_buffered_input_file_attach_buffered_output(buffered_input1,buffered_output);
 			gt_output_sam_attributes* const output_sam_attributes = param->output_format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
+			gt_map_score_tmap_buf *ms_tmap_buf=gt_map_score_new_map_score_tmap_buf(GT_MAX(param->map_score_attr.max_pair_maps,param->map_score_attr.max_orphan_maps));
 			gt_status error_code;
 			gt_template *template=gt_template_new();
 			while((error_code=gt_input_map_parser_synch_get_template(buffered_input1,buffered_input2,template,&mutex))) {
 				if(error_code!=GT_IMP_OK) continue;
-				gt_map_pair_template(template,&param->map_score_attr);
+				gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 				gt_scorereads_print_template(buffered_output,template,output_sam_attributes,param);
 			}
 			gt_template_delete(template);
+			gt_map_score_delete_map_score_tmap_buf(ms_tmap_buf);
 	    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 			gt_buffered_input_file_close(buffered_input1);
 			gt_buffered_input_file_close(buffered_input2);
@@ -615,15 +618,17 @@ gt_status gt_scorereads_process(sr_param *param)
 				gt_buffered_input_file_attach_buffered_output(buffered_input,buffered_output);
 		    gt_map_parser_attributes* input_map_attributes=tid?gt_input_map_parser_attributes_new(param->is_paired):input_map_attributes_a;
 				gt_output_sam_attributes* const output_sam_attributes = param->output_format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
+				gt_map_score_tmap_buf *ms_tmap_buf=gt_map_score_new_map_score_tmap_buf(GT_MAX(param->map_score_attr.max_pair_maps,param->map_score_attr.max_orphan_maps));
 				gt_status error_code;
 				gt_template *template=gt_template_new();
 				while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
 					if (error_code!=GT_IMP_OK) continue;
-					gt_map_pair_template(template,&param->map_score_attr);
+					gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 					gt_scorereads_print_template(buffered_output,template,output_sam_attributes,param);
 				}
 				// Clean
 				gt_template_delete(template);
+				gt_map_score_delete_map_score_tmap_buf(ms_tmap_buf);
 		    gt_input_map_parser_attributes_delete(input_map_attributes);
 		    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 				gt_buffered_input_file_close(buffered_input);
@@ -708,7 +713,6 @@ gt_status parse_arguments(int argc,char** argv) {
     	param.sam_header_file = optarg;
     	break;
     case 300:
-    case 'i':
       param.input_files[0] = optarg;
       break;
     case 301:
@@ -774,6 +778,13 @@ gt_status parse_arguments(int argc,char** argv) {
     		param.map_score_attr.max_pair_maps=strtoul(optarg,&p,10);
     		if(*p) {
     			fprintf(stderr,"Illegal max pair maps value: '%s'\n",optarg);
+    			err=-7;
+    		}
+    		break;
+   	case 405:
+    		param.map_score_attr.max_orphan_maps=strtoul(optarg,&p,10);
+    		if(*p) {
+    			fprintf(stderr,"Illegal max orphan maps value: '%s'\n",optarg);
     			err=-7;
     		}
     		break;

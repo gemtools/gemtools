@@ -62,23 +62,37 @@ uint64_t gt_map_calculate_gt_score(gt_alignment *al, gt_map *map, gt_map_score_a
 	return score;
 }
 
-typedef struct {
-	uint64_t map_idx[2];
-	uint64_t gt_score;
-	uint32_t al_score;
-} tmap;
+gt_map_score_tmap_buf *gt_map_score_new_map_score_tmap_buf(uint64_t sz)
+{
+	gt_map_score_tmap_buf *ms_tmap_buf=NULL;
+	if(sz) {
+		ms_tmap_buf=gt_alloc(gt_map_score_tmap_buf);
+		ms_tmap_buf->tmaps=gt_malloc(sizeof(gt_map_score_tmap *)*sz);
+		ms_tmap_buf->tmap_buf=gt_malloc(sizeof(gt_map_score_tmap)*sz);
+		ms_tmap_buf->size=sz;
+	}
+	return ms_tmap_buf;
+}
 
-void gt_map_score_heap_float_up(tmap **base,uint64_t idx)
+void gt_map_score_delete_map_score_tmap_buf(gt_map_score_tmap_buf *ms_tmap_buf)
+{
+	GT_NULL_CHECK(ms_tmap_buf);
+	free(ms_tmap_buf->tmaps);
+	free(ms_tmap_buf->tmap_buf);
+	free(ms_tmap_buf);
+}
+
+void gt_map_score_heap_float_up(gt_map_score_tmap **base,uint64_t idx)
 {
 	while(idx>1 && base[(idx>>1)-1]->al_score<base[idx-1]->al_score) {
-		tmap *t=base[idx-1];
+		gt_map_score_tmap *t=base[idx-1];
 		base[idx-1]=base[(idx>>1)-1];
 		base[(idx>>1)-1]=t;
 		idx>>=1;
 	}
 }
 
-void gt_map_score_heap_sink_down(tmap **base,uint64_t sz)
+void gt_map_score_heap_sink_down(gt_map_score_tmap **base,uint64_t sz)
 {
 	uint64_t idx=1;
 	while(1) {
@@ -86,7 +100,7 @@ void gt_map_score_heap_sink_down(tmap **base,uint64_t sz)
 		if(k>=sz) break;
 		if(k+1<sz && base[k-1]->al_score<base[k]->al_score) k++;
 		if(base[k-1]->al_score>base[idx-1]->al_score) {
-			tmap *t=base[idx-1];
+			gt_map_score_tmap *t=base[idx-1];
 			base[idx-1]=base[k-1];
 			base[k-1]=t;
 			idx=k;
@@ -94,7 +108,7 @@ void gt_map_score_heap_sink_down(tmap **base,uint64_t sz)
 	}
 }
 
-void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr)
+void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr,gt_map_score_tmap_buf *ms_tmap_buf)
 {
 	GT_TEMPLATE_CHECK(template);
 	GT_MAP_SCORE_ATTRIBUTES_CHECK(ms_attr);
@@ -119,12 +133,11 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 			}
 		}
 	}
-	tmap **tmaps=NULL,*tmap_buf=NULL;
+	gt_map_score_tmap **tmaps=ms_tmap_buf->tmaps;
+	gt_map_score_tmap *tmap_buf=ms_tmap_buf->tmap_buf;
 	if(nmap[0]+nmap[1]) {
-		uint64_t sz=nmap[0]*nmap[1];
-		if(sz>ms_attr->max_pair_maps) sz=ms_attr->max_pair_maps;
-		tmaps=gt_malloc(sizeof(tmap *)*sz);
-		tmap_buf=gt_malloc(sizeof(tmap)*sz);
+		uint64_t sz=ms_attr->max_pair_maps;
+		gt_cond_fatal_error_msg(sz>ms_tmap_buf->size,"Fatal error - gt_map_score_tmap_buf set too small\n");
 		uint64_t idx=0;
 		uint64_t i=0;
 		char *map_flag[2];
@@ -172,14 +185,14 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 			// Sort tmaps in decreasing score order using the fact that they should be in a valid heap
 			i=idx;
 			while(i>1) {
-				tmap *t=tmaps[i-1];
+				gt_map_score_tmap *t=tmaps[i-1];
 				tmaps[i-1]=tmaps[0];
 				tmaps[0]=t;
 				gt_map_score_heap_sink_down(tmaps,--i);
 			}
 			// And insert into mmap_attr
 			for(i=0;i<idx;i++) {
-					tmap *t=tmaps[i];
+					gt_map_score_tmap *t=tmaps[i];
 					gt_map* map1=gt_alignment_get_map(al[0],t->map_idx[0]);
 					gt_map* map2=gt_alignment_get_map(al[1],t->map_idx[1]);
 					attr.distance=gt_map_get_global_distance(map1)+gt_map_get_global_distance(map2);
@@ -190,14 +203,45 @@ void gt_map_pair_template(gt_template *template,gt_map_score_attributes *ms_attr
 					map_flag[0][t->map_idx[0]]=map_flag[1][t->map_idx[1]]=1;
 			}
 		}
-		free(tmaps);
-		free(tmap_buf);
+		// Now we pick up orphan single end maps, sort on score, and use no more than the first
+		// ms_attr->max_orphan_maps entries
+		sz=ms_attr->max_orphan_maps;
+		gt_cond_fatal_error_msg(sz>ms_tmap_buf->size,"Fatal error - gt_map_score_tmap_buf set too small\n");
 		for(rd=0;rd<2;rd++) {
+			idx=0;
 			for(i=0;i<nmap[rd];i++) {
 				if(!map_flag[rd][i]) {
 					gt_map *map=gt_alignment_get_map(al[rd],i);
+					uint64_t gt_score=rd?(map->gt_score<<16):map->gt_score;
+					if(idx<sz) {
+						tmap_buf[idx].gt_score=gt_score;
+						tmap_buf[idx].al_score=map->gt_score;
+						tmap_buf[idx].map_idx[0]=i;
+						tmaps[idx]=tmap_buf+idx;
+						gt_map_score_heap_float_up(tmaps,++idx);
+					} else {
+						if(tmaps[0]->al_score>map->gt_score) {
+							tmap_buf[0].gt_score=gt_score;
+							tmap_buf[0].al_score=map->gt_score;
+							tmap_buf[0].map_idx[0]=i;
+							gt_map_score_heap_sink_down(tmaps,idx);
+						}
+					}
+				}
+			}
+			if(idx) {
+				i=idx;
+				while(i>1) {
+					gt_map_score_tmap *t=tmaps[i-1];
+					tmaps[i-1]=tmaps[0];
+					tmaps[0]=t;
+					gt_map_score_heap_sink_down(tmaps,--i);
+				}
+				for(i=0;i<idx;i++) {
+					gt_map_score_tmap *t=tmaps[i];
+					gt_map* map=gt_alignment_get_map(al[rd],t->map_idx[0]);
 					attr.distance=gt_map_get_global_distance(map);
-					attr.gt_score=rd?(map->gt_score<<16):map->gt_score;
+					attr.gt_score=t->gt_score;
 					attr.phred_score=255;
 					gt_template_inc_counter(template,attr.distance);
 					if(!rd)	gt_template_add_mmap_ends(template,map,0,&attr);
