@@ -103,6 +103,8 @@ sr_param param = {
   .map_score_attr.split_penalty=INDEL_QUAL,
   .map_score_attr.mapping_cutoff=0,
   .map_score_attr.max_strata_searched=0,
+  .map_score_attr.max_pair_maps=GT_MAP_SCORE_MAX_PAIR_MAPS,
+  .map_score_attr.max_orphan_maps=GT_MAP_SCORE_MAX_ORPHAN_MAPS,
   .map_score_attr.quality_format=GT_QUALS_OFFSET_33,
   .map_score_attr.minimum_insert=0,
   .map_score_attr.maximum_insert=0,
@@ -637,14 +639,16 @@ gt_status gt_scorereads_process(sr_param *param)
 			gt_buffered_input_file* buffered_input1=tid?gt_buffered_input_file_new(input_file1):buffered_input_a;
 			gt_buffered_input_file* buffered_input2=tid?gt_buffered_input_file_new(input_file2):buffered_input_b;
 			gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input1,sam_headers,param);
+			gt_map_score_tmap_buf *ms_tmap_buf=gt_map_score_new_map_score_tmap_buf(GT_MAX(param->map_score_attr.max_pair_maps,param->map_score_attr.max_orphan_maps));
 			gt_status error_code;
 			gt_template *template=gt_template_new();
 			while((error_code=gt_input_map_parser_synch_get_template(buffered_input1,buffered_input2,template,&mutex))) {
 				if(error_code!=GT_IMP_OK) continue;
-				gt_map_pair_template(template,&param->map_score_attr);
+				gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 				gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
 			}
 			gt_template_delete(template);
+			gt_map_score_delete_map_score_tmap_buf(ms_tmap_buf);
 			gt_buffered_input_file_close(buffered_input1);
 			gt_buffered_input_file_close(buffered_input2);
 			gt_scorereads_close_buffered_output_files(buffered_outputs);
@@ -694,15 +698,17 @@ gt_status gt_scorereads_process(sr_param *param)
 				gt_vector *buffered_outputs=gt_scorereads_open_and_attach_buffered_output_files(param->outputs,buffered_input,sam_headers,param);
 		    gt_map_parser_attributes* input_map_attributes=tid?gt_input_map_parser_attributes_new(param->is_paired):input_map_attributes_a;
 				gt_output_sam_attributes* const output_sam_attributes = param->output_format==SAM?gt_scorereads_setup_sam_tags(sam_headers,param):NULL;
+				gt_map_score_tmap_buf *ms_tmap_buf=gt_map_score_new_map_score_tmap_buf(GT_MAX(param->map_score_attr.max_pair_maps,param->map_score_attr.max_orphan_maps));
 				gt_status error_code;
 				gt_template *template=gt_template_new();
 				while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
 					if (error_code!=GT_IMP_OK) continue;
-					gt_map_pair_template(template,&param->map_score_attr);
+					gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 					gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
 				}
 				// Clean
 				gt_template_delete(template);
+				gt_map_score_delete_map_score_tmap_buf(ms_tmap_buf);
 		    gt_input_map_parser_attributes_delete(input_map_attributes);
 		    if(output_sam_attributes) gt_output_sam_attributes_delete(output_sam_attributes);
 				gt_buffered_input_file_close(buffered_input);
@@ -848,7 +854,6 @@ gt_status parse_arguments(int argc,char** argv) {
         param.sam_header_file = optarg;
         break;
       case 300:
-      case 'i':
         param.input_files[0] = optarg;
         break;
       case 301:
@@ -866,6 +871,7 @@ gt_status parse_arguments(int argc,char** argv) {
 #ifdef HAVE_BZLIB
         param.compress=BZIP2;
 #endif
+
         break;
       case 'Z':
         param.compress=NONE;
@@ -914,6 +920,20 @@ gt_status parse_arguments(int argc,char** argv) {
           err=-7;
         }
         break;
+     	case 404:
+      		param.map_score_attr.max_pair_maps=strtoul(optarg,&p,10);
+      		if(*p) {
+      			fprintf(stderr,"Illegal max pair maps value: '%s'\n",optarg);
+      			err=-7;
+      		}
+      		break;
+     	case 405:
+      		param.map_score_attr.max_orphan_maps=strtoul(optarg,&p,10);
+      		if(*p) {
+      			fprintf(stderr,"Illegal max orphan maps value: '%s'\n",optarg);
+      			err=-7;
+      		}
+      		break;
       case 500:
         if(gt_sam_attributes_parse_tag_option_string(gt_scorereads_attribute_option_list,optarg)!=GT_STATUS_OK) {
           fprintf(stderr,"Unable to parse --tag option '%s'\n",optarg);
