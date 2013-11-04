@@ -20,7 +20,7 @@ MODULES=gem_tools \
         gt_sequence_archive gt_segmented_sequence \
         gt_input_file gt_buffered_input_file \
         gt_input_parser gt_input_map_parser gt_input_fasta_parser gt_input_generic_parser \
-        gt_input_map_utils \
+        gt_input_map_utils gt_pipe_io \
         gt_input_sam_parser gt_sam_attributes \
         gt_buffered_output_file gt_output_file gt_generic_printer gt_output_buffer \
         gt_output_printer gt_output_map gt_output_fasta gt_output_sam gt_output_generic_printer \

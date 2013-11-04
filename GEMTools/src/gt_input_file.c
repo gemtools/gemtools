@@ -6,12 +6,14 @@
  * DESCRIPTION: // TODO
  */
 
+#include <sys/wait.h>
 #ifdef ZLIB
 #include <zlib.h>
 #endif
 #ifdef ZLIB
 #include <bzlib.h>
 #endif
+#include "gt_pipe_io.h"
 #include "gt_input_file.h"
 
 // Internal constants
@@ -49,8 +51,24 @@ gt_input_file* gt_input_stream_general_open(FILE* stream,gt_file_format format) 
   return input_file;
 }
 
-gt_input_file* gt_input_file_general_open(char* const file_name,const bool mmap_file,gt_file_format format) {
+gt_input_file* gt_input_file_pipe_open(char *const file_name,gt_file_format format)
+{
+  char *trimmed_name=NULL;
+  gt_cond_fatal_error(gt_pipe_io_check_command(file_name,&trimmed_name)!=GT_PIPE_IO_READ,PIPE_NOT_READ,file_name);
+  GT_NULL_CHECK(trimmed_name);
+  int fd=gt_pipe_io_child_open(GT_PIPE_IO_READ,trimmed_name);
+  gt_cond_fatal_error(fd<0,SYS_PIPE); // Should never happen
+  FILE *stream=fdopen(fd,"r");
+  gt_cond_fatal_error(stream==NULL,FILE_OPEN,trimmed_name); // Should never happen
+  free(trimmed_name);
+  return gt_input_stream_general_open(stream,format);
+}
+
+gt_input_file* gt_input_file_general_open(char* const file_name,const bool mmap_file,gt_file_format format)
+{
   GT_NULL_CHECK(file_name);
+  // Check for pipe
+  if(strchr(file_name,'|')) return gt_input_file_pipe_open(file_name,format);
   // Allocate handler
   gt_input_file* input_file = gt_alloc(gt_input_file);
   // Input file
@@ -150,6 +168,10 @@ gt_status gt_input_file_close(gt_input_file* const input_file) {
       break;
     case STREAM:
       gt_free(input_file->file_buffer);
+      // In case the stream is from a pipe where we forked a shell we should wait for the child to die
+      signal(SIGCHLD,SIG_DFL);
+      int i;
+      while(waitpid(-1,&i,WNOHANG)>0);
       break;
   }
   gt_free(input_file);

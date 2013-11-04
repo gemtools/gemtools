@@ -6,6 +6,7 @@
  * DESCRIPTION: // TODO
  */
 
+#include <sys/wait.h>
 #ifdef HAVE_ZLIB
 #include <zlib.h>
 #endif
@@ -13,6 +14,7 @@
 #include <bzlib.h>
 #endif
 #include "gt_output_file.h"
+#include "gt_pipe_io.h"
 
 /*
  * Setup
@@ -123,11 +125,27 @@ gt_output_file* gt_output_stream_new_compress(FILE* const file,const gt_output_f
   return output_file;
 }
 
+gt_output_file *gt_output_file_pipe_open(char *const file_name,const gt_output_file_type output_file_type)
+{
+  char *trimmed_name=NULL;
+  gt_cond_fatal_error(gt_pipe_io_check_command(file_name,&trimmed_name)!=GT_PIPE_IO_WRITE,PIPE_NOT_WRITE,file_name);
+  GT_NULL_CHECK(trimmed_name);
+  int fd=gt_pipe_io_child_open(GT_PIPE_IO_WRITE,trimmed_name);
+  gt_cond_fatal_error(fd<0,SYS_PIPE); // Should never happen
+  FILE *stream=fdopen(fd,"w");
+  gt_cond_fatal_error(stream==NULL,FILE_OPEN,trimmed_name); // Should never happen
+  free(trimmed_name);
+  return gt_output_stream_new_compress(stream,output_file_type,NONE); // We ignore compression if we writing to a pipe
+}
+
 gt_output_file* gt_output_file_new_compress(char* const file_name,const gt_output_file_type output_file_type,gt_output_file_compression compression_type)
 {
   GT_NULL_CHECK(file_name);
+  // Check for pipe
+  if(strchr(file_name,'|')) return gt_output_file_pipe_open(file_name,output_file_type);
+  // Allocate handler
   gt_output_file* output_file = gt_alloc(gt_output_file);
-  /* Output file */
+  // Output file
   output_file->file_name=file_name;
 #ifndef HAVE_ZLIB
   if(compression_type==GZIP) compression_type=NONE;
@@ -181,6 +199,11 @@ gt_status gt_output_file_close(gt_output_file* const output_file) {
     if(strcmp(output_file->file_name, GT_STREAM_FILE_NAME)) {
     	error_code|=fclose(output_file->file);
   	  gt_cond_error(error_code,FILE_CLOSE,output_file->file_name);
+    } else {
+      // In case the stream is from a pipe where we forked a shell we should wait for the child to die
+      signal(SIGCHLD,SIG_DFL);
+      int i;
+      while(waitpid(-1,&i,WNOHANG)>0);
     }
   	break;
   }
