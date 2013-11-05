@@ -217,7 +217,13 @@ def gemtools():
                 if args['--dry'] or args['--show']:
                     # we handle --dry and --show separatly,
                     # create the jobs and call the show commands
-                    jobs = jip.jobs.create(tool, args=args['<args>'])
+                    try:
+                        jobs = jip.jobs.create(tool, args=args['<args>'])
+                    except jip.tools.ValidationError as va:
+                        sys.stderr.write(str(va))
+                        sys.stderr.write('\n')
+                        sys.exit(1)
+
                     if args['--dry']:
                         jip.cli.show_dry(jobs, options=tool.options)
                     if args['--show']:

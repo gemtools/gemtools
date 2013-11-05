@@ -97,8 +97,15 @@ class execs_dict(dict):
                     return binary
             except Exception:
                 pass
-        gemtools_logger.debug("Using binary from PATH: %s" % item)
-        return dict.__getitem__(self, item)
+        try:
+            r = dict.__getitem__(self, item)
+            gemtools_logger.debug("Using binary from PATH: %s" % item)
+            return r
+        except KeyError:
+            gemtools_logger.debug("No defintion found for: %s. "
+                                  "Assuming its in path" % item)
+            return item
+
 
 ## paths to the executables
 executables = execs_dict({
