@@ -86,10 +86,10 @@ GT_INLINE void gt_buffered_output_file_safety_dump(gt_buffered_output_file* cons
 GT_INLINE gt_status gt_vbofprintf(gt_buffered_output_file* const buffered_output_file,const char *template,va_list v_args) {
   GT_BUFFERED_OUTPUT_FILE_CHECK(buffered_output_file);
   GT_NULL_CHECK(template);
-  if (gt_expect_false(
+	if (gt_expect_false(
       gt_output_buffer_get_used(buffered_output_file->buffer)>=GT_BUFFERED_OUTPUT_FILE_FORCE_DUMP_SIZE)) {
-    gt_buffered_output_file_safety_dump(buffered_output_file);
-  }
+		if(*(gt_vector_get_last_elm(buffered_output_file->buffer->buffer,char))==EOL) gt_buffered_output_file_safety_dump(buffered_output_file);
+	}
   const gt_status chars_printed = gt_vbprintf(buffered_output_file->buffer,template,v_args);
   return chars_printed;
 }
