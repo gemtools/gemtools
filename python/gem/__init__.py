@@ -81,6 +81,9 @@ _max_mappings = 999999999
 
 ## filter to work around GT-32 and #006 in gem-2-gem
 __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t' + str(_max_mappings) + '\t"$5}else{print}}}']
+## filter to put before teh pairaligner if qualities are ignored
+## current version has a bug where it does not expect to see the quality column
+__awk_pair_quality_fix = ["awk", "-F", "\t", '{print $1"\t"$2"\t"$4"\t"$5}']
 
 
 class execs_dict(dict):
@@ -724,7 +727,13 @@ def pairalign(input, index, output=None,
     if map_both_ends:
         pa.append("--map-both-ends")
 
-    tools = [pa]
+    # if qualities are ignored, make sure we remove the quality column
+    # otherwise the pairaligner will crash
+    tools = []
+    if quality in ['ignore', 'none']:
+        tools.append(__awk_pair_quality_fix)
+    tools.append(pa)
+
     filter_pa = [executables["gt.filter"], "-t", str(threads), "-p"]
     if filter_max_matches > 0:
         filter_pa.extend(["--max-output-matches", str(filter_max_matches)])
@@ -785,7 +794,8 @@ def score(input,
           quality=None,
           compress=False,
           threads=1,
-          raw=False):
+          raw=False,
+          remove_existing=False):
     """Score the input. In addition, you can specify a tuple with (<score_strata_to_keep>,<max_strata_distance>,<max_alignments>) to
     filter the result further.
     """
@@ -797,6 +807,8 @@ def score(input,
         output += ".gz"
 
     quality = _prepare_quality_parameter(quality)
+    if quality in ['none', 'ignore']:
+        quality = 'offset-33'
     index = _prepare_index_parameter(index, gem_suffix=True)
     score_p = [executables['gem-2-gem'],
                '-I', index,
@@ -814,8 +826,9 @@ def score(input,
 
     if raw or isinstance(input, gt.InputFile):
         raw = True
-        if isinstance(input, gt.InputFile):
+        if iisinstance(input, gt.InputFile) and remove_existing:
             input.remove_scores = True
+            raw = False
         #input = input.raw_stream()
 
     tools = [score_p]
@@ -824,7 +837,7 @@ def score(input,
         gzip = _compressor(threads=threads)
         tools.append(gzip)
 
-    process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=False)
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=raw)
     return _prepare_output(process, output=output)
 
 
