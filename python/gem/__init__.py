@@ -826,7 +826,7 @@ def score(input,
 
     if raw or isinstance(input, gt.InputFile):
         raw = True
-        if iisinstance(input, gt.InputFile) and remove_existing:
+        if isinstance(input, gt.InputFile) and remove_existing:
             input.remove_scores = True
             raw = False
         #input = input.raw_stream()
