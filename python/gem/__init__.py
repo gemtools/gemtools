@@ -84,6 +84,12 @@ __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\
 ## filter to put before teh pairaligner if qualities are ignored
 ## current version has a bug where it does not expect to see the quality column
 __awk_pair_quality_fix = ["awk", "-F", "\t", '{print $1"\t"$2"\t"$4"\t"$5}']
+## The current version of gem does not work without qualities properly.
+## We workaround by inserting dummy qualities I
+__awk_gem_2_sam_quality_fix = [
+    'awk', '-F', '\t',
+    '{x=gensub(/\w/, "I", "g", $2); print $1"\t"$2"\t"x"\t"$4"\t"$5}'
+]
 
 
 class execs_dict(dict):
@@ -842,37 +848,44 @@ def score(input,
 
 
 def gem2sam(input, index=None, output=None,
-    single_end=False, compact=False, threads=1,
-    quality=None, check_ids=True, add_length=True, consensus=None,
-    exclude_header=False, calc_xs=True, raw=False):
+            single_end=False, compact=False, threads=1,
+            quality=None, check_ids=True, add_length=True, consensus=None,
+            exclude_header=False, calc_xs=True, raw=False):
 
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
-    else:
-        add_length=False
 
-    gem_2_sam_p = [executables['gem-2-sam'],
-                   '-T', str(threads)
-    ]
+    gem_2_sam_p = [executables['gem-2-sam'], '-T', str(threads)]
     if index is not None:
         gem_2_sam_p.extend(['-I', index])
         if not exclude_header:
             gem_2_sam_p.append("-l")
 
+    tools = []
     quality = _prepare_quality_parameter(quality, input)
     if quality is not None and not quality == "ignore":
         gem_2_sam_p.extend(["-q", quality])
+    else:
+        # apply fix
+        gem_2_sam_p.extend(["-q", 'offset-33'])
+        tools.append(__awk_gem_2_sam_quality_fix)
+        raw = True
 
     if consensus is not None and calc_xs:
-        gem_2_sam_p.extend(['-s', _prepare_splice_consensus_parameter(consensus)])
+        gem_2_sam_p.extend([
+            '-s', _prepare_splice_consensus_parameter(consensus)
+        ])
 
     if single_end:
         gem_2_sam_p.append("--expect-single-end-reads")
     if compact:
         gem_2_sam_p.append("-c")
 
+    tools.append(gem_2_sam_p)
     # GT-25 transform id's
-    process = utils.run_tool(gem_2_sam_p, input=input, output=output, name="GEM-2-sam", write_map=True, clean_id=True, append_extra=False, raw=raw)
+    process = utils.run_tools(tools, input=input, output=output,
+                              name="GEM-2-sam", write_map=True,
+                              clean_id=True, append_extra=False, raw=raw)
     return _prepare_output(process, output=output, quality=quality)
 
 
