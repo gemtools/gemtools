@@ -2613,7 +2613,7 @@ class VcPipeline(Command):
                 threads=threads
             )
 
-        # we collect all mapping steps here for mergin
+        # we collect all mapping steps here for merging
         all_mappings = []
 
         ###################################################################
