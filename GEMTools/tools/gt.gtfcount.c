@@ -36,6 +36,7 @@ typedef struct {
   bool verbose;
   bool print_json;
   bool print_both;
+  bool count_bases;
   float exon_overlap;
   uint64_t num_threads;
 } gt_gtfcount_args;
@@ -83,6 +84,7 @@ gt_gtfcount_args parameters = {
     .exon_overlap=0.0,
     .print_both=false,
     .print_json=false,
+    .count_bases=false,
     .verbose=false,
     .num_threads=1
 };
@@ -204,12 +206,22 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
     }
     GT_SHASH_BEGIN_KEY_ITERATE(private_gene_counts, key){
       if(weight < 0.0){
-        // unweighted counts
-        gt_gtf_count_(l_gene_counts, key);
+        // unweighted counts        
+        if(params->count_bases){
+          gt_gtf_count_custom_(l_gene_counts, key, gt_alignment_get_read_length(alignment));
+        }else{
+          gt_gtf_count_(l_gene_counts, key);
+        }
       }else{
         //double v = ((*e)/(double)hits) * weight;
-        double v = (1.0/(double)hits) * weight;
-        gt_gtf_count_weight_(l_gene_counts, key, v);
+        if(params->count_bases){
+          uint64_t l = gt_alignment_get_read_length(alignment);
+          double v = ((double)l/(double)(hits * l)) * weight;
+          gt_gtf_count_weight_(l_gene_counts, key, v);
+        }else{
+          double v = (1.0/(double)hits) * weight;
+          gt_gtf_count_weight_(l_gene_counts, key, v);
+        }
       }
     }GT_SHASH_END_ITERATE;
   }
@@ -219,7 +231,11 @@ GT_INLINE void gt_gtfcount_count_alignment(gt_gtf* gtf, gt_alignment* alignment,
     GT_SHASH_BEGIN_KEY_ITERATE(private_gene_counts, key){
       gt_gtf_entry* gene = gt_gtf_get_gene_by_id(gtf, key);
       if(gene != NULL && gene->gene_type != NULL){
-        gt_gtf_count_(l_type_counts, gene->gene_type->buffer);
+        if(params->count_bases){
+          gt_gtf_count_custom_(l_type_counts, gene->gene_type->buffer, gt_alignment_get_read_length(alignment));
+        }else{
+          gt_gtf_count_(l_type_counts, gene->gene_type->buffer);
+        }
       }
     }GT_SHASH_END_ITERATE;
   }
@@ -282,6 +298,7 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
     gt_shash* l_pair_patterns = pair_patterns_list[tid];
 
     gt_gtf_count_parms* params = gt_gtf_count_params_new(parameters.coverage_profiles);
+    params->count_bases = parameters.count_bases;
     thread_params[tid] = params;
     params->exon_overlap = parameters.exon_overlap;
     gt_shash* private_gene_counts = gt_shash_new();
@@ -336,19 +353,31 @@ GT_INLINE void gt_gtfcount_read(gt_gtf* const gtf,
             }
             GT_SHASH_BEGIN_ITERATE(private_gene_counts, key, e, double){
               if(weight < 0.0){
+                uint64_t v = parameters.single_end_counts ? *e : 2;
+                if(params->count_bases){
+                  if(v == 2){
+                    v = gt_template_get_total_length(template);
+                  }else{
+                    v = gt_template_get_total_length(template) / 2;
+                  }
+                }
                 // unweighted counts
-                if(parameters.single_end_counts){
-                  gt_gtf_count_sum_(l_gene_counts, key, *e);
-                }else{
-                  gt_gtf_count_sum_(l_gene_counts, key, 2);
-                }
+                gt_gtf_count_sum_(l_gene_counts, key, v);
               }else{
-                // weighted count
-                if(parameters.single_end_counts){
-                  gt_gtf_count_weight_(l_gene_counts, key, (*e/(double)hits));
-                }else{
-                  gt_gtf_count_weight_(l_gene_counts, key, 2.0/(double)hits);
+                uint64_t v = parameters.single_end_counts ? *e : 2;
+                double diff = (double) hits;
+                double vv = (double)v/diff;
+                if(params->count_bases){
+                  if(v == 2){
+                    v = gt_template_get_total_length(template);
+                  }else{
+                    v = gt_template_get_total_length(template) / 2;
+                  }
+                  diff = gt_template_get_total_length(template) * hits;
+                  vv = (double) v * ((double)v/diff);
                 }
+                // weighted count
+                gt_gtf_count_weight_(l_gene_counts, key, vv);
               }
             }GT_SHASH_END_ITERATE;
           }
@@ -470,6 +499,9 @@ void parse_arguments(int argc,char** argv) {
       }else{
         gt_fatal_error_msg("Unknown format %s, supported formats are 'report' or 'json' or 'both'", optarg);
       }
+      break;
+    case 400:
+      parameters.count_bases = true;
       break;
     /* Misc */
     case 500:
