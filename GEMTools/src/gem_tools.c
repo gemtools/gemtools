@@ -312,6 +312,7 @@ gt_option gt_gtfcount_options[] = {
   //{ 's', "multi-genes", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count hits to multiple genes"},
   { 's', "count-single-ends", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Treat paired reads as single ends for counting (not for matching)"},
   { 'e', "exon-overlap", GT_OPT_REQUIRED, GT_OPT_INT, 3, true, "<overlap>" , "Fraction (0<=overlap<=1) of overlap of the fragment with exon to be counted (default 0, disabled)" },
+  { 400, "count-bases", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 3, true, "", "Count bases instead of reads"},
   /* Misc */
   { 500, "shell", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", "Interactive shell to query the annotation"},
   { 'c', "coverage", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 4, true, "", "Compute coverage profiles (stored in JSON output)"},
