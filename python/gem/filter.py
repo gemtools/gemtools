@@ -42,7 +42,7 @@ def create_output_stream(output, compress=False, threads=1):
             raise ValueError("Unable to open an output stream in %s" % output)
 
     # if the output goes to stderr or stdin, we reset
-    # outout and disable compression
+    # output and disable compression
     if output_stream in [sys.stdout, sys.stderr]:
         compress = False
         output = None
