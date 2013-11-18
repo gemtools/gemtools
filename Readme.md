@@ -53,8 +53,8 @@ i3 bundle. Otherwise use core2.
 
 The latest release can be downloaded here:
 
-* [GEM-Tools static binary bundle 1.7 for i3](http://barnaserver.com/gemtools/releases/GEMTools-static-i3-1.7.tar.gz)
-* [GEM-Tools static binary bundle 1.7 for core2](http://barnaserver.com/gemtools/releases/GEMTools-static-core2-1.7.tar.gz)
+* [GEM-Tools static binary bundle 1.7.1 for i3](http://barnaserver.com/gemtools/releases/GEMTools-static-i3-1.7.1.tar.gz)
+* [GEM-Tools static binary bundle 1.7.1 for core2](http://barnaserver.com/gemtools/releases/GEMTools-static-core2-1.7.1.tar.gz)
 
 Library distribution
 --------------------
