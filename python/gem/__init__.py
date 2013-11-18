@@ -885,7 +885,8 @@ def gem2sam(input, index=None, output=None,
     # GT-25 transform id's
     process = utils.run_tools(tools, input=input, output=output,
                               name="GEM-2-sam", write_map=True,
-                              clean_id=True, append_extra=False, raw=raw)
+                              clean_id=not single_end,
+                              append_extra=False, raw=raw)
     return _prepare_output(process, output=output, quality=quality)
 
 

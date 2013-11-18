@@ -140,7 +140,7 @@ class PrepareInputStep(PipelineStep):
         return self._files
 
     def __write(self):
-        outfile = gt.OutputFile(self._final_output(), clean_id=True, append_extra=False)
+        outfile = gt.OutputFile(self._final_output(), clean_id=self.configuration['paired'], append_extra=False)
         infile = self._input()
         infile.write_stream(outfile, write_map=False)
         infile.close()
@@ -151,7 +151,7 @@ class PrepareInputStep(PipelineStep):
         # p = mp.Process(target=PrepareInputStep.__write, args=(self,))
         # p.start()
         # p.join()
-        outfile = gt.OutputFile(self._final_output(), clean_id=True, append_extra=False)
+        outfile = gt.OutputFile(self._final_output(), clean_id=self.configuration['paired'], append_extra=False)
         infile = self._input()
         infile.write_stream(outfile, write_map=False)
         infile.close()
@@ -336,6 +336,7 @@ class CreateBamStep(PipelineStep):
                           consensus=cfg['consensus'],
                           exclude_header=cfg['sam_no_seq_header'],
                           compact=cfg['sam_compact'],
+                          single_end=not cfg['paired'],
                           calc_xs=cfg['calc_xs'])
         gem.sam2bam(sam, self._final_output(), sorted=cfg["sort"], mapq=cfg["mapq"], threads=self.pipeline.threads, sort_memory=self.pipeline.sort_memory)
 
@@ -1012,6 +1013,7 @@ class MappingPipeline(object):
         config.consensus = self.junctions_consensus
         config.sam_no_seq_header = self.sam_no_seq_header
         config.sam_compact = self.sam_compact
+        config.paired = not self.single_end
 
         if configuration is not None:
             self.__update_dict(config, configuration)
@@ -1026,6 +1028,7 @@ class MappingPipeline(object):
 
         if configuration is not None:
             self.__update_dict(config, configuration)
+        config.paired = not self.single_end
 
         step.prepare(len(self.steps), self, config)
         self.steps.append(step)
