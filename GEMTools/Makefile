@@ -14,6 +14,7 @@ all: release
 
 static:	setup
 	$(MAKE) --directory=src
+	$(MAKE) --directory=resources/src
 	$(MAKE) --directory=tools static
 
 release: setup	
