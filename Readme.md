@@ -203,6 +203,11 @@ Change log
     - Integrated the jip library to build pipelines
     - Removed the strict dependency to cython for installation
 
+    1.7.1
+    - Fixed issue with fasta files where no qualities are provided
+    - Fixed issue with cutom output folder in the RNA-Pipeline and where
+      the transcriptome was not put into the desired location
+
     1.7
     - Fixed issue with junctions of length 0 in gtf extraction
     - Added filtered output to default rna-pipeline output

@@ -900,7 +900,8 @@ def gem2sam(input, index=None, output=None,
     # GT-25 transform id's
     process = utils.run_tools(tools, input=input, output=output,
                               name="GEM-2-sam", write_map=True,
-                              clean_id=True, append_extra=False, raw=raw)
+                              clean_id=not single_end,
+                              append_extra=False, raw=raw)
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -997,7 +998,7 @@ def compute_transcriptome(max_read_length, index, junctions,
                  account and substracted from the main junctions
     """
     if output_name is None:
-        output_name = os.path.basename(junctions)
+        output_name = os.path.abspath(junctions)
     transcriptome_p = [
         executables['gem-rna-tools'],
         'compute-transcriptome',
