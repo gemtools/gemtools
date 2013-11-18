@@ -200,7 +200,7 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 Change log
 =====================
     1.8 
-    - Integrated the jip library to build pipelines
+    - Integrated the JIP library to build pipelines
     - Removed the strict dependency to cython for installation
 
     1.7.1
