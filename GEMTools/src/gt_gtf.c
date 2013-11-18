@@ -89,6 +89,7 @@ GT_INLINE gt_gtf_count_parms* gt_gtf_count_params_new(bool coverage){
   p->unweighted_counts = true;
   p->single_pair_counts = false;
   p->num_junctions = 0;
+  p->count_bases = false;
   p->num_annotated_junctions = 0;
   if(coverage){
     p->single_transcript_coverage = GT_GTF_INIT_COVERAGE();
@@ -816,6 +817,18 @@ GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element){
     ++(*v);
   }
 }
+
+GT_INLINE void gt_gtf_count_custom_(gt_shash* const table, char* const element, uint64_t c){
+  if(!gt_shash_is_contained(table, element)){
+    uint64_t* v = gt_malloc_uint64();
+    *v = c;
+    gt_shash_insert(table, element, v, uint64_t);
+  }else{
+    uint64_t* v = gt_shash_get(table,element,uint64_t);
+    *v += c;
+  }
+}
+
 GT_INLINE void gt_gtf_count_sum_(gt_shash* const table, char* const element, uint64_t value){
   if(!gt_shash_is_contained(table, element)){
     uint64_t* v = gt_malloc_uint64();

@@ -140,7 +140,7 @@ GT_INLINE void gt_output_map_gprint_template_qualities(
         gt_gprintf(gprinter,"%s",gt_alignment_get_qualities(alignment));
       }
     } else if (i > 0) {
-      gt_gprintf(gprinter," ");
+      gt_gprintf(gprinter,"");
     }
     ++i;
   }

@@ -207,6 +207,15 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 
 Change log
 =====================
+    1.7.1
+    - Fixed issue with fasta files where no qualities are provided
+    - Fixed issue with cutom output folder in the RNA-Pipeline and where
+      the transcriptome was not put into the desired location
+    - Fixed issue with single end reads in the id cleanup step in the 
+      rna-pipeline
+    - Added coverage calculation to gtfstats run in the rna-pipeline. The
+      coverage stats will be contained in the .json file.
+
     1.7
     - Fixed issue with junctions of length 0 in gtf extraction
     - Added filtered output to default rna-pipeline output
