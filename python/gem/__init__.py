@@ -1066,7 +1066,7 @@ def index(input, output, content="dna", threads=1):
 
 def gtfcounts(inputs, annotation, output=None, json_output=None, threads=1,
               counts=None, weight=True, multimaps=False, exon_threshold=0,
-              paired=False):
+              paired=False, coverage=False):
     """Run the count stats. This returns the gtf count stats as dictionary"""
     p = [
         executables['gt.gtfcount'],
@@ -1085,6 +1085,8 @@ def gtfcounts(inputs, annotation, output=None, json_output=None, threads=1,
             p.append("-m")
         if exon_threshold > 0:
             p.extend(["-e", str(exon_threshold)])
+    if coverage:
+        p.append('-c')
 
     from subprocess import PIPE
     process = utils.run_tools([p], name="gtfcounts", input=inputs,
