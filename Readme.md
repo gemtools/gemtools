@@ -211,6 +211,8 @@ Change log
     - Fixed issue with fasta files where no qualities are provided
     - Fixed issue with cutom output folder in the RNA-Pipeline and where
       the transcriptome was not put into the desired location
+    - Fixed issue with single end reads in the id cleanup step in the 
+      rna-pipeline
 
     1.7
     - Fixed issue with junctions of length 0 in gtf extraction
