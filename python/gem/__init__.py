@@ -979,7 +979,7 @@ def compute_transcriptome(max_read_length, index, junctions, substract=None, out
     substract -- additional juntions that are not taken into account and substracted from the main junctions
     """
     if output_name is None:
-        output_name = os.path.basename(junctions)
+        output_name = os.path.abspath(junctions)
     transcriptome_p = [
         executables['gem-rna-tools'],
         'compute-transcriptome',
