@@ -1,4 +1,4 @@
 @HD	VN:1.4
-@CO	TM:2013/10/15::15:37:34 CETGTools v1.8 https://github.com/gemtools/gemtools
-READ_1	99	chr1	1000	255	5M	=	1500	505	ACGTN	*
-READ_1	147	chr1	1500	255	5M	=	1000	-505	NACGT	*
+@CO	TM:2013/11/18::13:02:01 CET	GTools v1.8 https://github.com/gemtools/gemtools
+READ_1	99	chr1	1000	255	5M	=	1500	505	ACGTN	*	NH:i:2	NM:i:0	MD:Z:5	MQ:i:255	UQ:i:131070	PQ:i:131325	TP:i:255	TQ:i:255
+READ_1	147	chr1	1500	255	5M	=	1000	-505	NACGT	*	NH:i:2	NM:i:1	MD:Z:54N	MQ:i:255	UQ:i:131070	PQ:i:131325	TP:i:255	TQ:i:255
