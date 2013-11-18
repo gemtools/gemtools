@@ -316,6 +316,7 @@ class CreateGtfStatsStep(PipelineStep):
                       counts=gene_counts, json_output=json_stats,
                       threads=self.pipeline.threads, weight=counts_weighted,
                       multimaps=counts_multimaps, paired=cfg['paired'],
+                      coverage=True,
                       exon_threshold=counts_exon_threshold)
 
 

@@ -213,6 +213,8 @@ Change log
       the transcriptome was not put into the desired location
     - Fixed issue with single end reads in the id cleanup step in the 
       rna-pipeline
+    - Added coverage calculation to gtfstats run in the rna-pipeline. The
+      coverage stats will be contained in the .json file.
 
     1.7
     - Fixed issue with junctions of length 0 in gtf extraction
