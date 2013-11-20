@@ -2193,7 +2193,7 @@ class VcPipeline(Command):
     title = "GEMTools VCSeq Pipeline"
 
     def register(self, parser):
-        parser.description = RnaPipeline.description
+        parser.description = VcPipeline.description
         input_group = parser.add_argument_group('Input and names')
         ## general pipeline paramters
         input_group.add_argument(
