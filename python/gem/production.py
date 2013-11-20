@@ -843,6 +843,7 @@ class Map2Sam(Command):
                             help="Disable indexing the bam file")
 
     def run(self, args):
+        args = dict(args)
         original_out = args['output']
         if not args['no_bam']:
             # reset to stdout to pipe to samtools
@@ -1675,9 +1676,10 @@ class RnaPipeline(Command):
         idx = name.rfind(".")
         if idx > 0:
             name = name[:idx]
-        args['name'] = name
         if not args['no_pair_search']:
-            args['name'] = re.sub(r'[_\.-]\d$', '', name)
+            name = re.sub(r'[_\.-]\d$', '', name)
+        args['name'] = name
+        return name
 
     def _file_name(self, suffix=None, args=None, compress=None):
         if compress is None:
@@ -1736,10 +1738,11 @@ class RnaPipeline(Command):
             except Exception as err:
                 raise CommandException("Error while loading config : %s" % err)
 
-        args = self.options.to_dict()
+        args = dict(self.options.to_dict())
         ## check for a name or guess it
-        if not args['name']:
-            self._guess_name(args)
+        name = args['name']
+        if not name:
+            name = self._guess_name(args)
 
         ###########################################################
         # Output file configuration
@@ -1860,7 +1863,7 @@ class RnaPipeline(Command):
         return True
 
     def pipeline(self):
-        args = self.options.to_dict()
+        args = dict(self.options.to_dict())
         threads = int(args['threads'])
         quality = args['quality']
         index = args['index']
@@ -1868,8 +1871,7 @@ class RnaPipeline(Command):
         p = Pipeline()
         name = args['name']
         if not name:
-            self._guess_name(args)
-        name = args['name']
+            name = self._guess_name(args)
         p.name(name)
         job = p.job(threads=threads)
         prepare_step = None
@@ -2457,9 +2459,10 @@ class VcPipeline(Command):
         idx = name.rfind(".")
         if idx > 0:
             name = name[:idx]
-        args['name'] = name
         if not args['no_pair_search']:
-            args['name'] = re.sub(r'[_\.-]\d$', '', name)
+            name = re.sub(r'[_\.-]\d$', '', name)
+        args['name'] = name
+        return name
 
     def _file_name(self, suffix=None, args=None, compress=None):
         if compress is None:
@@ -2488,7 +2491,7 @@ class VcPipeline(Command):
             except Exception as err:
                 raise CommandException("Error while loading config : %s" % err)
 
-        args = self.options.to_dict()
+        args = dict(self.options.to_dict())
         ## check for a name or guess it
         if not args['name']:
             self._guess_name(args)
@@ -2564,7 +2567,7 @@ class VcPipeline(Command):
         return True
 
     def pipeline(self):
-        args = self.options.to_dict()
+        args = dict(self.options.to_dict())
         threads = int(args['threads'])
         quality = args['quality']
         index = args['index']
@@ -2572,7 +2575,7 @@ class VcPipeline(Command):
         p = Pipeline()
         name = args['name']
         if not name:
-            self._guess_name(args)
+            name = self._guess_name(args)
         name = args['name']
         p.name(name)
         job = p.job(threads=threads)
