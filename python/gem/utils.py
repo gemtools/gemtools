@@ -134,6 +134,9 @@ class Command(object):
             (os.getenv("_GT_LOGLEVEL", "ERROR"),
              gem.executables["gemtools"], self.name)
 
+    def jip_run(self):
+        self.run(dict(self.options.to_dict()))
+
     def add_options(self, tool, parser, stream_in=None, stream_out=None):
         """Reads the tools JSON options and adds them to the
         command line parser. The commands 'tool_options' dict is

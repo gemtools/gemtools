@@ -82,6 +82,7 @@ class cli(object):
                  help=_help,
                  add_outputs=self.add_outputs,
                  pipeline=self.pipeline,
+                 run='jip_run',
                  argparse='register' if not wrapped_function else None,
                  get_command='jip_command')(cls)
         return cls
