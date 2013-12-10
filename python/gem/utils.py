@@ -100,6 +100,11 @@ class Command(object):
     register new command line options, and
     run() wich is called with the parsed arguments.
     """
+
+    def __init__(self):
+        self.tool = None
+        self.tool_opts = None
+
     def register(self, parser):
         """Add new command line options to the passed
         argparse parser
@@ -145,7 +150,6 @@ class Command(object):
         """
         ## required parameters
         # read the json
-
         output = subprocess.Popen([gem.executables[tool], '-J'],
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE).communicate()[1]
