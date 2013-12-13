@@ -271,8 +271,16 @@ def gemtools():
 
 
 def _run_tool(jip_name, args):
+    profile = jip.Profile()
     script = jip.find(jip_name)
-    jobs = jip.jobs.create_jobs(script, args=args)
+    script.parse_args(args)
+    try:
+        threads = script.options['threads'].get(int)
+        if threads > 1:
+            profile.threads = threads
+    except:
+        pass
+    jobs = jip.jobs.create_jobs(script, args=args, profile=profile)
     # assign job ids
     for i, j in enumerate(jobs):
         j.id = i + 1

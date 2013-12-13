@@ -1108,7 +1108,22 @@ class ComputeTranscriptome(Command):
                             default=150)
 
     def validate(self):
+        self.options.add_output('keys_out', '${name}.junctions.keys')
+        self.options.add_output('fasta_out', '${name}.junctions.fa')
+
         args = self.options.to_dict()
+        name = args['name']
+        if name is None and args['junctions']:
+            fname = args['junctions']
+            name = os.path.basename(fname)
+            i = name.index('.')
+            name = name[:i] if i > 0 else name
+            self.options['name'] = name
+
+        if args['annotation'] and name:
+            junctions_out = name + ".gtf.junctions"
+            self.options['annotation_junctions'].value = junctions_out
+
         if not args['index'].endswith(".gem"):
             raise CommandException("No valid GEM index specified, "
                                    "the file has to end in .gem")
@@ -1118,22 +1133,6 @@ class ComputeTranscriptome(Command):
             raise CommandException("You have to specify the junctions file")
         self.options['junctions'].check_files()
 
-        name = args['name']
-        if name is None:
-            fname = args['junctions']
-            name = os.path.basename(fname)
-            i = name.index('.')
-            name = name[:i] if i > 0 else name
-
-        keys_out = name + ".junctions.keys"
-        fasta_out = name + ".junctions.fa"
-
-        self.options['name'] = name
-        self.options.add_output('keys_out', keys_out)
-        self.options.add_output('fasta_out', fasta_out)
-        if args['annotation']:
-            junctions_out = name + ".gtf.junctions"
-            self.options['annotation_junctions'].value = junctions_out
         return True
 
     def run(self, args):
@@ -1873,7 +1872,7 @@ class RnaPipeline(Command):
         if not name:
             name = self._guess_name(args)
         p.name(name)
-        job = p.job(threads=threads)
+        job = p.job()  # thread assignment ?
         prepare_step = None
 
         # small helper to create

@@ -135,6 +135,10 @@ class Command(object):
         self.run(dict(self.options.to_dict()))
 
     def jip_command(self):
+        try:
+            self.options['threads'].set('$JIP_THREADS')
+        except:
+            pass
         return "bash", "_GT_LOGLEVEL=%s _GT_EXEC=1 %s %s ${options()}" % \
             (os.getenv("_GT_LOGLEVEL", "ERROR"),
              gem.executables["gemtools"], self.name)
