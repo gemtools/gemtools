@@ -100,6 +100,11 @@ class Command(object):
     register new command line options, and
     run() wich is called with the parsed arguments.
     """
+
+    def __init__(self):
+        self.tool = None
+        self.tool_opts = None
+
     def register(self, parser):
         """Add new command line options to the passed
         argparse parser
@@ -130,6 +135,10 @@ class Command(object):
         self.run(dict(self.options.to_dict()))
 
     def jip_command(self):
+        try:
+            self.options['threads'].set('$JIP_THREADS')
+        except:
+            pass
         return "bash", "_GT_LOGLEVEL=%s _GT_EXEC=1 %s %s ${options()}" % \
             (os.getenv("_GT_LOGLEVEL", "ERROR"),
              gem.executables["gemtools"], self.name)
@@ -145,7 +154,6 @@ class Command(object):
         """
         ## required parameters
         # read the json
-
         output = subprocess.Popen([gem.executables[tool], '-J'],
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE).communicate()[1]

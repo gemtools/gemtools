@@ -8,13 +8,13 @@ import types
 from textwrap import dedent
 import os
 import logging
+from datetime import datetime, timedelta
 
 import gem.utils
 from gem.utils import CommandException
 
 import jip
-import jip.jobs
-import jip.cli
+from jip.cli import colorize, YELLOW, GREEN, RED, BLUE
 
 __VERSION__ = "1.8"
 
@@ -154,7 +154,6 @@ def _load_plugins_from_folder(path):
                     __import__(module_name)
 
 
-
 def gemtools():
     """\
     The gemtools driver executes different sub-commands and pipelines.
@@ -210,16 +209,20 @@ def gemtools():
 
         jip_name = "gemtools_%s" % (cmd.replace("-", "_"))
         try:
-            tool = jip.find(jip_name)
             if os.getenv("_GT_EXEC"):
+                # reset the options so the parser is triggered
+                # again and the tool instance is properly initialized
+                tool = jip.find(jip_name)
+                tool._options = None
                 tool.parse_args(args['<args>'])
                 tool.run()
             else:
                 if args['--dry'] or args['--show']:
+                    tool = jip.find(jip_name)
                     # we handle --dry and --show separatly,
                     # create the jobs and call the show commands
                     try:
-                        jobs = jip.jobs.create(tool, args=args['<args>'])
+                        jobs = jip.create_jobs(tool, args=args['<args>'])
                     except jip.tools.ValidationError as va:
                         sys.stderr.write(str(va))
                         sys.stderr.write('\n')
@@ -240,11 +243,17 @@ def gemtools():
                     return
 
                 try:
-                    jip.cli.run(tool, args['<args>'], silent=False)
+                    _run_tool(jip_name, args['<args>'])
                 except jip.ValidationError as va:
                     sys.stderr.write(str(va))
                     sys.stderr.write("\n")
                     sys.exit(1)
+                except jip.ParserException as va:
+                    sys.stderr.write(str(va))
+                    sys.stderr.write("\n")
+                    sys.exit(1)
+                except Exception as va:
+                    raise
         except CommandException as e:
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
@@ -259,6 +268,42 @@ def gemtools():
         exit(1)
     finally:
         pass
+
+
+def _run_tool(jip_name, args):
+    profile = jip.Profile()
+    script = jip.find(jip_name)
+    script.parse_args(args)
+    try:
+        threads = script.options['threads'].get(int)
+        if threads > 1:
+            profile.threads = threads
+    except:
+        pass
+    jobs = jip.jobs.create_jobs(script, args=args, profile=profile)
+    # assign job ids
+    for i, j in enumerate(jobs):
+        j.id = i + 1
+
+    for exe in jip.jobs.create_executions(jobs):
+        if exe.completed:
+            print >>sys.stderr, colorize("Skipping", YELLOW), exe.name
+        else:
+            sys.stderr.write(colorize("Running", YELLOW) +
+                             " {name:30} ".format(
+                                 name=colorize(exe.name, BLUE)
+                             ))
+            sys.stderr.flush()
+            start = datetime.now()
+            success = jip.run_job(exe.job)
+            end = timedelta(seconds=(datetime.now() - start).seconds)
+            if success:
+                print >>sys.stderr, colorize(exe.job.state, GREEN),\
+                    "[%s]" % (end)
+            else:
+                print >>sys.stderr, colorize(exe.job.state, RED)
+                sys.exit(1)
+
 
 if __name__ == "__main__":
     gemtools()
