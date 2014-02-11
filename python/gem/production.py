@@ -61,9 +61,6 @@ class Merge(Command):
                             help="Write gzip compressed output if a output "
                             "file is specified")
 
-    def validate(self):
-        self.options['input'].check_files()
-
     def run(self, args):
         if len(args['input']) < 2:
             args['input'].append(args['input'][0])
@@ -161,16 +158,18 @@ class PrepareInput(Command):
         parser.add_argument('-d', '--discover', dest="discover", default=False,
                             action="store_true",
                             help="Search for a second paird-end reads file")
-
-    def validate(self):
+    def setup(self):
         input = self.options['input'].raw()
-        _check("No input specified", input is None or len(input) == 0)
-        _check("You can not perpare more than 2 files", len(input) > 2)
         if len(input) == 1 and self.options['discover'].raw():
             # search for second file
             (n, p) = gem.utils.find_pair(input[0])
             if p is not None and os.path.exists(p):
                 self.options['input'].append(p)
+
+    def validate(self):
+        input = self.options['input'].raw()
+        _check("No input specified", input is None or len(input) == 0)
+        _check("You can not prepare more than 2 files", len(input) > 2)
         return True
 
     def run(self, args):
@@ -357,12 +356,14 @@ class GemMapper(Command):
                             action="store_true",
                             help="Compress the output file")
 
+    def setup(self):
+        mmb = self.options['min_matched_bases'].get(float)
+        if mmb > 1.0:
+            self.options['min_matched_bases'].set(int(mmb))
+        return True
+
     def validate(self):
         _check("No index specified", not self.options['index'].get())
-        if float(self.options['min_matched_bases'].get()) > 1.0:
-            self.options['min_matched_bases'].value = int(
-                float(self.options['min_matched_bases'].get())
-            )
         return True
 
     def run(self, args):
@@ -843,6 +844,7 @@ class Map2Sam(Command):
                             help="Disable indexing the bam file")
 
     def run(self, args):
+        args = dict(args)
         original_out = args['output']
         if not args['no_bam']:
             # reset to stdout to pipe to samtools
@@ -929,7 +931,8 @@ class Index(Command):
                             required=True)
         parser.add_argument('-o', '--output',
                             help='Output file name (has to end in .gem), '
-                            'defaults to input file name + .gem extension')
+                            'defaults to input file name + .gem extension',
+                            default='${input|name|ext}.gem')
         parser.add_argument('-t', '--threads',
                             type=int,
                             default=2,
@@ -937,18 +940,8 @@ class Index(Command):
 
     def validate(self):
         input = self.options['input'].get()
-        output = os.path.basename(input)
-        if self.options['output'].raw() is not None:
-            output = self.options['output'].get()
-        else:
-            output = output[:output.rfind(".")] + ".gem"
-        self.options['output'] = output
-
-        if not output.endswith(".gem"):
+        if not self.options['output'].get().endswith(".gem"):
             raise CommandException("Output file name has to end in .gem")
-        if not self.options['input'].is_dependency() and \
-                not os.path.exists(input):
-            raise CommandException("Input file not found : %s" % input)
         if input.endswith(".gz"):
             raise CommandException("Compressed input is currently "
                                    "not supported!")
@@ -1002,13 +995,10 @@ class TranscriptIndex(Command):
                             help='Number of threads',
                             default=2)
 
-    def validate(self):
-        args = self.options.to_dict()
-        self.options['index'].check_files()
-        if not args['index'].endswith(".gem"):
-            raise CommandException("No valid GEM index specified, "
-                                   "the file has to end in .gem")
-        self.options['annotation'].check_files()
+    def init(self):
+        self.add_output('junctions_out', '${name}.junctions')
+
+    def setup(self):
         name = self.options['name'].raw()
         if name is None:
             fname = self.options['annotation'].get()
@@ -1018,7 +1008,14 @@ class TranscriptIndex(Command):
             if name.endswith(".gtf"):
                 name = name[:-4]
             self.options['name'] = name
-        self.options.add_output('junctions_out', name + ".junctions")
+
+    def validate(self):
+        args = self.options.to_dict()
+        self.options['index'].check_files()
+        if not args['index'].endswith(".gem"):
+            raise CommandException("No valid GEM index specified, "
+                                   "the file has to end in .gem")
+        self.options['annotation'].check_files()
 
     def pipeline(self):
         p = Pipeline()
@@ -1092,7 +1089,8 @@ class ComputeTranscriptome(Command):
                             dest="annotation",
                             help='Path to the GTF annotation')
         parser.add_argument('-J', '--annotation-junctions',
-                            help='Path to the GTF annotation junctions')
+                            help='Path to the GTF annotation junctions',
+                            default='${junctions|name|ext}.gtf.junctions')
         parser.add_argument('-j', '--junctions',
                             dest="junctions",
                             required=True,
@@ -1101,38 +1099,22 @@ class ComputeTranscriptome(Command):
                             help='Optional output prefix. '
                             'If this is not set, the junctions '
                             'file name will be used',
-                            default=None)
+                            default='${junctions|name|ext}')
         parser.add_argument('-m', '--max-length',
                             help='Maximum read length, defaults to 150',
                             default=150)
 
+    def init(self):
+        self.options.add_output('keys_out', '${name}.junctions.keys')
+        self.options.add_output('fasta_out', '${name}.junctions.fa')
+
     def validate(self):
-        args = self.options.to_dict()
-        if not args['index'].endswith(".gem"):
+        if not self.options['index'].get().endswith(".gem"):
             raise CommandException("No valid GEM index specified, "
                                    "the file has to end in .gem")
         self.options['index'].check_files()
         self.options['annotation'].check_files()
-        if not args['junctions']:
-            raise CommandException("You have to specify the junctions file")
         self.options['junctions'].check_files()
-
-        name = args['name']
-        if name is None:
-            fname = args['junctions']
-            name = os.path.basename(fname)
-            i = name.index('.')
-            name = name[:i] if i > 0 else name
-
-        keys_out = name + ".junctions.keys"
-        fasta_out = name + ".junctions.fa"
-
-        self.options['name'] = name
-        self.options.add_output('keys_out', keys_out)
-        self.options.add_output('fasta_out', fasta_out)
-        if args['annotation']:
-            junctions_out = name + ".gtf.junctions"
-            self.options['annotation_junctions'].value = junctions_out
         return True
 
     def run(self, args):
@@ -1655,17 +1637,20 @@ class RnaPipeline(Command):
                                 "the pipeline with --dry to see a list of "
                                 "active jobs")
 
-    def _find_second_pair(self, args):
+    def _find_second_pair(self):
         ## try to guess the second file
-        (n, p) = gem.utils.find_pair(args['first'])
+        (n, p) = gem.utils.find_pair(self.options['first'].get())
         if p is not None and os.path.exists(p):
-            args['second'] = p
             self.options['second'] = p
         # we guessed a name
-        if args['name'] is None:
-            args['name'] = n
+        if not self.options['name']:
+            self.options['name'] = n
 
-    def _guess_name(self, args):
+    def _guess_name(self):
+        args = self.options.to_dict()
+        first = args['first']
+        if isinstance(first, (list, tuple)):
+            return
         if not "first" in args or not args['first']:
             args['name'] = 'unknown'
             return
@@ -1675,9 +1660,9 @@ class RnaPipeline(Command):
         idx = name.rfind(".")
         if idx > 0:
             name = name[:idx]
-        args['name'] = name
         if not args['no_pair_search']:
-            args['name'] = re.sub(r'[_\.-]\d$', '', name)
+            name = re.sub(r'[_\.-]\d$', '', name)
+        return name
 
     def _file_name(self, suffix=None, args=None, compress=None):
         if compress is None:
@@ -1685,38 +1670,66 @@ class RnaPipeline(Command):
         return "%s%s%s" % (args['name'], "" if suffix is None else suffix,
                            ".gz" if compress else "")
 
-    def _find_transcript_index(self, args, options):
+    def _find_transcript_index(self, options):
         from os.path import basename, dirname, join, exists
         from jip.utils import rreplace
         # try to detect the transcript index based on the annotation
         # file name. We remove the .gtf[.gz] extension and check for
         # a <name>.gem and <name>.junctions.gem
-        name = basename(args['annotation'])
-        base = dirname(args['annotation'])
+        name = basename(options['annotation'].get())
+        base = dirname(options['annotation'].get())
         i = name.rindex(".")
         if i > 0:
             name = name[:i]
 
-        if not args['transcript_index']:
+        if not options['transcript_index'].get():
             t_index = join(base, "%s.gem" % (name))
             if not exists(t_index):
                 t_index = join(base, "%s.junctions.gem" % (name))
             options['transcript_index'] = t_index
-            args['transcript_index'] = t_index
 
-        if not args['transcript_keys']:
+        if not options['transcript_keys'].get():
             # we look for the key file just next to the transcript_index
             # replacing the .gem extension with .keys. If that fails,
             # we try .junctions.keys
-            t_keys = rreplace(args['transcript_index'], ".gem", ".keys", 1)
+            t_keys = rreplace(options['transcript_index'].get(),
+                              ".gem", ".keys", 1)
             if not exists(t_keys):
-                t_keys = rreplace(args['transcript_index'], ".gem",
-                                  ".junctions.keys", 1)
+                t_keys = rreplace(options['transcript_index'].get(),
+                                  ".gem", ".junctions.keys", 1)
             options['transcript_keys'] = t_keys
-            args['transcript_keys'] = t_keys
 
-    def validate(self):
-        from os.path import exists
+    def init(self):
+        self.add_option('name')
+        self.add_option('gz', '')
+        self.add_output('prepare_out', '${name}_prepare.fq')
+        self.add_output('initial_map_out', "${name}_initial.map${gz}")
+        self.add_output('transcript_map_out', "${name}_transcripts.map${gz}")
+        self.add_output('denovo_junctions_out', "${name}_denovo.junctions${gz}")
+        self.add_output('denovo_map_out', "${name}_denovo.map${gz}")
+        self.add_output('final_out', "${name}.map.gz")
+        self.add_output('bam_out', "${name}.bam")
+        self.add_output('filtered_out', "${name}.filtered.map.gz")
+        self.add_output('filtered_bam_out', "${name}.filtered.bam")
+        self.add_output('stats_out', "${name}.stats.txt")
+        self.add_output('stats_json_out', "${name}.stats.json")
+        self.add_output('filtered_stats_out',
+                        "${name}.filtered.stats.txt")
+        self.add_output('filtered_stats_json_out',
+                        "${name}.filtered.stats.json")
+        self.add_output('gtf_stats_out', "${name}.gtf.stats.txt")
+        self.add_output('gtf_stats_json_out', "${name}.gtf.stats.json")
+        self.add_output('gtf_counts_out', "${name}.gtf.counts.txt")
+        self.add_output('filtered_gtf_stats_out',
+                        "${name}.filtered.gtf.stats.txt")
+        self.add_output('filtered_gtf_stats_json_out',
+                        "${name}.filtered.gtf.stats.json")
+        self.add_output('filtered_gtf_counts_out',
+                        "${name}.filtered.gtf.counts.txt")
+        self.add_output('read_length_stats_out',
+                        "${name}_rl.stats.json")
+
+    def setup(self):
         ###########################################################
         # Check --load and load config from file
         ###########################################################
@@ -1733,56 +1746,26 @@ class RnaPipeline(Command):
                                 k)
                         if not opt.user_specified:
                             opt.set(v)
+                self.options['load'] = None
             except Exception as err:
                 raise CommandException("Error while loading config : %s" % err)
 
-        args = self.options.to_dict()
-        ## check for a name or guess it
-        if not args['name']:
-            self._guess_name(args)
-
         ###########################################################
-        # Output file configuration
+        # Get the current name
         ###########################################################
-        def fn(name, c=None):
-            return self._file_name(name, args, compress=c)
-
-        opts = self.options
-        opts.add_output('prepare_out', fn("_prepare.fq", c=False))
-        opts.add_output('initial_map_out', fn("_initial.map"))
-        opts.add_output('transcript_map_out', fn("_transcripts.map"))
-        opts.add_output('denovo_junctions_out', fn("_denovo.junctions",
-                                                   c=False))
-        opts.add_output('denovo_map_out', fn("_denovo.map"))
-        opts.add_output('final_out', fn(".map", c=True))
-        opts.add_output('bam_out', fn(".bam", c=False))
-        opts.add_output('filtered_out', fn(".filtered.map", c=True))
-        opts.add_output('filtered_bam_out', fn(".filtered.bam", c=False))
-        opts.add_output('stats_out', fn(".stats.txt", c=False))
-        opts.add_output('stats_json_out', fn(".stats.json", c=False))
-        opts.add_output('filtered_stats_out',
-                        fn(".filtered.stats.txt", c=False))
-        opts.add_output('filtered_stats_json_out',
-                        fn(".filtered.stats.json", c=False))
-        opts.add_output('gtf_stats_out', fn(".gtf.stats.txt", c=False))
-        opts.add_output('gtf_stats_json_out', fn(".gtf.stats.json", c=False))
-        opts.add_output('gtf_counts_out', fn(".gtf.counts.txt", c=False))
-        opts.add_output('filtered_gtf_stats_out',
-                        fn(".filtered.gtf.stats.txt", c=False))
-        opts.add_output('filtered_gtf_stats_json_out',
-                        fn(".filtered.gtf.stats.json", c=False))
-        opts.add_output('filtered_gtf_counts_out',
-                        fn(".filtered.gtf.counts.txt", c=False))
-        opts.add_output('read_length_stats_out',
-                        fn("_rl.stats.json", c=False))
+        name = self.options['name'].get()
+        if not name:
+            name = self._guess_name()
+            self.options['name'] = name
+        self.job.name = '${name}'
 
         ###########################################################
         # set transcript and de-novo defaults
         ###########################################################
         def _set_default(prefix, glob):
             name = '%s_%s' % (prefix, glob)
-            if opts[name].raw() is None:
-                opts[name].value = opts[glob].get()
+            if self.options[name].raw() is None:
+                self.options[name].value = self.options[glob].get()
 
         _set_default('transcript', 'mismatches')
         _set_default('transcript', 'quality_threshold')
@@ -1799,9 +1782,21 @@ class RnaPipeline(Command):
         _set_default('denovo', 'max_big_indel_length')
         _set_default('denovo', 'max_edit_distance')
         _set_default('denovo', 'strata_after_best')
-
         _set_default('pairing', 'quality_threshold')
 
+        # check the transcript index and keys
+        self._find_transcript_index(self.options)
+        if not self.options['single_end'] and \
+           not self.options['no_pair_search'] and\
+           not self.options['second']:
+            # check paired end
+            self._find_second_pair()
+
+        self.options['gz'] = '' if not self.compress_all else '.gz'
+
+    def validate(self):
+        from os.path import exists
+        args = self.options.to_dict()
         ## check the .gem index
         _check("Genome GEM index not found: %s" % args['index'],
                not exists(args['index']))
@@ -1818,8 +1813,6 @@ class RnaPipeline(Command):
         if args['annotation']:
             _check("GTF annotation not found: %s" % args['annotation'],
                    not exists(args['annotation']))
-            # check the transcript index and keys
-            self._find_transcript_index(args, self.options)
             _check("No Transcript index found: %s" %
                    args['transcript_index'],
                    not exists(args['transcript_index']))
@@ -1850,36 +1843,28 @@ class RnaPipeline(Command):
         # check input files for single end alignments
         _check("Single end runs take only one input file!",
                args['single_end'] and args['second'])
-        if not args['single_end'] and not args['no_pair_search']:
-            # check paired end
-            if not args['second']:
-                self._find_second_pair(args)
         ## check that all input files exists
         self.options['first'].check_files()
         self.options['second'].check_files()
         return True
 
     def pipeline(self):
-        args = self.options.to_dict()
-        threads = int(args['threads'])
-        quality = args['quality']
-        index = args['index']
+        threads = self.threads.get(int)
+        quality = self.quality
+        index = self.index
 
         p = Pipeline()
-        name = args['name']
-        if not name:
-            self._guess_name(args)
-        name = args['name']
+        name = self.options['name'].get()
         p.name(name)
-        job = p.job(threads=threads)
+        job = p.job()  # thread assignment ?
         prepare_step = None
 
         # small helper to create
         # a prepare stream quickly
         def create_prepare(name):
-            infiles = [args['first']]
-            if args['second']:
-                infiles.append(args['second'])
+            infiles = [self.first]
+            if self.second:
+                infiles.append(self.second)
             return job(name).run(
                 'gemtools_prepare',
                 input=infiles,
@@ -1897,15 +1882,15 @@ class RnaPipeline(Command):
         ###################################################################
         # Prepare
         ###################################################################
-        if not args['direct_input']:
-            infiles = [args['first']]
-            if args['second']:
-                infiles.append(args['second'])
+        if not self.direct_input:
+            infiles = [self.first]
+            if self.second:
+                infiles.append(self.second)
             ## run the prepare step
             prepare_step = job('Prepare', temp=True).run(
                 'gemtools_prepare',
                 input=infiles,
-                output=args['prepare_out'],
+                output=self.prepare_out,
                 threads=threads
             )
 
@@ -1919,18 +1904,18 @@ class RnaPipeline(Command):
             'gemtools_mapper',
             threads=threads,
             index=index,
-            output=args['initial_map_out'],
-            compress=args['compress_all'],
+            output=self.initial_map_out,
+            compress=self.compress_all,
             quality=quality,
-            mismatches=args['mismatches'],
-            quality_threshold=args['quality_threshold'],
-            max_decoded_matches=args['max_decoded_matches'],
-            min_decoded_strata=args['min_decoded_strata'],
-            min_matched_bases=args['min_matched_bases'],
-            max_big_indel_length=args['max_big_indel_length'],
-            max_edit_distance=args['max_edit_distance'],
-            mismatch_alphabet=args['mismatch_alphabet'],
-            strata_after_best=args['strata_after_best']
+            mismatches=self.mismatches,
+            quality_threshold=self.quality_threshold,
+            max_decoded_matches=self.max_decoded_matches,
+            min_decoded_strata=self.min_decoded_strata,
+            min_matched_bases=self.min_matched_bases,
+            max_big_indel_length=self.max_big_indel_length,
+            max_edit_distance=self.max_edit_distance,
+            mismatch_alphabet=self.mismatch_alphabet,
+            strata_after_best=self.strata_after_best
         )
         set_mapping_input(initial_mapping)
         all_mappings.append(initial_mapping)
@@ -1938,29 +1923,29 @@ class RnaPipeline(Command):
         ###################################################################
         # Transcriptome mapping
         ###################################################################
-        if args['annotation']:
+        if self.annotation:
             t_mapping = set_mapping_input(job('GTF.Mapping').run(
                 'gemtools_mapper',
                 threads=threads,
-                index=args['transcript_index'],
-                keys=args['transcript_keys'],
+                index=self.transcript_index,
+                keys=self.transcript_keys,
                 quality=quality,
-                mismatch_alphabet=args['mismatch_alphabet'],
-                mismatches=args['transcript_mismatches'],
-                quality_threshold=args['transcript_quality_threshold'],
-                max_decoded_matches=args['transcript_max_decoded_matches'],
-                min_decoded_strata=args['transcript_min_decoded_strata'],
-                min_matched_bases=args['transcript_min_matched_bases'],
-                max_big_indel_length=args['transcript_max_big_indel_length'],
-                max_edit_distance=args['transcript_max_edit_distance'],
-                strata_after_best=args['transcript_strata_after_best']
+                mismatch_alphabet=self.mismatch_alphabet,
+                mismatches=self.transcript_mismatches,
+                quality_threshold=self.transcript_quality_threshold,
+                max_decoded_matches=self.transcript_max_decoded_matches,
+                min_decoded_strata=self.transcript_min_decoded_strata,
+                min_matched_bases=self.transcript_min_matched_bases,
+                max_big_indel_length=self.transcript_max_big_indel_length,
+                max_edit_distance=self.transcript_max_edit_distance,
+                strata_after_best=self.transcript_strata_after_best
             ))
             t_filter = job('GTF.Filter', temp=True).run(
                 'gemtools_filter',
                 only_split_maps=True,
                 threads=threads,
-                compress=args['compress_all'],
-                output=args['transcript_map_out']
+                compress=self.compress_all,
+                output=self.transcript_map_out
             )
 
             transcript_mapping = t_mapping | t_filter
@@ -1971,38 +1956,38 @@ class RnaPipeline(Command):
         ###################################################################
         junctions = set_mapping_input(job('Denovo.Junctions', temp=True).run(
             'gemtools_denovo_junctions',
-            index=args['index'],
+            index=self.index,
             threads=threads,
             quality=quality,
-            output=args["denovo_junctions_out"],
-            mismatches=args['junction_mismatches'],
-            max_matches=args['junction_max_matches'],
-            strata_after_best=args['junction_strata_after_best'],
-            min_intron_length=args['min_denovo_intron_length'],
-            max_intron_length=args['max_denovo_intron_length'],
-            consensus=args['junction_consensus'],
-            coverage=args['junction_coverage'],
-            refinement_step_size=args['refinement_step'],
-            min_split_size=args['min_split_size'],
-            matches_threshold=args['matches_threshold']
+            output=self.denovo_junctions_out,
+            mismatches=self.junction_mismatches,
+            max_matches=self.junction_max_matches,
+            strata_after_best=self.junction_strata_after_best,
+            min_intron_length=self.min_denovo_intron_length,
+            max_intron_length=self.max_denovo_intron_length,
+            consensus=self.junction_consensus,
+            coverage=self.junction_coverage,
+            refinement_step_size=self.refinement_step,
+            min_split_size=self.min_split_size,
+            matches_threshold=self.matches_threshold
         ))
-        if not args['read_length']:
+        if not self.read_length:
             # calculate simple stats on the initial mapping
             # to get the max_read length
             rl_stats = job('ReadLength.Stats', temp=True).run(
                 'gemtools_stats',
                 input=initial_mapping,
                 output_format='json',
-                output=args['read_length_stats_out'],
+                output=self.read_length_stats_out,
                 threads=threads
             )
-            args['read_length'] = rl_stats.output
+            self.read_length = rl_stats.output
         denovo_transcriptome = job('Denovo.Transcriptome', 1, temp=True).run(
             'gemtools_compute_transcriptome',
-            index=args['index'],
-            annotation=args['annotation'] if args['annotation'] else None,
+            index=self.index,
+            annotation=self.annotation if self.annotation else None,
             junctions=junctions.output,
-            max_length=args['read_length'])
+            max_length=self.read_length)
         # this is a workaround for a jip bug! Somehow
         # the tool is not valudated and therefore the output
         # is not added ?
@@ -2018,24 +2003,24 @@ class RnaPipeline(Command):
             index=junctions_index,
             threads=threads,
             keys=denovo_transcriptome.keys_out,
-            compress=args['compress_all'],
+            compress=self.compress_all,
             quality=quality,
-            mismatch_alphabet=args['mismatch_alphabet'],
-            mismatches=args['denovo_mismatches'],
-            quality_threshold=args['denovo_quality_threshold'],
-            max_decoded_matches=args['denovo_max_decoded_matches'],
-            min_decoded_strata=args['denovo_min_decoded_strata'],
-            min_matched_bases=args['denovo_min_matched_bases'],
-            max_big_indel_length=args['denovo_max_big_indel_length'],
-            max_edit_distance=args['denovo_max_edit_distance'],
-            strata_after_best=args['denovo_strata_after_best']
+            mismatch_alphabet=self.mismatch_alphabet,
+            mismatches=self.denovo_mismatches,
+            quality_threshold=self.denovo_quality_threshold,
+            max_decoded_matches=self.denovo_max_decoded_matches,
+            min_decoded_strata=self.denovo_min_decoded_strata,
+            min_matched_bases=self.denovo_min_matched_bases,
+            max_big_indel_length=self.denovo_max_big_indel_length,
+            max_edit_distance=self.denovo_max_edit_distance,
+            strata_after_best=self.denovo_strata_after_best
         ))
         d_filter = job('Denovo.Filter', temp=True).run(
             'gemtools_filter',
             only_split_maps=True,
             threads=threads,
-            compress=args['compress_all'],
-            output=args['denovo_map_out']
+            compress=self.compress_all,
+            output=self.denovo_map_out
         )
         denovo_mapping = d_map | d_filter
         all_mappings.append(denovo_mapping)
@@ -2051,27 +2036,27 @@ class RnaPipeline(Command):
 
         score = job('Score').run(
             'gemtools_score',
-            index=args['index'],
-            filter=",".join(str(i) for i in (args['output_min_strata'],
-                                             (args['output_max_strata'] -
-                                              args['output_min_strata']),
-                                             args['output_max_matches'])),
+            index=self.index,
+            filter=",".join(str(i) for i in (self.output_min_strata,
+                                             (self.output_max_strata.get(int) -
+                                              self.output_min_strata.get(int)),
+                                             self.output_max_matches)),
             threads=threads,
             quality=quality,
             compress=True,
-            output=args['final_out'])
+            output=self.final_out)
 
-        if not args['single_end']:
+        if not self.single_end:
             pair = job('Pair').run(
                 'gemtools_pairalign',
                 quality=quality,
                 threads=threads,
-                index=args['index'],
-                max_decoded_matches=args['pairing_max_decoded_matches'],
-                min_decoded_strata=args['pairing_min_decoded_strata'],
-                min_insert_size=args['pairing_min_insert_size'],
-                max_insert_size=args['pairing_max_insert_size'],
-                max_edit_distance=args['pairing_max_edit_distance'],
+                index=self.index,
+                max_decoded_matches=self.pairing_max_decoded_matches,
+                min_decoded_strata=self.pairing_min_decoded_strata,
+                min_insert_size=self.pairing_min_insert_size,
+                max_insert_size=self.pairing_max_insert_size,
+                max_edit_distance=self.pairing_max_edit_distance,
                 max_extendable_matches=0,
                 max_matches_per_extension=0,
                 filter_max_matches=0,
@@ -2083,41 +2068,41 @@ class RnaPipeline(Command):
         # create sorted bam
         bam_cfg = dict(
             threads=threads,
-            index=args['index'],
+            index=self.index,
             quality=quality,
-            memory=args['sort_mem'],
-            paired=not args['single_end'],
-            no_sort=args['no_sort'],
-            no_xs=args['no_xs'],
-            no_index=args['no_index']
+            memory=self.sort_mem,
+            paired=not self.single_end,
+            no_sort=self.no_sort,
+            no_xs=self.no_xs,
+            no_index=self.no_index
         )
         job('BAM').run(
             'gemtools_convert',
             input=score,
-            output=args['bam_out'],
+            output=self.bam_out,
             **bam_cfg)
         # create filtered output
         filtered = job('Filtered').run(
             'gemtools_filter',
             input=score,
             threads=threads,
-            output=args['filtered_out'],
-            annotation=args['annotation'],
+            output=self.filtered_out,
+            annotation=self.annotation,
             no_penalty_for_splitmaps=True,
-            paired_end=not args['single_end'],  # paired
-            keep_unique=not args['filter_all'],
-            min_intron_length=args['filter_intron_length'],
-            min_block_length=args['filter_block_length'],
-            reduce_by_gene_id=not args['no_annotation_filter'],
-            reduce_by_junctions=not args['no_annotation_filter'],
-            reduce_to_unique_strata=args['filter_level'],
-            reduce_to_max_maps=args['filter_max_maps'],
-            max_strata=args['filter_max_errors'],  # max error events
+            paired_end=not self.single_end,  # paired
+            keep_unique=not self.filter_all,
+            min_intron_length=self.filter_intron_length,
+            min_block_length=self.filter_block_length,
+            reduce_by_gene_id=not self.no_annotation_filter,
+            reduce_by_junctions=not self.no_annotation_filter,
+            reduce_to_unique_strata=self.filter_level,
+            reduce_to_max_maps=self.filter_max_maps,
+            max_strata=self.filter_max_errors,  # max error events
             compress=True)
         job('Filtered.BAM').run(
             'gemtools_convert',
             input=filtered,
-            output=args['filtered_bam_out'],
+            output=self.filtered_bam_out,
             **bam_cfg)
 
         # create stats
@@ -2125,18 +2110,18 @@ class RnaPipeline(Command):
             'gemtools_stats',
             input=score,
             threads=threads,
-            output=args['stats_out'],
-            json=args['stats_json_out'],
-            paired_end=not args['single_end'],
+            output=self.stats_out,
+            json=self.stats_json_out,
+            paired_end=not self.single_end,
             all_tests=True)
 
         job('Filtered.Stats').run(
             'gemtools_stats',
             input=filtered,
             threads=threads,
-            output=args['filtered_stats_out'],
-            json=args['filtered_stats_json_out'],
-            paired_end=not args['single_end'],
+            output=self.filtered_stats_out,
+            json=self.filtered_stats_json_out,
+            paired_end=not self.single_end,
             all_tests=True)
 
         # create counts
@@ -2144,32 +2129,32 @@ class RnaPipeline(Command):
             'gemtools_gtf_stats',
             input=score,
             threads=threads,
-            annotation=args['annotation'],
-            output=args['gtf_stats_out'],
-            json=args['gtf_stats_json_out'],
-            paired_end=not args['single_end'],
-            exon_overlap=args['count_exon_threshold'],
-            counts=args['gtf_counts_out'],
-            multi_maps=not args['count_no_multi_maps'],
-            weighted=not args['count_no_weights']
+            annotation=self.annotation,
+            output=self.gtf_stats_out,
+            json=self.gtf_stats_json_out,
+            paired_end=not self.single_end,
+            exon_overlap=self.count_exon_threshold,
+            counts=self.gtf_counts_out,
+            multi_maps=not self.count_no_multi_maps,
+            weighted=not self.count_no_weights
         )
         job('Filtered.GTF.Stats').run(
             'gemtools_gtf_stats',
             input=filtered,
             threads=threads,
-            annotation=args['annotation'],
-            output=args['filtered_gtf_stats_out'],
-            json=args['filtered_gtf_stats_json_out'],
-            paired_end=not args['single_end'],
-            exon_overlap=args['count_exon_threshold'],
-            counts=args['filtered_gtf_counts_out'],
-            multi_maps=not args['count_no_multi_maps'],
-            weighted=not args['count_no_weights']
+            annotation=self.annotation,
+            output=self.filtered_gtf_stats_out,
+            json=self.filtered_gtf_stats_json_out,
+            paired_end=not self.single_end,
+            exon_overlap=self.count_exon_threshold,
+            counts=self.filtered_gtf_counts_out,
+            multi_maps=not self.count_no_multi_maps,
+            weighted=not self.count_no_weights
         )
-        if args['keep']:
+        if self.keep:
             p.excludes.append('cleanup')
-        if args['skip']:
-            p.excludes.extend(args['skip'])
+        if self.skip:
+            p.excludes.extend(self.skip)
         return p
 
 
@@ -2457,9 +2442,10 @@ class VcPipeline(Command):
         idx = name.rfind(".")
         if idx > 0:
             name = name[:idx]
-        args['name'] = name
         if not args['no_pair_search']:
-            args['name'] = re.sub(r'[_\.-]\d$', '', name)
+            name = re.sub(r'[_\.-]\d$', '', name)
+        args['name'] = name
+        return name
 
     def _file_name(self, suffix=None, args=None, compress=None):
         if compress is None:
@@ -2488,7 +2474,7 @@ class VcPipeline(Command):
             except Exception as err:
                 raise CommandException("Error while loading config : %s" % err)
 
-        args = self.options.to_dict()
+        args = dict(self.options.to_dict())
         ## check for a name or guess it
         if not args['name']:
             self._guess_name(args)
@@ -2554,17 +2540,13 @@ class VcPipeline(Command):
         # check input files for single end alignments
         _check("Single end runs take only one input file!",
                args['single_end'] and args['second'])
-        if not args['single_end'] and not args['no_pair_search']:
-            # check paired end
-            if not args['second']:
-                self._find_second_pair(args)
         ## check that all input files exists
         self.options['first'].check_files()
         self.options['second'].check_files()
         return True
 
     def pipeline(self):
-        args = self.options.to_dict()
+        args = dict(self.options.to_dict())
         threads = int(args['threads'])
         quality = args['quality']
         index = args['index']
@@ -2572,7 +2554,7 @@ class VcPipeline(Command):
         p = Pipeline()
         name = args['name']
         if not name:
-            self._guess_name(args)
+            name = self._guess_name(args)
         name = args['name']
         p.name(name)
         job = p.job(threads=threads)
@@ -2613,7 +2595,7 @@ class VcPipeline(Command):
                 threads=threads
             )
 
-        # we collect all mapping steps here for mergin
+        # we collect all mapping steps here for merging
         all_mappings = []
 
         ###################################################################

@@ -100,6 +100,11 @@ class Command(object):
     register new command line options, and
     run() wich is called with the parsed arguments.
     """
+
+    def __init__(self):
+        self.tool = None
+        self.tool_opts = None
+
     def register(self, parser):
         """Add new command line options to the passed
         argparse parser
@@ -127,12 +132,19 @@ class Command(object):
     def __call__(self):
         """Call delegate for jip commands"""
         # delegate to run
-        self.run(self.options.to_dict())
+        self.run(dict(self.options.to_dict()))
 
     def jip_command(self):
+        try:
+            self.options['threads'].set('$JIP_THREADS')
+        except:
+            pass
         return "bash", "_GT_LOGLEVEL=%s _GT_EXEC=1 %s %s ${options()}" % \
             (os.getenv("_GT_LOGLEVEL", "ERROR"),
              gem.executables["gemtools"], self.name)
+
+    def jip_run(self):
+        self.run(dict(self.options.to_dict()))
 
     def add_options(self, tool, parser, stream_in=None, stream_out=None):
         """Reads the tools JSON options and adds them to the
@@ -142,7 +154,6 @@ class Command(object):
         """
         ## required parameters
         # read the json
-
         output = subprocess.Popen([gem.executables[tool], '-J'],
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE).communicate()[1]
@@ -834,12 +845,12 @@ def get_max_read_length(input, threads=1, paired=False):
         raise ValueError("Error while getting max read length from stats!")
     return max_len
 
-def get_commandline(executable=None, unnamedargs=None, args=None, arg_prefix='--', text=False, include=None, exclude=None):
+def get_commandline(executable=None, unnamedargs=None, args=None, arg_prefix='--', text=False, expandBooleans=False, include=None, exclude=None):
     """Generate a valid command line from its arguments.
-    
+
     Given a set of binaries and parameters, generate the command
     line to be used in a Popen call or in the shell.
-    
+
     Keyword arguments:
     executable -- the name of the executable file
     unnamedargs -- a list of arguments that will be passed just after
@@ -849,22 +860,23 @@ def get_commandline(executable=None, unnamedargs=None, args=None, arg_prefix='--
     arg_prefix -- string that will be prepended to the argument names
         (by default '--')
     text -- do we need a string as output? Otherwise, a list is obtained
+    expandBooleans -- will the booleans be explicitly stated?
     include -- list of argument names that will be included in the output
     exclude -- list of argument names that will be excluded in the output
-    
+
     """
     # Initialize
     elementsList = []
-    
+
     # Executable
     if executable:
         elementsList.append(executable)
-    
+
     # Unnamed args
     if unnamedargs:
         for arg in unnamedargs:
             elementsList.append(arg)
-    
+
     # Standard args
     if args:
         reducedArgs = args
@@ -872,16 +884,16 @@ def get_commandline(executable=None, unnamedargs=None, args=None, arg_prefix='--
             reducedArgs = [k for k in reducedArgs if k in include]
         if exclude:
             reducedArgs = [k for k in reducedArgs if k not in exclude]
-        
+
         if len(reducedArgs)>0:
             for k in reducedArgs:
-                if isinstance(args[k], bool):
+                if isinstance(args[k], bool) and not expandBooleans:
                     if args[k]==True:
                         elementsList.append(arg_prefix + k)
                 else:
                     elementsList.append(arg_prefix + k)
                     elementsList.append(str(args[k]))
-    
+
     # Text translation, if needed
     if text:
         result = " ".join(elementsList)

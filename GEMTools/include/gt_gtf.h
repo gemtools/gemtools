@@ -140,6 +140,7 @@ typedef struct {
   uint64_t num_maps; // number of maps in the alignment/template
   bool unweighted_counts;
   bool single_pair_counts;
+  bool count_bases;
   double exon_overlap;
   uint64_t num_junctions; // total number of junctions found in uniquely mapping reads
   uint64_t num_annotated_junctions; // total number of junctions that are covered by the annotation
@@ -223,6 +224,7 @@ GT_INLINE gt_gtf_entry* gt_gtf_get_gene_by_id(const gt_gtf* const gtf, char* con
 GT_INLINE gt_gtf_entry* gt_gtf_get_transcript_by_id(const gt_gtf* const gtf, char* const key);
 
 GT_INLINE void gt_gtf_count_(gt_shash* const table, char* const element);
+GT_INLINE void gt_gtf_count_custom_(gt_shash* const table, char* const element, uint64_t counter);
 GT_INLINE uint64_t gt_gtf_get_count_(gt_shash* const table, char* const element);
 GT_INLINE void gt_gtf_count_weight_(gt_shash* const table, char* const element, double weight);
 GT_INLINE void gt_gtf_count_sum_(gt_shash* const table, char* const element, uint64_t value);

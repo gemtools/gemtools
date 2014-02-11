@@ -53,8 +53,8 @@ i3 bundle. Otherwise use core2.
 
 The latest release can be downloaded here:
 
-* [GEM-Tools static binary bundle 1.7 for i3](http://barnaserver.com/gemtools/releases/GEMTools-static-i3-1.7.tar.gz)
-* [GEM-Tools static binary bundle 1.7 for core2](http://barnaserver.com/gemtools/releases/GEMTools-static-core2-1.7.tar.gz)
+* [GEM-Tools static binary bundle 1.7.1 for i3](http://barnaserver.com/gemtools/releases/GEMTools-static-i3-1.7.1.tar.gz)
+* [GEM-Tools static binary bundle 1.7.1 for core2](http://barnaserver.com/gemtools/releases/GEMTools-static-core2-1.7.1.tar.gz)
 
 Library distribution
 --------------------
@@ -200,8 +200,17 @@ the [GEM bugtracker](http://algorithms.cnag.cat/mantis).
 Change log
 =====================
     1.8 
-    - Integrated the jip library to build pipelines
+    - Integrated the JIP library to build pipelines
     - Removed the strict dependency to cython for installation
+
+    1.7.1
+    - Fixed issue with fasta files where no qualities are provided
+    - Fixed issue with cutom output folder in the RNA-Pipeline and where
+      the transcriptome was not put into the desired location
+    - Fixed issue with single end reads in the id cleanup step in the 
+      rna-pipeline
+    - Added coverage calculation to gtfstats run in the rna-pipeline. The
+      coverage stats will be contained in the .json file.
 
     1.7
     - Fixed issue with junctions of length 0 in gtf extraction

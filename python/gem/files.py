@@ -87,7 +87,7 @@ def _cleanup():
 
 def get_stream(input):
     """Checks the input and returns a raw stream. The input can be either
-    a path to a file, a gemtools.IntputFile, or an already opend stream
+    a path to a file, a gemtools.IntputFile, or an already opened stream
     """
     if isinstance(input, basestring):
         return open_file(input)

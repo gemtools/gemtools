@@ -53,6 +53,15 @@ _max_mappings = 999999999
 
 ## filter to work around GT-32 and #006 in gem-2-gem
 __awk_filter = ["awk", "-F", "\t", '{if($4 == "*" || $4 == "-"){print $1"\t"$2"\t"$3"\t0\t"$5}else{if($4 == "!" || $4 == "+"){print $1"\t"$2"\t"$3"\t' + str(_max_mappings) + '\t"$5}else{print}}}']
+## filter to put before teh pairaligner if qualities are ignored
+## current version has a bug where it does not expect to see the quality column
+__awk_pair_quality_fix = ["awk", "-F", "\t", '{print $1"\t"$2"\t"$4"\t"$5}']
+## The current version of gem does not work without qualities properly.
+## We workaround by inserting dummy qualities I
+__awk_gem_2_sam_quality_fix = [
+    'awk', '-F', '\t',
+    '{x=gensub(/\w/, "I", "g", $2); print $1"\t"$2"\t"x"\t"$4"\t"$5}'
+]
 
 
 class execs_dict(dict):
@@ -97,8 +106,15 @@ class execs_dict(dict):
                     return binary
             except Exception:
                 pass
-        gemtools_logger.debug("Using binary from PATH: %s" % item)
-        return dict.__getitem__(self, item)
+        try:
+            r = dict.__getitem__(self, item)
+            gemtools_logger.debug("Using binary from PATH: %s" % item)
+            return r
+        except KeyError:
+            gemtools_logger.debug("No defintion found for: %s. "
+                                  "Assuming its in path" % item)
+            return item
+
 
 ## paths to the executables
 executables = execs_dict({
@@ -732,7 +748,13 @@ def pairalign(input, index, output=None,
     if map_both_ends:
         pa.append("--map-both-ends")
 
-    tools = [pa]
+    # if qualities are ignored, make sure we remove the quality column
+    # otherwise the pairaligner will crash
+    tools = []
+    if quality in ['ignore', 'none']:
+        tools.append(__awk_pair_quality_fix)
+    tools.append(pa)
+
     filter_pa = [executables["gt.filter"], "-t", str(threads), "-p"]
     if filter_max_matches > 0:
         filter_pa.extend(["--max-output-matches", str(filter_max_matches)])
@@ -793,7 +815,8 @@ def score(input,
           quality=None,
           compress=False,
           threads=1,
-          raw=False):
+          raw=False,
+          remove_existing=False):
     """Score the input. In addition, you can specify a tuple with (<score_strata_to_keep>,<max_strata_distance>,<max_alignments>) to
     filter the result further.
     """
@@ -805,6 +828,8 @@ def score(input,
         output += ".gz"
 
     quality = _prepare_quality_parameter(quality)
+    if quality in ['none', 'ignore']:
+        quality = 'offset-33'
     index = _prepare_index_parameter(index, gem_suffix=True)
     score_p = [executables['gem-2-gem'],
                '-I', index,
@@ -822,8 +847,9 @@ def score(input,
 
     if raw or isinstance(input, gt.InputFile):
         raw = True
-        if isinstance(input, gt.InputFile):
+        if isinstance(input, gt.InputFile) and remove_existing:
             input.remove_scores = True
+            raw = False
         #input = input.raw_stream()
 
     tools = [score_p]
@@ -832,42 +858,50 @@ def score(input,
         gzip = _compressor(threads=threads)
         tools.append(gzip)
 
-    process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=False)
+    process = utils.run_tools(tools, input=input, output=output, name="GEM-Score", write_map=True, raw=raw)
     return _prepare_output(process, output=output)
 
 
 def gem2sam(input, index=None, output=None,
-    single_end=False, compact=False, threads=1,
-    quality=None, check_ids=True, add_length=True, consensus=None,
-    exclude_header=False, calc_xs=True, raw=False):
+            single_end=False, compact=False, threads=1,
+            quality=None, check_ids=True, add_length=True, consensus=None,
+            exclude_header=False, calc_xs=True, raw=False):
 
     if index is not None:
         index = _prepare_index_parameter(index, gem_suffix=True)
-    else:
-        add_length=False
 
-    gem_2_sam_p = [executables['gem-2-sam'],
-                   '-T', str(threads)
-    ]
+    gem_2_sam_p = [executables['gem-2-sam'], '-T', str(threads)]
     if index is not None:
         gem_2_sam_p.extend(['-I', index])
         if not exclude_header:
             gem_2_sam_p.append("-l")
 
+    tools = []
     quality = _prepare_quality_parameter(quality, input)
     if quality is not None and not quality == "ignore":
         gem_2_sam_p.extend(["-q", quality])
+    else:
+        # apply fix
+        gem_2_sam_p.extend(["-q", 'offset-33'])
+        tools.append(__awk_gem_2_sam_quality_fix)
+        raw = True
 
     if consensus is not None and calc_xs and index is not None:
-        gem_2_sam_p.extend(['-s', _prepare_splice_consensus_parameter(consensus)])
+        gem_2_sam_p.extend([
+            '-s', _prepare_splice_consensus_parameter(consensus)
+        ])
 
     if single_end:
         gem_2_sam_p.append("--expect-single-end-reads")
     if compact:
         gem_2_sam_p.append("-c")
 
+    tools.append(gem_2_sam_p)
     # GT-25 transform id's
-    process = utils.run_tool(gem_2_sam_p, input=input, output=output, name="GEM-2-sam", write_map=True, clean_id=True, append_extra=False, raw=raw)
+    process = utils.run_tools(tools, input=input, output=output,
+                              name="GEM-2-sam", write_map=True,
+                              clean_id=not single_end,
+                              append_extra=False, raw=raw)
     return _prepare_output(process, output=output, quality=quality)
 
 
@@ -964,7 +998,7 @@ def compute_transcriptome(max_read_length, index, junctions,
                  account and substracted from the main junctions
     """
     if output_name is None:
-        output_name = os.path.basename(junctions)
+        output_name = os.path.abspath(junctions)
     transcriptome_p = [
         executables['gem-rna-tools'],
         'compute-transcriptome',
@@ -1032,7 +1066,7 @@ def index(input, output, content="dna", threads=1):
 
 def gtfcounts(inputs, annotation, output=None, json_output=None, threads=1,
               counts=None, weight=True, multimaps=False, exon_threshold=0,
-              paired=False):
+              paired=False, coverage=False):
     """Run the count stats. This returns the gtf count stats as dictionary"""
     p = [
         executables['gt.gtfcount'],
@@ -1051,6 +1085,8 @@ def gtfcounts(inputs, annotation, output=None, json_output=None, threads=1,
             p.append("-m")
         if exon_threshold > 0:
             p.extend(["-e", str(exon_threshold)])
+    if coverage:
+        p.append('-c')
 
     from subprocess import PIPE
     process = utils.run_tools([p], name="gtfcounts", input=inputs,
