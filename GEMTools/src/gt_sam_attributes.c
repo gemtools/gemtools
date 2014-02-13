@@ -618,6 +618,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_MD(gt_sam_attribute_func_params* f
   // Print MD String into the buffer
   gt_map *map=func_params->alignment_info->map;
   gt_string* md_tag=func_params->return_s;
+  gt_string_clear(md_tag);
   const uint64_t map_length = gt_map_get_base_length(map);
   gt_alignment *al=(func_params->alignment_info->type==GT_MAP_PLACEHOLDER)?func_params->alignment_info->single_end.alignment:
   		gt_template_get_block(func_params->alignment_info->paired_end.template,func_params->alignment_info->paired_end.paired_end_position);
