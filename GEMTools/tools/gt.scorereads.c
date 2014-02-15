@@ -621,7 +621,8 @@ static void alignment_strip_bisulfite_contig_names(gt_alignment *al)
 
 static void template_strip_bisulfite_contig_names(gt_template *tp)
 {
-  for(int j=0;j<2;j++) {
+  int j;
+  for(j=0;j<2;j++) {
     gt_alignment *al=gt_template_get_block(tp,j);
     if(al) alignment_strip_bisulfite_contig_names(al);
   }
