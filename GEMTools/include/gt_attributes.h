@@ -25,6 +25,8 @@
 
 #define GT_ATTR_ID_HEAD_BLOCK "HBlock" // (gt_map)
 
+#define GT_ATTR_ID_BIS_TYPE "BIS_TYPE" // (int64_t)
+
 #define GT_ATTR_ID_SEGMENTED_READ_INFO "SegmentedReadInfo" // (gt_segmented_read_info)
 
 #define GT_ATTR_ID_SAM_FLAGS "SAM_FLAGS"
@@ -43,6 +45,11 @@
 #define GT_PAIR_PE_1 1
 #define GT_PAIR_PE_2 2
 #define GT_PAIR_BOTH 3
+
+#define GT_BIS_TYPE_NORMAL 0
+#define GT_BIS_TYPE_C2T 1
+#define GT_BIS_TYPE_G2A 2
+#define GT_BIS_TYPE_MISMATCH 3
 
 /*
  * Attributes Type

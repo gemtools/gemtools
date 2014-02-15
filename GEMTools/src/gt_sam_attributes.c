@@ -605,6 +605,25 @@ GT_INLINE gt_status gt_sam_attribute_generate_md(gt_sam_attribute_func_params* f
 GT_INLINE void gt_sam_attributes_add_tag_md(gt_sam_attributes* const sam_attributes) {
   gt_sam_attributes_add_sfunc(sam_attributes,"md",'Z',gt_sam_attribute_generate_md);
 }
+GT_INLINE gt_status gt_sam_attribute_generate_XB(gt_sam_attribute_func_params* func_params) {
+  if (func_params->alignment_info->map == NULL) return -1; // Don't print anything
+  gt_attributes *attr=func_params->alignment_info->map->attributes;
+  if(attr==NULL) return -1;
+  void *pp=gt_attributes_get(attr,GT_ATTR_ID_BIS_TYPE);
+  if(pp==NULL) return -1;
+  uint64_t bis_type=*(uint64_t *)pp;
+  if(bis_type>=4) return -1;
+  char XB_char_value="UCGM"[(int)bis_type];
+  gt_string_clear(func_params->return_s);
+  gt_string_append_char(func_params->return_s,XB_char_value);
+  gt_string_append_eos(func_params->return_s);
+  return 0; // OK
+}
+
+GT_INLINE void gt_sam_attributes_add_tag_XB(gt_sam_attributes* const sam_attributes) {
+  gt_sam_attributes_add_sfunc(sam_attributes,"XB",'A',gt_sam_attribute_generate_XB);
+}
+
 
 /*  MD  Z  Mismatch information (complementary to CIGAR string)
  *

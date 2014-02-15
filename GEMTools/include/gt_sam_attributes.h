@@ -304,6 +304,13 @@ GT_INLINE void gt_sam_attributes_add_tag_XT(gt_sam_attributes* const sam_attribu
 /* Similar to XT, but for a template */
 GT_INLINE void gt_sam_attributes_add_tag_XP(gt_sam_attributes* const sam_attributes);
 
+/* Gives conversion type for bisulfite reads:
+ * XB:A:U => non_converted
+ * XB:A:C => C2T strand
+ * XB:A:G => G2A strand
+ */
+GT_INLINE void gt_sam_attributes_add_tag_XB(gt_sam_attributes* const sam_attributes);
+
 /*
  *  XA  Z  Alternative hits; format: (chr,pos,CIGAR,NM;)*
  *    => Implemented by means of setting ...
