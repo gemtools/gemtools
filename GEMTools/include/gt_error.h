@@ -294,6 +294,10 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_SYS_COND_VAR_DESTROY "Conditional variable destroy call error"
 #define GT_ERROR_SYS_MKSTEMP "Could not create a temporal file (mkstemp:'%s')"
 #define GT_ERROR_SYS_HANDLE_TMP "Failed to handle temporal file"
+#define GT_ERROR_SYS_OPEN_PIPE "Failed to open pipe"
+#define GT_ERROR_SYS_CLOSE_PIPE "Failed to close pipe"
+#define GT_ERROR_SYS_FORK "Failed to fork"
+#define GT_ERROR_SYS_EXEC "Failed to exec %s %s"
 
 // String errors
 #define GT_ERROR_STRING_STATIC "Could not perform operation on static string"
@@ -312,6 +316,12 @@ gt_status gt_tprintf(const char* format,...);
 #define GT_ERROR_FILE_BZIP2_OPEN "Could not open BZIPPED file '%s'"
 #define GT_ERROR_FILE_BZIP2_NO_BZLIB "Could not open BZIPPED file '%s': no bzlib support compiled in"
 #define GT_ERROR_FILE_FDOPEN "Could not fdopen file descriptor"
+
+// Pipe errors
+#define GT_ERROR_PIPE_BAD_PIPE "Invalid pipe command: '%s'"
+#define GT_ERROR_PIPE_BIDIRECTIONAL_PIPE "Can not use bidirectional pipes: '%s'"
+#define GT_ERROR_PIPE_NOT_READ "Pipe is not for reading: '%s'"
+#define GT_ERROR_PIPE_NOT_WRITE "Pipe is not for writing: '%s'"
 
 // Output errors
 #define GT_ERROR_FPRINTF "Printing output. 'fprintf' call failed"

@@ -10,7 +10,7 @@
 ROOT_PATH=..
 include ../Makefile.mk
 
-GEM_TOOLS=gt.construct gt.stats gt.filter gt.mapset gt.map2sam align_stats gt.scorereads gt.gtfcount gt.region
+GEM_TOOLS=gt.construct gt.stats gt.filter gt.mapset gt.map2sam align_stats gt.gtfcount gt.region gt.scorereads
 
 GEM_TOOLS_SRC=$(addsuffix .c, $(GEM_TOOLS))
 GEM_TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(GEM_TOOLS))
@@ -25,7 +25,7 @@ ifeq ($(HAVE_BZLIB),1)
 LIBS:=$(LIBS) -lbz2
 endif
 
-all: GEM_TOOLS_FLAGS=-O4 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
+all: GEM_TOOLS_FLAGS= $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
 all: $(GEM_TOOLS_BIN)
 
 static: GEM_TOOLS_FLAGS=-O4 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS) -static

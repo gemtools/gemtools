@@ -36,7 +36,7 @@
 /*
  * GT Input file
  */
-typedef enum { FASTA, MAP, SAM, FILE_FORMAT_UNKNOWN } gt_file_format;
+typedef enum { FASTA, FASTQ, MAP, SAM, FILE_FORMAT_UNKNOWN } gt_file_format;
 typedef enum { STREAM, REGULAR_FILE, MAPPED_FILE, GZIPPED_FILE, BZIPPED_FILE } gt_file_type;
 typedef struct {
   /* Input file */

@@ -58,14 +58,14 @@ GT_INLINE void gt_template_delete(gt_template* const template) {
  */
 GT_INLINE char* gt_template_get_tag(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_tag(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   return gt_string_get_string(template->tag);
 }
 GT_INLINE gt_string* gt_template_get_string_tag(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_string_tag(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   return template->tag;
@@ -73,14 +73,14 @@ GT_INLINE gt_string* gt_template_get_string_tag(gt_template* const template) {
 GT_INLINE void gt_template_set_tag(gt_template* const template,char* const tag,const uint64_t length) {
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(tag);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_set_tag(alignment,tag,length);
   } GT_TEMPLATE_END_REDUCTION;
   gt_string_set_nstring(template->tag,tag,length);
 }
 GT_INLINE uint64_t gt_template_get_total_length(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_read_length(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   uint64_t total_length = 0;
@@ -91,7 +91,7 @@ GT_INLINE uint64_t gt_template_get_total_length(gt_template* const template) {
 }
 GT_INLINE int64_t gt_template_get_pair(gt_template* const template){
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_pair(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   return *((int64_t*)gt_attributes_get(template->attributes,GT_ATTR_ID_TAG_PAIR));
@@ -154,7 +154,7 @@ GT_INLINE void gt_template_set_end2(gt_template* const template,gt_alignment* co
 /* Counters */
 GT_INLINE gt_vector* gt_template_get_counters_vector(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_counters_vector(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   return template->counters;
@@ -162,21 +162,21 @@ GT_INLINE gt_vector* gt_template_get_counters_vector(gt_template* const template
 GT_INLINE void gt_template_set_counters_vector(gt_template* const template,gt_vector* const counters) {
   GT_TEMPLATE_CHECK(template);
   GT_VECTOR_CHECK(counters);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_set_counters_vector(alignment,counters);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   template->counters = counters;
 }
 GT_INLINE uint64_t gt_template_get_num_counters(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_num_counters(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   return gt_vector_get_used(template->counters);
 }
 GT_INLINE uint64_t gt_template_get_counter(gt_template* const template,const uint64_t stratum) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_counter(alignment,stratum);
   } GT_TEMPLATE_END_REDUCTION;
   return *gt_vector_get_elm(template->counters,stratum,uint64_t);
@@ -191,7 +191,7 @@ GT_INLINE void gt_template_dynamically_allocate_counter(gt_template* const templ
 }
 GT_INLINE void gt_template_inc_counter(gt_template* const template,const uint64_t stratum) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_inc_counter(alignment,stratum);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_template_dynamically_allocate_counter(template,stratum);
@@ -199,7 +199,7 @@ GT_INLINE void gt_template_inc_counter(gt_template* const template,const uint64_
 }
 GT_INLINE void gt_template_dec_counter(gt_template* const template,const uint64_t stratum) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_dec_counter(alignment,stratum);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_template_dynamically_allocate_counter(template,stratum);
@@ -207,7 +207,7 @@ GT_INLINE void gt_template_dec_counter(gt_template* const template,const uint64_
 }
 GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_t stratum,const uint64_t value) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_set_counter(alignment,stratum,value);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_template_dynamically_allocate_counter(template,stratum);
@@ -219,7 +219,7 @@ GT_INLINE void gt_template_set_counter(gt_template* const template,const uint64_
  */
 GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_mcs(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   uint64_t* mcs = gt_attributes_get(template->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA);
@@ -228,14 +228,14 @@ GT_INLINE uint64_t gt_template_get_mcs(gt_template* const template) {
 }
 GT_INLINE void gt_template_set_mcs(gt_template* const template,uint64_t max_complete_strata) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_set_mcs(alignment,max_complete_strata);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_attributes_add(template->attributes,GT_ATTR_ID_MAX_COMPLETE_STRATA,&max_complete_strata,uint64_t);
 }
 GT_INLINE bool gt_template_has_qualities(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_has_qualities(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   const uint64_t num_blocks = gt_template_get_num_blocks(template);
@@ -248,7 +248,7 @@ GT_INLINE bool gt_template_has_qualities(gt_template* const template) {
 }
 GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_not_unique_flag(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   bool* const not_unique_flag = gt_attributes_get(template->attributes,GT_ATTR_ID_NOT_UNIQUE);
@@ -257,7 +257,7 @@ GT_INLINE bool gt_template_get_not_unique_flag(gt_template* const template) {
 }
 GT_INLINE void gt_template_set_not_unique_flag(gt_template* const template,bool is_not_unique) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_set_not_unique_flag(alignment,is_not_unique);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_attributes_add(template->attributes,GT_ATTR_ID_NOT_UNIQUE,&is_not_unique,bool);
@@ -279,14 +279,14 @@ GT_INLINE void gt_template_set_mmap_primary(gt_template* const template,gt_map**
  */
 GT_INLINE uint64_t gt_template_get_num_mmaps(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_alignment_get_num_maps(alignment);
   } GT_TEMPLATE_END_REDUCTION;
   return gt_vector_get_used(template->mmaps);
 }
 GT_INLINE void gt_template_clear_mmaps(gt_template* const template) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_clear_maps(alignment);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_vector_clear(template->mmaps);
@@ -319,7 +319,7 @@ GT_INLINE void gt_template_add_mmap(gt_template* const template,gt_mmap* const m
 GT_INLINE gt_map** gt_template_get_mmap_array(
     gt_template* const template,const uint64_t position,gt_mmap_attributes** mmap_attributes) {
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_vector_get_elm(alignment->maps,position,gt_map*);
   } GT_TEMPLATE_END_REDUCTION;
   // Retrieve the mmap from the mmap vector
@@ -331,7 +331,7 @@ GT_INLINE void gt_template_set_mmap_array(
     gt_template* const template,const uint64_t position,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes) {
   GT_TEMPLATE_CHECK(template);
   GT_MMAP_ARRAY_CHECK(mmap);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_set_map(alignment,mmap[0],position);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_mmap* mmap_ph = gt_vector_get_elm(template->mmaps,position,gt_mmap);
@@ -347,7 +347,7 @@ GT_INLINE void gt_template_add_mmap_array(
     gt_template* const template,gt_map** const mmap,gt_mmap_attributes* const mmap_attributes) {
   GT_TEMPLATE_CHECK(template);
   GT_MMAP_ARRAY_CHECK(mmap);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_add_map(alignment,mmap[0]);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Allocate new mmap element
@@ -369,7 +369,7 @@ GT_INLINE void gt_template_set_mmap_ends(
     gt_map* const map_end1,gt_map* const map_end2,gt_mmap_attributes* const mmap_attributes) {
   GT_TEMPLATE_CHECK(template);
   gt_cond_fatal_error(map_end1==NULL && map_end2==NULL,TEMPLATE_MMAP_NULL);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_set_map(alignment,map_end1,position);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_mmap* mmap_ph = gt_vector_get_elm(template->mmaps,position,gt_mmap);
@@ -386,7 +386,7 @@ GT_INLINE void gt_template_add_mmap_ends(
     gt_map* const map_end1,gt_map* const map_end2,gt_mmap_attributes* const mmap_attributes) {
   GT_TEMPLATE_CHECK(template);
 //  gt_cond_fatal_error(map_end1==NULL && map_end2==NULL,TEMPLATE_MMAP_NULL);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_add_map(alignment,map_end1);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Allocate new mmap element
@@ -408,7 +408,7 @@ GT_INLINE void gt_template_get_mmap_gtvector(
   GT_TEMPLATE_CHECK(template);
   GT_VECTOR_CHECK(mmap);
   // Handle reduction to alignment
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_vector_prepare(mmap,gt_map*,1); // Reset output vector
     gt_vector_insert(mmap,gt_alignment_get_map(alignment,position),gt_map*);
   } GT_TEMPLATE_END_REDUCTION__RETURN;
@@ -424,7 +424,7 @@ GT_INLINE void gt_template_add_mmap_gtvector(
   GT_TEMPLATE_CHECK(template);
   GT_VECTOR_CHECK(mmap_vector);
   // Handle reduction to alignment
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     gt_alignment_add_map(alignment,*gt_vector_get_elm(mmap_vector,0,gt_map*));
   } GT_TEMPLATE_END_REDUCTION__RETURN;
   // Allocate new mmap element
@@ -590,7 +590,7 @@ GT_INLINE gt_status gt_template_next_mmap(
   GT_NULL_CHECK(template_maps_iterator);
   GT_TEMPLATE_CHECK(template_maps_iterator->template);
   GT_NULL_CHECK(mmap);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template_maps_iterator->template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template_maps_iterator->template,alignment) {
     if (gt_expect_true(template_maps_iterator->next_mmap_position < gt_alignment_get_num_maps(alignment))) {
       *mmap = gt_vector_get_elm(alignment->maps,template_maps_iterator->next_mmap_position,gt_map*);
       ++template_maps_iterator->next_mmap_position;

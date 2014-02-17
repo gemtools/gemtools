@@ -96,7 +96,7 @@ GT_INLINE gt_status gt_output_map_gprint_template_tag(
     gt_generic_printer* const gprinter,gt_template* const template) {
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_output_map_gprint_alignment_tag(gprinter,alignment);
   } GT_TEMPLATE_END_REDUCTION;
   gt_output_map_attributes output_map_attributes = GT_OUTPUT_MAP_ATTR_DEFAULT();
@@ -479,7 +479,7 @@ GT_INLINE gt_status gt_output_map_gprint_template_maps(
   GT_NULL_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   GT_OUTPUT_MAP_CHECK_ATTRIBUTES(output_map_attributes);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_output_map_gprint_alignment_maps(gprinter,alignment,output_map_attributes);
   } GT_TEMPLATE_END_REDUCTION;
   gt_status error_code = 0;
@@ -571,7 +571,7 @@ GT_INLINE gt_status gt_output_map_gprint_template(
   GT_GENERIC_PRINTER_CHECK(gprinter);
   GT_TEMPLATE_CHECK(template);
   GT_NULL_CHECK(output_map_attributes);
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     return gt_output_map_gprint_alignment(gprinter,alignment,output_map_attributes);
   } GT_TEMPLATE_END_REDUCTION;
   gt_status error_code = 0;
@@ -654,7 +654,7 @@ GT_INLINE gt_status gt_output_map_gprint_gem_template(
 //    gt_generic_printer* const gprinter,gt_template* const template,gt_output_map_attributes* const output_map_attributes) {
 //  GT_GENERIC_PRINTER_CHECK(gprinter);
 //  GT_TEMPLATE_CHECK(template);
-//  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+//  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
 //    return gt_output_map_gprint_alignment(gprinter,alignment,output_map_attributes);
 //  } GT_TEMPLATE_END_REDUCTION;
 //  gt_status error_code = 0;

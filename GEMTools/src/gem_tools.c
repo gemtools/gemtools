@@ -213,6 +213,9 @@ char* gt_mapset_groups[] = {
  */
 gt_option gt_scorereads_options[] = {
   /* Operations */
+  { 'R', "realign", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  { 'b', "bisulfite", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 2 , true, "" , "" },
+  
    /* I/O */
   { 300, "i1", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
   { 301, "i2", GT_OPT_REQUIRED, GT_OPT_STRING, 3 , true, "<file>" , "" },
@@ -273,7 +276,7 @@ gt_option gt_scorereads_options[] = {
   { 'J', "help-json", GT_OPT_NO_ARGUMENT, GT_OPT_NONE, 8 , false, "" , "" },
   {  0, 0, 0, 0, 0, false, "", ""}
 };
-char* gt_scorereads_options_short = "q:pzjcZo:s:S:I:r:M:m:vt:hJ";
+char* gt_scorereads_options_short = "q:pzjcRbZo:s:S:I:r:M:m:vt:hJ";
 char* gt_scorereads_groups[] = {
   /*  0 */ "Null",
   /*  1 */ "Unclassified",

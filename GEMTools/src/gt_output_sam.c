@@ -1225,7 +1225,7 @@ GT_INLINE gt_status gt_output_sam_gprint_template(gt_generic_printer* const gpri
   gt_map_placeholder ph;
   gt_map_placeholder_set_sam_fields(&ph,!passing_QC,PCR_duplicate,0,0);
   // Handle reduction to alignment
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template,alignment) {
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template,alignment) {
     ph.single_end.template = template;
     return gt_output_sam_gprint_alignment_(gprinter,alignment,&ph,output_attributes);
   } GT_TEMPLATE_END_REDUCTION;

@@ -1587,7 +1587,7 @@ GT_INLINE void gt_gtf_search_alignment(const gt_gtf* const gtf, gt_vector* const
 }
 
 GT_INLINE void gt_gtf_search_template(const gt_gtf* const gtf, gt_vector* const hits, gt_template* const template){
-  GT_TEMPLATE_IF_REDUCES_TO_ALINGMENT(template, alignment){
+  GT_TEMPLATE_IF_REDUCES_TO_ALIGNMENT(template, alignment){
     gt_gtf_search_alignment(gtf,hits, alignment);
   }GT_TEMPLATE_END_REDUCTION__RETURN;
   gt_gtf_search_alignment(gtf,hits, gt_template_get_block(template, 0));
