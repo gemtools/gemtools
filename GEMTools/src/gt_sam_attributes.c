@@ -598,6 +598,7 @@ GT_INLINE void gt_sam_attributes_add_tag_cs(gt_sam_attributes* const sam_attribu
 //  md  Z  GEM CIGAR String
 GT_INLINE gt_status gt_sam_attribute_generate_md(gt_sam_attribute_func_params* func_params) {
   if (func_params->alignment_info->map == NULL) return -1; // Don't print anything
+  gt_string_clear(func_params->return_s);
   // Print GEM CIGAR String into the buffer
   gt_output_map_sprint_mismatch_string(func_params->return_s,func_params->alignment_info->map,NULL);
   return 0; // OK
@@ -662,7 +663,7 @@ GT_INLINE gt_status gt_sam_attribute_generate_MD(gt_sam_attribute_func_params* f
   return 0; // OK
 }
 GT_INLINE void gt_sam_attributes_add_tag_MD(gt_sam_attributes* const sam_attributes) {
-  gt_sam_attributes_add_sfunc(sam_attributes,"MD",'Z',gt_sam_attribute_generate_MD);
+
 }
 
 //  XS  A  +/- directionality information for split reads
