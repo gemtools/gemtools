@@ -711,8 +711,8 @@ gt_status gt_scorereads_process(sr_param *param)
       gt_template *template=gt_template_new();
       while((error_code=gt_input_map_parser_synch_get_template(buffered_input1,buffered_input2,template,&mutex))) {
 	if(error_code!=GT_IMP_OK) continue;
-	gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 	if(param->bisulfite) template_strip_bisulfite_contig_names(template);
+	gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 	if(param->realign) gt_template_realign_levenshtein(template,param->sequence_archive);
 	gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
       }
@@ -772,8 +772,8 @@ gt_status gt_scorereads_process(sr_param *param)
 	gt_template *template=gt_template_new();
 	while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
 	  if (error_code!=GT_IMP_OK) continue;
-	  gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 	  if(param->bisulfite) template_strip_bisulfite_contig_names(template);
+	  gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 	  if(param->realign) gt_template_realign_levenshtein(template,param->sequence_archive);
 	  gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
 	}

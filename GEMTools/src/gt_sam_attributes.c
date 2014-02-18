@@ -612,8 +612,8 @@ GT_INLINE gt_status gt_sam_attribute_generate_XB(gt_sam_attribute_func_params* f
   void *pp=gt_attributes_get(attr,GT_ATTR_ID_BIS_TYPE);
   if(pp==NULL) return -1;
   uint64_t bis_type=*(uint64_t *)pp;
-  if(bis_type>=4) return -1;
-  char XB_char_value="UCGM"[(int)bis_type];
+  if(bis_type>=5 || !bis_type) return -1;
+  char XB_char_value="UCGM"[(int)bis_type-1];
   gt_string_clear(func_params->return_s);
   gt_string_append_char(func_params->return_s,XB_char_value);
   gt_string_append_eos(func_params->return_s);

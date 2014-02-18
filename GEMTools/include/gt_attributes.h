@@ -46,11 +46,11 @@
 #define GT_PAIR_PE_2 2
 #define GT_PAIR_BOTH 3
 
-#define GT_BIS_TYPE_NORMAL 0
-#define GT_BIS_TYPE_C2T 1
-#define GT_BIS_TYPE_G2A 2
-#define GT_BIS_TYPE_MISMATCH 3
-
+#define GT_BIS_TYPE_UNKNOWN 0
+#define GT_BIS_TYPE_NORMAL 1
+#define GT_BIS_TYPE_C2T 2
+#define GT_BIS_TYPE_G2A 3
+#define GT_BIS_TYPE_MISMATCH 4
 /*
  * Attributes Type
  */
