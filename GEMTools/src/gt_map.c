@@ -449,9 +449,9 @@ GT_INLINE void gt_map_reverse_blocks_positions(gt_map* const head_map,const uint
 #define GT_MAP_REVERSE_MISMS_ADJUST_POS(misms,base_length) \
   misms->position = base_length - misms->position; \
   switch (misms->misms_type) { \
-    case DEL: misms->position-=misms->size; break; \
-    case INS: misms->position++; break; \
-    default: break; \
+  case DEL: misms->position-=misms->size; break;			\
+  case INS: misms->position++; break;					\
+ default: break; \
   }
 GT_INLINE void gt_map_reverse_misms(gt_map* const map) {
   GT_MAP_CHECK(map);

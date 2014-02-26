@@ -561,7 +561,8 @@ gt_sam_headers *gt_scorereads_setup_sam_headers(sr_param *param)
   }
   // Open reference file
   if (param->load_index) {
-    param->sequence_archive = gt_open_sequence_archive(param->load_index_sequences);
+    //    param->sequence_archive = gt_open_sequence_archive(param->load_index_sequences);
+    param->sequence_archive = gt_open_sequence_archive(true);
     gt_sam_header_load_sequence_archive(sam_headers,param->sequence_archive);
   }
   return sam_headers;
