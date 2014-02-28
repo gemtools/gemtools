@@ -642,26 +642,47 @@ GT_INLINE gt_status gt_sam_attribute_generate_MD(gt_sam_attribute_func_params* f
   const uint64_t map_length = gt_map_get_base_length(map);
   gt_alignment *al=(func_params->alignment_info->type==GT_MAP_PLACEHOLDER)?func_params->alignment_info->single_end.alignment:
     gt_template_get_block(func_params->alignment_info->paired_end.template,func_params->alignment_info->paired_end.paired_end_position);
-  gt_string *read=al->read;
   uint64_t ix=0;
   GT_MAP_ITERATE(map,map_block) {
-    uint64_t pos=map_block->position;
-    if(map_block->strand==REVERSE) {
+    uint64_t pos=map_block->position-1;
+	 if(map_block->strand==REVERSE) {
       const uint64_t base_length=gt_map_get_base_length(map_block);
+		 uint64_t ref_length=base_length;
+		 GT_MISMS_ITERATE(map_block,misms) {
+			 switch (misms->misms_type) {
+			  case INS:
+				 ref_length+=misms->size;
+				 break;
+			  case DEL:
+				 ref_length-=misms->size;
+				 break;
+			  default:
+				 break;
+			 }
+		 }
+		 pos+=ref_length-1;
       uint64_t z=gt_map_get_num_misms(map_block);
       for(;z>0;z--) {
 	gt_misms *misms=gt_map_get_misms(map_block,z-1);
 	switch(misms->misms_type) {
 	case MISMS:
 	  gt_sprintf_append(md_tag,"%"PRIu64"%c",base_length-1-misms->position-ix,gt_get_complement(gt_misms_get_base(misms)));
+		pos-=base_length-misms->position-ix;
 	  ix=base_length-misms->position;
 	  break;
 	case INS:
-	  gt_sprintf_append(md_tag,"%"PRIu64"^%.*s",base_length-misms->position-ix,misms->size,gt_string_get_string(read)+misms->position);
+	  if(!func_params->sequence_archive) return -1;
+	  gt_string *seq=gt_string_new(misms->size+1);
+	  pos-=base_length-misms->position-ix+misms->size-1;
+	  gt_sequence_archive_get_sequence_string(func_params->sequence_archive,gt_map_get_seq_name(map_block),FORWARD,pos,misms->size,seq);
+		gt_sprintf_append(md_tag,"%"PRIu64"^%.*s",base_length-misms->position-ix,misms->size,gt_string_get_string(seq));
+	  gt_string_delete(seq);
 	  ix=base_length-misms->position;
+//		pos--;
 	  break;
 	case DEL:
 	  ix+=misms->size;
+		pos+=2*misms->size;
 	  break;
 	default:
 	  break;
@@ -676,18 +697,16 @@ GT_INLINE gt_status gt_sam_attribute_generate_MD(gt_sam_attribute_func_params* f
 	  ix=misms->position+1;
 	  break;
 	case INS:
-	  gt_sprintf_append(md_tag,"%"PRIu64"^%.*s",misms->position-ix,misms->size,gt_string_get_string(read)+misms->position);
-	  gt_sequence_archive* index = func_params->sequence_archive;
-	  if(!index) return -1;
+	  if(!func_params->sequence_archive) return -1;
 	  gt_string *seq=gt_string_new(misms->size+1);
-	  gt_sequence_archive_get_sequence_string(index,gt_map_get_seq_name(map_block),FORWARD,pos,misms->size,seq);
+	  pos+=misms->position-ix;
+	  gt_sequence_archive_get_sequence_string(func_params->sequence_archive,gt_map_get_seq_name(map_block),FORWARD,pos,misms->size,seq);
 	  gt_sprintf_append(md_tag,"%"PRIu64"^%.*s",misms->position-ix,misms->size,gt_string_get_string(seq));
 	  gt_string_delete(seq);
-	  pos+=misms->position-ix;
 	  ix=misms->position;
+		pos+=misms->size;
 	  break;
 	case DEL:
-	  pos+=misms->position-ix;
 	  ix+=misms->size;
 	default:
 	  break;

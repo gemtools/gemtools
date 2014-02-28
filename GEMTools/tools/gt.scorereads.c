@@ -412,6 +412,7 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
   gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
   gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
   gt_output_sam_attributes_set_print_mismatches(output_sam_attributes,false);
+	gt_output_sam_attributes_set_reference_sequence_archive(output_sam_attributes,param->sequence_archive);
   gt_sam_attributes_add_tag_options(gt_scorereads_attribute_option_list,output_sam_attributes->sam_attributes);
   if(sam_headers->read_group_id_hash) {
     gt_sam_header_record *hr=NULL;
