@@ -412,6 +412,7 @@ gt_output_sam_attributes *gt_scorereads_setup_sam_tags(gt_sam_headers *sam_heade
   gt_output_sam_attributes_set_compact_format(output_sam_attributes,param->compact_format);
   gt_output_sam_attributes_set_qualities_offset(output_sam_attributes,param->map_score_attr.quality_format);
   gt_output_sam_attributes_set_print_mismatches(output_sam_attributes,false);
+	gt_output_sam_attributes_set_reference_sequence_archive(output_sam_attributes,param->sequence_archive);
   gt_sam_attributes_add_tag_options(gt_scorereads_attribute_option_list,output_sam_attributes->sam_attributes);
   if(sam_headers->read_group_id_hash) {
     gt_sam_header_record *hr=NULL;
@@ -561,7 +562,8 @@ gt_sam_headers *gt_scorereads_setup_sam_headers(sr_param *param)
   }
   // Open reference file
   if (param->load_index) {
-    param->sequence_archive = gt_open_sequence_archive(param->load_index_sequences);
+    //    param->sequence_archive = gt_open_sequence_archive(param->load_index_sequences);
+    param->sequence_archive = gt_open_sequence_archive(true);
     gt_sam_header_load_sequence_archive(sam_headers,param->sequence_archive);
   }
   return sam_headers;
@@ -711,8 +713,8 @@ gt_status gt_scorereads_process(sr_param *param)
       gt_template *template=gt_template_new();
       while((error_code=gt_input_map_parser_synch_get_template(buffered_input1,buffered_input2,template,&mutex))) {
 	if(error_code!=GT_IMP_OK) continue;
-	gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 	if(param->bisulfite) template_strip_bisulfite_contig_names(template);
+	gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 	if(param->realign) gt_template_realign_levenshtein(template,param->sequence_archive);
 	gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
       }
@@ -772,8 +774,8 @@ gt_status gt_scorereads_process(sr_param *param)
 	gt_template *template=gt_template_new();
 	while ((error_code=gt_input_map_parser_get_template(buffered_input,template,input_map_attributes))) {
 	  if (error_code!=GT_IMP_OK) continue;
-	  gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 	  if(param->bisulfite) template_strip_bisulfite_contig_names(template);
+	  gt_map_pair_template(template,&param->map_score_attr,ms_tmap_buf);
 	  if(param->realign) gt_template_realign_levenshtein(template,param->sequence_archive);
 	  gt_scorereads_print_template(param->outputs,buffered_outputs,template,&param->map_score_attr);
 	}

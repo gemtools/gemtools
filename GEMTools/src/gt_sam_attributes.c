@@ -598,6 +598,7 @@ GT_INLINE void gt_sam_attributes_add_tag_cs(gt_sam_attributes* const sam_attribu
 //  md  Z  GEM CIGAR String
 GT_INLINE gt_status gt_sam_attribute_generate_md(gt_sam_attribute_func_params* func_params) {
   if (func_params->alignment_info->map == NULL) return -1; // Don't print anything
+  gt_string_clear(func_params->return_s);
   // Print GEM CIGAR String into the buffer
   gt_output_map_sprint_mismatch_string(func_params->return_s,func_params->alignment_info->map,NULL);
   return 0; // OK
@@ -612,8 +613,8 @@ GT_INLINE gt_status gt_sam_attribute_generate_XB(gt_sam_attribute_func_params* f
   void *pp=gt_attributes_get(attr,GT_ATTR_ID_BIS_TYPE);
   if(pp==NULL) return -1;
   uint64_t bis_type=*(uint64_t *)pp;
-  if(bis_type>=4) return -1;
-  char XB_char_value="UCGM"[(int)bis_type];
+  if(bis_type>=5 || !bis_type) return -1;
+  char XB_char_value="UCGM"[(int)bis_type-1];
   gt_string_clear(func_params->return_s);
   gt_string_append_char(func_params->return_s,XB_char_value);
   gt_string_append_eos(func_params->return_s);
@@ -640,25 +641,80 @@ GT_INLINE gt_status gt_sam_attribute_generate_MD(gt_sam_attribute_func_params* f
   gt_string_clear(md_tag);
   const uint64_t map_length = gt_map_get_base_length(map);
   gt_alignment *al=(func_params->alignment_info->type==GT_MAP_PLACEHOLDER)?func_params->alignment_info->single_end.alignment:
-  		gt_template_get_block(func_params->alignment_info->paired_end.template,func_params->alignment_info->paired_end.paired_end_position);
-  gt_string *read=al->read;
+    gt_template_get_block(func_params->alignment_info->paired_end.template,func_params->alignment_info->paired_end.paired_end_position);
   uint64_t ix=0;
-	GT_MAP_ITERATE(map,map_block) {
-		GT_MISMS_ITERATE(map_block,misms) {
-			switch (misms->misms_type) {
-			case MISMS:
-				gt_sprintf_append(md_tag,"%"PRIu64"%c",misms->position-ix,gt_string_get_string(read)[misms->position]);
-				break;
-			case DEL:
-				gt_sprintf_append(md_tag,"%"PRIu64"^%.*s",misms->position-ix,misms->size,gt_string_get_string(read)+misms->position);
-				break;
-			default:
-				break;
-			}
-			ix=misms->position+1;
-		}
+  GT_MAP_ITERATE(map,map_block) {
+    uint64_t pos=map_block->position-1;
+	 if(map_block->strand==REVERSE) {
+      const uint64_t base_length=gt_map_get_base_length(map_block);
+		 uint64_t ref_length=base_length;
+		 GT_MISMS_ITERATE(map_block,misms) {
+			 switch (misms->misms_type) {
+			  case INS:
+				 ref_length+=misms->size;
+				 break;
+			  case DEL:
+				 ref_length-=misms->size;
+				 break;
+			  default:
+				 break;
+			 }
+		 }
+		 pos+=ref_length-1;
+      uint64_t z=gt_map_get_num_misms(map_block);
+      for(;z>0;z--) {
+	gt_misms *misms=gt_map_get_misms(map_block,z-1);
+	switch(misms->misms_type) {
+	case MISMS:
+	  gt_sprintf_append(md_tag,"%"PRIu64"%c",base_length-1-misms->position-ix,gt_get_complement(gt_misms_get_base(misms)));
+		pos-=base_length-misms->position-ix;
+	  ix=base_length-misms->position;
+	  break;
+	case INS:
+	  if(!func_params->sequence_archive) return -1;
+	  gt_string *seq=gt_string_new(misms->size+1);
+	  pos-=base_length-misms->position-ix+misms->size-1;
+	  gt_sequence_archive_get_sequence_string(func_params->sequence_archive,gt_map_get_seq_name(map_block),FORWARD,pos,misms->size,seq);
+		gt_sprintf_append(md_tag,"%"PRIu64"^%.*s",base_length-misms->position-ix,misms->size,gt_string_get_string(seq));
+	  gt_string_delete(seq);
+	  ix=base_length-misms->position;
+//		pos--;
+	  break;
+	case DEL:
+	  ix+=misms->size;
+		pos+=2*misms->size;
+	  break;
+	default:
+	  break;
 	}
-	if(ix<map_length) gt_sprintf_append(md_tag,"%"PRIu64,map_length-ix);
+      }
+    } else {
+      GT_MISMS_ITERATE(map_block,misms) {
+	switch (misms->misms_type) {
+	case MISMS:
+	  gt_sprintf_append(md_tag,"%"PRIu64"%c",misms->position-ix,gt_misms_get_base(misms));
+	  pos+=misms->position-ix+1;
+	  ix=misms->position+1;
+	  break;
+	case INS:
+	  if(!func_params->sequence_archive) return -1;
+	  gt_string *seq=gt_string_new(misms->size+1);
+	  pos+=misms->position-ix;
+	  gt_sequence_archive_get_sequence_string(func_params->sequence_archive,gt_map_get_seq_name(map_block),FORWARD,pos,misms->size,seq);
+	  gt_sprintf_append(md_tag,"%"PRIu64"^%.*s",misms->position-ix,misms->size,gt_string_get_string(seq));
+	  gt_string_delete(seq);
+	  ix=misms->position;
+		pos+=misms->size;
+	  break;
+	case DEL:
+	  ix+=misms->size;
+	default:
+	  break;
+	}
+      }
+    }
+  }
+  if(ix<map_length) gt_sprintf_append(md_tag,"%"PRIu64,map_length-ix);
   return 0; // OK
 }
 GT_INLINE void gt_sam_attributes_add_tag_MD(gt_sam_attributes* const sam_attributes) {

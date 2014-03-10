@@ -260,25 +260,28 @@ GT_INLINE int64_t gt_template_get_insert_size(gt_map** const mmap,gt_status* gt_
   // Get last block of each map
   gt_map *block[2]={0,0};
   uint64_t length[2]={0,0};
+  uint64_t bs_type[2]={GT_BIS_TYPE_UNKNOWN,GT_BIS_TYPE_UNKNOWN};
   int64_t x=0;
   *gt_error=GT_TEMPLATE_INSERT_SIZE_OK;
-  if(mmap[0]!=NULL) {
-  	GT_MAP_ITERATE(mmap[0],map_it) {
-  		block[0]=map_it;
-  		length[0]+=gt_map_get_base_length(block[0]);
-  	}
-  }
-  if(mmap[1]) {
-  	GT_MAP_ITERATE(mmap[1],map_it2) {
-  		block[1]=map_it2;
-  		length[1]+=gt_map_get_base_length(block[1]);
-  	}
+  int i=0;
+  for(i=0;i<2;i++) {
+    if(mmap[i]) {
+      gt_attributes *attr=mmap[i]->attributes;
+      if(attr) {
+	void  *temp_p=gt_attributes_get(attr,GT_ATTR_ID_BIS_TYPE);
+	if(temp_p) bs_type[i]=*(uint64_t *)temp_p;
+      }
+      GT_MAP_ITERATE(mmap[i],map_it) {
+	block[i]=map_it;
+	length[i]+=gt_map_get_base_length(block[i]);
+      }
+    }
   }
   if(block[0] == NULL || block[1] == NULL){
     *gt_error=GT_TEMPLATE_INSERT_SIZE_UNPAIRED;
     return 0;
   }
-  if(gt_string_equals(block[0]->seq_name,block[1]->seq_name)) {
+  if(bs_type[0]==bs_type[1] && bs_type[0]!=GT_BIS_TYPE_MISMATCH && gt_string_equals(block[0]->seq_name,block[1]->seq_name)) {
     if(block[0]->strand!=block[1]->strand) {
       if(block[0]->strand==FORWARD) {
       		x=1+block[1]->position+length[1]-(block[0]->position+length[0]-gt_map_get_base_length(block[0]));
