@@ -429,7 +429,7 @@ https://github.com/gemtools/gemtools
         'Programming Language :: C',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
     ],
-    install_requires=["argparse", "pyjip==0.3"],
+    install_requires=["argparse", "pyjip>=0.2"],
     entry_points={
         'console_scripts': [
             'gemtools = gem.commands:gemtools'
