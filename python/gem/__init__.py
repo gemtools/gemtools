@@ -929,7 +929,7 @@ def __is_parallel_samtools():
         _check_samtools("view", threads=2)
     return __parallel_samtools
 
-def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1, sort_memory="768M"):
+def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1, sort_memory="768M", name_sorted=False):
     sam2bam_p = _check_samtools("view", threads=threads, extend=["-S", "-b"])
     if mapq is not None and int(mapq) > 0:
         sam2bam_p.append("-q")
@@ -951,7 +951,10 @@ def sam2bam(input, output=None, sorted=False, tmpdir=None, mapq=None, threads=1,
                 # convert to default byte
                 sort_memory = 768 * 1024 * 1024
 
-        bam_sort = _check_samtools("sort", threads=threads, extend=["-m", str(sort_memory), "-o", "-"])
+        params = ["-m", str(sort_memory), "-o", "-"]
+        if name_sorted:
+            params.extend(['-n'])
+        bam_sort = _check_samtools("sort", threads=threads, extend=params)
         suffix = ""
         if output is not None and isinstance(output, basestring):
             suffix = "-" + os.path.basename(output)
