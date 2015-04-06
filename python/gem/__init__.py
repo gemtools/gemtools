@@ -387,9 +387,8 @@ def mapper(input, index, output=None,
           '--gem-quality-threshold', str(quality_threshold),
           '--max-big-indel-length', str(max_big_indel_length),
           '--mismatch-alphabet', mismatch_alphabet,
-          '-T', str(threads)
+          '-T', str(threads),
     ]
-
     if unique_mapping:
         pa.append("--unique-mapping")
 

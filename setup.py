@@ -386,7 +386,7 @@ https://github.com/gemtools/gemtools
           'Programming Language :: C',
           'Topic :: Scientific/Engineering :: Bio-Informatics',
         ],
-        setup_requires=["cython==0.18"],
+        setup_requires=["cython>=0.18"],
         install_requires=[
                 "argparse",
 #                "numpy==1.7.0",
