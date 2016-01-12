@@ -32,7 +32,7 @@ __VERSION_MAJOR = "1"
 __VERSION_MINOR = "7.1"
 __VERSION__ = "%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR)
 __DOWNLOAD_FILE_TEMPLATE__ = "GEM-gemtools-%s-%s.tar.gz"
-__DOWNLOAD_URL__ = "http://barnaserver.com/gemtools/"
+__DOWNLOAD_URL__ = "http://144.76.153.180/gemtools/" # barnaserver.com
 
 
 def _is_i3_compliant():
