@@ -118,7 +118,7 @@ setup.py script.
 
 Clone the repository
     
-    git clone https://github.com/gemtools/gemtool
+    git clone https://github.com/gemtools/gemtools
 
 Change into the gemtools folder and install the python library
 
