@@ -191,7 +191,7 @@ cdef extern from "gem_tools.h" nogil:
     #
     ctypedef struct gt_map:
         pass
-    enum gt_strand:
+    ctypedef enum gt_strand:
         FORWARD
         REVERSE
 
